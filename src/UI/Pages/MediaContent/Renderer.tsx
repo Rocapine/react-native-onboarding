@@ -1,16 +1,17 @@
 import { OnboardingTemplate } from "../../Templates/OnboardingTemplate";
 import { MediaContentStepType, MediaContentStepTypeSchema } from "./types";
 import { View, Text, StyleSheet, Image, ScrollView } from "react-native";
-import { useTheme } from "../../Theme/useTheme";
+import { Theme } from "../../Theme/types";
+import { defaultTheme } from "../../Theme/defaultTheme";
 import { getTextStyle } from "../../Theme/helpers";
 
 type ContentProps = {
   step: MediaContentStepType;
   onContinue: () => void;
+  theme?: Theme;
 };
 
-const MediaContentRendererBase = ({ step, onContinue }: ContentProps) => {
-  const { theme } = useTheme();
+const MediaContentRendererBase = ({ step, onContinue, theme = defaultTheme }: ContentProps) => {
   // Validate the schema
   const validatedData = MediaContentStepTypeSchema.parse(step);
   const { mediaSource, title, description } = validatedData.payload;
@@ -63,6 +64,7 @@ const MediaContentRendererBase = ({ step, onContinue }: ContentProps) => {
     <OnboardingTemplate
       step={step}
       onContinue={onContinue}
+      theme={theme}
       button={{ text: validatedData.continueButtonLabel }}
     >
       <ScrollView

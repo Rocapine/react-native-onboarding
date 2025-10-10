@@ -2,7 +2,8 @@ import { OnboardingTemplate } from "../../Templates/OnboardingTemplate";
 import { PickerStepType, PickerStepTypeSchema, WeightUnit, HeightUnit } from "./types";
 import { View, Text, StyleSheet, TextInput, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from "react-native";
 import { useState } from "react";
-import { useTheme } from "../../Theme/useTheme";
+import { Theme } from "../../Theme/types";
+import { defaultTheme } from "../../Theme/defaultTheme";
 import { getTextStyle } from "../../Theme/helpers";
 
 // Lazy load Picker - only needed for picker screens
@@ -18,10 +19,10 @@ try {
 type ContentProps = {
   step: PickerStepType;
   onContinue: (value?: string | number) => void;
+  theme?: Theme;
 };
 
-const PickerRendererBase = ({ step, onContinue }: ContentProps) => {
-  const { theme } = useTheme();
+const PickerRendererBase = ({ step, onContinue, theme = defaultTheme }: ContentProps) => {
   const validatedData = PickerStepTypeSchema.parse(step);
   const { title, description, pickerType } = validatedData.payload;
 
@@ -40,6 +41,7 @@ const PickerRendererBase = ({ step, onContinue }: ContentProps) => {
         onContinue={onContinue}
         title={title}
         description={description}
+        theme={theme}
       />
     );
   }
@@ -51,6 +53,7 @@ const PickerRendererBase = ({ step, onContinue }: ContentProps) => {
         onContinue={onContinue}
         title={title}
         description={description}
+        theme={theme}
       />
     );
   }
@@ -62,6 +65,7 @@ const PickerRendererBase = ({ step, onContinue }: ContentProps) => {
         onContinue={onContinue}
         title={title}
         description={description}
+        theme={theme}
       />
     );
   }
@@ -73,6 +77,7 @@ const PickerRendererBase = ({ step, onContinue }: ContentProps) => {
         onContinue={onContinue}
         title={title}
         description={description}
+        theme={theme}
       />
     );
   }
@@ -82,6 +87,7 @@ const PickerRendererBase = ({ step, onContinue }: ContentProps) => {
     <OnboardingTemplate
       step={step}
       onContinue={() => onContinue()}
+      theme={theme}
       button={{ text: validatedData.continueButtonLabel }}
     >
       <View style={styles.container}>
@@ -102,6 +108,7 @@ type WeightPickerProps = {
   onContinue: (value?: string | number) => void;
   title: string;
   description: string | null;
+  theme: Theme;
 };
 
 const WeightPicker = ({
@@ -109,8 +116,8 @@ const WeightPicker = ({
   onContinue,
   title,
   description,
+  theme,
 }: WeightPickerProps) => {
-  const { theme } = useTheme();
   const [selectedWeight, setSelectedWeight] = useState<number>(70);
   const [unit, setUnit] = useState<WeightUnit>("kg");
 
@@ -139,6 +146,7 @@ const WeightPicker = ({
     <OnboardingTemplate
       step={step}
       onContinue={handleContinue}
+      theme={theme}
       button={{ text: step.continueButtonLabel }}
     >
       <View style={styles.container}>
@@ -187,6 +195,7 @@ type HeightPickerProps = {
   onContinue: (value?: string | number) => void;
   title: string;
   description: string | null;
+  theme: Theme;
 };
 
 const HeightPicker = ({
@@ -194,8 +203,8 @@ const HeightPicker = ({
   onContinue,
   title,
   description,
+  theme,
 }: HeightPickerProps) => {
-  const { theme } = useTheme();
   const [unit, setUnit] = useState<HeightUnit>("cm");
 
   // For metric (cm)
@@ -253,6 +262,7 @@ const HeightPicker = ({
     <OnboardingTemplate
       step={step}
       onContinue={handleContinue}
+      theme={theme}
       button={{ text: step.continueButtonLabel }}
     >
       <View style={styles.container}>
@@ -326,6 +336,7 @@ type NamePickerProps = {
   onContinue: (value?: string | number) => void;
   title: string;
   description: string | null;
+  theme: Theme;
 };
 
 const NamePicker = ({
@@ -333,8 +344,8 @@ const NamePicker = ({
   onContinue,
   title,
   description,
+  theme,
 }: NamePickerProps) => {
-  const { theme } = useTheme();
   const [name, setName] = useState<string>("");
 
   const handleContinue = () => {
@@ -357,6 +368,7 @@ const NamePicker = ({
           <OnboardingTemplate
             step={step}
             onContinue={handleContinue}
+            theme={theme}
             button={{
               text: step.continueButtonLabel,
               disabled: !name.trim(),
@@ -405,6 +417,7 @@ type DatePickerProps = {
   onContinue: (value?: string | number) => void;
   title: string;
   description: string | null;
+  theme: Theme;
 };
 
 const DatePicker = ({
@@ -412,8 +425,8 @@ const DatePicker = ({
   onContinue,
   title,
   description,
+  theme,
 }: DatePickerProps) => {
-  const { theme } = useTheme();
 
   // Get current date as default
   const now = new Date();
@@ -463,6 +476,7 @@ const DatePicker = ({
     <OnboardingTemplate
       step={step}
       onContinue={handleContinue}
+      theme={theme}
       button={{ text: step.continueButtonLabel }}
     >
       <View style={styles.container}>

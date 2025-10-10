@@ -2,6 +2,7 @@ import { OnboardingStudioClient } from "../OnboardingStudioClient";
 import { OnboardingStepType } from "./types";
 import { RatingsRenderer, PickerRenderer, CommitmentRenderer, CarouselRenderer, LoaderRenderer, MediaContentRenderer, QuestionRenderer } from "./Pages";
 import { View, Text, Button } from 'react-native';
+import { useTheme } from "./Theme/useTheme";
 
 
 interface OnboardingPageProps {
@@ -11,21 +12,23 @@ interface OnboardingPageProps {
 }
 
 export const OnboardingPage = ({ step, onContinue, client }: OnboardingPageProps) => {
+  const { theme } = useTheme();
+
   switch (step.type) {
     case 'Ratings':
-      return <RatingsRenderer step={step} onContinue={onContinue} />;
+      return <RatingsRenderer step={step} onContinue={onContinue} theme={theme} />;
     case 'Picker':
-      return <PickerRenderer step={step} onContinue={onContinue} />;
+      return <PickerRenderer step={step} onContinue={onContinue} theme={theme} />;
     case 'Commitment':
-      return <CommitmentRenderer step={step} onContinue={onContinue} />;
+      return <CommitmentRenderer step={step} onContinue={onContinue} theme={theme} />;
     case 'Carousel':
-      return <CarouselRenderer step={step} onContinue={onContinue} />;
+      return <CarouselRenderer step={step} onContinue={onContinue} theme={theme} />;
     case 'MediaContent':
-      return <MediaContentRenderer step={step} onContinue={onContinue} />;
+      return <MediaContentRenderer step={step} onContinue={onContinue} theme={theme} />;
     case 'Loader':
-      return <LoaderRenderer step={step} onContinue={onContinue} />;
+      return <LoaderRenderer step={step} onContinue={onContinue} theme={theme} />;
     case 'Question':
-      return <QuestionRenderer step={step} onContinue={onContinue} />;
+      return <QuestionRenderer step={step} onContinue={onContinue} theme={theme} />;
     default:
       if (client?.options?.isSanbdox) {
         // @ts-ignore

@@ -14,7 +14,8 @@ import {
   GestureHandlerRootView,
 } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
-import { useTheme } from "../../Theme/useTheme";
+import { Theme } from "../../Theme/types";
+import { defaultTheme } from "../../Theme/defaultTheme";
 import { getTextStyle } from "../../Theme/helpers";
 
 // Lazy load Skia - only needed for signature variant
@@ -29,12 +30,12 @@ try {
 type ContentProps = {
   step: CommitmentStepType;
   onContinue: () => void;
+  theme?: Theme;
 };
 
-const CommitmentRendererBase = ({ step, onContinue }: ContentProps) => {
+const CommitmentRendererBase = ({ step, onContinue, theme = defaultTheme }: ContentProps) => {
   const validatedData = CommitmentStepTypeSchema.parse(step);
   const { payload } = validatedData;
-  const { theme } = useTheme();
 
   // Check if Skia is needed and available
   const needsSkia = payload.variant === "signature";
@@ -82,6 +83,7 @@ const CommitmentRendererBase = ({ step, onContinue }: ContentProps) => {
     <OnboardingTemplate
       step={validatedData}
       onContinue={onContinue}
+      theme={theme}
       button={{
         text: validatedData.continueButtonLabel,
         disabled: isButtonDisabled,

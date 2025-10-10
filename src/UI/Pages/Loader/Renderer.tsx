@@ -10,21 +10,21 @@ import {
   Image,
 } from "react-native";
 import { useRef, useEffect, useState, useCallback } from "react";
-import { useTheme } from "../../Theme/useTheme";
 import { Theme } from "../../Theme/types";
+import { defaultTheme } from "../../Theme/defaultTheme";
 import { CircularProgress } from "../../Components/CircularProgress";
 import { StaggeredTextList } from "../../Components/StaggeredTextList";
 
 type ContentProps = {
   step: LoaderStepType;
   onContinue: () => void;
+  theme?: Theme;
 };
 
-const LoaderRendererBase = ({ step, onContinue }: ContentProps) => {
+const LoaderRendererBase = ({ step, onContinue, theme = defaultTheme }: ContentProps) => {
   const validatedData = LoaderStepTypeSchema.parse(step);
   const { title, steps, didYouKnowImages, duration, variant } =
     validatedData.payload;
-  const { theme } = useTheme();
 
   // Route to appropriate variant
   if (variant === "circle") {
@@ -33,6 +33,7 @@ const LoaderRendererBase = ({ step, onContinue }: ContentProps) => {
         step={step}
         onContinue={onContinue}
         validatedData={validatedData}
+        theme={theme}
       />
     );
   }
@@ -43,6 +44,7 @@ const LoaderRendererBase = ({ step, onContinue }: ContentProps) => {
       step={step}
       onContinue={onContinue}
       validatedData={validatedData}
+      theme={theme}
     />
   );
 };
@@ -52,13 +54,14 @@ const BarsVariant = ({
   step,
   onContinue,
   validatedData,
+  theme,
 }: {
   step: LoaderStepType;
   onContinue: () => void;
   validatedData: LoaderStepType;
+  theme: Theme;
 }) => {
   const { title, steps, didYouKnowImages, duration } = validatedData.payload;
-  const { theme } = useTheme();
 
   const [isComplete, setIsComplete] = useState(false);
   const buttonFadeAnim = useRef(new Animated.Value(0)).current;
@@ -97,6 +100,7 @@ const BarsVariant = ({
     <OnboardingTemplate
       step={step}
       onContinue={onContinue}
+      theme={theme}
       button={
         isComplete ? { text: validatedData.continueButtonLabel } : undefined
       }
@@ -116,6 +120,7 @@ const BarsVariant = ({
                 key={index}
                 step={stepItem}
                 progress={progressValues[index]}
+                theme={theme}
               />
             ))}
           </View>
@@ -124,7 +129,7 @@ const BarsVariant = ({
           {didYouKnowImages && didYouKnowImages.length > 0 && (
             <View style={styles.carouselSection}>
               <Text style={styles.carouselTitle}>Did you know?</Text>
-              <DidYouKnowCarousel images={didYouKnowImages} />
+              <DidYouKnowCarousel images={didYouKnowImages} theme={theme} />
             </View>
           )}
         </View>
@@ -145,13 +150,14 @@ const CircleVariant = ({
   step,
   onContinue,
   validatedData,
+  theme,
 }: {
   step: LoaderStepType;
   onContinue: () => void;
   validatedData: LoaderStepType;
+  theme: Theme;
 }) => {
   const { title, steps, didYouKnowImages, duration } = validatedData.payload;
-  const { theme } = useTheme();
 
   const handleAnimationComplete = useCallback(() => {
     onContinue();
@@ -160,7 +166,7 @@ const CircleVariant = ({
   const styles = createStyles(theme);
 
   return (
-    <OnboardingTemplate step={step} onContinue={onContinue}>
+    <OnboardingTemplate step={step} onContinue={onContinue} theme={theme}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -184,7 +190,7 @@ const CircleVariant = ({
           {didYouKnowImages && didYouKnowImages.length > 0 && (
             <View style={styles.carouselSection}>
               <Text style={styles.carouselTitle}>Did you know?</Text>
-              <DidYouKnowCarousel images={didYouKnowImages} />
+              <DidYouKnowCarousel images={didYouKnowImages} theme={theme} />
             </View>
           )}
         </View>
@@ -196,10 +202,10 @@ const CircleVariant = ({
 type StepProgressProps = {
   step: LoaderStep;
   progress: Animated.Value;
+  theme: Theme;
 };
 
-const StepProgress = ({ step, progress }: StepProgressProps) => {
-  const { theme } = useTheme();
+const StepProgress = ({ step, progress, theme }: StepProgressProps) => {
   const [barStarted, setBarStarted] = useState(false);
   const [barComplete, setBarComplete] = useState(false);
   const styles = createStyles(theme);
@@ -253,10 +259,10 @@ const StepProgress = ({ step, progress }: StepProgressProps) => {
 
 type DidYouKnowCarouselProps = {
   images: Array<{ type: string; url?: string; localPathId?: string }>;
+  theme: Theme;
 };
 
-const DidYouKnowCarousel = ({ images }: DidYouKnowCarouselProps) => {
-  const { theme } = useTheme();
+const DidYouKnowCarousel = ({ images, theme }: DidYouKnowCarouselProps) => {
   const { width } = useWindowDimensions();
   const styles = createStyles(theme);
 

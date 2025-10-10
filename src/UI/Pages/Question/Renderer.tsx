@@ -8,8 +8,9 @@ import {
   StyleSheet,
 } from "react-native";
 import { OnboardingTemplate } from "../../Templates/OnboardingTemplate";
-import { useTheme } from "../../Theme/useTheme";
 import { getTextStyle } from "../../Theme/helpers";
+import { Theme } from "../../Theme/types";
+import { defaultTheme } from "../../Theme/defaultTheme";
 import { useCustomComponents } from "../../../infra/provider/CustomComponentsContext";
 import {
   DefaultQuestionAnswerButton,
@@ -19,10 +20,10 @@ import {
 interface QuestionRendererProps {
   step: QuestionStepType;
   onContinue?: (...args: any[]) => void;
+  theme?: Theme;
 }
 
-const QuestionRendererBase = ({ step, onContinue }: QuestionRendererProps) => {
-  const { theme } = useTheme();
+const QuestionRendererBase = ({ step, onContinue, theme = defaultTheme }: QuestionRendererProps) => {
   const customComponents = useCustomComponents();
 
   // Validate the schema
@@ -84,6 +85,7 @@ const QuestionRendererBase = ({ step, onContinue }: QuestionRendererProps) => {
     <OnboardingTemplate
       step={step}
       onContinue={onContinue || (() => {})}
+      theme={theme}
       button={multipleAnswer ? { text: "Continue" } : undefined}
     >
       <View style={styles.container}>

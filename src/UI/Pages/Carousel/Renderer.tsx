@@ -15,16 +15,17 @@ import {
   NativeScrollEvent,
 } from "react-native";
 import { useRef, useState } from "react";
-import { useTheme } from "../../Theme/useTheme";
+import { Theme } from "../../Theme/types";
+import { defaultTheme } from "../../Theme/defaultTheme";
 import { getTextStyle } from "../../Theme/helpers";
 
 type ContentProps = {
   step: CarouselStepType;
   onContinue: () => void;
+  theme?: Theme;
 };
 
-const CarouselRendererBase = ({ step, onContinue }: ContentProps) => {
-  const { theme } = useTheme();
+const CarouselRendererBase = ({ step, onContinue, theme = defaultTheme }: ContentProps) => {
   const validatedData = CarouselStepTypeSchema.parse(step);
   const { screens } = validatedData.payload;
   const { width } = useWindowDimensions();
@@ -60,6 +61,7 @@ const CarouselRendererBase = ({ step, onContinue }: ContentProps) => {
     <OnboardingTemplate
       step={step}
       onContinue={handleButtonPress}
+      theme={theme}
       button={{
         text: isLastPage ? validatedData.continueButtonLabel : "Next",
       }}
@@ -75,7 +77,7 @@ const CarouselRendererBase = ({ step, onContinue }: ContentProps) => {
           style={styles.scrollView}
         >
           {screens.map((screen, index) => (
-            <CarouselScreen key={index} width={width} screen={screen} />
+            <CarouselScreen key={index} width={width} screen={screen} theme={theme} />
           ))}
         </ScrollView>
 
@@ -102,10 +104,10 @@ const CarouselRendererBase = ({ step, onContinue }: ContentProps) => {
 type CarouselScreenProps = {
   width: number;
   screen: CarouselScreenType;
+  theme: Theme;
 };
 
-const CarouselScreen = ({ width, screen }: CarouselScreenProps) => {
-  const { theme } = useTheme();
+const CarouselScreen = ({ width, screen, theme }: CarouselScreenProps) => {
   const renderMedia = () => {
     const { mediaUrl } = screen;
 

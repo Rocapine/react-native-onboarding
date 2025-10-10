@@ -3,7 +3,8 @@ import Svg, { Path } from "react-native-svg";
 import { OnboardingTemplate } from "../../Templates/OnboardingTemplate";
 import { RatingsStepType, RatingsStepTypeSchema } from "./types";
 import { useState } from "react";
-import { useTheme } from "../../Theme/useTheme";
+import { Theme } from "../../Theme/types";
+import { defaultTheme } from "../../Theme/defaultTheme";
 import { getTextStyle } from "../../Theme/helpers";
 
 // Lazy load StoreReview - only needed for ratings screens
@@ -18,6 +19,7 @@ try {
 interface RatingsRendererProps {
   step: RatingsStepType;
   onContinue?: () => void;
+  theme?: Theme;
 }
 
 const StarIcon = ({ size, filled }: { size: number; filled: boolean }) => (
@@ -33,9 +35,8 @@ const StarIcon = ({ size, filled }: { size: number; filled: boolean }) => (
   </Svg>
 );
 
-const RatingsRendererBase = ({ step, onContinue }: RatingsRendererProps) => {
+const RatingsRendererBase = ({ step, onContinue, theme = defaultTheme }: RatingsRendererProps) => {
   const [hasOpenedRequestReview, setHasOpenedRequestReview] = useState(false);
-  const { theme } = useTheme();
 
   // Check if StoreReview is available
   if (!StoreReview) {
@@ -78,6 +79,7 @@ const RatingsRendererBase = ({ step, onContinue }: RatingsRendererProps) => {
     <OnboardingTemplate
       step={step}
       onContinue={handlePress}
+      theme={theme}
       button={{
         text: !hasOpenedRequestReview
           ? rateTheAppButtonLabel

@@ -1,8 +1,9 @@
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { OnboardingStepType } from "../types";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useTheme } from "../Theme/useTheme";
 import { getTextStyle } from "../Theme/helpers";
+import { Theme } from "../Theme/types";
+import { defaultTheme } from "../Theme/defaultTheme";
 
 type OnboardingTemplateProps = {
   children: React.ReactNode;
@@ -12,6 +13,7 @@ type OnboardingTemplateProps = {
     disabled?: boolean;
   };
   step: OnboardingStepType;
+  theme?: Theme;
 };
 
 export const OnboardingTemplate = ({
@@ -19,9 +21,9 @@ export const OnboardingTemplate = ({
   onContinue,
   step,
   button,
+  theme = defaultTheme,
 }: OnboardingTemplateProps) => {
   const { top } = useSafeAreaInsets();
-  const { theme } = useTheme();
 
   return (
     <View

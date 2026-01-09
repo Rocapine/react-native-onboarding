@@ -59,7 +59,19 @@ export class OnboardingStudioClient {
     const url = `${this.baseUrl}/get-onboarding-steps?${urlParams.toString()}`;
     console.info("OnboardingStudioClient getSteps url", url);
     try {
-      const response = await fetch(url);
+      const response = await Promise.race(
+        this.options.timeout
+          ? [
+              fetch(url),
+              new Promise<Response>((_, reject) =>
+                setTimeout(
+                  () => reject(new Error("timeout")),
+                  this.options.timeout
+                )
+              ),
+            ]
+          : [fetch(url)]
+      );
       if (!response.ok) {
         throw new Error(
           `Failed to fetch onboarding steps: ${response.status} ${response.statusText}`
@@ -75,8 +87,9 @@ export class OnboardingStudioClient {
         },
       };
     } catch (error) {
-      console.error(error);
+      console.error("OnboardingStudioClient getSteps error", error);
       if (this.options.fallbackOnboarding) {
+        console.warn("OnboardingStudioClient getSteps fallback onboarding");
         return {
           data: this.options.fallbackOnboarding as Onboarding<StepType>,
           headers: {

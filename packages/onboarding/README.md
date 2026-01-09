@@ -201,6 +201,14 @@ npm start
 
 We welcome contributions! Please see our [Contributing Guide](./CONTRIBUTING.md) for details.
 
+### Publishing:
+
+- Bump version and commit "chore: bump version"
+- Publish
+  ```
+  npm publish --access public
+  ```
+
 ---
 
 ## 📧 Support

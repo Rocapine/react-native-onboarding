@@ -18,6 +18,7 @@ const client = new OnboardingStudioClient(
     appVersion: "1.0.0",
     isSandbox: true,
     fallbackOnboarding: onboardingExample,
+    timeout: 10000,
   }
 );
 

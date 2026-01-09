@@ -13,11 +13,14 @@ export type BaseStepType = {
   figmaUrl?: string | null;
 };
 
-export type OnboardingStudioClientOptions<StepType extends BaseStepType = BaseStepType> = {
+export type OnboardingStudioClientOptions<
+  StepType extends BaseStepType = BaseStepType
+> = {
   appVersion?: string;
   isSandbox?: boolean;
   baseUrl?: string;
   fallbackOnboarding?: Onboarding<StepType>;
+  timeout?: number;
 };
 
 export type OnboardingOptions = {

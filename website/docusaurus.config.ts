@@ -75,6 +75,11 @@ const config: Config = {
           label: 'Documentation',
         },
         {
+          to: '/api-docs',
+          label: 'API Docs',
+          position: 'right',
+        },
+        {
           href: 'https://github.com/rocapine/react-native-onboarding-studio',
           label: 'GitHub',
           position: 'right',

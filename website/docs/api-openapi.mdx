@@ -1,0 +1,67 @@
+---
+sidebar_position: 5
+---
+
+# OpenAPI Specification
+
+Complete OpenAPI 3.0 specification for the Onboarding Studio API endpoint.
+
+## Overview
+
+The Onboarding Studio API provides a single endpoint to fetch onboarding steps from the CMS. The API returns structured data including metadata, steps, and configuration.
+
+**Base URL:** `https://takbcvjljqialzqyksic.supabase.co/functions/v1`
+
+:::tip Full Page View with Testing
+[**View OpenAPI Documentation in Full Page**](/api-docs) - Opens the complete API documentation in a standalone Swagger UI page where you can **test API requests directly** using the "Try it out" feature.
+:::
+
+## Quick Reference
+
+### Endpoint
+
+`GET /get-onboarding-steps`
+
+### Required Parameters
+
+- `projectId` (string) - Your Rocapine project ID
+- `platform` (string) - Platform identifier: `ios` or `android`
+
+### Optional Parameters
+
+- `appVersion` (string) - Application version
+- `draft` (string) - Set to `"true"` to enable sandbox mode
+- `locale` (string) - Locale for the onboarding content (e.g., `"en"`)
+
+### Response Headers
+
+- `ONBS-Onboarding-Id` - Onboarding ID
+- `ONBS-Audience-Id` - Audience ID  
+- `ONBS-Onboarding-Name` - Onboarding name
+
+### Response Body
+
+The response contains an `Onboarding` object with:
+
+- `metadata` - Onboarding metadata (id, name, audienceId, etc.)
+- `steps` - Array of step objects (Question, MediaContent, Carousel, Picker, Loader, Ratings, or Commitment)
+- `configuration` - Configuration object
+
+## Example Request
+
+```bash
+curl "https://takbcvjljqialzqyksic.supabase.co/functions/v1/get-onboarding-steps?projectId=your-project-id&platform=ios&locale=en"
+```
+
+## Download OpenAPI Spec
+
+You can download the complete OpenAPI specification file:
+
+- <a href="/openapi.yaml" download>Download openapi.yaml</a>
+- [View Full Page Documentation with Swagger UI](/api-docs) - Standalone page with interactive API testing (Try it out)
+
+## Related Documentation
+
+- [API Reference](./api-reference.mdx) - SDK API documentation
+- [Getting Started](./getting-started.mdx) - Quick start guide
+- [Page Types](./page-types.mdx) - Available step types

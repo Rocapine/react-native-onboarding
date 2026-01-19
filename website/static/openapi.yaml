@@ -1,0 +1,504 @@
+openapi: 3.0.3
+info:
+  title: Onboarding Studio API
+  description: API for fetching onboarding steps from the CMS
+  version: 1.0.0
+servers:
+  - url: https://takbcvjljqialzqyksic.supabase.co/functions/v1
+    description: Production server
+paths:
+  /get-onboarding-steps:
+    get:
+      summary: Get onboarding steps
+      description: Fetches onboarding steps from the CMS based on project ID, platform, and optional parameters
+      operationId: getOnboardingSteps
+      tags:
+        - Onboarding
+      parameters:
+        - name: projectId
+          in: query
+          required: true
+          description: The project ID
+          schema:
+            type: string
+        - name: platform
+          in: query
+          required: true
+          description: Platform identifier (ios or android)
+          schema:
+            type: string
+            enum: [ios, android]
+        - name: appVersion
+          in: query
+          required: false
+          description: Application version
+          schema:
+            type: string
+        - name: draft
+          in: query
+          required: false
+          description: Enable sandbox mode (set to "true")
+          schema:
+            type: string
+            enum: ["true"]
+        - name: locale
+          in: query
+          required: false
+          description: Locale for the onboarding content
+          schema:
+            type: string
+            example: en
+      responses:
+        '200':
+          description: Successful response with onboarding steps
+          headers:
+            ONBS-Onboarding-Id:
+              description: Onboarding ID
+              schema:
+                type: string
+                nullable: true
+            ONBS-Audience-Id:
+              description: Audience ID
+              schema:
+                type: string
+                nullable: true
+            ONBS-Onboarding-Name:
+              description: Onboarding name
+              schema:
+                type: string
+                nullable: true
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Onboarding'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    Onboarding:
+      type: object
+      required:
+        - metadata
+        - steps
+        - configuration
+      properties:
+        metadata:
+          $ref: '#/components/schemas/OnboardingMetadata'
+        steps:
+          type: array
+          items:
+            oneOf:
+              - $ref: '#/components/schemas/QuestionStepType'
+              - $ref: '#/components/schemas/MediaContentStepType'
+              - $ref: '#/components/schemas/CarouselStepType'
+              - $ref: '#/components/schemas/PickerStepType'
+              - $ref: '#/components/schemas/LoaderStepType'
+              - $ref: '#/components/schemas/RatingsStepType'
+              - $ref: '#/components/schemas/CommitmentStepType'
+        configuration:
+          type: object
+          description: Configuration object (can contain any properties)
+
+    OnboardingMetadata:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          description: Unique onboarding ID
+        name:
+          type: string
+          description: Display name of the onboarding
+        audienceId:
+          type: string
+          description: Audience ID
+        audienceName:
+          type: string
+          description: Audience name
+        audienceOrder:
+          type: number
+          description: Audience order
+        locale:
+          type: string
+          description: Locale
+        draft:
+          type: boolean
+          description: Whether this is a draft version
+
+    BaseStepType:
+      type: object
+      required:
+        - id
+        - type
+        - name
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        name:
+          type: string
+        displayProgressHeader:
+          type: boolean
+        payload:
+          type: object
+        customPayload:
+          type: object
+          nullable: true
+        continueButtonLabel:
+          type: string
+        figmaUrl:
+          type: string
+          nullable: true
+
+    QuestionStepType:
+      allOf:
+        - $ref: '#/components/schemas/BaseStepType'
+        - type: object
+          required:
+            - type
+            - payload
+          properties:
+            type:
+              type: string
+              enum: [Question]
+            payload:
+              $ref: '#/components/schemas/QuestionStepPayload'
+
+    QuestionStepPayload:
+      type: object
+      required:
+        - answers
+        - title
+        - multipleAnswer
+      properties:
+        answers:
+          type: array
+          items:
+            $ref: '#/components/schemas/Answer'
+        title:
+          type: string
+        subtitle:
+          type: string
+          nullable: true
+        multipleAnswer:
+          type: boolean
+        infoBox:
+          $ref: '#/components/schemas/InfoBox'
+          nullable: true
+
+    Answer:
+      type: object
+      required:
+        - label
+        - value
+      properties:
+        label:
+          type: string
+        value:
+          type: string
+        icon:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+
+    InfoBox:
+      type: object
+      required:
+        - title
+        - content
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+
+    MediaContentStepType:
+      allOf:
+        - $ref: '#/components/schemas/BaseStepType'
+        - type: object
+          required:
+            - type
+            - payload
+          properties:
+            type:
+              type: string
+              enum: [MediaContent]
+            payload:
+              $ref: '#/components/schemas/MediaContentStepPayload'
+
+    MediaContentStepPayload:
+      type: object
+      required:
+        - mediaSource
+        - title
+      properties:
+        mediaSource:
+          $ref: '#/components/schemas/MediaSource'
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        socialProof:
+          $ref: '#/components/schemas/SocialProof'
+          nullable: true
+
+    MediaSource:
+      oneOf:
+        - type: object
+          required:
+            - type
+            - localPathId
+          properties:
+            type:
+              type: string
+              enum: [image, lottie, rive]
+            localPathId:
+              type: string
+        - type: object
+          required:
+            - type
+            - url
+          properties:
+            type:
+              type: string
+              enum: [image, lottie, rive]
+            url:
+              type: string
+
+    SocialProof:
+      type: object
+      required:
+        - numberOfStar
+        - content
+        - authorName
+      properties:
+        numberOfStar:
+          type: number
+        content:
+          type: string
+        authorName:
+          type: string
+
+    CarouselStepType:
+      allOf:
+        - $ref: '#/components/schemas/BaseStepType'
+        - type: object
+          required:
+            - type
+            - payload
+          properties:
+            type:
+              type: string
+              enum: [Carousel]
+            payload:
+              $ref: '#/components/schemas/CarouselStepPayload'
+
+    CarouselStepPayload:
+      type: object
+      required:
+        - screens
+      properties:
+        screens:
+          type: array
+          items:
+            $ref: '#/components/schemas/CarouselScreen'
+
+    CarouselScreen:
+      type: object
+      required:
+        - mediaUrl
+        - title
+      properties:
+        mediaUrl:
+          type: string
+        title:
+          type: string
+        subtitle:
+          type: string
+          nullable: true
+
+    PickerStepType:
+      allOf:
+        - $ref: '#/components/schemas/BaseStepType'
+        - type: object
+          required:
+            - type
+            - payload
+          properties:
+            type:
+              type: string
+              enum: [Picker]
+            payload:
+              $ref: '#/components/schemas/PickerStepPayload'
+
+    PickerStepPayload:
+      type: object
+      required:
+        - title
+        - pickerType
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        pickerType:
+          oneOf:
+            - type: string
+              enum: [height, weight, age, date, gender, coach, name]
+            - type: string
+
+    LoaderStepType:
+      allOf:
+        - $ref: '#/components/schemas/BaseStepType'
+        - type: object
+          required:
+            - type
+            - payload
+          properties:
+            type:
+              type: string
+              enum: [Loader]
+            payload:
+              $ref: '#/components/schemas/LoaderStepPayload'
+
+    LoaderStepPayload:
+      type: object
+      required:
+        - title
+        - steps
+      properties:
+        title:
+          type: string
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/LoaderStep'
+        didYouKnowImages:
+          type: array
+          items:
+            $ref: '#/components/schemas/MediaSource'
+          nullable: true
+        duration:
+          type: number
+          default: 2000
+        variant:
+          type: string
+          enum: [bars, circle, texts_fading]
+          default: bars
+
+    LoaderStep:
+      type: object
+      required:
+        - label
+        - completed
+      properties:
+        label:
+          type: string
+        completed:
+          type: string
+
+    RatingsStepType:
+      allOf:
+        - $ref: '#/components/schemas/BaseStepType'
+        - type: object
+          required:
+            - type
+            - payload
+          properties:
+            type:
+              type: string
+              enum: [Ratings]
+            payload:
+              $ref: '#/components/schemas/RatingsStepPayload'
+
+    RatingsStepPayload:
+      type: object
+      required:
+        - title
+        - subtitle
+        - socialProofs
+      properties:
+        title:
+          type: string
+        subtitle:
+          type: string
+        socialProofs:
+          type: array
+          items:
+            $ref: '#/components/schemas/SocialProof'
+        rateTheAppButtonLabel:
+          type: string
+          default: Rate the app
+
+    CommitmentStepType:
+      allOf:
+        - $ref: '#/components/schemas/BaseStepType'
+        - type: object
+          required:
+            - type
+            - payload
+          properties:
+            type:
+              type: string
+              enum: [Commitment]
+            payload:
+              $ref: '#/components/schemas/CommitmentStepPayload'
+
+    CommitmentStepPayload:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+        subtitle:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        commitments:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommitmentItem'
+          nullable: true
+        signatureCaption:
+          type: string
+          default: Your signature is not recorded
+        variant:
+          type: string
+          enum: [signature, simple]
+          default: signature
+
+    CommitmentItem:
+      type: object
+      required:
+        - text
+      properties:
+        text:
+          type: string
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string

@@ -37,7 +37,7 @@ type BaseStepProperties = {
 export type StepType = BaseStepProperties["type"];
 
 export type MediaSource = {
-  type: "image" | "lottie" | "rive";
+  type: "video" | "image" | "lottie" | "rive";
 } & (
   | {
       localPathId: string;

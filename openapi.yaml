@@ -267,7 +267,7 @@ components:
           properties:
             type:
               type: string
-              enum: [image, lottie, rive]
+              enum: [video, image, lottie, rive]
             localPathId:
               type: string
         - type: object
@@ -277,7 +277,7 @@ components:
           properties:
             type:
               type: string
-              enum: [image, lottie, rive]
+              enum: [video, image, lottie, rive]
             url:
               type: string
 

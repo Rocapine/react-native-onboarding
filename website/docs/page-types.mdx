@@ -76,7 +76,7 @@ Display images or videos with title and description.
 - Tutorial steps
 
 **Key features:**
-- Image, Lottie, or Rive support
+- Video, Image, Lottie, or Rive support
 - Optional title and description
 - Centered media display
 - Responsive sizing
@@ -87,7 +87,7 @@ Display images or videos with title and description.
   title?: string;
   description?: string;
   media: {
-    type: "image" | "lottie" | "rive";
+    type: "video" | "image" | "lottie" | "rive";
     url?: string;
     localPathId?: string;
   };
@@ -462,13 +462,14 @@ Several page types support media with the `MediaSourceSchema`:
 
 ```typescript
 {
-  type: "image" | "lottie" | "rive";
+  type: "video" | "image" | "lottie" | "rive";
   url?: string;          // Remote URL
   localPathId?: string;  // Local asset path
 }
 ```
 
 **Supported media types:**
+- **video**: Video files (implementation pending)
 - **image**: PNG, JPG, WebP via React Native Image
 - **lottie**: Lottie animations (implementation pending)
 - **rive**: Rive animations (implementation pending)

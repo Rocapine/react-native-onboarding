@@ -61,6 +61,59 @@ const MediaContentRendererBase = ({ step, onContinue, theme = defaultTheme }: Co
     </>
   );
 
+  const renderContent = () => {
+    switch (variant) {
+      case "media_bottom":
+        return (
+          <ScrollView
+            contentContainerStyle={[styles.scrollContent, { paddingTop: 0 }]}
+            showsVerticalScrollIndicator={false}
+            alwaysBounceVertical={false}
+          >
+            <View style={[styles.container, styles.containerSpaceBetween]}>
+              <View style={styles.textBlock}>{renderTextBlock()}</View>
+              <View style={styles.flexSpacer} />
+              {renderMedia()}
+            </View>
+          </ScrollView>
+        );
+
+      case "media_top":
+        return (
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            alwaysBounceVertical={false}
+          >
+            <View style={styles.container}>
+              {renderMedia()}
+              {renderTextBlock()}
+            </View>
+          </ScrollView>
+        );
+
+      case "default":
+      default:
+        return (
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            alwaysBounceVertical={false}
+          >
+            <View style={[styles.container, styles.containerCenter]}>
+              <Text style={[getTextStyle(theme, "heading1"), styles.title, { color: theme.colors.text.primary }]}>{title}</Text>
+              {renderMedia()}
+              {description && (
+                <Text style={[getTextStyle(theme, "heading3"), styles.subtitle, { color: theme.colors.text.secondary }]}>
+                  {description}
+                </Text>
+              )}
+            </View>
+          </ScrollView>
+        );
+    }
+  };
+
   return (
     <OnboardingTemplate
       step={step}
@@ -68,42 +121,7 @@ const MediaContentRendererBase = ({ step, onContinue, theme = defaultTheme }: Co
       theme={theme}
       button={{ text: validatedData.continueButtonLabel }}
     >
-      {variant === "media_bottom" ? (
-        <ScrollView
-          contentContainerStyle={[styles.scrollContent, { paddingTop: 0 }]}
-          showsVerticalScrollIndicator={false}
-          alwaysBounceVertical={false}
-        >
-          <View style={[styles.container, styles.containerSpaceBetween]}>
-            <View style={styles.textBlock}>
-              {renderTextBlock()}
-            </View>
-            <View style={styles.flexSpacer} />
-            {renderMedia()}
-          </View>
-        </ScrollView>
-      ) : (
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          alwaysBounceVertical={false}
-        >
-          {variant === "default" && (
-            <View style={[styles.container, styles.containerCenter]}>
-              <Text style={[getTextStyle(theme, "heading1"), styles.title, { color: theme.colors.text.primary }]}>{title}</Text>
-              {renderMedia()}
-              {description && <Text style={[getTextStyle(theme, "heading3"), styles.subtitle, { color: theme.colors.text.secondary }]}>{description}</Text>}
-            </View>
-          )}
-
-          {variant === "media_top" && (
-            <View style={styles.container}>
-              {renderMedia()}
-              {renderTextBlock()}
-            </View>
-          )}
-        </ScrollView>
-      )}
+      {renderContent()}
     </OnboardingTemplate>
   );
 };

@@ -14,7 +14,7 @@ type ContentProps = {
 const MediaContentRendererBase = ({ step, onContinue, theme = defaultTheme }: ContentProps) => {
   // Validate the schema
   const validatedData = MediaContentStepTypeSchema.parse(step);
-  const { mediaSource, title, description, variant = "default" } = validatedData.payload;
+  const { mediaSource, title, description, layoutStyle = "default" } = validatedData.payload;
 
   const renderMedia = () => {
     if (mediaSource.type === "image") {
@@ -62,7 +62,7 @@ const MediaContentRendererBase = ({ step, onContinue, theme = defaultTheme }: Co
   );
 
   const renderContent = () => {
-    switch (variant) {
+    switch (layoutStyle) {
       case "media_bottom":
         return (
           <ScrollView

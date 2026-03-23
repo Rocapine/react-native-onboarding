@@ -14,15 +14,13 @@ type ContentProps = {
 const MediaContentRendererBase = ({ step, onContinue, theme = defaultTheme }: ContentProps) => {
   // Validate the schema
   const validatedData = MediaContentStepTypeSchema.parse(step);
-  const { mediaSource, title, description } = validatedData.payload;
+  const { mediaSource, title, description, variant = "default" } = validatedData.payload;
 
   const renderMedia = () => {
     if (mediaSource.type === "image") {
-      // Check if it's a local path or URL
       if ("localPathId" in mediaSource) {
-        // TODO: Map localPathId to actual local image path
         return (
-          <View style={[styles.mediaPlaceholder, { backgroundColor: theme.colors.neutral.lowest }]}>
+          <View style={[styles.mediaContainer, styles.mediaPlaceholder, { backgroundColor: theme.colors.neutral.lowest }]}>
             <Text style={[getTextStyle(theme, "body"), styles.placeholderText, { color: theme.colors.text.disable }]}>
               Image: {mediaSource.localPathId}
             </Text>
@@ -30,35 +28,38 @@ const MediaContentRendererBase = ({ step, onContinue, theme = defaultTheme }: Co
         );
       } else if ("url" in mediaSource) {
         return (
-          <Image
-            source={{ uri: mediaSource.url }}
-            style={styles.mediaImage}
-            resizeMode="cover"
-          />
+          <View style={styles.mediaContainer}>
+            <Image source={{ uri: mediaSource.url }} style={styles.mediaImage} resizeMode="cover" />
+          </View>
         );
       }
     } else if (mediaSource.type === "lottie") {
-      // TODO: Implement Lottie animation support
       return (
-        <View style={[styles.mediaPlaceholder, { backgroundColor: theme.colors.neutral.lowest }]}>
+        <View style={[styles.mediaContainer, styles.mediaPlaceholder, { backgroundColor: theme.colors.neutral.lowest }]}>
           <Text style={[getTextStyle(theme, "body"), styles.placeholderText, { color: theme.colors.text.disable }]}>Lottie Animation</Text>
         </View>
       );
     } else if (mediaSource.type === "rive") {
-      // Rive animation placeholder
       return (
-        <View style={[styles.mediaPlaceholder, { backgroundColor: theme.colors.neutral.lowest }]}>
+        <View style={[styles.mediaContainer, styles.mediaPlaceholder, { backgroundColor: theme.colors.neutral.lowest }]}>
           <Text style={[getTextStyle(theme, "body"), styles.placeholderText, { color: theme.colors.text.disable }]}>Rive Animation</Text>
         </View>
       );
     }
 
     return (
-      <View style={[styles.mediaPlaceholder, { backgroundColor: theme.colors.neutral.lowest }]}>
+      <View style={[styles.mediaContainer, styles.mediaPlaceholder, { backgroundColor: theme.colors.neutral.lowest }]}>
         <Text style={[getTextStyle(theme, "body"), styles.placeholderText, { color: theme.colors.text.disable }]}>Media</Text>
       </View>
     );
   };
+
+  const renderTextBlock = () => (
+    <>
+      <Text style={[getTextStyle(theme, "heading1"), styles.title, { color: theme.colors.text.primary }]}>{title}</Text>
+      {description && <Text style={[getTextStyle(theme, "heading3"), styles.subtitle, { color: theme.colors.text.secondary }]}>{description}</Text>}
+    </>
+  );
 
   return (
     <OnboardingTemplate
@@ -67,22 +68,42 @@ const MediaContentRendererBase = ({ step, onContinue, theme = defaultTheme }: Co
       theme={theme}
       button={{ text: validatedData.continueButtonLabel }}
     >
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        alwaysBounceVertical={false}
-      >
-        <View style={styles.container}>
-          {/* Title */}
-          <Text style={[getTextStyle(theme, "heading1"), styles.title, { color: theme.colors.text.primary }]}>{title}</Text>
+      {variant === "media_bottom" ? (
+        <ScrollView
+          contentContainerStyle={[styles.scrollContent, { paddingTop: 0 }]}
+          showsVerticalScrollIndicator={false}
+          alwaysBounceVertical={false}
+        >
+          <View style={[styles.container, styles.containerSpaceBetween]}>
+            <View style={styles.textBlock}>
+              {renderTextBlock()}
+            </View>
+            <View style={styles.flexSpacer} />
+            {renderMedia()}
+          </View>
+        </ScrollView>
+      ) : (
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          alwaysBounceVertical={false}
+        >
+          {variant === "default" && (
+            <View style={[styles.container, styles.containerCenter]}>
+              <Text style={[getTextStyle(theme, "heading1"), styles.title, { color: theme.colors.text.primary }]}>{title}</Text>
+              {renderMedia()}
+              {description && <Text style={[getTextStyle(theme, "heading3"), styles.subtitle, { color: theme.colors.text.secondary }]}>{description}</Text>}
+            </View>
+          )}
 
-          {/* Media Content */}
-          <View style={styles.mediaContainer}>{renderMedia()}</View>
-
-          {/* Description/Subtitle */}
-          {description && <Text style={[getTextStyle(theme, "heading3"), styles.subtitle, { color: theme.colors.text.secondary }]}>{description}</Text>}
-        </View>
-      </ScrollView>
+          {variant === "media_top" && (
+            <View style={styles.container}>
+              {renderMedia()}
+              {renderTextBlock()}
+            </View>
+          )}
+        </ScrollView>
+      )}
     </OnboardingTemplate>
   );
 };
@@ -99,13 +120,28 @@ const styles = StyleSheet.create({
     gap: 24,
     alignItems: "center",
   },
+  containerCenter: {
+    justifyContent: "center",
+  },
+  containerSpaceBetween: {
+    justifyContent: "flex-start",
+    paddingTop: 32,
+  },
+  flexSpacer: {
+    flex: 0.4,
+  },
+  textBlock: {
+    gap: 8,
+    alignItems: "center",
+    width: "100%",
+  },
   title: {
     textAlign: "center",
     letterSpacing: -0.76,
   },
   mediaContainer: {
     width: "100%",
-    height: 400,
+    aspectRatio: 1,
     borderRadius: 32,
     overflow: "hidden",
   },

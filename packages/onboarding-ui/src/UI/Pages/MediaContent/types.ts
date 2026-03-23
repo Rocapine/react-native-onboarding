@@ -5,11 +5,14 @@ import {
   SocialProofSchema,
 } from "../types";
 
+export const MediaContentVariantSchema = z.enum(["default", "media_top", "media_bottom"]).default("default");
+
 export const MediaContentStepPayloadSchema = z.object({
   mediaSource: MediaSourceSchema,
   title: z.string(),
   description: z.string().nullish(),
   socialProof: SocialProofSchema.nullish(),
+  variant: MediaContentVariantSchema.optional(),
 });
 
 export const MediaContentStepTypeSchema = z.object({

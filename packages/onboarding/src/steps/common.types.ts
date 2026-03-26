@@ -25,6 +25,6 @@ export const InfoBoxSchema = z.object({
 });
 
 export const ButtonSectionSchema = z.object({
-  label: z.string(),
-  icon: z.string(),
+  label: z.string().optional(),
+  icon: z.string().nullish(),
 });

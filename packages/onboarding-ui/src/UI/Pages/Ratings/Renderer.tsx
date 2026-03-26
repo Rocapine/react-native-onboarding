@@ -83,7 +83,8 @@ const RatingsRendererBase = ({ step, onContinue, theme = defaultTheme }: Ratings
       button={{
         text: !hasOpenedRequestReview
           ? rateTheAppButtonLabel
-          : validatedData.continueButtonLabel,
+          : (validatedData.buttonSection?.label?.trim() || validatedData.continueButtonLabel),
+        icon: hasOpenedRequestReview ? (validatedData.buttonSection?.icon?.trim() || null) : null,
       }}
     >
       <View style={styles.container}>

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CustomPayloadSchema, InfoBoxSchema } from "../types";
+import { ButtonSectionSchema, CustomPayloadSchema, InfoBoxSchema } from "../types";
 
 export const AnswerSchema = z.object({
   label: z.string(),
@@ -23,6 +23,8 @@ export const QuestionStepTypeSchema = z.object({
   displayProgressHeader: z.boolean(),
   payload: QuestionStepPayloadSchema,
   customPayload: CustomPayloadSchema,
+  continueButtonLabel: z.string().optional().default("Continue"),
+  buttonSection: ButtonSectionSchema.optional(),
   figmaUrl: z.string().nullish(),
 });
 

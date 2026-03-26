@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  ButtonSectionSchema,
   CustomPayloadSchema,
   MediaSourceSchema,
   SocialProofSchema,
@@ -25,6 +26,7 @@ export const MediaContentStepTypeSchema = z.object({
   payload: MediaContentStepPayloadSchema,
   customPayload: CustomPayloadSchema,
   continueButtonLabel: z.string().optional().default("Continue"),
+  buttonSection: ButtonSectionSchema.optional(),
   figmaUrl: z.string().nullish(),
 });
 

@@ -90,7 +90,10 @@ const QuestionRendererBase = ({ step, onContinue, theme = defaultTheme, customCo
       step={step}
       onContinue={handleContinue || (() => { })}
       theme={theme}
-      button={multipleAnswer && isAnySelected ? { text: "Continue" } : undefined}
+      button={multipleAnswer && isAnySelected ? {
+        text: validatedData.buttonSection?.label?.trim() || validatedData.continueButtonLabel,
+        icon: validatedData.buttonSection?.icon?.trim() || null,
+      } : undefined}
     >
       <View style={styles.container}>
         {/* Main Content */}

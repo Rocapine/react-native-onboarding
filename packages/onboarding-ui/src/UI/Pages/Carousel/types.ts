@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CustomPayloadSchema } from "../types";
+import { ButtonSectionSchema, CustomPayloadSchema } from "../types";
 
 export const CarouselScreenSchema = z.object({
   mediaUrl: z.string(),
@@ -19,6 +19,7 @@ export const CarouselStepTypeSchema = z.object({
   payload: CarouselStepPayloadSchema,
   customPayload: CustomPayloadSchema,
   continueButtonLabel: z.string().optional().default("Continue"),
+  buttonSection: ButtonSectionSchema.optional(),
   figmaUrl: z.string().nullish(),
 });
 

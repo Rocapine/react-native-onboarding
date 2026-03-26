@@ -90,7 +90,7 @@ const PickerRendererBase = ({ step, onContinue, theme = defaultTheme }: ContentP
       step={step}
       onContinue={() => onContinue()}
       theme={theme}
-      button={{ text: validatedData.continueButtonLabel }}
+      button={{ text: validatedData.buttonSection?.label?.trim() || validatedData.continueButtonLabel, icon: validatedData.buttonSection?.icon?.trim() || null }}
     >
       <View style={styles.container}>
         <Text style={[getTextStyle(theme, "heading1"), styles.title, { color: theme.colors.text.primary }]}>{title}</Text>
@@ -149,7 +149,7 @@ const WeightPicker = ({
       step={step}
       onContinue={handleContinue}
       theme={theme}
-      button={{ text: step.continueButtonLabel }}
+      button={{ text: step.buttonSection?.label?.trim() || step.continueButtonLabel, icon: step.buttonSection?.icon?.trim() || null }}
     >
       <View style={styles.container}>
         <View style={styles.textContainer}>
@@ -265,7 +265,7 @@ const HeightPicker = ({
       step={step}
       onContinue={handleContinue}
       theme={theme}
-      button={{ text: step.continueButtonLabel }}
+      button={{ text: step.buttonSection?.label?.trim() || step.continueButtonLabel, icon: step.buttonSection?.icon?.trim() || null }}
     >
       <View style={styles.container}>
         <View style={styles.textContainer}>
@@ -372,7 +372,8 @@ const NamePicker = ({
             onContinue={handleContinue}
             theme={theme}
             button={{
-              text: step.continueButtonLabel,
+              text: step.buttonSection?.label?.trim() || step.continueButtonLabel,
+              icon: step.buttonSection?.icon?.trim() || null,
               disabled: !name.trim(),
             }}
           >
@@ -479,7 +480,7 @@ const DatePicker = ({
       step={step}
       onContinue={handleContinue}
       theme={theme}
-      button={{ text: step.continueButtonLabel }}
+      button={{ text: step.buttonSection?.label?.trim() || step.continueButtonLabel, icon: step.buttonSection?.icon?.trim() || null }}
     >
       <View style={styles.container}>
         <View style={styles.textContainer}>

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CustomPayloadSchema } from "../types";
+import { ButtonSectionSchema, CustomPayloadSchema } from "../types";
 
 export const PickerTypeEnum = z.enum([
   "height",
@@ -25,6 +25,7 @@ export const PickerStepTypeSchema = z.object({
   payload: PickerStepPayloadSchema,
   customPayload: CustomPayloadSchema,
   continueButtonLabel: z.string().optional().default("Continue"),
+  buttonSection: ButtonSectionSchema.optional(),
   figmaUrl: z.string().nullish(),
 });
 

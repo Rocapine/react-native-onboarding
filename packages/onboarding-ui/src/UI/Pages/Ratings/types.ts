@@ -1,5 +1,5 @@
 import z from "zod";
-import { CustomPayloadSchema, SocialProofSchema } from "../types";
+import { ButtonSectionSchema, CustomPayloadSchema, SocialProofSchema } from "../types";
 
 export const RatingsStepPayloadSchema = z.object({
   title: z.string(),
@@ -16,6 +16,7 @@ export const RatingsStepTypeSchema = z.object({
   payload: RatingsStepPayloadSchema,
   customPayload: CustomPayloadSchema,
   continueButtonLabel: z.string().optional().default("Continue"),
+  buttonSection: ButtonSectionSchema.optional(),
   figmaUrl: z.string().nullish(),
 });
 

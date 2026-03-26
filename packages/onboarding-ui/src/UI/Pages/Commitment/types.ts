@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CustomPayloadSchema } from "../types";
+import { ButtonSectionSchema, CustomPayloadSchema } from "../types";
 
 export const CommitmentItemSchema = z.object({
   text: z.string(),
@@ -22,6 +22,7 @@ export const CommitmentStepTypeSchema = z.object({
   payload: CommitmentStepPayloadSchema,
   customPayload: CustomPayloadSchema,
   continueButtonLabel: z.string().optional().default("Continue"),
+  buttonSection: ButtonSectionSchema.optional(),
   figmaUrl: z.string().nullish(),
 });
 

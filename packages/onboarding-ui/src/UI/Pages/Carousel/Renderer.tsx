@@ -63,7 +63,10 @@ const CarouselRendererBase = ({ step, onContinue, theme = defaultTheme }: Conten
       onContinue={handleButtonPress}
       theme={theme}
       button={{
-        text: isLastPage ? validatedData.continueButtonLabel : "Next",
+        text: isLastPage
+          ? (validatedData.buttonSection?.label?.trim() || validatedData.continueButtonLabel)
+          : "Next",
+        icon: isLastPage ? (validatedData.buttonSection?.icon?.trim() || null) : null,
       }}
     >
       <View style={styles.container}>

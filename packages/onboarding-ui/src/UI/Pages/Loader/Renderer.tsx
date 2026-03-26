@@ -102,7 +102,12 @@ const BarsVariant = ({
       onContinue={onContinue}
       theme={theme}
       button={
-        isComplete ? { text: validatedData.continueButtonLabel } : undefined
+        isComplete
+          ? {
+              text: validatedData.buttonSection?.label?.trim() || validatedData.continueButtonLabel,
+              icon: validatedData.buttonSection?.icon?.trim() || null,
+            }
+          : undefined
       }
     >
       <ScrollView

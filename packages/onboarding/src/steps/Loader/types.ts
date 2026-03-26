@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CustomPayloadSchema, MediaSourceSchema } from "../common.types";
+import { ButtonSectionSchema, CustomPayloadSchema, MediaSourceSchema } from "../common.types";
 
 export const LoaderStepSchema = z.object({
   label: z.string(),
@@ -25,6 +25,7 @@ export const LoaderStepTypeSchema = z.object({
   payload: LoaderStepPayloadSchema,
   customPayload: CustomPayloadSchema,
   continueButtonLabel: z.string().optional().default("Continue"),
+  buttonSection: ButtonSectionSchema.optional(),
   figmaUrl: z.string().nullish(),
 });
 

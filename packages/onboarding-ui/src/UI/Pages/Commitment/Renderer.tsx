@@ -85,7 +85,8 @@ const CommitmentRendererBase = ({ step, onContinue, theme = defaultTheme }: Cont
       onContinue={onContinue}
       theme={theme}
       button={{
-        text: validatedData.continueButtonLabel,
+        text: validatedData.buttonSection?.label?.trim() || validatedData.continueButtonLabel,
+        icon: validatedData.buttonSection?.icon?.trim() || null,
         disabled: isButtonDisabled,
       }}
     >

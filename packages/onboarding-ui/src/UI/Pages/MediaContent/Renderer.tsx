@@ -119,7 +119,10 @@ const MediaContentRendererBase = ({ step, onContinue, theme = defaultTheme }: Co
       step={step}
       onContinue={onContinue}
       theme={theme}
-      button={{ text: validatedData.continueButtonLabel }}
+      button={{
+        text: validatedData.buttonSection?.label?.trim() || validatedData.continueButtonLabel,
+        icon: validatedData.buttonSection?.icon?.trim() || null,
+      }}
     >
       {renderContent()}
     </OnboardingTemplate>

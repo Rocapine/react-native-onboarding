@@ -53,6 +53,7 @@ export const step = {
   displayProgressHeader: true,
   payload: stepPayload,
   customPayload: null,
+  continueButtonLabel: "Continue",
   figmaUrl: null,
 } satisfies OnboardingUi.QuestionStepType;
 

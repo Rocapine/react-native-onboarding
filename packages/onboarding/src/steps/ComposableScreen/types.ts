@@ -58,6 +58,27 @@ type UIElement =
         borderColor?: string;
         opacity?: number;
       };
+    }
+  | {
+      id: string;
+      name?: string;
+      type: "Image";
+      props: {
+        url: string;
+        width?: number;
+        height?: number;
+        resizeMode?: "cover" | "contain" | "stretch" | "center";
+        borderRadius?: number;
+        borderWidth?: number;
+        borderColor?: string;
+        opacity?: number;
+        margin?: number;
+        marginHorizontal?: number;
+        marginVertical?: number;
+        padding?: number;
+        paddingHorizontal?: number;
+        paddingVertical?: number;
+      };
     };
 
 const StackElementPropsSchema = z.object({
@@ -108,6 +129,23 @@ const TextElementPropsSchema = z.object({
   opacity: z.number().min(0).max(1).optional(),
 });
 
+const ImageElementPropsSchema = z.object({
+  url: z.string(),
+  width: z.number().optional(),
+  height: z.number().optional(),
+  resizeMode: z.enum(["cover", "contain", "stretch", "center"]).optional(),
+  borderRadius: z.number().optional(),
+  borderWidth: z.number().optional(),
+  borderColor: z.string().optional(),
+  opacity: z.number().min(0).max(1).optional(),
+  margin: z.number().optional(),
+  marginHorizontal: z.number().optional(),
+  marginVertical: z.number().optional(),
+  padding: z.number().optional(),
+  paddingHorizontal: z.number().optional(),
+  paddingVertical: z.number().optional(),
+});
+
 const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
   z.union([
     z.object({
@@ -122,6 +160,12 @@ const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
       name: z.string().optional(),
       type: z.literal("Text"),
       props: TextElementPropsSchema,
+    }),
+    z.object({
+      id: z.string(),
+      name: z.string().optional(),
+      type: z.literal("Image"),
+      props: ImageElementPropsSchema,
     }),
   ])
 );

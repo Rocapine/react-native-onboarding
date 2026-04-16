@@ -161,6 +161,34 @@ The UI package has these **optional** peer dependencies (install only if using t
 - `@shopify/react-native-skia` — required by specific visual components
 - `expo-store-review` — required by Ratings step type
 
+## Updating ComposableScreen UIElement Schema
+
+When adding or changing a `UIElement` type in either ComposableScreen `types.ts` file, **always**:
+
+1. **Update `packages/onboarding/src/onboarding-example.ts`** — add or update an example step that exercises the new/changed element type so the default onboarding stays in sync with the schema.
+
+2. **Update `example/app/example/composable-screen.tsx`** — add or update the element in the rendered example payload.
+
+3. **Display the following prompt for the `onboarding-studio` repository** (the CMS backend that must mirror these schema changes) after completing the changes:
+
+```
+The ComposableScreen UIElement schema in the React Native SDK has been updated.
+Please mirror these schema changes in onboarding-studio.
+
+Changes made:
+<describe what was added/changed — element type name, props, Zod schema>
+
+Files changed in the SDK:
+- packages/onboarding/src/steps/ComposableScreen/types.ts
+- packages/onboarding-ui/src/UI/Pages/ComposableScreen/types.ts
+
+In onboarding-studio, update:
+- The UIElement union type / discriminated union to include the new element
+- The Zod schema (or equivalent validation) for the new element's props
+- Any CMS editor UI that lets users pick element types (add the new type to the picker)
+- Any JSON serialization/deserialization logic that handles UIElement variants
+```
+
 ## Publishing Workflow
 
 ```bash

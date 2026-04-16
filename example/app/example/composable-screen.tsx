@@ -21,6 +21,17 @@ export default function ComposableScreenExample() {
           type: 'YStack',
           props: { gap: 24, padding: 24 },
           children: [
+            // Hero image
+            {
+              id: 'hero-image',
+              type: 'Image',
+              props: {
+                url: 'https://picsum.photos/800/400?grayscale',
+                height: 180,
+                resizeMode: 'cover',
+                borderRadius: 16,
+              },
+            },
             // Header text
             {
               id: 'headline',

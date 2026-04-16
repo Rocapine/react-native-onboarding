@@ -84,7 +84,7 @@ const StackElementPropsSchema = z.object({
   borderRadius: z.number().optional(),
   borderColor: z.string().optional(),
   overflow: z.enum(["hidden", "visible", "scroll"]).optional(),
-  opacity: z.number().optional(),
+  opacity: z.number().min(0).max(1).optional(),
 });
 
 const TextElementPropsSchema = z.object({
@@ -105,7 +105,7 @@ const TextElementPropsSchema = z.object({
   borderWidth: z.number().optional(),
   borderRadius: z.number().optional(),
   borderColor: z.string().optional(),
-  opacity: z.number().optional(),
+  opacity: z.number().min(0).max(1).optional(),
 });
 
 export const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>

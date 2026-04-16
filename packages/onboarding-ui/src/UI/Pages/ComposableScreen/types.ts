@@ -85,19 +85,19 @@ export const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
 );
 
 
-export const NewCustomScreenStepPayloadSchema = z.object({
+export const ComposableScreenStepPayloadSchema = z.object({
   elements: z.array(UIElementSchema),
 });
 
-export const NewCustomScreenStepTypeSchema = z.object({
+export const ComposableScreenStepTypeSchema = z.object({
   id: z.string(),
-  type: z.literal("NewCustomScreen"),
+  type: z.literal("ComposableScreen"),
   name: z.string(),
   displayProgressHeader: z.boolean(),
-  payload: NewCustomScreenStepPayloadSchema,
+  payload: ComposableScreenStepPayloadSchema,
   customPayload: CustomPayloadSchema,
   continueButtonLabel: z.string().optional().default("Continue"),
   figmaUrl: z.string().nullable(),
 });
 
-export type NewCustomScreenStepType = z.infer<typeof NewCustomScreenStepTypeSchema>;
+export type ComposableScreenStepType = z.infer<typeof ComposableScreenStepTypeSchema>;

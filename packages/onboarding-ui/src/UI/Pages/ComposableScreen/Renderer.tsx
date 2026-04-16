@@ -1,13 +1,13 @@
 import React from "react";
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { NewCustomScreenStepType, NewCustomScreenStepTypeSchema, UIElement } from "./types";
+import { ComposableScreenStepType, ComposableScreenStepTypeSchema, UIElement } from "./types";
 import { Theme } from "../../Theme/types";
 import { defaultTheme } from "../../Theme/defaultTheme";
 import { getTextStyle } from "../../Theme/helpers";
 
 type ContentProps = {
-  step: NewCustomScreenStepType;
+  step: ComposableScreenStepType;
   onContinue: () => void;
   theme?: Theme;
 };
@@ -62,9 +62,9 @@ const renderElement = (element: UIElement, theme: Theme, parentType?: "XStack" |
   return null;
 };
 
-const NewCustomScreenRendererBase = ({ step, onContinue, theme = defaultTheme }: ContentProps) => {
+const ComposableScreenRendererBase = ({ step, onContinue, theme = defaultTheme }: ContentProps) => {
   const { top, bottom } = useSafeAreaInsets();
-  const validatedData = NewCustomScreenStepTypeSchema.parse(step);
+  const validatedData = ComposableScreenStepTypeSchema.parse(step);
   const { elements } = validatedData.payload;
   return (
     <OnboardingTemplate
@@ -122,4 +122,4 @@ const styles = StyleSheet.create({
 import { withErrorBoundary } from "../../ErrorBoundary";
 import { OnboardingTemplate } from "../../Templates/OnboardingTemplate";
 
-export const NewCustomScreenRenderer = withErrorBoundary(NewCustomScreenRendererBase, "NewCustomScreen");
+export const ComposableScreenRenderer = withErrorBoundary(ComposableScreenRendererBase, "ComposableScreen");

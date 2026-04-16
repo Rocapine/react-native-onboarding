@@ -2,19 +2,22 @@
 
 **A CMS-driven onboarding system for React Native mobile apps.**
 
-Build beautiful, customizable onboarding flows that update instantly without app releases.
+Build beautiful, customizable onboarding flows that update instantly without app
+releases.
 
 ---
 
 ## ✨ Features
 
-- 🎨 **Pre-built Components** - Ready-to-use screens (ratings, pickers, carousels, media content, and more)
+- 🎨 **Pre-built Components** - Ready-to-use screens (ratings, pickers,
+  carousels, media content, and more)
 - 🔄 **CMS-Driven** - Update onboarding flows remotely without app releases
 - 📱 **React Native** - Works with Expo and bare React Native projects
 - 🎯 **Type-Safe** - Full TypeScript support with runtime validation
 - 💾 **Offline Support** - Built-in caching with AsyncStorage
 - 🎭 **Themeable** - Customizable colors, typography, and styling
-- 🔧 **Extensible** - Three levels of customization from theme tokens to complete renderer overrides
+- 🔧 **Extensible** - Three levels of customization from theme tokens to
+  complete renderer overrides
 
 ---
 
@@ -58,8 +61,8 @@ export default function RootLayout() {
 
 ```typescript
 import {
-  useOnboardingQuestions,
   OnboardingPage,
+  useOnboardingQuestions,
 } from "@rocapine/react-native-onboarding";
 
 export default function OnboardingScreen() {
@@ -87,29 +90,38 @@ That's it! 🎉
 
 Complete documentation for using the SDK in your app:
 
-- **[Getting Started](./docs/getting-started.mdx)** - Installation, setup, and your first onboarding flow
-- **[Core Concepts](./docs/core-concepts.mdx)** - How the SDK works, caching, progress tracking
+- **[Getting Started](./docs/getting-started.mdx)** - Installation, setup, and
+  your first onboarding flow
+- **[Core Concepts](./docs/core-concepts.mdx)** - How the SDK works, caching,
+  progress tracking
 - **[API Reference](./docs/api-reference.mdx)** - Complete API documentation
-- **[Page Types](./docs/page-types.mdx)** - Available page types and their features
+- **[Page Types](./docs/page-types.mdx)** - Available page types and their
+  features
 
 ### Customization
 
 Learn how to customize your onboarding experience:
 
-- **[Customization Overview](./docs/customization/intro.mdx)** - Choose your customization level
-- **[Level 1: Theming](./docs/customization/theming.mdx)** - Colors, typography, and semantic styles
-- **[Level 2: Custom Components](./docs/customization/custom-components.mdx)** - Replace specific UI components
-- **[Level 3: Custom Renderers](./docs/customization/custom-renderers.mdx)** - Complete screen control
+- **[Customization Overview](./docs/customization/intro.mdx)** - Choose your
+  customization level
+- **[Level 1: Theming](./docs/customization/theming.mdx)** - Colors, typography,
+  and semantic styles
+- **[Level 2: Custom Components](./docs/customization/custom-components.mdx)** -
+  Replace specific UI components
+- **[Level 3: Custom Renderers](./docs/customization/custom-renderers.mdx)** -
+  Complete screen control
 
 ### Support
 
-- **[Troubleshooting](./docs/troubleshooting.mdx)** - Common issues and solutions
+- **[Troubleshooting](./docs/troubleshooting.mdx)** - Common issues and
+  solutions
 
 ### For Contributors
 
 Want to contribute to the SDK?
 
-- **[Contributing Guide](./CONTRIBUTING.md)** - Development setup, architecture, and contribution guidelines
+- **[Contributing Guide](./CONTRIBUTING.md)** - Development setup, architecture,
+  and contribution guidelines
 
 ---
 
@@ -125,7 +137,7 @@ Customize colors, typography, and semantic styles:
     colors: { primary: "#FF5733" },
     typography: { fontFamily: { title: "CustomFont-Bold" } },
   }}
-/>
+/>;
 ```
 
 ### Level 2: Custom Components
@@ -138,7 +150,7 @@ Replace specific UI components:
     QuestionAnswerButton: CustomButton,
     QuestionAnswersList: AnimatedList,
   }}
-/>
+/>;
 ```
 
 ### Level 3: Custom Renderers
@@ -168,6 +180,10 @@ export default function OnboardingScreen() {
 - **Loader** - Sequential progress animation with optional carousel
 - **Ratings** - App store rating prompts with social proof
 - **Commitment** - User commitment and agreement screens
+- **ComposableScreen** _(under development)_ - Declarative layout system driven
+  entirely from the CMS. Build arbitrary screens by composing `YStack`,
+  `XStack`, and `Text` elements with full layout, spacing, border, and
+  typography control — no custom renderer needed.
 
 [Learn more about page types →](./docs/page-types.mdx)
 
@@ -199,7 +215,8 @@ npm start
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](./CONTRIBUTING.md) for details.
+We welcome contributions! Please see our [Contributing Guide](./CONTRIBUTING.md)
+for details.
 
 ### Publishing:
 
@@ -214,7 +231,8 @@ We welcome contributions! Please see our [Contributing Guide](./CONTRIBUTING.md)
 ## 📧 Support
 
 - **Email:** support@rocapine.com
-- **Issues:** [GitHub Issues](https://github.com/rocapine/react-native-onboarding-studio/issues)
+- **Issues:**
+  [GitHub Issues](https://github.com/rocapine/react-native-onboarding-studio/issues)
 - **Documentation:** [Rocapine Docs](https://docs.rocapine.com)
 
 ---

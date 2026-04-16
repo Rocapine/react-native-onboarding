@@ -6,6 +6,9 @@ import { Theme } from "../../Theme/types";
 import { defaultTheme } from "../../Theme/defaultTheme";
 import { getTextStyle } from "../../Theme/helpers";
 
+import { withErrorBoundary } from "../../ErrorBoundary";
+import { OnboardingTemplate } from "../../Templates/OnboardingTemplate";
+
 type ContentProps = {
   step: ComposableScreenStepType;
   onContinue: () => void;
@@ -139,8 +142,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 });
-
-import { withErrorBoundary } from "../../ErrorBoundary";
-import { OnboardingTemplate } from "../../Templates/OnboardingTemplate";
 
 export const ComposableScreenRenderer = withErrorBoundary(ComposableScreenRendererBase, "ComposableScreen");

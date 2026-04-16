@@ -3,6 +3,7 @@ import {
   CommitmentStepType,
   LoaderStepType,
   MediaContentStepType,
+  ComposableScreenStepType,
   PickerStepType,
   RatingsStepType,
   QuestionStepType,
@@ -33,6 +34,7 @@ export type BaseStepType = {
 export type OnboardingStepType =
   | RatingsStepType
   | MediaContentStepType
+  | ComposableScreenStepType
   | PickerStepType
   | CommitmentStepType
   | CarouselStepType

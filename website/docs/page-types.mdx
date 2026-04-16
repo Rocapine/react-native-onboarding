@@ -392,6 +392,138 @@ npx expo install @shopify/react-native-skia
 
 ---
 
+### ComposableScreen _(under development)_
+
+:::caution Under Development
+`ComposableScreen` is still under active development. The element schema and renderer API may change before being considered stable.
+:::
+
+Build arbitrary onboarding screens entirely from CMS data — no custom renderer required. You define a tree of layout and text elements that is rendered directly to native `View` and `Text` components.
+
+**Use cases:**
+- Fully custom layouts without shipping app updates
+- Cards, feature highlights, or rich text screens
+- Any screen that doesn't fit a pre-built type
+
+**Key features:**
+- Recursive element tree (`YStack`, `XStack`, `Text`)
+- Full flexbox layout support
+- Border, radius, overflow, and opacity control
+- Dimension constraints (`width`, `height`, `min/max`)
+- Spacing with both `padding` and `margin`
+- Text color defaults to `theme.colors.text.primary`
+
+**Element types:**
+
+| Element | Renders as | Direction |
+|---------|-----------|-----------|
+| `YStack` | `<View>` | `column` |
+| `XStack` | `<View>` | `row` |
+| `Text` | `<Text>` | — |
+
+**Stack props (`YStack` / `XStack`):**
+
+| Prop | Type | Notes |
+|------|------|-------|
+| `gap` | `number` | Space between children |
+| `padding` / `paddingHorizontal` / `paddingVertical` | `number` | |
+| `margin` / `marginHorizontal` / `marginVertical` | `number` | |
+| `flex` / `flexShrink` / `flexWrap` | `number \| string` | `flexShrink` defaults to `1` inside `XStack` |
+| `alignItems` | `"flex-start" \| "center" \| "flex-end" \| "stretch"` | |
+| `justifyContent` | `"flex-start" \| "center" \| "flex-end" \| "space-between" \| "space-around"` | |
+| `width` / `height` / `minWidth` / `maxWidth` / `minHeight` / `maxHeight` | `number` | |
+| `backgroundColor` / `borderColor` | `string` | |
+| `borderWidth` / `borderRadius` | `number` | |
+| `overflow` | `"hidden" \| "visible" \| "scroll"` | Use `"hidden"` to clip rounded corners |
+| `opacity` | `number` | |
+
+**Text props:**
+
+| Prop | Type | Notes |
+|------|------|-------|
+| `content` | `string` | **Required** |
+| `fontSize` / `fontWeight` / `letterSpacing` / `lineHeight` | `number \| string` | |
+| `color` | `string` | Defaults to `theme.colors.text.primary` |
+| `textAlign` | `"left" \| "center" \| "right"` | |
+| `backgroundColor` / `borderColor` | `string` | |
+| `padding` / `paddingHorizontal` / `paddingVertical` | `number` | |
+| `margin` / `marginHorizontal` / `marginVertical` | `number` | |
+| `borderWidth` / `borderRadius` / `opacity` | `number` | |
+
+**Payload:**
+```typescript
+{
+  elements: UIElement[]; // Recursive tree of YStack, XStack, Text
+}
+```
+
+**Example:**
+```json
+{
+  "id": "feature-highlight",
+  "type": "ComposableScreen",
+  "payload": {
+    "elements": [
+      {
+        "id": "card",
+        "type": "YStack",
+        "props": {
+          "padding": 24,
+          "gap": 12,
+          "borderWidth": 1,
+          "borderRadius": 16,
+          "borderColor": "#E0E0E0",
+          "overflow": "hidden"
+        },
+        "children": [
+          {
+            "id": "title",
+            "type": "Text",
+            "props": {
+              "content": "Welcome aboard",
+              "fontSize": 24,
+              "fontWeight": "700"
+            }
+          },
+          {
+            "id": "row",
+            "type": "XStack",
+            "props": { "gap": 8, "alignItems": "center" },
+            "children": [
+              {
+                "id": "badge",
+                "type": "YStack",
+                "props": {
+                  "backgroundColor": "#E8F5E9",
+                  "borderRadius": 8,
+                  "padding": 8
+                },
+                "children": [
+                  {
+                    "id": "badge-text",
+                    "type": "Text",
+                    "props": { "content": "New", "fontSize": 12, "color": "#2E7D32" }
+                  }
+                ]
+              },
+              {
+                "id": "label",
+                "type": "Text",
+                "props": { "content": "Personalized for you", "fontSize": 14 }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Dependencies:** None
+
+---
+
 ## Common Properties
 
 All page types share these properties:

@@ -1,0 +1,82 @@
+{
+  "folders": [
+    {
+      "name": "🗂️ All",
+      "path": "."
+    },
+    {
+      "name": "📦 onboarding (headless)",
+      "path": "packages/onboarding"
+    },
+    {
+      "name": "🎨 onboarding-ui",
+      "path": "packages/onboarding-ui"
+    },
+    {
+      "name": "📖 Documentation Website",
+      "path": "website"
+    },
+    {
+      "name": "📱 example app",
+      "path": "example"
+    }
+  ],
+  "launch": {
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "📱 Run iOS (example)",
+        "type": "node",
+        "request": "launch",
+        "cwd": "${workspaceFolder:📱 example app}",
+        "runtimeExecutable": "npm",
+        "runtimeArgs": ["run", "ios"],
+        "console": "integratedTerminal",
+        "skipFiles": ["<node_internals>/**"],
+      },
+      {
+        "name": "👀 Watch headless package",
+        "type": "node",
+        "request": "launch",
+        "cwd": "${workspaceFolder:🗂️ All}",
+        "runtimeExecutable": "npm",
+        "runtimeArgs": ["run", "watch:headless"],
+        "console": "integratedTerminal",
+        "skipFiles": ["<node_internals>/**"],
+        "presentation": {
+          "hidden": true,
+        }
+      },
+      {
+        "name": "👀 Watch UI package",
+        "type": "node",
+        "request": "launch",
+        "cwd": "${workspaceFolder:🗂️ All}",
+        "runtimeExecutable": "npm",
+        "runtimeArgs": ["run", "watch:ui"],
+        "console": "integratedTerminal",
+        "skipFiles": ["<node_internals>/**"],
+        "presentation": {
+          "hidden": true,
+        }
+      },
+      {
+        "name": "📖 Start documentation website",
+        "type": "node",
+        "request": "launch",
+        "cwd": "${workspaceFolder:📖 Documentation Website}",
+        "runtimeExecutable": "npm",
+        "runtimeArgs": ["run", "start"],
+        "console": "integratedTerminal",
+        "skipFiles": ["<node_internals>/**"]
+      }
+    ],
+    "compounds": [
+      {
+        "name": "👀 Watch all packages",
+        "configurations": ["👀 Watch headless package", "👀 Watch UI package"]
+      }
+    ]
+  },
+  "settings": {}
+}

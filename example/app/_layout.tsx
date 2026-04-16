@@ -13,12 +13,13 @@ import { ThemeProvider } from "@rocapine/react-native-onboarding-ui";
 SplashScreen.preventAutoHideAsync();
 
 const client = new OnboardingStudioClient(
-  "438d5493-1b72-4e12-9523-d9835ee98a52",
+  process.env.EXPO_PUBLIC_ONBOARDING_PROJECT_ID!,
   {
     appVersion: "1.0.0",
     isSandbox: true,
     fallbackOnboarding: onboardingExample,
     timeout: 10000,
+    baseUrl: process.env.EXPO_PUBLIC_ONBOARDING_BASE_URL,
   }
 );
 
@@ -43,8 +44,6 @@ export default function RootLayout() {
       client={client}
       locale="en"
       customAudienceParams={{
-        myconfig: "myconfig",
-        onboardingId: "6e5c6818-b9a1-44e8-a5c3-a27f7cfccbb3",
       }}
     >
       <ThemeProvider>

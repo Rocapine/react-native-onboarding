@@ -16,6 +16,9 @@ export default function QuestionPage() {
     stepNumber: parseInt(questionId as string, 10),
   });
 
+  console.log('step.type', step.type);
+  console.log('step.payload', step.payload);
+
 
   const router = useRouter();
 

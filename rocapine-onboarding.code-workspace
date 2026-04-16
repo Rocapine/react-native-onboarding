@@ -13,6 +13,10 @@
       "path": "packages/onboarding-ui"
     },
     {
+      "name": "📖 Documentation Website",
+      "path": "website"
+    },
+    {
       "name": "📱 example app",
       "path": "example"
     }
@@ -28,7 +32,7 @@
         "runtimeExecutable": "npm",
         "runtimeArgs": ["run", "ios"],
         "console": "integratedTerminal",
-        "skipFiles": ["<node_internals>/**"]
+        "skipFiles": ["<node_internals>/**"],
       },
       {
         "name": "👀 Watch headless package",
@@ -38,7 +42,10 @@
         "runtimeExecutable": "npm",
         "runtimeArgs": ["run", "watch:headless"],
         "console": "integratedTerminal",
-        "skipFiles": ["<node_internals>/**"]
+        "skipFiles": ["<node_internals>/**"],
+        "presentation": {
+          "hidden": true,
+        }
       },
       {
         "name": "👀 Watch UI package",
@@ -47,6 +54,19 @@
         "cwd": "${workspaceFolder:🗂️ All}",
         "runtimeExecutable": "npm",
         "runtimeArgs": ["run", "watch:ui"],
+        "console": "integratedTerminal",
+        "skipFiles": ["<node_internals>/**"],
+        "presentation": {
+          "hidden": true,
+        }
+      },
+      {
+        "name": "📖 Start documentation website",
+        "type": "node",
+        "request": "launch",
+        "cwd": "${workspaceFolder:📖 Documentation Website}",
+        "runtimeExecutable": "npm",
+        "runtimeArgs": ["run", "start"],
         "console": "integratedTerminal",
         "skipFiles": ["<node_internals>/**"]
       }

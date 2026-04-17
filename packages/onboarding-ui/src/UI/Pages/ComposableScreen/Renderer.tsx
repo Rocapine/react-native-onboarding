@@ -1,6 +1,5 @@
 import React from "react";
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { View, Text, Image, ScrollView, StyleSheet, TouchableOpacity } from "react-native";
 import { ComposableScreenStepType, ComposableScreenStepTypeSchema, UIElement } from "./types";
 import { Theme } from "../../Theme/types";
 import { defaultTheme } from "../../Theme/defaultTheme";
@@ -83,11 +82,39 @@ const renderElement = (element: UIElement, theme: Theme, parentType?: "XStack" |
     );
   }
 
+  if (element.type === "Image") {
+    const hasExplicitHeight = element.props.height !== undefined;
+    const aspectRatio = hasExplicitHeight
+      ? undefined
+      : (element.props.aspectRatio ?? 16 / 9);
+    return (
+      <Image
+        key={element.id}
+        source={{ uri: element.props.url }}
+        resizeMode={element.props.resizeMode ?? "cover"}
+        style={{
+          width: element.props.width ?? "100%",
+          height: element.props.height,
+          aspectRatio,
+          borderRadius: element.props.borderRadius,
+          borderWidth: element.props.borderWidth,
+          borderColor: element.props.borderColor,
+          opacity: element.props.opacity,
+          margin: element.props.margin,
+          marginHorizontal: element.props.marginHorizontal,
+          marginVertical: element.props.marginVertical,
+          padding: element.props.padding,
+          paddingHorizontal: element.props.paddingHorizontal,
+          paddingVertical: element.props.paddingVertical,
+        }}
+      />
+    );
+  }
+
   return null;
 };
 
 const ComposableScreenRendererBase = ({ step, onContinue, theme = defaultTheme }: ContentProps) => {
-  const { top, bottom } = useSafeAreaInsets();
   const validatedData = ComposableScreenStepTypeSchema.parse(step);
   const { elements } = validatedData.payload;
   return (

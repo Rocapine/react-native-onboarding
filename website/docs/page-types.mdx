@@ -406,7 +406,7 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 - Any screen that doesn't fit a pre-built type
 
 **Key features:**
-- Recursive element tree (`YStack`, `XStack`, `Text`)
+- Recursive element tree (`YStack`, `XStack`, `Text`, `Image`)
 - Full flexbox layout support
 - Border, radius, overflow, and opacity control
 - Dimension constraints (`width`, `height`, `min/max`)
@@ -420,6 +420,7 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 | `YStack` | `<View>` | `column` |
 | `XStack` | `<View>` | `row` |
 | `Text` | `<Text>` | — |
+| `Image` | `<Image>` | — |
 
 **Stack props (`YStack` / `XStack`):**
 
@@ -437,6 +438,21 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 | `overflow` | `"hidden" \| "visible" \| "scroll"` | Use `"hidden"` to clip rounded corners |
 | `opacity` | `number` | |
 
+**Image props:**
+
+| Prop | Type | Notes |
+|------|------|-------|
+| `url` | `string` | **Required** — remote image URI |
+| `width` | `number \| string` | Defaults to `"100%"` |
+| `height` | `number` | When omitted, `aspectRatio` is used to size the image |
+| `aspectRatio` | `number` | Used when `height` is absent; defaults to `16/9` |
+| `resizeMode` | `"cover" \| "contain" \| "stretch" \| "center"` | Defaults to `"cover"` |
+| `borderRadius` / `borderWidth` | `number` | |
+| `borderColor` | `string` | |
+| `opacity` | `number` | |
+| `margin` / `marginHorizontal` / `marginVertical` | `number` | |
+| `padding` / `paddingHorizontal` / `paddingVertical` | `number` | |
+
 **Text props:**
 
 | Prop | Type | Notes |
@@ -453,7 +469,7 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 **Payload:**
 ```typescript
 {
-  elements: UIElement[]; // Recursive tree of YStack, XStack, Text
+  elements: UIElement[]; // Recursive tree of YStack, XStack, Text, Image
 }
 ```
 
@@ -476,6 +492,16 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
           "overflow": "hidden"
         },
         "children": [
+          {
+            "id": "hero",
+            "type": "Image",
+            "props": {
+              "url": "https://example.com/hero.png",
+              "height": 180,
+              "resizeMode": "cover",
+              "borderRadius": 12
+            }
+          },
           {
             "id": "title",
             "type": "Text",

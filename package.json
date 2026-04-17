@@ -8,6 +8,7 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces",
+    "type:check": "npm run type:check --workspaces",
     "build:headless": "npm run build --workspace=packages/onboarding",
     "build:ui": "npm run build --workspace=packages/onboarding-ui",
     "watch:headless": "npm run watch --workspace=packages/onboarding",

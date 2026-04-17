@@ -89,6 +89,58 @@ export const onboardingExample = {
       displayProgressHeader: false,
     },
     {
+      id: "composable-screen-demo",
+      name: "Composable Screen",
+      type: "ComposableScreen",
+      displayProgressHeader: true,
+      payload: {
+        elements: [
+          {
+            id: "root",
+            type: "YStack",
+            props: { gap: 24, padding: 24 },
+            children: [
+              {
+                id: "hero-image",
+                type: "Image",
+                props: {
+                  url: "https://picsum.photos/800/400?grayscale",
+                  height: 180,
+                  resizeMode: "cover",
+                  borderRadius: 16,
+                },
+              },
+              {
+                id: "headline",
+                type: "Text",
+                props: {
+                  content: "Built from the CMS",
+                  fontSize: 28,
+                  fontWeight: "700",
+                  textAlign: "center",
+                },
+              },
+              {
+                id: "subheadline",
+                type: "Text",
+                props: {
+                  content:
+                    "This screen is composed entirely from a JSON payload — no custom renderer needed.",
+                  fontSize: 15,
+                  textAlign: "center",
+                  lineHeight: 22,
+                  opacity: 0.6,
+                },
+              },
+            ],
+          },
+        ],
+      },
+      figmaUrl: null,
+      customPayload: {},
+      continueButtonLabel: "Continue",
+    },
+    {
       id: "ratings-app",
       name: "Rate the App",
       type: "Ratings",

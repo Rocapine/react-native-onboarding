@@ -444,7 +444,8 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 |------|------|-------|
 | `url` | `string` | **Required** — remote image URI |
 | `width` | `number` | Defaults to `"100%"` |
-| `height` | `number` | |
+| `height` | `number` | When omitted, `aspectRatio` is used to size the image |
+| `aspectRatio` | `number` | Used when `height` is absent; defaults to `16/9` |
 | `resizeMode` | `"cover" \| "contain" \| "stretch" \| "center"` | Defaults to `"cover"` |
 | `borderRadius` / `borderWidth` / `borderColor` | `number \| string` | |
 | `opacity` | `number` | |

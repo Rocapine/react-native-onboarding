@@ -67,6 +67,7 @@ type UIElement =
         url: string;
         width?: number;
         height?: number;
+        aspectRatio?: number;
         resizeMode?: "cover" | "contain" | "stretch" | "center";
         borderRadius?: number;
         borderWidth?: number;
@@ -133,6 +134,7 @@ const ImageElementPropsSchema = z.object({
   url: z.string(),
   width: z.number().optional(),
   height: z.number().optional(),
+  aspectRatio: z.number().optional(),
   resizeMode: z.enum(["cover", "contain", "stretch", "center"]).optional(),
   borderRadius: z.number().optional(),
   borderWidth: z.number().optional(),

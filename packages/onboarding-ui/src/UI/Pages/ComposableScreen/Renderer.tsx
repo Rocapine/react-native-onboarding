@@ -1,6 +1,5 @@
 import React from "react";
 import { View, Text, Image, ScrollView, StyleSheet, TouchableOpacity } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ComposableScreenStepType, ComposableScreenStepTypeSchema, UIElement } from "./types";
 import { Theme } from "../../Theme/types";
 import { defaultTheme } from "../../Theme/defaultTheme";
@@ -84,6 +83,10 @@ const renderElement = (element: UIElement, theme: Theme, parentType?: "XStack" |
   }
 
   if (element.type === "Image") {
+    const hasExplicitHeight = element.props.height !== undefined;
+    const aspectRatio = hasExplicitHeight
+      ? undefined
+      : (element.props.aspectRatio ?? 16 / 9);
     return (
       <Image
         key={element.id}
@@ -92,6 +95,7 @@ const renderElement = (element: UIElement, theme: Theme, parentType?: "XStack" |
         style={{
           width: element.props.width ?? "100%",
           height: element.props.height,
+          aspectRatio,
           borderRadius: element.props.borderRadius,
           borderWidth: element.props.borderWidth,
           borderColor: element.props.borderColor,
@@ -111,7 +115,6 @@ const renderElement = (element: UIElement, theme: Theme, parentType?: "XStack" |
 };
 
 const ComposableScreenRendererBase = ({ step, onContinue, theme = defaultTheme }: ContentProps) => {
-  const { top, bottom } = useSafeAreaInsets();
   const validatedData = ComposableScreenStepTypeSchema.parse(step);
   const { elements } = validatedData.payload;
   return (

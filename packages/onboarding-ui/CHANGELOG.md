@@ -5,6 +5,25 @@ here.
 
 ---
 
+## [1.3.0] - 2026-04-17
+
+### Added
+
+- **`Image` UIElement renderer** for `ComposableScreen` — maps `Image` nodes to
+  React Native `<Image>` with full prop pass-through: `url`, `width`, `height`,
+  `aspectRatio`, `resizeMode`, `borderRadius`, `borderWidth`, `borderColor`,
+  `opacity`, and all margin / padding shorthand props.
+- `aspectRatio` fallback on `Image` — when `height` is not provided, the
+  renderer applies `aspectRatio` (explicit value or `16/9` default) so the
+  image is always visible.
+
+### Fixed
+
+- Removed unused `useSafeAreaInsets` import and call from
+  `ComposableScreenRenderer` (safe area is handled by `OnboardingTemplate`).
+
+---
+
 ## [1.2.0]
 
 ### Added

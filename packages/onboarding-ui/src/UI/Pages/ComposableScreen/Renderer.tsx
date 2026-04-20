@@ -4,9 +4,21 @@ import { ComposableScreenStepType, ComposableScreenStepTypeSchema, UIElement } f
 import { Theme } from "../../Theme/types";
 import { defaultTheme } from "../../Theme/defaultTheme";
 import { getTextStyle } from "../../Theme/helpers";
-
 import { withErrorBoundary } from "../../ErrorBoundary";
 import { OnboardingTemplate } from "../../Templates/OnboardingTemplate";
+
+let LottieView: React.ComponentType<{
+  source: string | object;
+  autoPlay?: boolean;
+  loop?: boolean;
+  speed?: number;
+  style?: object;
+}> | null = null;
+try {
+  LottieView = require("lottie-react-native").default;
+} catch {
+  // lottie-react-native not installed - will show error if Lottie is used
+}
 
 type ContentProps = {
   step: ComposableScreenStepType;
@@ -111,6 +123,42 @@ const renderElement = (element: UIElement, theme: Theme, parentType?: "XStack" |
     );
   }
 
+  if (element.type === "Lottie") {
+    const lottieStyle = {
+      width: element.props.width ?? ("100%" as `${number}%`),
+      height: element.props.height ?? 200,
+      opacity: element.props.opacity,
+      margin: element.props.margin,
+      marginHorizontal: element.props.marginHorizontal,
+      marginVertical: element.props.marginVertical,
+    };
+
+    if (!LottieView) {
+      return (
+        <View
+          key={element.id}
+          style={[lottieStyle, styles.lottieFallback]}
+        >
+          <Text style={styles.lottieFallbackText}>
+            Install lottie-react-native to render Lottie animations.
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <LottieView
+        key={element.id}
+        // source={element.props.source}
+        source={{ uri: element.props.source }}
+        autoPlay={element.props.autoPlay ?? true}
+        loop={element.props.loop ?? true}
+        speed={element.props.speed}
+        style={lottieStyle}
+      />
+    );
+  }
+
   return null;
 };
 
@@ -167,6 +215,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     minWidth: 234,
     alignItems: "center",
+  },
+  lottieFallback: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F5F5F5",
+    borderRadius: 8,
+  },
+  lottieFallbackText: {
+    fontSize: 13,
+    color: "#888",
+    textAlign: "center",
+    paddingHorizontal: 16,
   },
 });
 

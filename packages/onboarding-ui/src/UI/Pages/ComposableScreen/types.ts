@@ -80,6 +80,23 @@ export type UIElement =
         paddingHorizontal?: number;
         paddingVertical?: number;
       };
+    }
+  | {
+      id: string;
+      name?: string;
+      type: "Lottie";
+      props: {
+        source: string;
+        width?: number;
+        height?: number;
+        autoPlay?: boolean;
+        loop?: boolean;
+        speed?: number;
+        opacity?: number;
+        margin?: number;
+        marginHorizontal?: number;
+        marginVertical?: number;
+      };
     };
 
 const StackElementPropsSchema = z.object({
@@ -148,6 +165,19 @@ const ImageElementPropsSchema = z.object({
   paddingVertical: z.number().optional(),
 });
 
+const LottieElementPropsSchema = z.object({
+  source: z.string(),
+  width: z.number().optional(),
+  height: z.number().optional(),
+  autoPlay: z.boolean().optional(),
+  loop: z.boolean().optional(),
+  speed: z.number().optional(),
+  opacity: z.number().min(0).max(1).optional(),
+  margin: z.number().optional(),
+  marginHorizontal: z.number().optional(),
+  marginVertical: z.number().optional(),
+});
+
 export const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
   z.union([
     z.object({
@@ -168,6 +198,12 @@ export const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
       name: z.string().optional(),
       type: z.literal("Image"),
       props: ImageElementPropsSchema,
+    }),
+    z.object({
+      id: z.string(),
+      name: z.string().optional(),
+      type: z.literal("Lottie"),
+      props: LottieElementPropsSchema,
     }),
   ])
 );

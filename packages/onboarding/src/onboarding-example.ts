@@ -101,6 +101,16 @@ export const onboardingExample = {
             props: { gap: 24, padding: 24 },
             children: [
               {
+                id: "hero-lottie",
+                type: "Lottie",
+                props: {
+                  source: "https://raw.githubusercontent.com/airbnb/lottie-web/master/demo/adrock/data.json",
+                  height: 180,
+                  autoPlay: true,
+                  loop: true,
+                },
+              },
+              {
                 id: "hero-image",
                 type: "Image",
                 props: {

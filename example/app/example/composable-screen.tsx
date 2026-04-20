@@ -21,6 +21,17 @@ export default function ComposableScreenExample() {
           type: 'YStack',
           props: { gap: 24, padding: 24 },
           children: [
+            // Lottie animation
+            {
+              id: 'hero-lottie',
+              type: 'Lottie',
+              props: {
+                source: 'https://raw.githubusercontent.com/airbnb/lottie-web/master/demo/adrock/data.json',
+                height: 180,
+                autoPlay: true,
+                loop: true,
+              },
+            },
             // Hero image
             {
               id: 'hero-image',

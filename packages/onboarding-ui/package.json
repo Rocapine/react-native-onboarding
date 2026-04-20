@@ -29,16 +29,16 @@
   },
   "devDependencies": {
     "@react-native-picker/picker": "^2.11.2",
-    "@shopify/react-native-skia": "^2.3.0",
+    "@shopify/react-native-skia": "2.4.18",
     "@types/react": "^19.0.0",
-    "expo-router": "^4.0.0",
-    "expo-store-review": "^9.0.8",
-    "react": "19.1.0",
-    "react-native": "0.81.4",
+    "expo-router": "~55.0.12",
+    "expo-store-review": "~55.0.13",
+    "react": "19.2.0",
+    "react-native": "0.83.4",
     "react-native-gesture-handler": "^2.28.0",
     "react-native-reanimated": "^4.1.2",
     "react-native-safe-area-context": "^5.6.1",
-    "react-native-svg": "^15.13.0",
+    "react-native-svg": "15.15.3",
     "typescript": "^5.0.0"
   },
   "peerDependencies": {

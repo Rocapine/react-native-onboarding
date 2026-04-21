@@ -42,7 +42,12 @@
           }
         }
       ],
-      "expo-font",
+      [
+        "expo-font",
+        {
+          "fonts": ["./assets/fonts/Bangers_400Regular.ttf", "./assets/fonts/FuturaBold.otf"]
+        }
+      ],
       "expo-web-browser",
       "expo-image",
       "expo-video"

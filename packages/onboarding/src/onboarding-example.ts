@@ -182,6 +182,7 @@ export const onboardingExample = {
                   content: "Built from the CMS",
                   fontSize: 28,
                   fontWeight: "700",
+                  fontFamily: "System",
                   textAlign: "center",
                 },
               },

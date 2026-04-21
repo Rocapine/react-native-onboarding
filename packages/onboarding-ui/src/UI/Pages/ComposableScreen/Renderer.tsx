@@ -23,15 +23,16 @@ try {
 type RiveUIElement = Extract<UIElement, { type: "Rive" }>;
 let RiveElementComponent: React.ComponentType<{ element: RiveUIElement; riveStyle: object }> | null = null;
 try {
-  const Rive = require("rive-react-native").default;
+  const riveModule = require("rive-react-native");
+  const Rive = riveModule.default;
+  const { Fit, Alignment } = riveModule;
   RiveElementComponent = ({ element, riveStyle }: { element: RiveUIElement; riveStyle: object }) => {
-
     return (
       <Rive
         url={element.props.url}
-        autoPlay={element.props.autoplay ?? true}
-        // fit={element.props.fit ? Fit[element.props.fit] : Fit.Contain}
-        // alignment={element.props.alignment ? Alignment[element.props.alignment] : Alignment.Center}
+        autoplay={element.props.autoplay ?? true}
+        fit={element.props.fit ? Fit[element.props.fit] : Fit.Contain}
+        alignment={element.props.alignment ? Alignment[element.props.alignment] : Alignment.Center}
         artboardName={element.props.artboardName}
         stateMachineName={element.props.stateMachineName}
         style={riveStyle}
@@ -207,7 +208,7 @@ const renderElement = (element: UIElement, theme: Theme, parentType?: "XStack" |
       return (
         <View key={element.id} style={[wrapperStyle, styles.riveFallback]}>
           <Text style={styles.riveFallbackText}>
-            Install @rive-app/react-native to render Rive animations.
+            Install rive-react-native to render Rive animations.
           </Text>
         </View>
       );

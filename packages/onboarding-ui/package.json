@@ -49,9 +49,11 @@
     "@types/react": "*",
     "expo-router": ">=3.0.0",
     "expo-store-review": "*",
+    "lottie-react-native": "*",
     "react": "*",
     "react-native": "*",
-    "react-native-safe-area-context": "*"
+    "react-native-safe-area-context": "*",
+    "rive-react-native": "*"
   },
   "peerDependenciesMeta": {
     "@react-native-picker/picker": {
@@ -61,6 +63,12 @@
       "optional": true
     },
     "expo-store-review": {
+      "optional": true
+    },
+    "lottie-react-native": {
+      "optional": true
+    },
+    "rive-react-native": {
       "optional": true
     }
   },

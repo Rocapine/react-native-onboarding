@@ -4,6 +4,37 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.6.0] - 2026-04-21
+
+### Added
+
+- **`Input` UIElement schema** for `ComposableScreen` — new discriminated-union
+  variant with `type: "Input"`. Renders a `<TextInput>` that writes its value
+  into shared context via `variableName`. Props: `variableName` (string, optional
+  — context key), `placeholder`, `placeholderColor`, `defaultValue`,
+  `keyboardType`, `returnKeyType`, `autoCapitalize`, `secureTextEntry`,
+  `maxLength`, `multiline`, `numberOfLines`, `editable`, plus typography and
+  layout props (`color`, `fontSize`, `textAlign`, `padding*`) and all
+  `BaseBoxProps` (`backgroundColor`, `borderWidth`, `borderRadius`, `borderColor`,
+  `width`, `height`, `opacity`, `margin*`). Validated by
+  `InputElementPropsSchema` (Zod).
+- **Variable context** — `OnboardingProgressContext` now holds
+  `composableVariables: Record<string, string>` and `setComposableVariable`.
+  Values written by `Input` elements survive navigation between
+  `ComposableScreen` steps.
+- **Expression mode for `Text` elements** — `mode?: "plain" | "expression"`
+  prop added to `TextElementPropsSchema`. When `"expression"`, `{{variableName}}`
+  patterns in `content` are interpolated from `composableVariables` at render
+  time. Default (`"plain"`) is unchanged.
+
+> **Backend note:** The `onboarding-studio` server must be updated to accept and
+> emit the `Input` `UIElement` variant in `ComposableScreen` payloads, and to
+> support the `mode` prop on `Text` elements. Mirror `InputElementPropsSchema`
+> and the updated `TextElementPropsSchema` in the backend validation layer and
+> add `Input` to the CMS element-type picker.
+
+---
+
 ## [1.5.0] - 2026-04-21
 
 ### Added

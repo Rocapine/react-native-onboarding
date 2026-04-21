@@ -1,6 +1,21 @@
 import { z } from "zod";
 import { CustomPayloadSchema } from "../types";
 
+type BaseBoxProps = {
+  width?: number;
+  height?: number;
+  opacity?: number;
+  margin?: number;
+  marginHorizontal?: number;
+  marginVertical?: number;
+  padding?: number;
+  paddingHorizontal?: number;
+  paddingVertical?: number;
+  borderWidth?: number;
+  borderRadius?: number;
+  borderColor?: string;
+};
+
 export type UIElement =
   | {
       id: string;
@@ -63,24 +78,51 @@ export type UIElement =
       id: string;
       name?: string;
       type: "Image";
-      props: {
+      props: BaseBoxProps & {
         url: string;
-        width?: number;
-        height?: number;
         aspectRatio?: number;
         resizeMode?: "cover" | "contain" | "stretch" | "center";
-        borderRadius?: number;
-        borderWidth?: number;
-        borderColor?: string;
-        opacity?: number;
-        margin?: number;
-        marginHorizontal?: number;
-        marginVertical?: number;
-        padding?: number;
-        paddingHorizontal?: number;
-        paddingVertical?: number;
+      };
+    }
+  | {
+      id: string;
+      name?: string;
+      type: "Lottie";
+      props: BaseBoxProps & {
+        source: string;
+        autoPlay?: boolean;
+        loop?: boolean;
+        speed?: number;
+      };
+    }
+  | {
+      id: string;
+      name?: string;
+      type: "Rive";
+      props: BaseBoxProps & {
+        url: string;
+        autoplay?: boolean;
+        fit?: "Contain" | "Cover" | "Fill" | "FitWidth" | "FitHeight" | "None" | "ScaleDown" | "Layout";
+        alignment?: "TopLeft" | "TopCenter" | "TopRight" | "CenterLeft" | "Center" | "CenterRight" | "BottomLeft" | "BottomCenter" | "BottomRight";
+        artboardName?: string;
+        stateMachineName?: string;
       };
     };
+
+const BaseBoxPropsSchema = z.object({
+  width: z.number().optional(),
+  height: z.number().optional(),
+  opacity: z.number().min(0).max(1).optional(),
+  margin: z.number().optional(),
+  marginHorizontal: z.number().optional(),
+  marginVertical: z.number().optional(),
+  padding: z.number().optional(),
+  paddingHorizontal: z.number().optional(),
+  paddingVertical: z.number().optional(),
+  borderWidth: z.number().optional(),
+  borderRadius: z.number().optional(),
+  borderColor: z.string().optional(),
+});
 
 const StackElementPropsSchema = z.object({
   gap: z.number().optional(),
@@ -130,22 +172,26 @@ const TextElementPropsSchema = z.object({
   opacity: z.number().min(0).max(1).optional(),
 });
 
-const ImageElementPropsSchema = z.object({
+const ImageElementPropsSchema = BaseBoxPropsSchema.extend({
   url: z.string(),
-  width: z.number().optional(),
-  height: z.number().optional(),
   aspectRatio: z.number().optional(),
   resizeMode: z.enum(["cover", "contain", "stretch", "center"]).optional(),
-  borderRadius: z.number().optional(),
-  borderWidth: z.number().optional(),
-  borderColor: z.string().optional(),
-  opacity: z.number().min(0).max(1).optional(),
-  margin: z.number().optional(),
-  marginHorizontal: z.number().optional(),
-  marginVertical: z.number().optional(),
-  padding: z.number().optional(),
-  paddingHorizontal: z.number().optional(),
-  paddingVertical: z.number().optional(),
+});
+
+const LottieElementPropsSchema = BaseBoxPropsSchema.extend({
+  source: z.string(),
+  autoPlay: z.boolean().optional(),
+  loop: z.boolean().optional(),
+  speed: z.number().optional(),
+});
+
+const RiveElementPropsSchema = BaseBoxPropsSchema.extend({
+  url: z.string(),
+  autoplay: z.boolean().optional(),
+  fit: z.enum(["Contain", "Cover", "Fill", "FitWidth", "FitHeight", "None", "ScaleDown", "Layout"]).optional(),
+  alignment: z.enum(["TopLeft", "TopCenter", "TopRight", "CenterLeft", "Center", "CenterRight", "BottomLeft", "BottomCenter", "BottomRight"]).optional(),
+  artboardName: z.string().optional(),
+  stateMachineName: z.string().optional(),
 });
 
 export const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
@@ -169,9 +215,20 @@ export const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
       type: z.literal("Image"),
       props: ImageElementPropsSchema,
     }),
+    z.object({
+      id: z.string(),
+      name: z.string().optional(),
+      type: z.literal("Lottie"),
+      props: LottieElementPropsSchema,
+    }),
+    z.object({
+      id: z.string(),
+      name: z.string().optional(),
+      type: z.literal("Rive"),
+      props: RiveElementPropsSchema,
+    }),
   ])
 );
-
 
 export const ComposableScreenStepPayloadSchema = z.object({
   elements: z.array(UIElementSchema),

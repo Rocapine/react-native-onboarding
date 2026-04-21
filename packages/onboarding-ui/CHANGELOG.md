@@ -5,6 +5,35 @@ here.
 
 ---
 
+## [1.4.0] - 2026-04-21
+
+### Added
+
+- **`Lottie` element renderer** — renders `Lottie` UIElements via
+  `lottie-react-native`. The package is an optional peer dep; if absent a
+  placeholder view with an install hint is shown instead of crashing. Supports
+  `source`, `autoPlay`, `loop`, `speed`, and all `BaseBoxProps`.
+- **`Rive` element renderer** — renders `Rive` UIElements via
+  `rive-react-native` (optional peer dep with same graceful fallback). Supports
+  `url`, `autoplay`, `fit`, `alignment`, `artboardName`, `stateMachineName`, and
+  all `BaseBoxProps`.
+
+### Changed
+
+- **`BaseBoxProps` refactor** — `width`, `height`, `opacity`, `margin*`,
+  `padding*`, `borderWidth`, `borderRadius`, and `borderColor` are now defined
+  once in a shared `BaseBoxProps` type and `BaseBoxPropsSchema`, then extended by
+  `Image`, `Lottie`, and `Rive` element schemas.
+
+### Fixed
+
+- `borderWidth`, `borderRadius`, and `borderColor` on `Lottie` and `Rive`
+  elements now render correctly. Both native canvas components are wrapped in a
+  `View` with `overflow: hidden` so border styles are applied by the wrapper
+  rather than the animation view directly.
+
+---
+
 ## [1.3.0] - 2026-04-17
 
 ### Added

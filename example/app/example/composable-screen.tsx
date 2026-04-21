@@ -21,6 +21,28 @@ export default function ComposableScreenExample() {
           type: 'YStack',
           props: { gap: 24, padding: 24 },
           children: [
+            // Lottie animation
+            {
+              id: 'hero-lottie',
+              type: 'Lottie',
+              props: {
+                source: 'https://raw.githubusercontent.com/airbnb/lottie-web/master/demo/adrock/data.json',
+                height: 180,
+                autoPlay: true,
+                loop: true,
+              },
+            },
+            // Rive animation
+            {
+              id: 'hero-rive',
+              type: 'Rive',
+              props: {
+                url: 'https://cdn.rive.app/animations/vehicles.riv',
+                height: 180,
+                autoplay: true,
+                fit: 'Contain',
+              },
+            },
             // Hero image
             {
               id: 'hero-image',

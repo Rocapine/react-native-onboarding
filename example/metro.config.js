@@ -1,40 +1,7 @@
-const { getDefaultConfig } = require("expo/metro-config");
-const path = require("path");
+// Learn more https://docs.expo.io/guides/customizing-metro
+const { getDefaultConfig } = require('expo/metro-config');
 
-const projectRoot = __dirname;
-const workspaceRoot = path.resolve(projectRoot, "..");
-
-const config = getDefaultConfig(projectRoot);
-
-// Watch all files in the workspace
-config.watchFolders = [workspaceRoot];
-
-// Make Metro aware of packages in the workspace
-config.resolver.nodeModulesPaths = [
-  path.resolve(projectRoot, "node_modules"),
-  path.resolve(workspaceRoot, "node_modules"),
-];
-
-// Ensure Metro resolves symlinks
-config.resolver.unstable_enableSymlinks = true;
-
-// Force React and React Native to resolve to example's node_modules
-config.resolver.extraNodeModules = {
-  react: path.resolve(projectRoot, "node_modules/react"),
-  "react-native": path.resolve(projectRoot, "node_modules/react-native"),
-};
-
-// Allow Metro to resolve assets from the workspace
-config.resolver.assetExts = [
-  ...config.resolver.assetExts,
-  "png",
-  "jpg",
-  "jpeg",
-  "gif",
-  "svg",
-];
-
-// Prevent Metro from looking for modules in parent directories
-config.resolver.disableHierarchicalLookup = true;
+/** @type {import('expo/metro-config').MetroConfig} */
+const config = getDefaultConfig(__dirname);
 
 module.exports = config;

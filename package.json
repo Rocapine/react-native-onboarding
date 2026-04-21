@@ -4,7 +4,8 @@
   "private": true,
   "description": "Monorepo for React Native Onboarding Studio packages",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "example"
   ],
   "scripts": {
     "build": "npm run build --workspaces",

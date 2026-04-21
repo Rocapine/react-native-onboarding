@@ -5,6 +5,37 @@ here.
 
 ---
 
+## [1.8.0] - 2026-04-21
+
+### Added
+
+- **`RadioGroup` element renderer** — renders `RadioGroup` UIElements as a
+  vertical (default) or horizontal list of tappable radio items, each with a
+  circular indicator. Reads/writes the selected value via `composableVariables`
+  (keyed by `variableName`). On mount, sets the `defaultValue` entry including
+  the matching item's human-readable `label`. Supports all per-item style props
+  (`itemBackgroundColor`, `itemSelectedBackgroundColor`, `itemBorderColor`,
+  `itemSelectedBorderColor`, `itemBorderRadius`, `itemBorderWidth`, `itemColor`,
+  `itemSelectedColor`, `itemFontSize`, `itemFontWeight`, `itemFontFamily`,
+  `itemPadding`, `itemPaddingHorizontal`, `itemPaddingVertical`) and all
+  `BaseBoxProps` for the group container.
+- **Structured variable entries** — `composableVariables` is now
+  `Record<string, ComposableVariableEntry>` where
+  `ComposableVariableEntry = { value: string; label?: string }`. `RadioGroup`
+  stores `{ value, label }` on selection; `Input` stores `{ value }`. Expression
+  interpolation in `Text` elements resolves `label ?? value`, so
+  `{{variableName}}` on a radio-backed variable displays the human-readable
+  label (e.g. `"Monthly"`) instead of the raw value (e.g. `"monthly"`).
+
+### Changed (internal)
+
+- `ComposableScreen` element components and types split into `elements/`
+  subfolder — one file per element. `Renderer.tsx` reduced from 630 to 58 lines;
+  `types.ts` from 443 to 173 lines. A `RenderContext` object replaces the five
+  individual parameters previously threaded through `renderElement`.
+
+---
+
 ## [1.7.0] - 2026-04-21
 
 ### Added

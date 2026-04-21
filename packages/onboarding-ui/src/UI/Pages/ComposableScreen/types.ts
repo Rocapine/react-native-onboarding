@@ -1,362 +1,93 @@
 import { z } from "zod";
 import { CustomPayloadSchema } from "../types";
+import { type StackElementProps, StackElementPropsSchema } from "./elements/StackElement";
+import { type TextElementProps, TextElementPropsSchema } from "./elements/TextElement";
+import { type ImageElementProps, ImageElementPropsSchema } from "./elements/ImageElement";
+import { type LottieElementProps, LottieElementPropsSchema } from "./elements/LottieElement";
+import { type RiveElementProps, RiveElementPropsSchema } from "./elements/RiveElement";
+import { type IconElementProps, IconElementPropsSchema } from "./elements/IconElement";
+import { type VideoElementProps, VideoElementPropsSchema } from "./elements/VideoElement";
+import { type InputElementProps, InputElementPropsSchema } from "./elements/InputElement";
+import { type ButtonElementProps, ButtonElementPropsSchema } from "./elements/ButtonElement";
+import { type RadioGroupElementProps, RadioGroupElementPropsSchema } from "./elements/RadioGroupElement";
 
-type BaseBoxProps = {
-  width?: number;
-  height?: number;
-  opacity?: number;
-  margin?: number;
-  marginHorizontal?: number;
-  marginVertical?: number;
-  padding?: number;
-  paddingHorizontal?: number;
-  paddingVertical?: number;
-  borderWidth?: number;
-  borderRadius?: number;
-  borderColor?: string;
-};
+export type { BaseBoxProps } from "./elements/BaseBoxProps";
+export { BaseBoxPropsSchema } from "./elements/BaseBoxProps";
+export type { StackElementProps } from "./elements/StackElement";
+export type { TextElementProps } from "./elements/TextElement";
+export type { ImageElementProps } from "./elements/ImageElement";
+export type { LottieElementProps } from "./elements/LottieElement";
+export type { RiveElementProps } from "./elements/RiveElement";
+export type { IconElementProps } from "./elements/IconElement";
+export type { VideoElementProps } from "./elements/VideoElement";
+export type { InputElementProps } from "./elements/InputElement";
+export type { ButtonElementProps } from "./elements/ButtonElement";
+export type { RadioGroupElementProps } from "./elements/RadioGroupElement";
 
+// UIElement union — must live here (not in elements/) to avoid circular deps
+// because the Stack variant's children: UIElement[] references itself.
 export type UIElement =
   | {
       id: string;
       name?: string;
       type: "YStack" | "XStack";
-      props: {
-        gap?: number;
-        padding?: number;
-        paddingHorizontal?: number;
-        paddingVertical?: number;
-        margin?: number;
-        marginHorizontal?: number;
-        marginVertical?: number;
-        flex?: number;
-        width?: number;
-        height?: number;
-        minWidth?: number;
-        maxWidth?: number;
-        minHeight?: number;
-        maxHeight?: number;
-        alignItems?: "flex-start" | "center" | "flex-end" | "stretch";
-        justifyContent?: "flex-start" | "center" | "flex-end" | "space-between" | "space-around";
-        backgroundColor?: string;
-        flexWrap?: "wrap" | "nowrap";
-        flexShrink?: number;
-        borderWidth?: number;
-        borderRadius?: number;
-        borderColor?: string;
-        overflow?: "hidden" | "visible" | "scroll";
-        opacity?: number;
-      };
+      props: StackElementProps;
       children: UIElement[];
     }
   | {
       id: string;
       name?: string;
       type: "Text";
-      props: {
-        content: string;
-        mode?: "plain" | "expression";
-        fontSize?: number;
-        fontWeight?: string;
-        fontFamily?: string;
-        color?: string;
-        textAlign?: "left" | "center" | "right";
-        letterSpacing?: number;
-        lineHeight?: number;
-        backgroundColor?: string;
-        padding?: number;
-        paddingHorizontal?: number;
-        paddingVertical?: number;
-        margin?: number;
-        marginHorizontal?: number;
-        marginVertical?: number;
-        borderWidth?: number;
-        borderRadius?: number;
-        borderColor?: string;
-        opacity?: number;
-      };
+      props: TextElementProps;
     }
   | {
       id: string;
       name?: string;
       type: "Image";
-      props: BaseBoxProps & {
-        url: string;
-        aspectRatio?: number;
-        resizeMode?: "cover" | "contain" | "stretch" | "center";
-      };
+      props: ImageElementProps;
     }
   | {
       id: string;
       name?: string;
       type: "Lottie";
-      props: BaseBoxProps & {
-        source: string;
-        autoPlay?: boolean;
-        loop?: boolean;
-        speed?: number;
-      };
+      props: LottieElementProps;
     }
   | {
       id: string;
       name?: string;
       type: "Rive";
-      props: BaseBoxProps & {
-        url: string;
-        autoplay?: boolean;
-        fit?: "Contain" | "Cover" | "Fill" | "FitWidth" | "FitHeight" | "None" | "ScaleDown" | "Layout";
-        alignment?: "TopLeft" | "TopCenter" | "TopRight" | "CenterLeft" | "Center" | "CenterRight" | "BottomLeft" | "BottomCenter" | "BottomRight";
-        artboardName?: string;
-        stateMachineName?: string;
-      };
+      props: RiveElementProps;
     }
   | {
       id: string;
       name?: string;
       type: "Icon";
-      props: BaseBoxProps & {
-        name: string;
-        size?: number;
-        color?: string;
-        strokeWidth?: number;
-      };
+      props: IconElementProps;
     }
   | {
       id: string;
       name?: string;
       type: "Video";
-      props: BaseBoxProps & {
-        url: string;
-        autoPlay?: boolean;
-        loop?: boolean;
-        muted?: boolean;
-        controls?: boolean;
-      };
+      props: VideoElementProps;
     }
   | {
       id: string;
       name?: string;
       type: "Input";
-      props: BaseBoxProps & {
-        variableName?: string;
-        placeholder?: string;
-        defaultValue?: string;
-        keyboardType?: "default" | "email-address" | "numeric" | "phone-pad" | "decimal-pad" | "url" | "number-pad" | "ascii-capable" | "numbers-and-punctuation" | "name-phone-pad" | "twitter" | "web-search" | "visible-password";
-        returnKeyType?: "done" | "next" | "go" | "search" | "send" | "default" | "emergency-call" | "google" | "join" | "route" | "yahoo" | "none" | "previous";
-        autoCapitalize?: "none" | "sentences" | "words" | "characters";
-        secureTextEntry?: boolean;
-        maxLength?: number;
-        multiline?: boolean;
-        numberOfLines?: number;
-        editable?: boolean;
-        color?: string;
-        backgroundColor?: string;
-        fontSize?: number;
-        fontWeight?: string;
-        textAlign?: "left" | "center" | "right";
-        placeholderColor?: string;
-      };
+      props: InputElementProps;
     }
   | {
       id: string;
       name?: string;
       type: "Button";
-      props: BaseBoxProps & {
-        label: string;
-        action?: "continue";
-        variant?: "filled" | "outlined" | "ghost";
-        backgroundColor?: string;
-        color?: string;
-        fontSize?: number;
-        fontWeight?: string;
-        fontFamily?: string;
-        textAlign?: "left" | "center" | "right";
-        alignSelf?: "auto" | "flex-start" | "center" | "flex-end" | "stretch";
-      };
+      props: ButtonElementProps;
     }
   | {
       id: string;
       name?: string;
       type: "RadioGroup";
-      props: BaseBoxProps & {
-        variableName?: string;
-        defaultValue?: string;
-        gap?: number;
-        direction?: "vertical" | "horizontal";
-        items: Array<{ label: string; value: string }>;
-        itemBackgroundColor?: string;
-        itemSelectedBackgroundColor?: string;
-        itemBorderColor?: string;
-        itemSelectedBorderColor?: string;
-        itemBorderRadius?: number;
-        itemBorderWidth?: number;
-        itemColor?: string;
-        itemSelectedColor?: string;
-        itemFontSize?: number;
-        itemFontWeight?: string;
-        itemFontFamily?: string;
-        itemPadding?: number;
-        itemPaddingHorizontal?: number;
-        itemPaddingVertical?: number;
-      };
+      props: RadioGroupElementProps;
     };
-
-const BaseBoxPropsSchema = z.object({
-  width: z.number().optional(),
-  height: z.number().optional(),
-  opacity: z.number().min(0).max(1).optional(),
-  margin: z.number().optional(),
-  marginHorizontal: z.number().optional(),
-  marginVertical: z.number().optional(),
-  padding: z.number().optional(),
-  paddingHorizontal: z.number().optional(),
-  paddingVertical: z.number().optional(),
-  borderWidth: z.number().optional(),
-  borderRadius: z.number().optional(),
-  borderColor: z.string().optional(),
-});
-
-const StackElementPropsSchema = z.object({
-  gap: z.number().optional(),
-  padding: z.number().optional(),
-  paddingHorizontal: z.number().optional(),
-  paddingVertical: z.number().optional(),
-  margin: z.number().optional(),
-  marginHorizontal: z.number().optional(),
-  marginVertical: z.number().optional(),
-  flex: z.number().optional(),
-  width: z.number().optional(),
-  height: z.number().optional(),
-  minWidth: z.number().optional(),
-  maxWidth: z.number().optional(),
-  minHeight: z.number().optional(),
-  maxHeight: z.number().optional(),
-  alignItems: z.enum(["flex-start", "center", "flex-end", "stretch"]).optional(),
-  justifyContent: z.enum(["flex-start", "center", "flex-end", "space-between", "space-around"]).optional(),
-  backgroundColor: z.string().optional(),
-  flexWrap: z.enum(["wrap", "nowrap"]).optional(),
-  flexShrink: z.number().optional(),
-  borderWidth: z.number().optional(),
-  borderRadius: z.number().optional(),
-  borderColor: z.string().optional(),
-  overflow: z.enum(["hidden", "visible", "scroll"]).optional(),
-  opacity: z.number().min(0).max(1).optional(),
-});
-
-const TextElementPropsSchema = z.object({
-  content: z.string(),
-  mode: z.enum(["plain", "expression"]).optional(),
-  fontSize: z.number().optional(),
-  fontWeight: z.string().optional(),
-  fontFamily: z.string().optional(),
-  color: z.string().optional(),
-  textAlign: z.enum(["left", "center", "right"]).optional(),
-  letterSpacing: z.number().optional(),
-  lineHeight: z.number().optional(),
-  backgroundColor: z.string().optional(),
-  padding: z.number().optional(),
-  paddingHorizontal: z.number().optional(),
-  paddingVertical: z.number().optional(),
-  margin: z.number().optional(),
-  marginHorizontal: z.number().optional(),
-  marginVertical: z.number().optional(),
-  borderWidth: z.number().optional(),
-  borderRadius: z.number().optional(),
-  borderColor: z.string().optional(),
-  opacity: z.number().min(0).max(1).optional(),
-});
-
-const ImageElementPropsSchema = BaseBoxPropsSchema.extend({
-  url: z.string(),
-  aspectRatio: z.number().optional(),
-  resizeMode: z.enum(["cover", "contain", "stretch", "center"]).optional(),
-});
-
-const LottieElementPropsSchema = BaseBoxPropsSchema.extend({
-  source: z.string(),
-  autoPlay: z.boolean().optional(),
-  loop: z.boolean().optional(),
-  speed: z.number().optional(),
-});
-
-const RiveElementPropsSchema = BaseBoxPropsSchema.extend({
-  url: z.string(),
-  autoplay: z.boolean().optional(),
-  fit: z.enum(["Contain", "Cover", "Fill", "FitWidth", "FitHeight", "None", "ScaleDown", "Layout"]).optional(),
-  alignment: z.enum(["TopLeft", "TopCenter", "TopRight", "CenterLeft", "Center", "CenterRight", "BottomLeft", "BottomCenter", "BottomRight"]).optional(),
-  artboardName: z.string().optional(),
-  stateMachineName: z.string().optional(),
-});
-
-const IconElementPropsSchema = BaseBoxPropsSchema.extend({
-  name: z.string(),
-  size: z.number().optional(),
-  color: z.string().optional(),
-  strokeWidth: z.number().optional(),
-});
-
-const VideoElementPropsSchema = BaseBoxPropsSchema.extend({
-  url: z.string(),
-  autoPlay: z.boolean().optional(),
-  loop: z.boolean().optional(),
-  muted: z.boolean().optional(),
-  controls: z.boolean().optional(),
-});
-
-const ButtonElementPropsSchema = BaseBoxPropsSchema.extend({
-  label: z.string(),
-  action: z.enum(["continue"]).optional(),
-  variant: z.enum(["filled", "outlined", "ghost"]).optional(),
-  backgroundColor: z.string().optional(),
-  color: z.string().optional(),
-  fontSize: z.number().optional(),
-  fontWeight: z.string().optional(),
-  fontFamily: z.string().optional(),
-  textAlign: z.enum(["left", "center", "right"]).optional(),
-  alignSelf: z.enum(["auto", "flex-start", "center", "flex-end", "stretch"]).optional(),
-});
-
-const RadioGroupElementPropsSchema = BaseBoxPropsSchema.extend({
-  variableName: z.string().optional(),
-  defaultValue: z.string().optional(),
-  gap: z.number().optional(),
-  direction: z.enum(["vertical", "horizontal"]).optional(),
-  items: z.array(z.object({ label: z.string(), value: z.string() })),
-  itemBackgroundColor: z.string().optional(),
-  itemSelectedBackgroundColor: z.string().optional(),
-  itemBorderColor: z.string().optional(),
-  itemSelectedBorderColor: z.string().optional(),
-  itemBorderRadius: z.number().optional(),
-  itemBorderWidth: z.number().optional(),
-  itemColor: z.string().optional(),
-  itemSelectedColor: z.string().optional(),
-  itemFontSize: z.number().optional(),
-  itemFontWeight: z.string().optional(),
-  itemFontFamily: z.string().optional(),
-  itemPadding: z.number().optional(),
-  itemPaddingHorizontal: z.number().optional(),
-  itemPaddingVertical: z.number().optional(),
-});
-
-const InputElementPropsSchema = BaseBoxPropsSchema.extend({
-  variableName: z.string().optional(),
-  placeholder: z.string().optional(),
-  defaultValue: z.string().optional(),
-  keyboardType: z.enum(["default", "email-address", "numeric", "phone-pad", "decimal-pad", "url", "number-pad", "ascii-capable", "numbers-and-punctuation", "name-phone-pad", "twitter", "web-search", "visible-password"]).optional(),
-  returnKeyType: z.enum(["done", "next", "go", "search", "send", "default", "emergency-call", "google", "join", "route", "yahoo", "none", "previous"]).optional(),
-  autoCapitalize: z.enum(["none", "sentences", "words", "characters"]).optional(),
-  secureTextEntry: z.boolean().optional(),
-  maxLength: z.number().int().nonnegative().optional(),
-  multiline: z.boolean().optional(),
-  numberOfLines: z.number().int().nonnegative().optional(),
-  editable: z.boolean().optional(),
-  color: z.string().optional(),
-  backgroundColor: z.string().optional(),
-  fontSize: z.number().optional(),
-  fontWeight: z.string().optional(),
-  textAlign: z.enum(["left", "center", "right"]).optional(),
-  placeholderColor: z.string().optional(),
-});
 
 export const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
   z.union([

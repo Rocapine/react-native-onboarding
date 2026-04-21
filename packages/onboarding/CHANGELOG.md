@@ -4,6 +4,26 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.5.0] - 2026-04-21
+
+### Added
+
+- **`Icon` UIElement schema** for `ComposableScreen` — new discriminated-union
+  variant with `type: "Icon"`. Props: `name` (string, **required** — Lucide icon
+  name), `size` (number), `color` (string), `strokeWidth` (number), plus all
+  `BaseBoxProps`. Validated by `IconElementPropsSchema` (Zod).
+- **`Video` UIElement schema** for `ComposableScreen` — new discriminated-union
+  variant with `type: "Video"`. Props: `url` (string, **required**), `autoPlay`
+  (boolean), `loop` (boolean), `muted` (boolean), `controls` (boolean), plus all
+  `BaseBoxProps`. Validated by `VideoElementPropsSchema` (Zod).
+
+> **Backend note:** The `onboarding-studio` server must be updated to accept and
+> emit `Icon` and `Video` `UIElement` variants in `ComposableScreen` payloads.
+> Mirror `IconElementPropsSchema` and `VideoElementPropsSchema` in the backend
+> validation layer and add both types to the CMS element-type picker.
+
+---
+
 ## [1.4.0] - 2026-04-21
 
 ### Added

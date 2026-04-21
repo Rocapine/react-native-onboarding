@@ -4,6 +4,21 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.7.0] - 2026-04-21
+
+### Added
+
+- **`fontFamily` prop on `Text` UIElement** — optional `fontFamily?: string` added
+  to the `Text` variant of `UIElement` and to `TextElementPropsSchema` (Zod).
+  Pass any font family name loaded via `expo-font` (or a system font) to apply a
+  custom typeface to a text node.
+
+> **Backend note:** The `onboarding-studio` server should be updated to accept
+> and emit `fontFamily` on `Text` UIElement props, and to expose a font-family
+> input in the CMS text-element editor.
+
+---
+
 ## [1.6.0] - 2026-04-21
 
 ### Added

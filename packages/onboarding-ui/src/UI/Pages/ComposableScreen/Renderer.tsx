@@ -189,6 +189,7 @@ const renderElement = (element: UIElement, theme: Theme, variables: Record<strin
         style={{
           fontSize: element.props.fontSize,
           fontWeight: element.props.fontWeight as any,
+          fontFamily: element.props.fontFamily,
           color: element.props.color ?? theme.colors.text.primary,
           textAlign: element.props.textAlign,
           letterSpacing: element.props.letterSpacing,

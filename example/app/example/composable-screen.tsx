@@ -113,6 +113,7 @@ export default function ComposableScreenExample() {
                 content: 'Built from the CMS',
                 fontSize: 28,
                 fontWeight: '700',
+                fontFamily: 'Bangers_400Regular',
                 textAlign: 'center',
               },
             },

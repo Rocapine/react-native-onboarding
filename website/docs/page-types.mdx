@@ -464,6 +464,7 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 | `content` | `string` | **Required** |
 | `mode` | `"plain" \| "expression"` | `"plain"` (default) renders content as-is; `"expression"` interpolates `{{variableName}}` patterns from the variable context |
 | `fontSize` / `fontWeight` / `letterSpacing` / `lineHeight` | `number \| string` | |
+| `fontFamily` | `string` | Font family name; must be loaded by the host app (e.g. via `expo-font`) |
 | `color` | `string` | Defaults to `theme.colors.text.primary` |
 | `textAlign` | `"left" \| "center" \| "right"` | |
 | `backgroundColor` / `borderColor` | `string` | |

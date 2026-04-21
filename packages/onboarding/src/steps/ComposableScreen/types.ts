@@ -58,6 +58,7 @@ type UIElement =
         mode?: "plain" | "expression";
         fontSize?: number;
         fontWeight?: string;
+        fontFamily?: string;
         color?: string;
         textAlign?: "left" | "center" | "right";
         letterSpacing?: number;
@@ -204,6 +205,7 @@ const TextElementPropsSchema = z.object({
   mode: z.enum(["plain", "expression"]).optional(),
   fontSize: z.number().optional(),
   fontWeight: z.string().optional(),
+  fontFamily: z.string().optional(),
   color: z.string().optional(),
   textAlign: z.enum(["left", "center", "right"]).optional(),
   letterSpacing: z.number().optional(),

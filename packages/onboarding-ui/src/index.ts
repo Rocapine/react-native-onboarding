@@ -22,7 +22,8 @@ export * from "./UI/Theme";
 // Error boundary
 export * from "./UI/ErrorBoundary";
 
-// Custom components system
+// Provider
+export { OnboardingProgressProvider, OnboardingProgressContext } from "./UI/Provider/OnboardingProgressProvider";
 
 // UI-specific types
 export * from "./UI/types";

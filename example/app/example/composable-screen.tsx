@@ -78,6 +78,33 @@ export default function ComposableScreenExample() {
                 autoPlay: true,
               },
             },
+            // Input element
+            {
+              id: 'hero-input',
+              type: 'Input' as const,
+              props: {
+                variableName: 'name',
+                placeholder: 'Enter your name',
+                keyboardType: 'default' as const,
+                returnKeyType: 'done' as const,
+                autoCapitalize: 'words' as const,
+                borderRadius: 12,
+                marginVertical: 8,
+              },
+            },
+            // Expression text — updates live as user types
+            {
+              id: 'greeting',
+              type: 'Text' as const,
+              props: {
+                content: 'Hello {{name}}!',
+                mode: 'expression' as const,
+                fontSize: 18,
+                fontWeight: '600',
+                textAlign: 'center' as const,
+                marginVertical: 4,
+              },
+            },
             // Header text
             {
               id: 'headline',

@@ -5,6 +5,43 @@ here.
 
 ---
 
+## [1.6.0] - 2026-04-21
+
+### Added
+
+- **`Input` element renderer** — renders `Input` UIElements as a styled
+  `<TextInput>`. Supports all text input props (`placeholder`, `placeholderColor`,
+  `defaultValue`, `keyboardType`, `returnKeyType`, `autoCapitalize`,
+  `secureTextEntry`, `maxLength`, `multiline`, `numberOfLines`, `editable`) plus
+  typography (`color`, `fontSize`, `textAlign`, `padding*`) and `BaseBoxProps`
+  (`backgroundColor`, `borderWidth`, `borderRadius`, `borderColor`, `width`,
+  `height`, `opacity`, `margin*`).
+- **Variable context** — `OnboardingProgressContext` extended with
+  `composableVariables: Record<string, string>` and `setComposableVariable`.
+  `Input` elements write their value into this shared map on every keystroke
+  (keyed by `variableName`). Values survive navigation between `ComposableScreen`
+  steps because the context lives above the router.
+- **Expression interpolation for `Text` elements** — when `mode: "expression"`,
+  `{{variableName}}` patterns in `content` are replaced with values from
+  `composableVariables` at render time. Default `mode: "plain"` is unchanged.
+- **`OnboardingProgressProvider` and `OnboardingProgressContext`** exported from
+  the package's public API so host apps can wrap their root layout with the
+  provider.
+
+### Fixed
+
+- `InputElementComponent` no longer subscribes to `OnboardingProgressContext`
+  directly; `setComposableVariable` is threaded as a stable prop through
+  `renderElement` instead, preventing context-driven re-renders from stealing
+  `TextInput` focus on every keystroke.
+- `ComposableScreenStepTypeSchema.parse(step)` is now wrapped in `useMemo`
+  so the `elements` array reference is stable across context-driven re-renders.
+- `ScrollView` in `ComposableScreenRenderer` now uses
+  `keyboardShouldPersistTaps="handled"` so a first tap on an `Input` inside a
+  `ScrollView` correctly focuses the field rather than being swallowed.
+
+---
+
 ## [1.5.0] - 2026-04-21
 
 ### Added

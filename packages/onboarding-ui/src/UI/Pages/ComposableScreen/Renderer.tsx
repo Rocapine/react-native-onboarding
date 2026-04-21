@@ -1,11 +1,12 @@
-import React from "react";
-import { View, Text, Image, ScrollView, StyleSheet, TouchableOpacity } from "react-native";
+import React, { useState, useEffect, useContext, useMemo } from "react";
+import { View, Text, Image, ScrollView, StyleSheet, TouchableOpacity, TextInput } from "react-native";
 import { ComposableScreenStepType, ComposableScreenStepTypeSchema, UIElement } from "./types";
 import { Theme } from "../../Theme/types";
 import { defaultTheme } from "../../Theme/defaultTheme";
 import { getTextStyle } from "../../Theme/helpers";
 import { withErrorBoundary } from "../../ErrorBoundary";
 import { OnboardingTemplate } from "../../Templates/OnboardingTemplate";
+import { OnboardingProgressContext } from "../../Provider/OnboardingProgressProvider";
 
 let LottieView: React.ComponentType<{
   source: string | object;
@@ -45,6 +46,68 @@ try {
   // expo-video not installed
 }
 
+type InputUIElement = Extract<UIElement, { type: "Input" }>;
+const InputElementComponent = ({ element, theme, variables, onVariableChange }: { element: InputUIElement; theme: Theme; variables: Record<string, string>; onVariableChange: (key: string, value: string) => void }) => {
+  const persistedValue = element.props.variableName ? variables[element.props.variableName] : undefined;
+  const [value, setValue] = useState(persistedValue ?? element.props.defaultValue ?? "");
+
+  useEffect(() => {
+    if (element.props.variableName && element.props.defaultValue && persistedValue === undefined) {
+      onVariableChange(element.props.variableName, element.props.defaultValue);
+    }
+  }, []);
+
+  const handleChange = (text: string) => {
+    setValue(text);
+    if (element.props.variableName) {
+      onVariableChange(element.props.variableName, text);
+    }
+  };
+
+  return (
+    <View
+      style={{
+        backgroundColor: element.props.backgroundColor ?? theme.colors.neutral.lowest,
+        borderWidth: element.props.borderWidth ?? 1,
+        borderRadius: element.props.borderRadius ?? 8,
+        borderColor: element.props.borderColor ?? theme.colors.neutral.low,
+        width: element.props.width,
+        height: element.props.height,
+        opacity: element.props.opacity,
+        margin: element.props.margin,
+        marginHorizontal: element.props.marginHorizontal,
+        marginVertical: element.props.marginVertical,
+        overflow: "hidden",
+      }}
+    >
+      <TextInput
+        value={value}
+        onChangeText={handleChange}
+        placeholder={element.props.placeholder}
+        placeholderTextColor={element.props.placeholderColor ?? theme.colors.text.tertiary}
+        keyboardType={element.props.keyboardType ?? "default"}
+        returnKeyType={element.props.returnKeyType ?? "done"}
+        autoCapitalize={element.props.autoCapitalize ?? "sentences"}
+        secureTextEntry={element.props.secureTextEntry ?? false}
+        maxLength={element.props.maxLength}
+        multiline={element.props.multiline ?? false}
+        numberOfLines={element.props.numberOfLines}
+        editable={element.props.editable ?? true}
+        style={{
+          flex: 1,
+          color: element.props.color ?? theme.colors.text.primary,
+          fontSize: element.props.fontSize ?? theme.typography.textStyles.body.fontSize,
+          fontWeight: element.props.fontWeight as any,
+          textAlign: element.props.textAlign,
+          padding: element.props.padding ?? 12,
+          paddingHorizontal: element.props.paddingHorizontal,
+          paddingVertical: element.props.paddingVertical,
+        }}
+      />
+    </View>
+  );
+};
+
 type RiveUIElement = Extract<UIElement, { type: "Rive" }>;
 let RiveElementComponent: React.ComponentType<{ element: RiveUIElement; riveStyle: object }> | null = null;
 try {
@@ -69,13 +132,16 @@ try {
   // rive-react-native not installed - will show fallback if Rive is used
 }
 
+const interpolate = (template: string, variables: Record<string, string>): string =>
+  template.replace(/\{\{([^}]+?)\}\}/g, (_, key) => variables[key] ?? "");
+
 type ContentProps = {
   step: ComposableScreenStepType;
   onContinue: () => void;
   theme?: Theme;
 };
 
-const renderElement = (element: UIElement, theme: Theme, parentType?: "XStack" | "YStack"): React.ReactNode => {
+const renderElement = (element: UIElement, theme: Theme, variables: Record<string, string>, setVariable: (key: string, value: string) => void, parentType?: "XStack" | "YStack"): React.ReactNode => {
   if (element.type === "YStack" || element.type === "XStack") {
     return (
       <View
@@ -108,12 +174,15 @@ const renderElement = (element: UIElement, theme: Theme, parentType?: "XStack" |
           opacity: element.props.opacity,
         }}
       >
-        {element.children.map((child) => renderElement(child, theme, element.type))}
+        {element.children.map((child) => renderElement(child, theme, variables, setVariable, element.type))}
       </View>
     );
   }
 
   if (element.type === "Text") {
+    const content = element.props.mode === "expression"
+      ? interpolate(element.props.content, variables)
+      : element.props.content;
     return (
       <Text
         key={element.id}
@@ -138,7 +207,7 @@ const renderElement = (element: UIElement, theme: Theme, parentType?: "XStack" |
           flexShrink: parentType === "XStack" ? 1 : undefined,
         }}
       >
-        {element.props.content}
+        {content}
       </Text>
     );
   }
@@ -316,12 +385,17 @@ const renderElement = (element: UIElement, theme: Theme, parentType?: "XStack" |
     );
   }
 
+  if (element.type === "Input") {
+    return <InputElementComponent key={element.id} element={element} theme={theme} variables={variables} onVariableChange={setVariable} />;
+  }
+
   return null;
 };
 
 const ComposableScreenRendererBase = ({ step, onContinue, theme = defaultTheme }: ContentProps) => {
-  const validatedData = ComposableScreenStepTypeSchema.parse(step);
+  const validatedData = useMemo(() => ComposableScreenStepTypeSchema.parse(step), [step]);
   const { elements } = validatedData.payload;
+  const { composableVariables, setComposableVariable } = useContext(OnboardingProgressContext);
   return (
     <OnboardingTemplate
       step={step}
@@ -332,8 +406,9 @@ const ComposableScreenRendererBase = ({ step, onContinue, theme = defaultTheme }
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         alwaysBounceVertical={false}
+        keyboardShouldPersistTaps="handled"
       >
-        {elements.map((element) => renderElement(element, theme))}
+        {elements.map((element) => renderElement(element, theme, composableVariables, setComposableVariable))}
         <View style={styles.bottomSection}>
           <TouchableOpacity
             style={[styles.ctaButton, { backgroundColor: theme.colors.primary }]}

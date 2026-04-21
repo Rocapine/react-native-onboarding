@@ -55,6 +55,7 @@ type UIElement =
       type: "Text";
       props: {
         content: string;
+        mode?: "plain" | "expression";
         fontSize?: number;
         fontWeight?: string;
         color?: string;
@@ -130,6 +131,30 @@ type UIElement =
         muted?: boolean;
         controls?: boolean;
       };
+    }
+  | {
+      id: string;
+      name?: string;
+      type: "Input";
+      props: BaseBoxProps & {
+        variableName?: string;
+        placeholder?: string;
+        defaultValue?: string;
+        keyboardType?: "default" | "email-address" | "numeric" | "phone-pad" | "decimal-pad" | "url" | "number-pad" | "ascii-capable" | "numbers-and-punctuation" | "name-phone-pad" | "twitter" | "web-search" | "visible-password";
+        returnKeyType?: "done" | "next" | "go" | "search" | "send" | "default" | "emergency-call" | "google" | "join" | "route" | "yahoo" | "none" | "previous";
+        autoCapitalize?: "none" | "sentences" | "words" | "characters";
+        secureTextEntry?: boolean;
+        maxLength?: number;
+        multiline?: boolean;
+        numberOfLines?: number;
+        editable?: boolean;
+        color?: string;
+        backgroundColor?: string;
+        fontSize?: number;
+        fontWeight?: string;
+        textAlign?: "left" | "center" | "right";
+        placeholderColor?: string;
+      };
     };
 
 const BaseBoxPropsSchema = z.object({
@@ -176,6 +201,7 @@ const StackElementPropsSchema = z.object({
 
 const TextElementPropsSchema = z.object({
   content: z.string(),
+  mode: z.enum(["plain", "expression"]).optional(),
   fontSize: z.number().optional(),
   fontWeight: z.string().optional(),
   color: z.string().optional(),
@@ -232,6 +258,26 @@ const VideoElementPropsSchema = BaseBoxPropsSchema.extend({
   controls: z.boolean().optional(),
 });
 
+const InputElementPropsSchema = BaseBoxPropsSchema.extend({
+  variableName: z.string().optional(),
+  placeholder: z.string().optional(),
+  defaultValue: z.string().optional(),
+  keyboardType: z.enum(["default", "email-address", "numeric", "phone-pad", "decimal-pad", "url", "number-pad", "ascii-capable", "numbers-and-punctuation", "name-phone-pad", "twitter", "web-search", "visible-password"]).optional(),
+  returnKeyType: z.enum(["done", "next", "go", "search", "send", "default", "emergency-call", "google", "join", "route", "yahoo", "none", "previous"]).optional(),
+  autoCapitalize: z.enum(["none", "sentences", "words", "characters"]).optional(),
+  secureTextEntry: z.boolean().optional(),
+  maxLength: z.number().int().nonnegative().optional(),
+  multiline: z.boolean().optional(),
+  numberOfLines: z.number().int().nonnegative().optional(),
+  editable: z.boolean().optional(),
+  color: z.string().optional(),
+  backgroundColor: z.string().optional(),
+  fontSize: z.number().optional(),
+  fontWeight: z.string().optional(),
+  textAlign: z.enum(["left", "center", "right"]).optional(),
+  placeholderColor: z.string().optional(),
+});
+
 const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
   z.union([
     z.object({
@@ -276,6 +322,12 @@ const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
       name: z.string().optional(),
       type: z.literal("Video"),
       props: VideoElementPropsSchema,
+    }),
+    z.object({
+      id: z.string(),
+      name: z.string().optional(),
+      type: z.literal("Input"),
+      props: InputElementPropsSchema,
     }),
   ])
 );

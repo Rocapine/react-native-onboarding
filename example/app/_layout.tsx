@@ -7,7 +7,7 @@ import { Stack } from "expo-router";
 import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
-import { ThemeProvider } from "@rocapine/react-native-onboarding-ui";
+import { OnboardingProgressProvider } from "@rocapine/react-native-onboarding-ui";
 
 // Keep splash screen visible while fonts load
 SplashScreen.preventAutoHideAsync();
@@ -46,9 +46,9 @@ export default function RootLayout() {
       customAudienceParams={{
       }}
     >
-      <ThemeProvider>
+      <OnboardingProgressProvider>
         <Stack screenOptions={{ headerShown: false }} />
-      </ThemeProvider>
+      </OnboardingProgressProvider>
     </OnboardingProvider>
   );
 }

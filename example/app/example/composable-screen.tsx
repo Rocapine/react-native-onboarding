@@ -54,6 +54,30 @@ export default function ComposableScreenExample() {
                 borderRadius: 16,
               },
             },
+            // Icon element
+            {
+              id: 'hero-icon',
+              type: 'Icon',
+              props: {
+                name: 'Circle',
+                size: 48,
+                color: '#007AFF',
+                marginVertical: 8,
+              },
+            },
+            // Video element
+            {
+              id: 'hero-video',
+              type: 'Video',
+              props: {
+                url: 'https://lorem.video/720p',
+                height: 200,
+                borderRadius: 12,
+                controls: false,
+                muted: true,
+                autoPlay: true,
+              },
+            },
             // Header text
             {
               id: 'headline',

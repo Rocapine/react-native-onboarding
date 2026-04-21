@@ -147,7 +147,7 @@ const renderElement = (element: UIElement, theme: Theme, parentType?: "XStack" |
   }
 
   if (element.type === "Lottie") {
-    const lottieStyle = {
+    const wrapperStyle = {
       width: element.props.width ?? ("100%" as `${number}%`),
       height: element.props.height ?? 200,
       opacity: element.props.opacity,
@@ -160,14 +160,12 @@ const renderElement = (element: UIElement, theme: Theme, parentType?: "XStack" |
       borderWidth: element.props.borderWidth,
       borderRadius: element.props.borderRadius,
       borderColor: element.props.borderColor,
+      overflow: "hidden" as const,
     };
 
     if (!LottieView) {
       return (
-        <View
-          key={element.id}
-          style={[lottieStyle, styles.lottieFallback]}
-        >
+        <View key={element.id} style={[wrapperStyle, styles.lottieFallback]}>
           <Text style={styles.lottieFallbackText}>
             Install lottie-react-native to render Lottie animations.
           </Text>
@@ -176,20 +174,20 @@ const renderElement = (element: UIElement, theme: Theme, parentType?: "XStack" |
     }
 
     return (
-      <LottieView
-        key={element.id}
-        // source={element.props.source}
-        source={{ uri: element.props.source }}
-        autoPlay={element.props.autoPlay ?? true}
-        loop={element.props.loop ?? true}
-        speed={element.props.speed}
-        style={lottieStyle}
-      />
+      <View key={element.id} style={wrapperStyle}>
+        <LottieView
+          source={{ uri: element.props.source }}
+          autoPlay={element.props.autoPlay ?? true}
+          loop={element.props.loop ?? true}
+          speed={element.props.speed}
+          style={styles.fill}
+        />
+      </View>
     );
   }
 
   if (element.type === "Rive") {
-    const riveStyle = {
+    const wrapperStyle = {
       width: element.props.width ?? ("100%" as `${number}%`),
       height: element.props.height ?? 200,
       opacity: element.props.opacity,
@@ -202,11 +200,12 @@ const renderElement = (element: UIElement, theme: Theme, parentType?: "XStack" |
       borderWidth: element.props.borderWidth,
       borderRadius: element.props.borderRadius,
       borderColor: element.props.borderColor,
+      overflow: "hidden" as const,
     };
 
     if (!RiveElementComponent) {
       return (
-        <View key={element.id} style={[riveStyle, styles.riveFallback]}>
+        <View key={element.id} style={[wrapperStyle, styles.riveFallback]}>
           <Text style={styles.riveFallbackText}>
             Install @rive-app/react-native to render Rive animations.
           </Text>
@@ -214,7 +213,11 @@ const renderElement = (element: UIElement, theme: Theme, parentType?: "XStack" |
       );
     }
 
-    return <RiveElementComponent key={element.id} element={element} riveStyle={riveStyle} />;
+    return (
+      <View key={element.id} style={wrapperStyle}>
+        <RiveElementComponent element={element} riveStyle={styles.fill} />
+      </View>
+    );
   }
 
   return null;
@@ -259,6 +262,10 @@ const ComposableScreenRendererBase = ({ step, onContinue, theme = defaultTheme }
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  fill: {
+    width: "100%",
+    height: "100%",
   },
   scrollContent: {
     flexGrow: 1,

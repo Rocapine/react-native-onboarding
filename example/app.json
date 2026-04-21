@@ -7,7 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "example",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.paulbriand.RocaONBSExample",

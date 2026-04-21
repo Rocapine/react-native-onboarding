@@ -20,6 +20,29 @@ try {
   // lottie-react-native not installed - will show error if Lottie is used
 }
 
+type VideoUIElement = Extract<UIElement, { type: "Video" }>;
+let VideoElementComponent: React.ComponentType<{ element: VideoUIElement; style: object }> | null = null;
+try {
+  const { VideoView, useVideoPlayer } = require("expo-video");
+  VideoElementComponent = ({ element, style }: { element: VideoUIElement; style: object }) => {
+    const player = useVideoPlayer(element.props.url, (p: any) => {
+      p.loop = element.props.loop ?? false;
+      p.muted = element.props.muted ?? true;
+      if (element.props.autoPlay) p.play();
+    });
+    return (
+      <VideoView
+        player={player}
+        style={style}
+        allowsFullscreen={false}
+        nativeControls={element.props.controls ?? false}
+      />
+    );
+  };
+} catch {
+  // expo-video not installed
+}
+
 type RiveUIElement = Extract<UIElement, { type: "Rive" }>;
 let RiveElementComponent: React.ComponentType<{ element: RiveUIElement; riveStyle: object }> | null = null;
 try {
@@ -221,6 +244,77 @@ const renderElement = (element: UIElement, theme: Theme, parentType?: "XStack" |
     );
   }
 
+  if (element.type === "Icon") {
+    const icons = require("lucide-react-native");
+    const IconComp = icons[element.props.name] as React.ComponentType<{
+      size?: number;
+      color?: string;
+      strokeWidth?: number;
+    }> | undefined;
+    return (
+      <View
+        key={element.id}
+        style={{
+          alignSelf: "center",
+          width: element.props.width,
+          height: element.props.height,
+          margin: element.props.margin,
+          marginHorizontal: element.props.marginHorizontal,
+          marginVertical: element.props.marginVertical,
+          padding: element.props.padding,
+          paddingHorizontal: element.props.paddingHorizontal,
+          paddingVertical: element.props.paddingVertical,
+          borderWidth: element.props.borderWidth,
+          borderRadius: element.props.borderRadius,
+          borderColor: element.props.borderColor,
+          opacity: element.props.opacity,
+        }}
+      >
+        {IconComp ? (
+          <IconComp
+            size={element.props.size ?? 24}
+            color={element.props.color ?? theme.colors.text.primary}
+            strokeWidth={element.props.strokeWidth ?? 2}
+          />
+        ) : null}
+      </View>
+    );
+  }
+
+  if (element.type === "Video") {
+    const wrapperStyle = {
+      width: element.props.width ?? ("100%" as `${number}%`),
+      height: element.props.height ?? 200,
+      opacity: element.props.opacity,
+      margin: element.props.margin,
+      marginHorizontal: element.props.marginHorizontal,
+      marginVertical: element.props.marginVertical,
+      padding: element.props.padding,
+      paddingHorizontal: element.props.paddingHorizontal,
+      paddingVertical: element.props.paddingVertical,
+      borderWidth: element.props.borderWidth,
+      borderRadius: element.props.borderRadius,
+      borderColor: element.props.borderColor,
+      overflow: "hidden" as const,
+    };
+
+    if (!VideoElementComponent) {
+      return (
+        <View key={element.id} style={[wrapperStyle, styles.videoFallback]}>
+          <Text style={styles.videoFallbackText}>
+            Install expo-video to render videos.
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <View key={element.id} style={wrapperStyle}>
+        <VideoElementComponent element={element} style={styles.fill} />
+      </View>
+    );
+  }
+
   return null;
 };
 
@@ -301,6 +395,18 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   riveFallbackText: {
+    fontSize: 13,
+    color: "#888",
+    textAlign: "center",
+    paddingHorizontal: 16,
+  },
+  videoFallback: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F5F5F5",
+    borderRadius: 8,
+  },
+  videoFallbackText: {
     fontSize: 13,
     color: "#888",
     textAlign: "center",

@@ -53,7 +53,8 @@
     "react": "*",
     "react-native": "*",
     "react-native-safe-area-context": "*",
-    "rive-react-native": "*"
+    "rive-react-native": "*",
+    "expo-video": "*"
   },
   "peerDependenciesMeta": {
     "@react-native-picker/picker": {
@@ -69,6 +70,9 @@
       "optional": true
     },
     "rive-react-native": {
+      "optional": true
+    },
+    "expo-video": {
       "optional": true
     }
   },

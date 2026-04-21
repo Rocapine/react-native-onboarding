@@ -131,6 +131,27 @@ export const onboardingExample = {
                 },
               },
               {
+                id: "hero-icon",
+                type: "Icon",
+                props: {
+                  name: "Star",
+                  size: 48,
+                  color: "#007AFF",
+                  marginVertical: 8,
+                },
+              },
+              {
+                id: "hero-video",
+                type: "Video",
+                props: {
+                  url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+                  height: 200,
+                  borderRadius: 12,
+                  controls: true,
+                  muted: true,
+                },
+              },
+              {
                 id: "headline",
                 type: "Text",
                 props: {

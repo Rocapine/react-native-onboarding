@@ -107,6 +107,29 @@ type UIElement =
         artboardName?: string;
         stateMachineName?: string;
       };
+    }
+  | {
+      id: string;
+      name?: string;
+      type: "Icon";
+      props: BaseBoxProps & {
+        name: string;
+        size?: number;
+        color?: string;
+        strokeWidth?: number;
+      };
+    }
+  | {
+      id: string;
+      name?: string;
+      type: "Video";
+      props: BaseBoxProps & {
+        url: string;
+        autoPlay?: boolean;
+        loop?: boolean;
+        muted?: boolean;
+        controls?: boolean;
+      };
     };
 
 const BaseBoxPropsSchema = z.object({
@@ -194,6 +217,21 @@ const RiveElementPropsSchema = BaseBoxPropsSchema.extend({
   stateMachineName: z.string().optional(),
 });
 
+const IconElementPropsSchema = BaseBoxPropsSchema.extend({
+  name: z.string(),
+  size: z.number().optional(),
+  color: z.string().optional(),
+  strokeWidth: z.number().optional(),
+});
+
+const VideoElementPropsSchema = BaseBoxPropsSchema.extend({
+  url: z.string(),
+  autoPlay: z.boolean().optional(),
+  loop: z.boolean().optional(),
+  muted: z.boolean().optional(),
+  controls: z.boolean().optional(),
+});
+
 const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
   z.union([
     z.object({
@@ -226,6 +264,18 @@ const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
       name: z.string().optional(),
       type: z.literal("Rive"),
       props: RiveElementPropsSchema,
+    }),
+    z.object({
+      id: z.string(),
+      name: z.string().optional(),
+      type: z.literal("Icon"),
+      props: IconElementPropsSchema,
+    }),
+    z.object({
+      id: z.string(),
+      name: z.string().optional(),
+      type: z.literal("Video"),
+      props: VideoElementPropsSchema,
     }),
   ])
 );

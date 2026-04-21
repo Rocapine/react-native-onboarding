@@ -8,14 +8,19 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ### Added
 
-- **`Icon` UIElement** for `ComposableScreen` — renders a Lucide icon by name
-  via `lucide-react-native` (bundled dependency, always available). Supports
-  `name` (required, e.g. `"Star"`, `"Heart"`), `size`, `color`, `strokeWidth`,
-  and all `BaseBoxProps`.
-- **`Video` UIElement** for `ComposableScreen` — renders a video from a remote
-  URL via `expo-video` (optional peer dep). Supports `url` (required),
-  `autoPlay`, `loop`, `muted`, `controls`, and all `BaseBoxProps`. Graceful
-  fallback shown if `expo-video` is not installed.
+- **`Icon` UIElement schema** for `ComposableScreen` — new discriminated-union
+  variant with `type: "Icon"`. Props: `name` (string, **required** — Lucide icon
+  name), `size` (number), `color` (string), `strokeWidth` (number), plus all
+  `BaseBoxProps`. Validated by `IconElementPropsSchema` (Zod).
+- **`Video` UIElement schema** for `ComposableScreen` — new discriminated-union
+  variant with `type: "Video"`. Props: `url` (string, **required**), `autoPlay`
+  (boolean), `loop` (boolean), `muted` (boolean), `controls` (boolean), plus all
+  `BaseBoxProps`. Validated by `VideoElementPropsSchema` (Zod).
+
+> **Backend note:** The `onboarding-studio` server must be updated to accept and
+> emit `Icon` and `Video` `UIElement` variants in `ComposableScreen` payloads.
+> Mirror `IconElementPropsSchema` and `VideoElementPropsSchema` in the backend
+> validation layer and add both types to the CMS element-type picker.
 
 ---
 

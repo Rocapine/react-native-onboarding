@@ -17,9 +17,11 @@ let LottieView: React.ComponentType<{
 try {
   LottieView = require("lottie-react-native").default;
 } catch {
-  // lottie-react-native not installed - will show error if Lottie is used
+  // lottie-react-native not installed
 }
 
+// Metro cannot tree-shake optional peer deps at runtime; the try/catch pattern
+// below is the standard React Native approach for optional native modules.
 type VideoUIElement = Extract<UIElement, { type: "Video" }>;
 let VideoElementComponent: React.ComponentType<{ element: VideoUIElement; style: object }> | null = null;
 try {
@@ -189,8 +191,8 @@ const renderElement = (element: UIElement, theme: Theme, parentType?: "XStack" |
 
     if (!LottieView) {
       return (
-        <View key={element.id} style={[wrapperStyle, styles.lottieFallback]}>
-          <Text style={styles.lottieFallbackText}>
+        <View key={element.id} style={[wrapperStyle, styles.mediaFallback, { backgroundColor: theme.colors.neutral.lowest }]}>
+          <Text style={[styles.mediaFallbackText, getTextStyle(theme, "caption"), { color: theme.colors.text.tertiary }]}>
             Install lottie-react-native to render Lottie animations.
           </Text>
         </View>
@@ -229,8 +231,8 @@ const renderElement = (element: UIElement, theme: Theme, parentType?: "XStack" |
 
     if (!RiveElementComponent) {
       return (
-        <View key={element.id} style={[wrapperStyle, styles.riveFallback]}>
-          <Text style={styles.riveFallbackText}>
+        <View key={element.id} style={[wrapperStyle, styles.mediaFallback, { backgroundColor: theme.colors.neutral.lowest }]}>
+          <Text style={[styles.mediaFallbackText, getTextStyle(theme, "caption"), { color: theme.colors.text.tertiary }]}>
             Install rive-react-native to render Rive animations.
           </Text>
         </View>
@@ -255,7 +257,6 @@ const renderElement = (element: UIElement, theme: Theme, parentType?: "XStack" |
       <View
         key={element.id}
         style={{
-          alignSelf: "center",
           width: element.props.width,
           height: element.props.height,
           margin: element.props.margin,
@@ -300,8 +301,8 @@ const renderElement = (element: UIElement, theme: Theme, parentType?: "XStack" |
 
     if (!VideoElementComponent) {
       return (
-        <View key={element.id} style={[wrapperStyle, styles.videoFallback]}>
-          <Text style={styles.videoFallbackText}>
+        <View key={element.id} style={[wrapperStyle, styles.mediaFallback, { backgroundColor: theme.colors.neutral.lowest }]}>
+          <Text style={[styles.mediaFallbackText, getTextStyle(theme, "caption"), { color: theme.colors.text.tertiary }]}>
             Install expo-video to render videos.
           </Text>
         </View>
@@ -376,39 +377,11 @@ const styles = StyleSheet.create({
     minWidth: 234,
     alignItems: "center",
   },
-  lottieFallback: {
+  mediaFallback: {
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#F5F5F5",
-    borderRadius: 8,
   },
-  lottieFallbackText: {
-    fontSize: 13,
-    color: "#888",
-    textAlign: "center",
-    paddingHorizontal: 16,
-  },
-  riveFallback: {
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#F5F5F5",
-    borderRadius: 8,
-  },
-  riveFallbackText: {
-    fontSize: 13,
-    color: "#888",
-    textAlign: "center",
-    paddingHorizontal: 16,
-  },
-  videoFallback: {
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#F5F5F5",
-    borderRadius: 8,
-  },
-  videoFallbackText: {
-    fontSize: 13,
-    color: "#888",
+  mediaFallbackText: {
     textAlign: "center",
     paddingHorizontal: 16,
   },

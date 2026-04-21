@@ -479,7 +479,9 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 | `width` / `height` | `number` | Wrapper `View` dimensions |
 | `margin` / `marginHorizontal` / `marginVertical` | `number` | |
 | `padding` / `paddingHorizontal` / `paddingVertical` | `number` | |
-| `borderWidth` / `borderRadius` / `borderColor` | `number \| string` | |
+| `borderWidth` | `number` | |
+| `borderRadius` | `number` | |
+| `borderColor` | `string` | |
 | `opacity` | `number` | |
 
 `Icon` uses [Lucide React Native](https://lucide.dev/guide/packages/lucide-react-native), which is bundled with the UI package — no extra install needed. If an unknown icon name is passed the element renders nothing.
@@ -550,7 +552,9 @@ If `rive-react-native` is not installed, the element renders a placeholder view 
 | `opacity` | `number` | |
 | `margin` / `marginHorizontal` / `marginVertical` | `number` | |
 | `padding` / `paddingHorizontal` / `paddingVertical` | `number` | |
-| `borderWidth` / `borderRadius` / `borderColor` | `number \| string` | Applied via a wrapping `View` |
+| `borderWidth` | `number` | Applied via a wrapping `View` |
+| `borderRadius` | `number` | Applied via a wrapping `View` |
+| `borderColor` | `string` | Applied via a wrapping `View` |
 
 **Dependencies:** `expo-video`
 

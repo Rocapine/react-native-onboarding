@@ -78,6 +78,19 @@ export default function ComposableScreenExample() {
                 autoPlay: true,
               },
             },
+            // Input element
+            {
+              id: 'hero-input',
+              type: 'Input' as const,
+              props: {
+                placeholder: 'Enter your name',
+                keyboardType: 'default' as const,
+                returnKeyType: 'done' as const,
+                autoCapitalize: 'words' as const,
+                borderRadius: 12,
+                marginVertical: 8,
+              },
+            },
             // Header text
             {
               id: 'headline',

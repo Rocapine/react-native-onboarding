@@ -152,6 +152,18 @@ export const onboardingExample = {
                 },
               },
               {
+                id: "hero-input",
+                type: "Input",
+                props: {
+                  placeholder: "Enter your name",
+                  keyboardType: "default",
+                  returnKeyType: "done",
+                  autoCapitalize: "words",
+                  // borderRadius: 12,
+                  marginVertical: 8,
+                },
+              },
+              {
                 id: "headline",
                 type: "Text",
                 props: {

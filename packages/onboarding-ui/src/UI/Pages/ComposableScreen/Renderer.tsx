@@ -1,5 +1,5 @@
-import React from "react";
-import { View, Text, Image, ScrollView, StyleSheet, TouchableOpacity } from "react-native";
+import React, { useState } from "react";
+import { View, Text, Image, ScrollView, StyleSheet, TouchableOpacity, TextInput } from "react-native";
 import { ComposableScreenStepType, ComposableScreenStepTypeSchema, UIElement } from "./types";
 import { Theme } from "../../Theme/types";
 import { defaultTheme } from "../../Theme/defaultTheme";
@@ -44,6 +44,52 @@ try {
 } catch {
   // expo-video not installed
 }
+
+type InputUIElement = Extract<UIElement, { type: "Input" }>;
+const InputElementComponent = ({ element, theme }: { element: InputUIElement; theme: Theme }) => {
+  const [value, setValue] = useState(element.props.defaultValue ?? "");
+  return (
+    <View
+      style={{
+        backgroundColor: element.props.backgroundColor ?? theme.colors.neutral.lowest,
+        borderWidth: element.props.borderWidth ?? 1,
+        borderRadius: element.props.borderRadius ?? 8,
+        borderColor: element.props.borderColor ?? theme.colors.neutral.low,
+        width: element.props.width,
+        height: element.props.height,
+        opacity: element.props.opacity,
+        margin: element.props.margin,
+        marginHorizontal: element.props.marginHorizontal,
+        marginVertical: element.props.marginVertical,
+        overflow: "hidden",
+      }}
+    >
+      <TextInput
+        value={value}
+        onChangeText={setValue}
+        placeholder={element.props.placeholder}
+        placeholderTextColor={element.props.placeholderColor ?? theme.colors.text.tertiary}
+        keyboardType={element.props.keyboardType ?? "default"}
+        returnKeyType={element.props.returnKeyType ?? "done"}
+        autoCapitalize={element.props.autoCapitalize ?? "sentences"}
+        secureTextEntry={element.props.secureTextEntry ?? false}
+        maxLength={element.props.maxLength}
+        multiline={element.props.multiline ?? false}
+        numberOfLines={element.props.numberOfLines}
+        editable={element.props.editable ?? true}
+        style={{
+          flex: 1,
+          color: element.props.color ?? theme.colors.text.primary,
+          fontSize: element.props.fontSize ?? 16,
+          textAlign: element.props.textAlign,
+          padding: element.props.padding ?? 12,
+          paddingHorizontal: element.props.paddingHorizontal,
+          paddingVertical: element.props.paddingVertical,
+        }}
+      />
+    </View>
+  );
+};
 
 type RiveUIElement = Extract<UIElement, { type: "Rive" }>;
 let RiveElementComponent: React.ComponentType<{ element: RiveUIElement; riveStyle: object }> | null = null;
@@ -314,6 +360,10 @@ const renderElement = (element: UIElement, theme: Theme, parentType?: "XStack" |
         <VideoElementComponent element={element} style={styles.fill} />
       </View>
     );
+  }
+
+  if (element.type === "Input") {
+    return <InputElementComponent key={element.id} element={element} theme={theme} />;
   }
 
   return null;

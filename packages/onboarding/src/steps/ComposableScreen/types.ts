@@ -130,6 +130,29 @@ type UIElement =
         muted?: boolean;
         controls?: boolean;
       };
+    }
+  | {
+      id: string;
+      name?: string;
+      type: "Input";
+      props: BaseBoxProps & {
+        placeholder?: string;
+        defaultValue?: string;
+        keyboardType?: "default" | "email-address" | "numeric" | "phone-pad" | "decimal-pad" | "url" | "number-pad";
+        returnKeyType?: "done" | "next" | "go" | "search" | "send";
+        autoCapitalize?: "none" | "sentences" | "words" | "characters";
+        secureTextEntry?: boolean;
+        maxLength?: number;
+        multiline?: boolean;
+        numberOfLines?: number;
+        editable?: boolean;
+        color?: string;
+        backgroundColor?: string;
+        fontSize?: number;
+        fontWeight?: string;
+        textAlign?: "left" | "center" | "right";
+        placeholderColor?: string;
+      };
     };
 
 const BaseBoxPropsSchema = z.object({
@@ -232,6 +255,25 @@ const VideoElementPropsSchema = BaseBoxPropsSchema.extend({
   controls: z.boolean().optional(),
 });
 
+const InputElementPropsSchema = BaseBoxPropsSchema.extend({
+  placeholder: z.string().optional(),
+  defaultValue: z.string().optional(),
+  keyboardType: z.enum(["default", "email-address", "numeric", "phone-pad", "decimal-pad", "url", "number-pad"]).optional(),
+  returnKeyType: z.enum(["done", "next", "go", "search", "send"]).optional(),
+  autoCapitalize: z.enum(["none", "sentences", "words", "characters"]).optional(),
+  secureTextEntry: z.boolean().optional(),
+  maxLength: z.number().optional(),
+  multiline: z.boolean().optional(),
+  numberOfLines: z.number().optional(),
+  editable: z.boolean().optional(),
+  color: z.string().optional(),
+  backgroundColor: z.string().optional(),
+  fontSize: z.number().optional(),
+  fontWeight: z.string().optional(),
+  textAlign: z.enum(["left", "center", "right"]).optional(),
+  placeholderColor: z.string().optional(),
+});
+
 const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
   z.union([
     z.object({
@@ -276,6 +318,12 @@ const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
       name: z.string().optional(),
       type: z.literal("Video"),
       props: VideoElementPropsSchema,
+    }),
+    z.object({
+      id: z.string(),
+      name: z.string().optional(),
+      type: z.literal("Input"),
+      props: InputElementPropsSchema,
     }),
   ])
 );

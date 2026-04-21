@@ -154,6 +154,12 @@ const renderElement = (element: UIElement, theme: Theme, parentType?: "XStack" |
       margin: element.props.margin,
       marginHorizontal: element.props.marginHorizontal,
       marginVertical: element.props.marginVertical,
+      padding: element.props.padding,
+      paddingHorizontal: element.props.paddingHorizontal,
+      paddingVertical: element.props.paddingVertical,
+      borderWidth: element.props.borderWidth,
+      borderRadius: element.props.borderRadius,
+      borderColor: element.props.borderColor,
     };
 
     if (!LottieView) {
@@ -190,6 +196,12 @@ const renderElement = (element: UIElement, theme: Theme, parentType?: "XStack" |
       margin: element.props.margin,
       marginHorizontal: element.props.marginHorizontal,
       marginVertical: element.props.marginVertical,
+      padding: element.props.padding,
+      paddingHorizontal: element.props.paddingHorizontal,
+      paddingVertical: element.props.paddingVertical,
+      borderWidth: element.props.borderWidth,
+      borderRadius: element.props.borderRadius,
+      borderColor: element.props.borderColor,
     };
 
     if (!RiveElementComponent) {

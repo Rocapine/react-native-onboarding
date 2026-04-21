@@ -96,6 +96,12 @@ type UIElement =
         margin?: number;
         marginHorizontal?: number;
         marginVertical?: number;
+        padding?: number;
+        paddingHorizontal?: number;
+        paddingVertical?: number;
+        borderWidth?: number;
+        borderRadius?: number;
+        borderColor?: string;
       };
     }
   | {
@@ -115,6 +121,12 @@ type UIElement =
         margin?: number;
         marginHorizontal?: number;
         marginVertical?: number;
+        padding?: number;
+        paddingHorizontal?: number;
+        paddingVertical?: number;
+        borderWidth?: number;
+        borderRadius?: number;
+        borderColor?: string;
       };
     };
 
@@ -195,6 +207,12 @@ const LottieElementPropsSchema = z.object({
   margin: z.number().optional(),
   marginHorizontal: z.number().optional(),
   marginVertical: z.number().optional(),
+  padding: z.number().optional(),
+  paddingHorizontal: z.number().optional(),
+  paddingVertical: z.number().optional(),
+  borderWidth: z.number().optional(),
+  borderRadius: z.number().optional(),
+  borderColor: z.string().optional(),
 });
 
 const RiveElementPropsSchema = z.object({
@@ -210,6 +228,12 @@ const RiveElementPropsSchema = z.object({
   margin: z.number().optional(),
   marginHorizontal: z.number().optional(),
   marginVertical: z.number().optional(),
+  padding: z.number().optional(),
+  paddingHorizontal: z.number().optional(),
+  paddingVertical: z.number().optional(),
+  borderWidth: z.number().optional(),
+  borderRadius: z.number().optional(),
+  borderColor: z.string().optional(),
 });
 
 const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>

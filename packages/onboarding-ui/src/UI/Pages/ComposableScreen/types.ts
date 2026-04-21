@@ -97,6 +97,25 @@ export type UIElement =
         marginHorizontal?: number;
         marginVertical?: number;
       };
+    }
+  | {
+      id: string;
+      name?: string;
+      type: "Rive";
+      props: {
+        url: string;
+        width?: number;
+        height?: number;
+        autoplay?: boolean;
+        fit?: "Contain" | "Cover" | "Fill" | "FitWidth" | "FitHeight" | "None" | "ScaleDown" | "Layout";
+        alignment?: "TopLeft" | "TopCenter" | "TopRight" | "CenterLeft" | "Center" | "CenterRight" | "BottomLeft" | "BottomCenter" | "BottomRight";
+        artboardName?: string;
+        stateMachineName?: string;
+        opacity?: number;
+        margin?: number;
+        marginHorizontal?: number;
+        marginVertical?: number;
+      };
     };
 
 const StackElementPropsSchema = z.object({
@@ -178,6 +197,21 @@ const LottieElementPropsSchema = z.object({
   marginVertical: z.number().optional(),
 });
 
+const RiveElementPropsSchema = z.object({
+  url: z.string(),
+  width: z.number().optional(),
+  height: z.number().optional(),
+  autoplay: z.boolean().optional(),
+  fit: z.enum(["Contain", "Cover", "Fill", "FitWidth", "FitHeight", "None", "ScaleDown", "Layout"]).optional(),
+  alignment: z.enum(["TopLeft", "TopCenter", "TopRight", "CenterLeft", "Center", "CenterRight", "BottomLeft", "BottomCenter", "BottomRight"]).optional(),
+  artboardName: z.string().optional(),
+  stateMachineName: z.string().optional(),
+  opacity: z.number().min(0).max(1).optional(),
+  margin: z.number().optional(),
+  marginHorizontal: z.number().optional(),
+  marginVertical: z.number().optional(),
+});
+
 export const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
   z.union([
     z.object({
@@ -204,6 +238,12 @@ export const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
       name: z.string().optional(),
       type: z.literal("Lottie"),
       props: LottieElementPropsSchema,
+    }),
+    z.object({
+      id: z.string(),
+      name: z.string().optional(),
+      type: z.literal("Rive"),
+      props: RiveElementPropsSchema,
     }),
   ])
 );

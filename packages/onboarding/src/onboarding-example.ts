@@ -155,12 +155,24 @@ export const onboardingExample = {
                 id: "hero-input",
                 type: "Input",
                 props: {
+                  variableName: "name",
                   placeholder: "Enter your name",
                   keyboardType: "default",
                   returnKeyType: "done",
                   autoCapitalize: "words",
-                  // borderRadius: 12,
                   marginVertical: 8,
+                },
+              },
+              {
+                id: "greeting",
+                type: "Text",
+                props: {
+                  content: "Hello {{name}}!",
+                  mode: "expression",
+                  fontSize: 18,
+                  fontWeight: "600",
+                  textAlign: "center",
+                  marginVertical: 4,
                 },
               },
               {

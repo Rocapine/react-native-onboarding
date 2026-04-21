@@ -55,6 +55,7 @@ export type UIElement =
       type: "Text";
       props: {
         content: string;
+        mode?: "plain" | "expression";
         fontSize?: number;
         fontWeight?: string;
         color?: string;
@@ -136,6 +137,7 @@ export type UIElement =
       name?: string;
       type: "Input";
       props: BaseBoxProps & {
+        variableName?: string;
         placeholder?: string;
         defaultValue?: string;
         keyboardType?: "default" | "email-address" | "numeric" | "phone-pad" | "decimal-pad" | "url" | "number-pad";
@@ -199,6 +201,7 @@ const StackElementPropsSchema = z.object({
 
 const TextElementPropsSchema = z.object({
   content: z.string(),
+  mode: z.enum(["plain", "expression"]).optional(),
   fontSize: z.number().optional(),
   fontWeight: z.string().optional(),
   color: z.string().optional(),
@@ -256,6 +259,7 @@ const VideoElementPropsSchema = BaseBoxPropsSchema.extend({
 });
 
 const InputElementPropsSchema = BaseBoxPropsSchema.extend({
+  variableName: z.string().optional(),
   placeholder: z.string().optional(),
   defaultValue: z.string().optional(),
   keyboardType: z.enum(["default", "email-address", "numeric", "phone-pad", "decimal-pad", "url", "number-pad"]).optional(),

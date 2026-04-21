@@ -6,7 +6,7 @@ import { defaultTheme } from "../../Theme/defaultTheme";
 import { getTextStyle } from "../../Theme/helpers";
 import { withErrorBoundary } from "../../ErrorBoundary";
 import { OnboardingTemplate } from "../../Templates/OnboardingTemplate";
-import { OnboardingProgressContext } from "../../Provider/OnboardingProgressProvider";
+import { OnboardingProgressContext, ComposableVariableEntry } from "../../Provider/OnboardingProgressProvider";
 
 let LottieView: React.ComponentType<{
   source: string | object;
@@ -47,20 +47,20 @@ try {
 }
 
 type InputUIElement = Extract<UIElement, { type: "Input" }>;
-const InputElementComponent = ({ element, theme, variables, onVariableChange }: { element: InputUIElement; theme: Theme; variables: Record<string, string>; onVariableChange: (key: string, value: string) => void }) => {
-  const persistedValue = element.props.variableName ? variables[element.props.variableName] : undefined;
+const InputElementComponent = ({ element, theme, variables, onVariableChange }: { element: InputUIElement; theme: Theme; variables: Record<string, ComposableVariableEntry>; onVariableChange: (key: string, entry: ComposableVariableEntry) => void }) => {
+  const persistedValue = element.props.variableName ? variables[element.props.variableName]?.value : undefined;
   const [value, setValue] = useState(persistedValue ?? element.props.defaultValue ?? "");
 
   useEffect(() => {
     if (element.props.variableName && element.props.defaultValue && persistedValue === undefined) {
-      onVariableChange(element.props.variableName, element.props.defaultValue);
+      onVariableChange(element.props.variableName, { value: element.props.defaultValue });
     }
   }, []);
 
   const handleChange = (text: string) => {
     setValue(text);
     if (element.props.variableName) {
-      onVariableChange(element.props.variableName, text);
+      onVariableChange(element.props.variableName, { value: text });
     }
   };
 
@@ -108,6 +108,116 @@ const InputElementComponent = ({ element, theme, variables, onVariableChange }: 
   );
 };
 
+type RadioGroupUIElement = Extract<UIElement, { type: "RadioGroup" }>;
+
+const RadioGroupComponent = ({ element, theme, variables, onVariableChange }: { element: RadioGroupUIElement; theme: Theme; variables: Record<string, ComposableVariableEntry>; onVariableChange: (key: string, entry: ComposableVariableEntry) => void }) => {
+  const selectedValue = element.props.variableName ? variables[element.props.variableName]?.value : undefined;
+
+  useEffect(() => {
+    if (element.props.variableName && element.props.defaultValue && selectedValue === undefined) {
+      const defaultItem = element.props.items.find((i) => i.value === element.props.defaultValue);
+      onVariableChange(element.props.variableName, { value: element.props.defaultValue, label: defaultItem?.label });
+    }
+  }, []);
+
+  const handleSelect = (value: string, label: string) => {
+    if (element.props.variableName) {
+      onVariableChange(element.props.variableName, { value, label });
+    }
+  };
+
+  const isHorizontal = element.props.direction === "horizontal";
+
+  return (
+    <View
+      style={{
+        flexDirection: isHorizontal ? "row" : "column",
+        flexWrap: isHorizontal ? "wrap" : undefined,
+        gap: element.props.gap ?? 8,
+        width: element.props.width,
+        height: element.props.height,
+        margin: element.props.margin,
+        marginHorizontal: element.props.marginHorizontal,
+        marginVertical: element.props.marginVertical,
+        padding: element.props.padding,
+        paddingHorizontal: element.props.paddingHorizontal,
+        paddingVertical: element.props.paddingVertical,
+        borderWidth: element.props.borderWidth,
+        borderRadius: element.props.borderRadius,
+        borderColor: element.props.borderColor,
+        opacity: element.props.opacity,
+      }}
+    >
+      {element.props.items.map((item) => {
+        const isSelected = selectedValue === item.value;
+        const bgColor = isSelected
+          ? (element.props.itemSelectedBackgroundColor ?? theme.colors.primary + "15")
+          : (element.props.itemBackgroundColor ?? "transparent");
+        const textColor = isSelected
+          ? (element.props.itemSelectedColor ?? theme.colors.primary)
+          : (element.props.itemColor ?? theme.colors.text.primary);
+        const borderColor = isSelected
+          ? (element.props.itemSelectedBorderColor ?? theme.colors.primary)
+          : (element.props.itemBorderColor ?? theme.colors.neutral.low);
+
+        return (
+          <TouchableOpacity
+            key={item.value}
+            activeOpacity={0.7}
+            onPress={() => handleSelect(item.value, item.label)}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 12,
+              backgroundColor: bgColor,
+              borderRadius: element.props.itemBorderRadius ?? 8,
+              borderWidth: element.props.itemBorderWidth ?? 1,
+              borderColor: borderColor,
+              padding: element.props.itemPadding ?? (element.props.itemPaddingHorizontal === undefined && element.props.itemPaddingVertical === undefined ? 12 : undefined),
+              paddingHorizontal: element.props.itemPaddingHorizontal,
+              paddingVertical: element.props.itemPaddingVertical,
+            }}
+          >
+            <View
+              style={{
+                width: 20,
+                height: 20,
+                borderRadius: 10,
+                borderWidth: 2,
+                borderColor: isSelected ? theme.colors.primary : theme.colors.neutral.medium,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {isSelected && (
+                <View
+                  style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: 5,
+                    backgroundColor: theme.colors.primary,
+                  }}
+                />
+              )}
+            </View>
+            <Text
+              style={{
+                flex: 1,
+                color: textColor,
+                fontSize: element.props.itemFontSize ?? theme.typography.textStyles.body.fontSize,
+                fontWeight: (element.props.itemFontWeight as any) ?? theme.typography.textStyles.body.fontWeight,
+                fontFamily: element.props.itemFontFamily,
+              }}
+            >
+              {item.label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+};
+
 type RiveUIElement = Extract<UIElement, { type: "Rive" }>;
 let RiveElementComponent: React.ComponentType<{ element: RiveUIElement; riveStyle: object }> | null = null;
 try {
@@ -132,8 +242,8 @@ try {
   // rive-react-native not installed - will show fallback if Rive is used
 }
 
-const interpolate = (template: string, variables: Record<string, string>): string =>
-  template.replace(/\{\{([^}]+?)\}\}/g, (_, key) => variables[key] ?? "");
+const interpolate = (template: string, variables: Record<string, ComposableVariableEntry>): string =>
+  template.replace(/\{\{([^}]+?)\}\}/g, (_, key) => variables[key]?.label ?? variables[key]?.value ?? "");
 
 type ContentProps = {
   step: ComposableScreenStepType;
@@ -141,7 +251,7 @@ type ContentProps = {
   theme?: Theme;
 };
 
-const renderElement = (element: UIElement, theme: Theme, variables: Record<string, string>, setVariable: (key: string, value: string) => void, onContinue: () => void, parentType?: "XStack" | "YStack"): React.ReactNode => {
+const renderElement = (element: UIElement, theme: Theme, variables: Record<string, ComposableVariableEntry>, setVariable: (key: string, entry: ComposableVariableEntry) => void, onContinue: () => void, parentType?: "XStack" | "YStack"): React.ReactNode => {
   if (element.type === "YStack" || element.type === "XStack") {
     return (
       <View
@@ -388,6 +498,10 @@ const renderElement = (element: UIElement, theme: Theme, variables: Record<strin
 
   if (element.type === "Input") {
     return <InputElementComponent key={element.id} element={element} theme={theme} variables={variables} onVariableChange={setVariable} />;
+  }
+
+  if (element.type === "RadioGroup") {
+    return <RadioGroupComponent key={element.id} element={element} theme={theme} variables={variables} onVariableChange={setVariable} />;
   }
 
   if (element.type === "Button") {

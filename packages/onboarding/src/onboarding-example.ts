@@ -199,6 +199,21 @@ export const onboardingExample = {
                 },
               },
               {
+                id: "hero-radio",
+                type: "RadioGroup",
+                props: {
+                  variableName: "plan",
+                  defaultValue: "monthly",
+                  gap: 8,
+                  marginVertical: 8,
+                  items: [
+                    { label: "Monthly", value: "monthly" },
+                    { label: "Yearly", value: "yearly" },
+                    { label: "Lifetime", value: "lifetime" },
+                  ],
+                },
+              },
+              {
                 id: "hero-button",
                 type: "Button",
                 props: {

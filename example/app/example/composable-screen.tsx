@@ -196,6 +196,22 @@ export default function ComposableScreenExample() {
                 },
               ],
             },
+            // Radio group element
+            {
+              id: 'hero-radio',
+              type: 'RadioGroup' as const,
+              props: {
+                variableName: 'plan',
+                defaultValue: 'monthly',
+                gap: 8,
+                marginVertical: 8,
+                items: [
+                  { label: 'Monthly', value: 'monthly' },
+                  { label: 'Yearly', value: 'yearly' },
+                  { label: 'Lifetime', value: 'lifetime' },
+                ],
+              },
+            },
             // Button element
             {
               id: 'hero-button',

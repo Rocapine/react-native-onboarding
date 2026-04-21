@@ -47,11 +47,12 @@ try {
 }
 
 type InputUIElement = Extract<UIElement, { type: "Input" }>;
-const InputElementComponent = ({ element, theme, onVariableChange }: { element: InputUIElement; theme: Theme; onVariableChange: (key: string, value: string) => void }) => {
-  const [value, setValue] = useState(element.props.defaultValue ?? "");
+const InputElementComponent = ({ element, theme, variables, onVariableChange }: { element: InputUIElement; theme: Theme; variables: Record<string, string>; onVariableChange: (key: string, value: string) => void }) => {
+  const persistedValue = element.props.variableName ? variables[element.props.variableName] : undefined;
+  const [value, setValue] = useState(persistedValue ?? element.props.defaultValue ?? "");
 
   useEffect(() => {
-    if (element.props.variableName && element.props.defaultValue) {
+    if (element.props.variableName && element.props.defaultValue && persistedValue === undefined) {
       onVariableChange(element.props.variableName, element.props.defaultValue);
     }
   }, []);
@@ -95,7 +96,8 @@ const InputElementComponent = ({ element, theme, onVariableChange }: { element: 
         style={{
           flex: 1,
           color: element.props.color ?? theme.colors.text.primary,
-          fontSize: element.props.fontSize ?? 16,
+          fontSize: element.props.fontSize ?? theme.typography.textStyles.body.fontSize,
+          fontWeight: element.props.fontWeight as any,
           textAlign: element.props.textAlign,
           padding: element.props.padding ?? 12,
           paddingHorizontal: element.props.paddingHorizontal,
@@ -131,7 +133,7 @@ try {
 }
 
 const interpolate = (template: string, variables: Record<string, string>): string =>
-  template.replace(/\{\{(\w+)\}\}/g, (_, key) => variables[key] ?? "");
+  template.replace(/\{\{([^}]+?)\}\}/g, (_, key) => variables[key] ?? "");
 
 type ContentProps = {
   step: ComposableScreenStepType;
@@ -384,7 +386,7 @@ const renderElement = (element: UIElement, theme: Theme, variables: Record<strin
   }
 
   if (element.type === "Input") {
-    return <InputElementComponent key={element.id} element={element} theme={theme} onVariableChange={setVariable} />;
+    return <InputElementComponent key={element.id} element={element} theme={theme} variables={variables} onVariableChange={setVariable} />;
   }
 
   return null;

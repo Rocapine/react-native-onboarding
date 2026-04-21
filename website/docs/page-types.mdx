@@ -479,8 +479,8 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 | `placeholder` | `string` | Placeholder text |
 | `placeholderColor` | `string` | Defaults to `theme.colors.text.tertiary` |
 | `defaultValue` | `string` | Initial value; also written to context on mount if `variableName` is set |
-| `keyboardType` | `"default" \| "email-address" \| "numeric" \| "phone-pad" \| "number-pad" \| "decimal-pad"` | Defaults to `"default"` |
-| `returnKeyType` | `"done" \| "go" \| "next" \| "search" \| "send"` | Defaults to `"done"` |
+| `keyboardType` | `"default" \| "email-address" \| "numeric" \| "phone-pad" \| "decimal-pad" \| "url" \| "number-pad" \| "ascii-capable" \| "numbers-and-punctuation" \| "name-phone-pad" \| "twitter" \| "web-search" \| "visible-password"` | Defaults to `"default"` |
+| `returnKeyType` | `"done" \| "go" \| "next" \| "search" \| "send" \| "default" \| "emergency-call" \| "google" \| "join" \| "route" \| "yahoo" \| "none" \| "previous"` | Defaults to `"done"` |
 | `autoCapitalize` | `"none" \| "sentences" \| "words" \| "characters"` | Defaults to `"sentences"` |
 | `secureTextEntry` | `boolean` | Mask input for passwords; defaults to `false` |
 | `maxLength` | `number` | Maximum character count |
@@ -506,30 +506,29 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 `Text` elements with `mode: "expression"` interpolate `{{variableName}}` patterns in their `content` string from that map. If a key has no value yet, the pattern is replaced with an empty string.
 
 ```json
-// Input that captures the user's name
-{
-  "id": "name-input",
-  "type": "Input",
-  "props": {
-    "variableName": "name",
-    "placeholder": "Enter your name",
-    "autoCapitalize": "words",
-    "borderRadius": 12
+[
+  {
+    "id": "name-input",
+    "type": "Input",
+    "props": {
+      "variableName": "name",
+      "placeholder": "Enter your name",
+      "autoCapitalize": "words",
+      "borderRadius": 12
+    }
+  },
+  {
+    "id": "greeting",
+    "type": "Text",
+    "props": {
+      "content": "Hello {{name}}!",
+      "mode": "expression",
+      "fontSize": 18,
+      "fontWeight": "600",
+      "textAlign": "center"
+    }
   }
-}
-
-// Text that interpolates it — updates live as the user types
-{
-  "id": "greeting",
-  "type": "Text",
-  "props": {
-    "content": "Hello {{name}}!",
-    "mode": "expression",
-    "fontSize": 18,
-    "fontWeight": "600",
-    "textAlign": "center"
-  }
-}
+]
 ```
 
 :::note

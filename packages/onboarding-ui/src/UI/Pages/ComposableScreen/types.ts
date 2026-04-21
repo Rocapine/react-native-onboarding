@@ -140,8 +140,8 @@ export type UIElement =
         variableName?: string;
         placeholder?: string;
         defaultValue?: string;
-        keyboardType?: "default" | "email-address" | "numeric" | "phone-pad" | "decimal-pad" | "url" | "number-pad";
-        returnKeyType?: "done" | "next" | "go" | "search" | "send";
+        keyboardType?: "default" | "email-address" | "numeric" | "phone-pad" | "decimal-pad" | "url" | "number-pad" | "ascii-capable" | "numbers-and-punctuation" | "name-phone-pad" | "twitter" | "web-search" | "visible-password";
+        returnKeyType?: "done" | "next" | "go" | "search" | "send" | "default" | "emergency-call" | "google" | "join" | "route" | "yahoo" | "none" | "previous";
         autoCapitalize?: "none" | "sentences" | "words" | "characters";
         secureTextEntry?: boolean;
         maxLength?: number;
@@ -262,13 +262,13 @@ const InputElementPropsSchema = BaseBoxPropsSchema.extend({
   variableName: z.string().optional(),
   placeholder: z.string().optional(),
   defaultValue: z.string().optional(),
-  keyboardType: z.enum(["default", "email-address", "numeric", "phone-pad", "decimal-pad", "url", "number-pad"]).optional(),
-  returnKeyType: z.enum(["done", "next", "go", "search", "send"]).optional(),
+  keyboardType: z.enum(["default", "email-address", "numeric", "phone-pad", "decimal-pad", "url", "number-pad", "ascii-capable", "numbers-and-punctuation", "name-phone-pad", "twitter", "web-search", "visible-password"]).optional(),
+  returnKeyType: z.enum(["done", "next", "go", "search", "send", "default", "emergency-call", "google", "join", "route", "yahoo", "none", "previous"]).optional(),
   autoCapitalize: z.enum(["none", "sentences", "words", "characters"]).optional(),
   secureTextEntry: z.boolean().optional(),
-  maxLength: z.number().optional(),
+  maxLength: z.number().int().nonnegative().optional(),
   multiline: z.boolean().optional(),
-  numberOfLines: z.number().optional(),
+  numberOfLines: z.number().int().nonnegative().optional(),
   editable: z.boolean().optional(),
   color: z.string().optional(),
   backgroundColor: z.string().optional(),

@@ -4,6 +4,29 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.4.0] - 2026-04-21
+
+### Added
+
+- **`Lottie` UIElement** for `ComposableScreen` — renders a Lottie animation
+  from a remote JSON URL via `lottie-react-native` (optional peer dep). Supports
+  `source` (required), `autoPlay`, `loop`, `speed`, and all `BaseBoxProps`
+  (`width`, `height`, `opacity`, `margin*`, `padding*`, `border*`).
+- **`Rive` UIElement** for `ComposableScreen` — renders a Rive animation from a
+  remote `.riv` URL via `rive-react-native` (optional peer dep). Supports `url`
+  (required), `autoplay`, `fit`, `alignment`, `artboardName`,
+  `stateMachineName`, and all `BaseBoxProps`.
+
+### Changed
+
+- **`BaseBoxProps` refactor** — `width`, `height`, `opacity`, `margin*`,
+  `padding*`, `borderWidth`, `borderRadius`, and `borderColor` are now defined
+  once in a shared `BaseBoxProps` type and `BaseBoxPropsSchema`, then extended by
+  `Image`, `Lottie`, and `Rive` element schemas. Stack and Text schemas are
+  unchanged.
+
+---
+
 ## [1.3.0] - 2026-04-17
 
 ### Added

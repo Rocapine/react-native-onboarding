@@ -20,6 +20,29 @@ try {
   // lottie-react-native not installed - will show error if Lottie is used
 }
 
+type RiveUIElement = Extract<UIElement, { type: "Rive" }>;
+let RiveElementComponent: React.ComponentType<{ element: RiveUIElement; riveStyle: object }> | null = null;
+try {
+  const Rive = require("rive-react-native").default;
+  RiveElementComponent = ({ element, riveStyle }: { element: RiveUIElement; riveStyle: object }) => {
+
+    return (
+      <Rive
+        url={element.props.url}
+        autoPlay={element.props.autoplay ?? true}
+        // fit={element.props.fit ? Fit[element.props.fit] : Fit.Contain}
+        // alignment={element.props.alignment ? Alignment[element.props.alignment] : Alignment.Center}
+        artboardName={element.props.artboardName}
+        stateMachineName={element.props.stateMachineName}
+        style={riveStyle}
+        onError={console.error}
+      />
+    );
+  };
+} catch {
+  // rive-react-native not installed - will show fallback if Rive is used
+}
+
 type ContentProps = {
   step: ComposableScreenStepType;
   onContinue: () => void;
@@ -159,6 +182,29 @@ const renderElement = (element: UIElement, theme: Theme, parentType?: "XStack" |
     );
   }
 
+  if (element.type === "Rive") {
+    const riveStyle = {
+      width: element.props.width ?? ("100%" as `${number}%`),
+      height: element.props.height ?? 200,
+      opacity: element.props.opacity,
+      margin: element.props.margin,
+      marginHorizontal: element.props.marginHorizontal,
+      marginVertical: element.props.marginVertical,
+    };
+
+    if (!RiveElementComponent) {
+      return (
+        <View key={element.id} style={[riveStyle, styles.riveFallback]}>
+          <Text style={styles.riveFallbackText}>
+            Install @rive-app/react-native to render Rive animations.
+          </Text>
+        </View>
+      );
+    }
+
+    return <RiveElementComponent key={element.id} element={element} riveStyle={riveStyle} />;
+  }
+
   return null;
 };
 
@@ -223,6 +269,18 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   lottieFallbackText: {
+    fontSize: 13,
+    color: "#888",
+    textAlign: "center",
+    paddingHorizontal: 16,
+  },
+  riveFallback: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F5F5F5",
+    borderRadius: 8,
+  },
+  riveFallbackText: {
     fontSize: 13,
     color: "#888",
     textAlign: "center",

@@ -32,6 +32,17 @@ export default function ComposableScreenExample() {
                 loop: true,
               },
             },
+            // Rive animation
+            {
+              id: 'hero-rive',
+              type: 'Rive',
+              props: {
+                url: 'https://cdn.rive.app/animations/vehicles.riv',
+                height: 180,
+                autoplay: true,
+                fit: 'Contain',
+              },
+            },
             // Hero image
             {
               id: 'hero-image',

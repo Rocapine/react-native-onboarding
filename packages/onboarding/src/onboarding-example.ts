@@ -111,6 +111,16 @@ export const onboardingExample = {
                 },
               },
               {
+                id: "hero-rive",
+                type: "Rive",
+                props: {
+                  url: "https://cdn.rive.app/animations/vehicles.riv",
+                  height: 180,
+                  autoplay: true,
+                  fit: "Contain",
+                },
+              },
+              {
                 id: "hero-image",
                 type: "Image",
                 props: {

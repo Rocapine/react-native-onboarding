@@ -4,6 +4,21 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.5.0] - 2026-04-21
+
+### Added
+
+- **`Icon` UIElement** for `ComposableScreen` — renders a Lucide icon by name
+  via `lucide-react-native` (bundled dependency, always available). Supports
+  `name` (required, e.g. `"Star"`, `"Heart"`), `size`, `color`, `strokeWidth`,
+  and all `BaseBoxProps`.
+- **`Video` UIElement** for `ComposableScreen` — renders a video from a remote
+  URL via `expo-video` (optional peer dep). Supports `url` (required),
+  `autoPlay`, `loop`, `muted`, `controls`, and all `BaseBoxProps`. Graceful
+  fallback shown if `expo-video` is not installed.
+
+---
+
 ## [1.4.0] - 2026-04-21
 
 ### Added

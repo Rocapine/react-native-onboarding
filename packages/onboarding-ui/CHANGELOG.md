@@ -5,6 +5,21 @@ here.
 
 ---
 
+## [1.5.0] - 2026-04-21
+
+### Added
+
+- **`Icon` element renderer** — renders `Icon` UIElements using
+  `lucide-react-native` (bundled, no extra install needed). Supports `name`,
+  `size`, `color`, `strokeWidth`, and all `BaseBoxProps`. Unknown icon names
+  render nothing rather than crashing.
+- **`Video` element renderer** — renders `Video` UIElements via `expo-video`
+  (optional peer dep). Supports `url`, `autoPlay`, `loop`, `muted`, `controls`,
+  and all `BaseBoxProps`. Shows an install-hint placeholder if `expo-video` is
+  absent. `expo-video` added as optional peer dependency.
+
+---
+
 ## [1.4.0] - 2026-04-21
 
 ### Added

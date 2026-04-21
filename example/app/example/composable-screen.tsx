@@ -196,6 +196,26 @@ export default function ComposableScreenExample() {
                 },
               ],
             },
+            // Button element
+            {
+              id: 'hero-button',
+              type: 'Button' as const,
+              props: {
+                label: 'Get Started',
+                variant: 'filled' as const,
+                marginVertical: 8,
+              },
+            },
+            // Outlined button variant
+            {
+              id: 'hero-button-outlined',
+              type: 'Button' as const,
+              props: {
+                label: 'Learn More',
+                variant: 'outlined' as const,
+                marginVertical: 4,
+              },
+            },
             // Highlighted info block
             {
               id: 'info-block',

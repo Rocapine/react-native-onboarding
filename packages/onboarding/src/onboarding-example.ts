@@ -198,6 +198,15 @@ export const onboardingExample = {
                   opacity: 0.6,
                 },
               },
+              {
+                id: "hero-button",
+                type: "Button",
+                props: {
+                  label: "Get Started",
+                  variant: "filled",
+                  marginVertical: 8,
+                },
+              },
             ],
           },
         ],

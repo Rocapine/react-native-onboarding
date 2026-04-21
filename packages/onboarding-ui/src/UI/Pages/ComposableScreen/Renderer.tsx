@@ -141,7 +141,7 @@ type ContentProps = {
   theme?: Theme;
 };
 
-const renderElement = (element: UIElement, theme: Theme, variables: Record<string, string>, setVariable: (key: string, value: string) => void, parentType?: "XStack" | "YStack"): React.ReactNode => {
+const renderElement = (element: UIElement, theme: Theme, variables: Record<string, string>, setVariable: (key: string, value: string) => void, onContinue: () => void, parentType?: "XStack" | "YStack"): React.ReactNode => {
   if (element.type === "YStack" || element.type === "XStack") {
     return (
       <View
@@ -174,7 +174,7 @@ const renderElement = (element: UIElement, theme: Theme, variables: Record<strin
           opacity: element.props.opacity,
         }}
       >
-        {element.children.map((child) => renderElement(child, theme, variables, setVariable, element.type))}
+        {element.children.map((child) => renderElement(child, theme, variables, setVariable, onContinue, element.type))}
       </View>
     );
   }
@@ -390,6 +390,55 @@ const renderElement = (element: UIElement, theme: Theme, variables: Record<strin
     return <InputElementComponent key={element.id} element={element} theme={theme} variables={variables} onVariableChange={setVariable} />;
   }
 
+  if (element.type === "Button") {
+    const variant = element.props.variant ?? "filled";
+    const isFilled = variant === "filled";
+    const isOutlined = variant === "outlined";
+    const bgColor = isFilled
+      ? (element.props.backgroundColor ?? theme.colors.primary)
+      : "transparent";
+    const textColor = isFilled
+      ? (element.props.color ?? theme.colors.text.opposite)
+      : (element.props.color ?? theme.colors.primary);
+    return (
+      <TouchableOpacity
+        key={element.id}
+        activeOpacity={0.8}
+        onPress={onContinue}
+        style={{
+          backgroundColor: bgColor,
+          borderRadius: element.props.borderRadius ?? 90,
+          borderWidth: isOutlined ? (element.props.borderWidth ?? 1) : (element.props.borderWidth ?? 0),
+          borderColor: isOutlined ? (element.props.borderColor ?? theme.colors.primary) : element.props.borderColor,
+          padding: element.props.padding,
+          paddingVertical: element.props.paddingVertical ?? 14,
+          paddingHorizontal: element.props.paddingHorizontal ?? 24,
+          width: element.props.width,
+          height: element.props.height,
+          margin: element.props.margin,
+          marginHorizontal: element.props.marginHorizontal,
+          marginVertical: element.props.marginVertical,
+          opacity: element.props.opacity,
+          alignSelf: element.props.alignSelf ?? "stretch",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Text
+          style={{
+            color: textColor,
+            fontSize: element.props.fontSize ?? theme.typography.textStyles.button.fontSize,
+            fontWeight: (element.props.fontWeight as any) ?? theme.typography.textStyles.button.fontWeight,
+            fontFamily: element.props.fontFamily,
+            textAlign: element.props.textAlign ?? "center",
+          }}
+        >
+          {element.props.label}
+        </Text>
+      </TouchableOpacity>
+    );
+  }
+
   return null;
 };
 
@@ -409,8 +458,8 @@ const ComposableScreenRendererBase = ({ step, onContinue, theme = defaultTheme }
         alwaysBounceVertical={false}
         keyboardShouldPersistTaps="handled"
       >
-        {elements.map((element) => renderElement(element, theme, composableVariables, setComposableVariable))}
-        <View style={styles.bottomSection}>
+        {elements.map((element) => renderElement(element, theme, composableVariables, setComposableVariable, onContinue))}
+        {/* <View style={styles.bottomSection}>
           <TouchableOpacity
             style={[styles.ctaButton, { backgroundColor: theme.colors.primary }]}
             onPress={onContinue}
@@ -425,7 +474,7 @@ const ComposableScreenRendererBase = ({ step, onContinue, theme = defaultTheme }
               {validatedData.continueButtonLabel}
             </Text>
           </TouchableOpacity>
-        </View>
+        </View> */}
       </ScrollView>
     </OnboardingTemplate>
   )

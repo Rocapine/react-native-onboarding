@@ -5,6 +5,17 @@ here.
 
 ---
 
+## [1.7.0] - 2026-04-21
+
+### Added
+
+- **`fontFamily` support on `Text` elements** — the `Text` renderer now passes
+  `fontFamily` from element props directly to the React Native `<Text>` style.
+  Any font family loaded by the host app (e.g. via `expo-font`) can be applied
+  to a text node by setting `fontFamily` in its props.
+
+---
+
 ## [1.6.0] - 2026-04-21
 
 ### Added

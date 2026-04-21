@@ -10,7 +10,7 @@ export type VideoElementProps = BaseBoxProps & {
 };
 
 export const VideoElementPropsSchema = BaseBoxPropsSchema.extend({
-  url: z.string(),
+  url: z.string().min(1, "url must not be empty"),
   autoPlay: z.boolean().optional(),
   loop: z.boolean().optional(),
   muted: z.boolean().optional(),

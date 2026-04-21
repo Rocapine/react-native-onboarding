@@ -9,6 +9,13 @@ here.
 
 ### Added
 
+- **`Button` element renderer** — renders `Button` UIElements as a
+  `<TouchableOpacity>`. Supports three variants: `filled` (solid primary
+  background), `outlined` (transparent background with border), and `ghost`
+  (no background or border). Tapping calls `onContinue` when `action` is
+  `"continue"` or unset; other future action values are no-ops. Supports
+  `label`, `variant`, `backgroundColor`, `color`, `fontSize`, `fontWeight`,
+  `fontFamily`, `textAlign`, `alignSelf`, and all `BaseBoxProps`.
 - **`RadioGroup` element renderer** — renders `RadioGroup` UIElements as a
   vertical (default) or horizontal list of tappable radio items, each with a
   circular indicator. Reads/writes the selected value via `composableVariables`
@@ -26,6 +33,13 @@ here.
   interpolation in `Text` elements resolves `label ?? value`, so
   `{{variableName}}` on a radio-backed variable displays the human-readable
   label (e.g. `"Monthly"`) instead of the raw value (e.g. `"monthly"`).
+
+> **Note on semver:** The `composableVariables` type changed from
+> `Record<string, string>` to `Record<string, ComposableVariableEntry>`. This is
+> a technically breaking change to the context shape, but is published as a minor
+> bump because `composableVariables` is an internal context value (not part of the
+> public API contract). Existing consumers that only read the value string via
+> `variables[key]` remain unaffected — access `.value` for the same result.
 
 ### Changed (internal)
 

@@ -212,6 +212,19 @@ export default function ComposableScreenExample() {
                 ],
               },
             },
+            // Expression text — shows selected plan
+            {
+              id: 'plan-display',
+              type: 'Text' as const,
+              props: {
+                content: 'Selected: {{plan}}',
+                mode: 'expression' as const,
+                fontSize: 14,
+                textAlign: 'center' as const,
+                opacity: 0.7,
+                marginVertical: 4,
+              },
+            },
             // Button element
             {
               id: 'hero-button',

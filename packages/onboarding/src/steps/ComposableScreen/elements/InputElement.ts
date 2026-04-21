@@ -22,7 +22,7 @@ export type InputElementProps = BaseBoxProps & {
 };
 
 export const InputElementPropsSchema = BaseBoxPropsSchema.extend({
-  variableName: z.string().optional(),
+  variableName: z.string().min(1).optional(),
   placeholder: z.string().optional(),
   defaultValue: z.string().optional(),
   keyboardType: z.enum(["default", "email-address", "numeric", "phone-pad", "decimal-pad", "url", "number-pad", "ascii-capable", "numbers-and-punctuation", "name-phone-pad", "twitter", "web-search", "visible-password"]).optional(),

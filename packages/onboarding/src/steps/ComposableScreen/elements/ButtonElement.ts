@@ -15,7 +15,7 @@ export type ButtonElementProps = BaseBoxProps & {
 };
 
 export const ButtonElementPropsSchema = BaseBoxPropsSchema.extend({
-  label: z.string(),
+  label: z.string().min(1, "label must not be empty"),
   action: z.enum(["continue"]).optional(),
   variant: z.enum(["filled", "outlined", "ghost"]).optional(),
   backgroundColor: z.string().optional(),

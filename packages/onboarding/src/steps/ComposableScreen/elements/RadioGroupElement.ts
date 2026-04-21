@@ -28,7 +28,7 @@ export const RadioGroupElementPropsSchema = BaseBoxPropsSchema.extend({
   defaultValue: z.string().optional(),
   gap: z.number().optional(),
   direction: z.enum(["vertical", "horizontal"]).optional(),
-  items: z.array(z.object({ label: z.string(), value: z.string() })),
+  items: z.array(z.object({ label: z.string().trim().min(1, "item label must not be empty"), value: z.string().trim().min(1, "item value must not be empty") })).min(1, "items must not be empty"),
   itemBackgroundColor: z.string().optional(),
   itemSelectedBackgroundColor: z.string().optional(),
   itemBorderColor: z.string().optional(),
@@ -43,4 +43,13 @@ export const RadioGroupElementPropsSchema = BaseBoxPropsSchema.extend({
   itemPadding: z.number().optional(),
   itemPaddingHorizontal: z.number().optional(),
   itemPaddingVertical: z.number().optional(),
+}).superRefine((data, ctx) => {
+  const values = data.items.map((i) => i.value);
+  const unique = new Set(values);
+  if (unique.size !== values.length) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "item values must be unique", path: ["items"] });
+  }
+  if (data.defaultValue !== undefined && !unique.has(data.defaultValue)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "defaultValue must match one of the item values", path: ["defaultValue"] });
+  }
 });

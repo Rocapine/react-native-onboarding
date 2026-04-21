@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { z } from "zod";
 import { View, Text, StyleSheet } from "react-native";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
@@ -15,7 +15,7 @@ export type VideoElementProps = BaseBoxProps & {
 };
 
 export const VideoElementPropsSchema = BaseBoxPropsSchema.extend({
-  url: z.string(),
+  url: z.string().min(1, "url must not be empty"),
   autoPlay: z.boolean().optional(),
   loop: z.boolean().optional(),
   muted: z.boolean().optional(),
@@ -33,6 +33,17 @@ try {
       p.muted = element.props.muted ?? true;
       if (element.props.autoPlay) p.play();
     });
+
+    useEffect(() => {
+      player.loop = element.props.loop ?? false;
+      player.muted = element.props.muted ?? true;
+      if (element.props.autoPlay) {
+        player.play();
+      } else {
+        player.pause();
+      }
+    }, [element.props.loop, element.props.muted, element.props.autoPlay]);
+
     return (
       <VideoView
         player={player}

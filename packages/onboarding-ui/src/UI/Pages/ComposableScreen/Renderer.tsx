@@ -1,21 +1,20 @@
 import { useContext, useMemo } from "react";
 import { ScrollView, StyleSheet } from "react-native";
 import { ComposableScreenStepType, ComposableScreenStepTypeSchema, UIElement } from "./types";
-import { Theme } from "../../Theme/types";
-import { defaultTheme } from "../../Theme/defaultTheme";
 import { withErrorBoundary } from "../../ErrorBoundary";
 import { OnboardingTemplate } from "../../Templates/OnboardingTemplate";
 import { OnboardingProgressContext } from "../../Provider/OnboardingProgressProvider";
+import { useTheme } from "../../Theme/useTheme";
 import { RenderContext } from "./elements/shared";
 import { renderElement } from "./elements/renderElement";
 
 type ContentProps = {
   step: ComposableScreenStepType;
   onContinue: () => void;
-  theme?: Theme;
 };
 
-const ComposableScreenRendererBase = ({ step, onContinue, theme = defaultTheme }: ContentProps) => {
+const ComposableScreenRendererBase = ({ step, onContinue }: ContentProps) => {
+  const { theme } = useTheme();
   const validatedData = useMemo(() => ComposableScreenStepTypeSchema.parse(step), [step]);
   const { elements } = validatedData.payload;
   const { composableVariables, setComposableVariable } = useContext(OnboardingProgressContext);
@@ -33,7 +32,7 @@ const ComposableScreenRendererBase = ({ step, onContinue, theme = defaultTheme }
 
   return (
     <OnboardingTemplate
-      step={step}
+      step={validatedData}
       onContinue={onContinue}
       theme={theme}
     >

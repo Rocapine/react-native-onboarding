@@ -214,6 +214,18 @@ export const onboardingExample = {
                 },
               },
               {
+                id: "plan-display",
+                type: "Text",
+                props: {
+                  content: "Selected: {{plan}}",
+                  mode: "expression",
+                  fontSize: 14,
+                  textAlign: "center",
+                  opacity: 0.6,
+                  marginVertical: 4,
+                },
+              },
+              {
                 id: "hero-button",
                 type: "Button",
                 props: {

@@ -10,13 +10,15 @@ export type IconElementProps = BaseBoxProps & {
   size?: number;
   color?: string;
   strokeWidth?: number;
+  backgroundColor?: string;
 };
 
 export const IconElementPropsSchema = BaseBoxPropsSchema.extend({
-  name: z.string(),
-  size: z.number().optional(),
+  name: z.string().min(1, "icon name must not be empty"),
+  size: z.number().nonnegative().optional(),
   color: z.string().optional(),
-  strokeWidth: z.number().optional(),
+  strokeWidth: z.number().nonnegative().optional(),
+  backgroundColor: z.string().optional(),
 });
 
 type IconUIElement = Extract<UIElement, { type: "Icon" }>;
@@ -49,6 +51,7 @@ export const IconElementComponent = ({ element, ctx }: Props): React.ReactElemen
         borderWidth: element.props.borderWidth,
         borderRadius: element.props.borderRadius,
         borderColor: element.props.borderColor,
+        backgroundColor: element.props.backgroundColor,
         opacity: element.props.opacity,
       }}
     >

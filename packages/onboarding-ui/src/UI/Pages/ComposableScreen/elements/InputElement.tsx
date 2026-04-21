@@ -26,7 +26,7 @@ export type InputElementProps = BaseBoxProps & {
 };
 
 export const InputElementPropsSchema = BaseBoxPropsSchema.extend({
-  variableName: z.string().optional(),
+  variableName: z.string().min(1).optional(),
   placeholder: z.string().optional(),
   defaultValue: z.string().optional(),
   keyboardType: z.enum(["default", "email-address", "numeric", "phone-pad", "decimal-pad", "url", "number-pad", "ascii-capable", "numbers-and-punctuation", "name-phone-pad", "twitter", "web-search", "visible-password"]).optional(),
@@ -58,10 +58,10 @@ export const InputElementComponent = ({ element, ctx }: Props): React.ReactEleme
   const [value, setValue] = useState(persistedValue ?? element.props.defaultValue ?? "");
 
   useEffect(() => {
-    if (element.props.variableName && element.props.defaultValue && persistedValue === undefined) {
+    if (element.props.variableName && element.props.defaultValue !== undefined && persistedValue === undefined) {
       setVariable(element.props.variableName, { value: element.props.defaultValue });
     }
-  }, []);
+  }, [element.props.variableName, element.props.defaultValue, persistedValue]);
 
   const handleChange = (text: string) => {
     setValue(text);

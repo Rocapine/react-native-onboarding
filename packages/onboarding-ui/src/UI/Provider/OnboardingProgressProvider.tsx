@@ -17,8 +17,9 @@ export const OnboardingProgressProvider = ({
   const [totalSteps, setTotalSteps] = useState(0);
   const [composableVariables, setComposableVariables] = useState<Record<string, ComposableVariableEntry>>({});
 
-  const setComposableVariable = useCallback((key: string, entry: ComposableVariableEntry) => {
-    setComposableVariables((prev) => ({ ...prev, [key]: entry }));
+  const setComposableVariable = useCallback((key: string, entry: ComposableVariableEntry | string) => {
+    const normalizedEntry: ComposableVariableEntry = typeof entry === "string" ? { value: entry } : entry;
+    setComposableVariables((prev) => ({ ...prev, [key]: normalizedEntry }));
   }, []);
 
   return (
@@ -45,5 +46,5 @@ export const OnboardingProgressContext = createContext({
   totalSteps: 0,
   setTotalSteps: (_steps: number) => { },
   composableVariables: {} as Record<string, ComposableVariableEntry>,
-  setComposableVariable: (_key: string, _entry: ComposableVariableEntry) => { },
+  setComposableVariable: (_key: string, _entry: ComposableVariableEntry | string) => { },
 });

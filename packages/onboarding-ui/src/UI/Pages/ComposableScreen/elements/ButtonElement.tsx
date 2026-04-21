@@ -19,7 +19,7 @@ export type ButtonElementProps = BaseBoxProps & {
 };
 
 export const ButtonElementPropsSchema = BaseBoxPropsSchema.extend({
-  label: z.string(),
+  label: z.string().min(1, "label must not be empty"),
   action: z.enum(["continue"]).optional(),
   variant: z.enum(["filled", "outlined", "ghost"]).optional(),
   backgroundColor: z.string().optional(),
@@ -40,6 +40,13 @@ type Props = {
 
 export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElement => {
   const { theme, onContinue } = ctx;
+  const action = element.props.action;
+  const handlePress = () => {
+    if (action === undefined || action === "continue") {
+      onContinue();
+    }
+    // other action values are no-ops
+  };
   const variant = element.props.variant ?? "filled";
   const isFilled = variant === "filled";
   const isOutlined = variant === "outlined";
@@ -53,7 +60,7 @@ export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElem
   return (
     <TouchableOpacity
       activeOpacity={0.8}
-      onPress={onContinue}
+      onPress={handlePress}
       style={{
         backgroundColor: bgColor,
         borderRadius: element.props.borderRadius ?? 90,
@@ -68,7 +75,7 @@ export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElem
         marginHorizontal: element.props.marginHorizontal,
         marginVertical: element.props.marginVertical,
         opacity: element.props.opacity,
-        alignSelf: element.props.alignSelf ?? "stretch",
+        alignSelf: element.props.alignSelf ?? (element.props.width ? undefined : "stretch"),
         alignItems: "center",
         justifyContent: "center",
       }}

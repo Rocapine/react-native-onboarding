@@ -8,7 +8,7 @@ export type ImageElementProps = BaseBoxProps & {
 };
 
 export const ImageElementPropsSchema = BaseBoxPropsSchema.extend({
-  url: z.string(),
+  url: z.string().min(1, "url must not be empty"),
   aspectRatio: z.number().optional(),
   resizeMode: z.enum(["cover", "contain", "stretch", "center"]).optional(),
 });

@@ -6,11 +6,13 @@ export type IconElementProps = BaseBoxProps & {
   size?: number;
   color?: string;
   strokeWidth?: number;
+  backgroundColor?: string;
 };
 
 export const IconElementPropsSchema = BaseBoxPropsSchema.extend({
-  name: z.string(),
-  size: z.number().optional(),
+  name: z.string().min(1, "icon name must not be empty"),
+  size: z.number().nonnegative().optional(),
   color: z.string().optional(),
-  strokeWidth: z.number().optional(),
+  strokeWidth: z.number().nonnegative().optional(),
+  backgroundColor: z.string().optional(),
 });

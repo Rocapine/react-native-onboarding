@@ -14,7 +14,7 @@ export type LottieElementProps = BaseBoxProps & {
 };
 
 export const LottieElementPropsSchema = BaseBoxPropsSchema.extend({
-  source: z.string(),
+  source: z.string().min(1, "source must not be empty"),
   autoPlay: z.boolean().optional(),
   loop: z.boolean().optional(),
   speed: z.number().optional(),

@@ -16,16 +16,16 @@ export type BaseBoxProps = {
 };
 
 export const BaseBoxPropsSchema = z.object({
-  width: z.number().optional(),
-  height: z.number().optional(),
+  width: z.number().min(0).optional(),
+  height: z.number().min(0).optional(),
   opacity: z.number().min(0).max(1).optional(),
   margin: z.number().optional(),
   marginHorizontal: z.number().optional(),
   marginVertical: z.number().optional(),
-  padding: z.number().optional(),
-  paddingHorizontal: z.number().optional(),
-  paddingVertical: z.number().optional(),
-  borderWidth: z.number().optional(),
-  borderRadius: z.number().optional(),
+  padding: z.number().min(0).optional(),
+  paddingHorizontal: z.number().min(0).optional(),
+  paddingVertical: z.number().min(0).optional(),
+  borderWidth: z.number().min(0).optional(),
+  borderRadius: z.number().min(0).optional(),
   borderColor: z.string().optional(),
 });

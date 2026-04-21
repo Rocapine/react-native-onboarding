@@ -32,7 +32,7 @@ export const RadioGroupElementPropsSchema = BaseBoxPropsSchema.extend({
   defaultValue: z.string().optional(),
   gap: z.number().optional(),
   direction: z.enum(["vertical", "horizontal"]).optional(),
-  items: z.array(z.object({ label: z.string(), value: z.string() })),
+  items: z.array(z.object({ label: z.string().trim().min(1, "item label must not be empty"), value: z.string().trim().min(1, "item value must not be empty") })).min(1, "items must not be empty"),
   itemBackgroundColor: z.string().optional(),
   itemSelectedBackgroundColor: z.string().optional(),
   itemBorderColor: z.string().optional(),
@@ -47,6 +47,15 @@ export const RadioGroupElementPropsSchema = BaseBoxPropsSchema.extend({
   itemPadding: z.number().optional(),
   itemPaddingHorizontal: z.number().optional(),
   itemPaddingVertical: z.number().optional(),
+}).superRefine((data, ctx) => {
+  const values = data.items.map((i) => i.value);
+  const unique = new Set(values);
+  if (unique.size !== values.length) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "item values must be unique", path: ["items"] });
+  }
+  if (data.defaultValue !== undefined && !unique.has(data.defaultValue)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "defaultValue must match one of the item values", path: ["defaultValue"] });
+  }
 });
 
 type RadioGroupUIElement = Extract<UIElement, { type: "RadioGroup" }>;
@@ -65,7 +74,7 @@ export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement
       const defaultItem = element.props.items.find((i) => i.value === element.props.defaultValue);
       setVariable(element.props.variableName, { value: element.props.defaultValue, label: defaultItem?.label });
     }
-  }, []);
+  }, [element.props.variableName, element.props.defaultValue, element.props.items, selectedValue]);
 
   const handleSelect = (value: string, label: string) => {
     if (element.props.variableName) {
@@ -77,6 +86,7 @@ export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement
 
   return (
     <View
+      accessibilityRole="radiogroup"
       style={{
         flexDirection: isHorizontal ? "row" : "column",
         flexWrap: isHorizontal ? "wrap" : undefined,
@@ -97,6 +107,8 @@ export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement
     >
       {element.props.items.map((item) => {
         const isSelected = selectedValue === item.value;
+        // Note: "+ "15"" appends hex alpha (≈8% opacity) assuming a 6-digit hex primary color.
+        // This works for standard hex colors but may produce unexpected results for other color formats.
         const bgColor = isSelected
           ? (element.props.itemSelectedBackgroundColor ?? theme.colors.primary + "15")
           : (element.props.itemBackgroundColor ?? "transparent");
@@ -112,6 +124,9 @@ export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement
             key={item.value}
             activeOpacity={0.7}
             onPress={() => handleSelect(item.value, item.label)}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: isSelected, checked: isSelected }}
+            accessibilityLabel={item.label}
             style={{
               flexDirection: "row",
               alignItems: "center",

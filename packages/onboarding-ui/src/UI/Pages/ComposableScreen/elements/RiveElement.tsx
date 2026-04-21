@@ -16,7 +16,7 @@ export type RiveElementProps = BaseBoxProps & {
 };
 
 export const RiveElementPropsSchema = BaseBoxPropsSchema.extend({
-  url: z.string(),
+  url: z.string().min(1, "url must not be empty"),
   autoplay: z.boolean().optional(),
   fit: z.enum(["Contain", "Cover", "Fill", "FitWidth", "FitHeight", "None", "ScaleDown", "Layout"]).optional(),
   alignment: z.enum(["TopLeft", "TopCenter", "TopRight", "CenterLeft", "Center", "CenterRight", "BottomLeft", "BottomCenter", "BottomRight"]).optional(),

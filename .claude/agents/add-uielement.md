@@ -54,6 +54,35 @@ The skill will guide you through:
 - Writing CHANGELOG entries for both packages
 - Committing the 4 version files with `📦 chore(release): bump to <NEW_VERSION>, update changelogs and docs`
 
+### Step 4 — Create the pull request
+
+After both commits (implementation + version bump) are done, create a PR using `gh pr create`:
+
+```bash
+gh pr create --title "✨ feat(composable-screen): add <ElementName> UIElement (v<NEW_VERSION>)" --body "$(cat <<'EOF'
+## Summary
+- Add `<ElementName>` UIElement to ComposableScreen (headless schema + UI renderer)
+- Multi/single select support: <describe selection model>
+- Variable binding via `variableName` prop
+
+## Files changed
+- `packages/onboarding/src/steps/ComposableScreen/elements/<ElementName>Element.ts` (new)
+- `packages/onboarding/src/steps/ComposableScreen/types.ts`
+- `packages/onboarding-ui/src/UI/Pages/ComposableScreen/elements/<ElementName>Element.tsx` (new)
+- `packages/onboarding-ui/src/UI/Pages/ComposableScreen/elements/renderElement.tsx`
+- `packages/onboarding-ui/src/UI/Pages/ComposableScreen/types.ts`
+
+## Version
+`<OLD_VERSION>` → `<NEW_VERSION>` (MINOR)
+
+## onboarding-studio
+Mirror the schema changes in the CMS — see the prompt output at the end of this workflow.
+EOF
+)"
+```
+
+Return the PR URL to the user.
+
 ## Hard constraints
 
 - Run `npm run build` from the repo root after implementation, before any commit

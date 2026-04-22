@@ -4,6 +4,25 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.9.0] - 2026-04-22
+
+### Added
+
+- **`Checkbox` UIElement schema** for `ComposableScreen` — new discriminated-union
+  variant with `type: "Checkbox"`. Props: `variableName` (string, optional — context
+  key), `defaultValue` (boolean), `label` (string, optional — displayed beside the
+  checkbox), `checkedColor`, `uncheckedColor`, `checkmarkColor`, `size` (number),
+  `borderRadius` (number), `labelColor`, `labelFontSize`, `labelFontWeight`,
+  `labelFontFamily`, `gap` (space between box and label), plus all `BaseBoxProps`.
+  Validated by `CheckboxElementPropsSchema` (Zod).
+
+> **Backend note:** The `onboarding-studio` server must be updated to accept and
+> emit the `Checkbox` `UIElement` variant in `ComposableScreen` payloads. Mirror
+> `CheckboxElementPropsSchema` in the backend validation layer and add `Checkbox`
+> to the CMS element-type picker.
+
+---
+
 ## [1.8.1] - 2026-04-22
 
 ### Added

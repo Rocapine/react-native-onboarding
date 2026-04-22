@@ -5,6 +5,20 @@ here.
 
 ---
 
+## [1.9.0] - 2026-04-22
+
+### Added
+
+- **`Checkbox` element renderer** — renders `Checkbox` UIElements as a tappable
+  checkbox with an optional text label. The box toggles between checked and unchecked
+  state; tapping writes `{ value: "true" | "false" }` into `composableVariables`
+  via `variableName`. Supports `defaultValue` (boolean), `checkedColor`,
+  `uncheckedColor`, `checkmarkColor`, `size`, `borderRadius`, `labelColor`,
+  `labelFontSize`, `labelFontWeight`, `labelFontFamily`, `gap`, and all
+  `BaseBoxProps` for the outer container.
+
+---
+
 ## [1.8.1] - 2026-04-22
 
 ### Added

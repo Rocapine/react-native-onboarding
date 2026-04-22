@@ -90,6 +90,7 @@ export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement
       style={{
         flexDirection: isHorizontal ? "row" : "column",
         flexWrap: isHorizontal ? "wrap" : undefined,
+        alignSelf: element.props.alignSelf,
         gap: element.props.gap ?? 8,
         width: element.props.width,
         height: element.props.height,
@@ -164,7 +165,7 @@ export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement
             </View>
             <Text
               style={{
-                flex: 1,
+                flexShrink: 1,
                 color: textColor,
                 fontSize: element.props.itemFontSize ?? theme.typography.textStyles.body.fontSize,
                 fontWeight: (element.props.itemFontWeight as any) ?? theme.typography.textStyles.body.fontWeight,

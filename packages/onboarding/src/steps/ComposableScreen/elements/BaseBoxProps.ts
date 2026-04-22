@@ -3,6 +3,7 @@ import { z } from "zod";
 export type BaseBoxProps = {
   width?: number;
   height?: number;
+  alignSelf?: "auto" | "flex-start" | "flex-end" | "center" | "stretch" | "baseline";
   opacity?: number;
   margin?: number;
   marginHorizontal?: number;
@@ -18,6 +19,7 @@ export type BaseBoxProps = {
 export const BaseBoxPropsSchema = z.object({
   width: z.number().min(0).optional(),
   height: z.number().min(0).optional(),
+  alignSelf: z.enum(["auto", "flex-start", "flex-end", "center", "stretch", "baseline"]).optional(),
   opacity: z.number().min(0).max(1).optional(),
   margin: z.number().optional(),
   marginHorizontal: z.number().optional(),

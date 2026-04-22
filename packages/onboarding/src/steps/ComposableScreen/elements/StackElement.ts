@@ -16,6 +16,7 @@ export type StackElementProps = {
   minHeight?: number;
   maxHeight?: number;
   alignItems?: "flex-start" | "center" | "flex-end" | "stretch";
+  alignSelf?: "auto" | "flex-start" | "flex-end" | "center" | "stretch" | "baseline";
   justifyContent?: "flex-start" | "center" | "flex-end" | "space-between" | "space-around";
   backgroundColor?: string;
   flexWrap?: "wrap" | "nowrap";
@@ -43,6 +44,7 @@ export const StackElementPropsSchema = z.object({
   minHeight: z.number().optional(),
   maxHeight: z.number().optional(),
   alignItems: z.enum(["flex-start", "center", "flex-end", "stretch"]).optional(),
+  alignSelf: z.enum(["auto", "flex-start", "flex-end", "center", "stretch", "baseline"]).optional(),
   justifyContent: z.enum(["flex-start", "center", "flex-end", "space-between", "space-around"]).optional(),
   backgroundColor: z.string().optional(),
   flexWrap: z.enum(["wrap", "nowrap"]).optional(),

@@ -71,45 +71,39 @@ export const InputElementComponent = ({ element, ctx }: Props): React.ReactEleme
   };
 
   return (
-    <View
+    <TextInput
+      value={value}
+      onChangeText={handleChange}
+      placeholder={element.props.placeholder}
+      placeholderTextColor={element.props.placeholderColor ?? theme.colors.text.tertiary}
+      keyboardType={element.props.keyboardType ?? "default"}
+      returnKeyType={element.props.returnKeyType ?? "done"}
+      autoCapitalize={element.props.autoCapitalize ?? "sentences"}
+      secureTextEntry={element.props.secureTextEntry ?? false}
+      maxLength={element.props.maxLength}
+      multiline={element.props.multiline ?? false}
+      numberOfLines={element.props.numberOfLines}
+      editable={element.props.editable ?? true}
       style={{
-        backgroundColor: element.props.backgroundColor ?? theme.colors.neutral.lowest,
-        borderWidth: element.props.borderWidth ?? 1,
-        borderRadius: element.props.borderRadius ?? 8,
-        borderColor: element.props.borderColor ?? theme.colors.neutral.low,
+        alignSelf: element.props.alignSelf,
         width: element.props.width,
         height: element.props.height,
         opacity: element.props.opacity,
         margin: element.props.margin,
         marginHorizontal: element.props.marginHorizontal,
         marginVertical: element.props.marginVertical,
-        overflow: "hidden",
+        backgroundColor: element.props.backgroundColor ?? theme.colors.neutral.lowest,
+        borderWidth: element.props.borderWidth ?? 1,
+        borderRadius: element.props.borderRadius ?? 8,
+        borderColor: element.props.borderColor ?? theme.colors.neutral.low,
+        color: element.props.color ?? theme.colors.text.primary,
+        fontSize: element.props.fontSize ?? theme.typography.textStyles.body.fontSize,
+        fontWeight: element.props.fontWeight as any,
+        textAlign: element.props.textAlign,
+        padding: element.props.padding ?? 12,
+        paddingHorizontal: element.props.paddingHorizontal,
+        paddingVertical: element.props.paddingVertical,
       }}
-    >
-      <TextInput
-        value={value}
-        onChangeText={handleChange}
-        placeholder={element.props.placeholder}
-        placeholderTextColor={element.props.placeholderColor ?? theme.colors.text.tertiary}
-        keyboardType={element.props.keyboardType ?? "default"}
-        returnKeyType={element.props.returnKeyType ?? "done"}
-        autoCapitalize={element.props.autoCapitalize ?? "sentences"}
-        secureTextEntry={element.props.secureTextEntry ?? false}
-        maxLength={element.props.maxLength}
-        multiline={element.props.multiline ?? false}
-        numberOfLines={element.props.numberOfLines}
-        editable={element.props.editable ?? true}
-        style={{
-          flex: 1,
-          color: element.props.color ?? theme.colors.text.primary,
-          fontSize: element.props.fontSize ?? theme.typography.textStyles.body.fontSize,
-          fontWeight: element.props.fontWeight as any,
-          textAlign: element.props.textAlign,
-          padding: element.props.padding ?? 12,
-          paddingHorizontal: element.props.paddingHorizontal,
-          paddingVertical: element.props.paddingVertical,
-        }}
-      />
-    </View>
+    />
   );
 };

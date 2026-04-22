@@ -20,6 +20,7 @@ export type StackElementProps = {
   minHeight?: number;
   maxHeight?: number;
   alignItems?: "flex-start" | "center" | "flex-end" | "stretch";
+  alignSelf?: "auto" | "flex-start" | "flex-end" | "center" | "stretch" | "baseline";
   justifyContent?: "flex-start" | "center" | "flex-end" | "space-between" | "space-around";
   backgroundColor?: string;
   flexWrap?: "wrap" | "nowrap";
@@ -47,6 +48,7 @@ export const StackElementPropsSchema = z.object({
   minHeight: z.number().optional(),
   maxHeight: z.number().optional(),
   alignItems: z.enum(["flex-start", "center", "flex-end", "stretch"]).optional(),
+  alignSelf: z.enum(["auto", "flex-start", "flex-end", "center", "stretch", "baseline"]).optional(),
   justifyContent: z.enum(["flex-start", "center", "flex-end", "space-between", "space-around"]).optional(),
   backgroundColor: z.string().optional(),
   flexWrap: z.enum(["wrap", "nowrap"]).optional(),
@@ -71,6 +73,8 @@ export const StackElementComponent = ({ element, ctx, parentType }: Props): Reac
     <View
       style={{
         flexDirection: element.type === "XStack" ? "row" : "column",
+        alignSelf: element.props.alignSelf,
+        alignItems: element.props.alignItems,
         gap: element.props.gap,
         padding: element.props.padding,
         paddingHorizontal: element.props.paddingHorizontal,
@@ -87,7 +91,6 @@ export const StackElementComponent = ({ element, ctx, parentType }: Props): Reac
         maxHeight: element.props.maxHeight,
         flexShrink: element.props.flexShrink ?? (parentType === "XStack" ? 1 : undefined),
         flexWrap: element.props.flexWrap,
-        alignItems: element.props.alignItems,
         justifyContent: element.props.justifyContent,
         backgroundColor: element.props.backgroundColor,
         borderWidth: element.props.borderWidth,

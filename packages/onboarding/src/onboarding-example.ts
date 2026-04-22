@@ -226,6 +226,34 @@ export const onboardingExample = {
                 },
               },
               {
+                id: "hero-checkbox",
+                type: "CheckboxGroup",
+                props: {
+                  variableName: "goals",
+                  defaultValues: ["health", "fitness"],
+                  gap: 8,
+                  marginVertical: 8,
+                  items: [
+                    { label: "Improve health", value: "health" },
+                    { label: "Build fitness", value: "fitness" },
+                    { label: "Lose weight", value: "weight" },
+                    { label: "Gain muscle", value: "muscle" },
+                  ],
+                },
+              },
+              {
+                id: "goals-display",
+                type: "Text",
+                props: {
+                  content: "Goals: {{goals}}",
+                  mode: "expression",
+                  fontSize: 14,
+                  textAlign: "center",
+                  opacity: 0.6,
+                  marginVertical: 4,
+                },
+              },
+              {
                 id: "hero-button",
                 type: "Button",
                 props: {

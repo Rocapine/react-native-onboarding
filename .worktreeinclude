@@ -1,0 +1,14 @@
+# Symlink these paths into every git worktree instead of copying them.
+# Format: one path per line (relative to repo root).
+
+# Root dependencies
+node_modules
+
+# Package dependencies
+packages/onboarding/node_modules
+packages/onboarding-ui/node_modules
+
+# Example app dependencies and env
+example/node_modules
+example/.env
+example/.env.local

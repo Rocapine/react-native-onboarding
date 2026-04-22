@@ -4,6 +4,52 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.8.0] - 2026-04-21
+
+### Added
+
+- **`Button` UIElement schema** for `ComposableScreen` — new discriminated-union
+  variant with `type: "Button"`. Props: `label` (string, **required**, non-empty),
+  `action` (`"continue"`, optional — defaults to calling `onContinue`), `variant`
+  (`"filled"` | `"outlined"` | `"ghost"`), `backgroundColor`, `color`, `fontSize`,
+  `fontWeight`, `fontFamily`, `textAlign`, `alignSelf`, plus all `BaseBoxProps`.
+  Validated by `ButtonElementPropsSchema` (Zod).
+- **`RadioGroup` UIElement schema** for `ComposableScreen` — new discriminated-union
+  variant with `type: "RadioGroup"`. Renders a group of radio options from an inline
+  `items: Array<{ label: string; value: string }>` array. Props: `variableName`
+  (string, optional — context key), `defaultValue`, `gap`, `direction`
+  (`"vertical"` | `"horizontal"`), all `BaseBoxProps`, and per-item styling
+  (`itemBackgroundColor`, `itemSelectedBackgroundColor`, `itemBorderColor`,
+  `itemSelectedBorderColor`, `itemBorderRadius`, `itemBorderWidth`, `itemColor`,
+  `itemSelectedColor`, `itemFontSize`, `itemFontWeight`, `itemFontFamily`,
+  `itemPadding`, `itemPaddingHorizontal`, `itemPaddingVertical`). Validated by
+  `RadioGroupElementPropsSchema` (Zod).
+- **Structured variable entries** — `ComposableVariableEntry` type introduced:
+  `{ value: string; label?: string }`. The `composableVariables` context map is now
+  `Record<string, ComposableVariableEntry>` instead of `Record<string, string>`.
+  `RadioGroup` writes both `value` (raw) and `label` (human-readable) when an item
+  is selected. Expression interpolation in `Text` elements resolves `label` first,
+  falling back to `value`.
+
+> **Note on semver:** The `composableVariables` type changed from
+> `Record<string, string>` to `Record<string, ComposableVariableEntry>`. This is
+> published as a minor bump (not major) because `composableVariables` is an internal
+> context value not part of the public API contract. Existing consumers remain
+> unaffected — access `.value` on the entry for the same string result.
+
+### Changed (internal)
+
+- `ComposableScreen` element types and Zod schemas split into `elements/` subfolder —
+  one file per element type. `types.ts` now assembles the `UIElement` union and
+  `UIElementSchema` by importing individual schemas.
+
+> **Backend note:** The `onboarding-studio` server must be updated to accept and
+> emit the `RadioGroup` `UIElement` variant in `ComposableScreen` payloads. Mirror
+> `RadioGroupElementPropsSchema` in the backend validation layer and add `RadioGroup`
+> to the CMS element-type picker.
+
+---
+
 ## [1.7.0] - 2026-04-21
 
 ### Added

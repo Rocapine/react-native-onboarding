@@ -35,7 +35,7 @@ export const OnboardingPage = ({ step, onContinue, isSandbox }: OnboardingPagePr
     case 'Question':
       return <QuestionRenderer step={step} onContinue={onContinue} theme={theme} />;
     case 'ComposableScreen':
-      return <ComposableScreenRenderer step={step} onContinue={onContinue} theme={theme} />;
+      return <ComposableScreenRenderer step={step} onContinue={onContinue} />;
     default:
       if (isSandbox) {
         // @ts-ignore

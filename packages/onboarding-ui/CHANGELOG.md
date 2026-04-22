@@ -5,6 +5,51 @@ here.
 
 ---
 
+## [1.8.0] - 2026-04-21
+
+### Added
+
+- **`Button` element renderer** — renders `Button` UIElements as a
+  `<TouchableOpacity>`. Supports three variants: `filled` (solid primary
+  background), `outlined` (transparent background with border), and `ghost`
+  (no background or border). Tapping calls `onContinue` when `action` is
+  `"continue"` or unset; other future action values are no-ops. Supports
+  `label`, `variant`, `backgroundColor`, `color`, `fontSize`, `fontWeight`,
+  `fontFamily`, `textAlign`, `alignSelf`, and all `BaseBoxProps`.
+- **`RadioGroup` element renderer** — renders `RadioGroup` UIElements as a
+  vertical (default) or horizontal list of tappable radio items, each with a
+  circular indicator. Reads/writes the selected value via `composableVariables`
+  (keyed by `variableName`). On mount, sets the `defaultValue` entry including
+  the matching item's human-readable `label`. Supports all per-item style props
+  (`itemBackgroundColor`, `itemSelectedBackgroundColor`, `itemBorderColor`,
+  `itemSelectedBorderColor`, `itemBorderRadius`, `itemBorderWidth`, `itemColor`,
+  `itemSelectedColor`, `itemFontSize`, `itemFontWeight`, `itemFontFamily`,
+  `itemPadding`, `itemPaddingHorizontal`, `itemPaddingVertical`) and all
+  `BaseBoxProps` for the group container.
+- **Structured variable entries** — `composableVariables` is now
+  `Record<string, ComposableVariableEntry>` where
+  `ComposableVariableEntry = { value: string; label?: string }`. `RadioGroup`
+  stores `{ value, label }` on selection; `Input` stores `{ value }`. Expression
+  interpolation in `Text` elements resolves `label ?? value`, so
+  `{{variableName}}` on a radio-backed variable displays the human-readable
+  label (e.g. `"Monthly"`) instead of the raw value (e.g. `"monthly"`).
+
+> **Note on semver:** The `composableVariables` type changed from
+> `Record<string, string>` to `Record<string, ComposableVariableEntry>`. This is
+> a technically breaking change to the context shape, but is published as a minor
+> bump because `composableVariables` is an internal context value (not part of the
+> public API contract). Existing consumers that only read the value string via
+> `variables[key]` remain unaffected — access `.value` for the same result.
+
+### Changed (internal)
+
+- `ComposableScreen` element components and types split into `elements/`
+  subfolder — one file per element. `Renderer.tsx` reduced from 630 to 58 lines;
+  `types.ts` from 443 to 173 lines. A `RenderContext` object replaces the five
+  individual parameters previously threaded through `renderElement`.
+
+---
+
 ## [1.7.0] - 2026-04-21
 
 ### Added

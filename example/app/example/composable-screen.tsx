@@ -196,6 +196,55 @@ export default function ComposableScreenExample() {
                 },
               ],
             },
+            // Radio group element
+            {
+              id: 'hero-radio',
+              type: 'RadioGroup' as const,
+              props: {
+                variableName: 'plan',
+                defaultValue: 'monthly',
+                gap: 8,
+                marginVertical: 8,
+                items: [
+                  { label: 'Monthly', value: 'monthly' },
+                  { label: 'Yearly', value: 'yearly' },
+                  { label: 'Lifetime', value: 'lifetime' },
+                ],
+              },
+            },
+            // Expression text — shows selected plan
+            {
+              id: 'plan-display',
+              type: 'Text' as const,
+              props: {
+                content: 'Selected: {{plan}}',
+                mode: 'expression' as const,
+                fontSize: 14,
+                textAlign: 'center' as const,
+                opacity: 0.7,
+                marginVertical: 4,
+              },
+            },
+            // Button element
+            {
+              id: 'hero-button',
+              type: 'Button' as const,
+              props: {
+                label: 'Get Started',
+                variant: 'filled' as const,
+                marginVertical: 8,
+              },
+            },
+            // Outlined button variant
+            {
+              id: 'hero-button-outlined',
+              type: 'Button' as const,
+              props: {
+                label: 'Learn More',
+                variant: 'outlined' as const,
+                marginVertical: 4,
+              },
+            },
             // Highlighted info block
             {
               id: 'info-block',

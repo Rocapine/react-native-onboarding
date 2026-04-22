@@ -15,10 +15,11 @@ export const OnboardingProgressProvider = ({
     displayProgressHeader: false,
   });
   const [totalSteps, setTotalSteps] = useState(0);
-  const [composableVariables, setComposableVariables] = useState<Record<string, string>>({});
+  const [composableVariables, setComposableVariables] = useState<Record<string, ComposableVariableEntry>>({});
 
-  const setComposableVariable = useCallback((key: string, value: string) => {
-    setComposableVariables((prev) => ({ ...prev, [key]: value }));
+  const setComposableVariable = useCallback((key: string, entry: ComposableVariableEntry | string) => {
+    const normalizedEntry: ComposableVariableEntry = typeof entry === "string" ? { value: entry } : entry;
+    setComposableVariables((prev) => ({ ...prev, [key]: normalizedEntry }));
   }, []);
 
   return (
@@ -34,6 +35,8 @@ export const OnboardingProgressProvider = ({
   );
 };
 
+export type ComposableVariableEntry = { value: string; label?: string };
+
 export const OnboardingProgressContext = createContext({
   activeStep: { number: 0, displayProgressHeader: false },
   setActiveStep: (_step: {
@@ -42,6 +45,6 @@ export const OnboardingProgressContext = createContext({
   }) => { },
   totalSteps: 0,
   setTotalSteps: (_steps: number) => { },
-  composableVariables: {} as Record<string, string>,
-  setComposableVariable: (_key: string, _value: string) => { },
+  composableVariables: {} as Record<string, ComposableVariableEntry>,
+  setComposableVariable: (_key: string, _entry: ComposableVariableEntry | string) => { },
 });

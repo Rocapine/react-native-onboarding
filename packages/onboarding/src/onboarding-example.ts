@@ -198,6 +198,42 @@ export const onboardingExample = {
                   opacity: 0.6,
                 },
               },
+              {
+                id: "hero-radio",
+                type: "RadioGroup",
+                props: {
+                  variableName: "plan",
+                  defaultValue: "monthly",
+                  gap: 8,
+                  marginVertical: 8,
+                  items: [
+                    { label: "Monthly", value: "monthly" },
+                    { label: "Yearly", value: "yearly" },
+                    { label: "Lifetime", value: "lifetime" },
+                  ],
+                },
+              },
+              {
+                id: "plan-display",
+                type: "Text",
+                props: {
+                  content: "Selected: {{plan}}",
+                  mode: "expression",
+                  fontSize: 14,
+                  textAlign: "center",
+                  opacity: 0.6,
+                  marginVertical: 4,
+                },
+              },
+              {
+                id: "hero-button",
+                type: "Button",
+                props: {
+                  label: "Get Started",
+                  variant: "filled",
+                  marginVertical: 8,
+                },
+              },
             ],
           },
         ],

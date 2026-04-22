@@ -5,6 +5,20 @@ here.
 
 ---
 
+## [1.8.1] - 2026-04-22
+
+### Added
+
+- **`alignSelf` on all `BaseBoxProps` elements** — `Input`, `RadioGroup`, `Image`, `Lottie`, `Rive`, `Icon`, and `Video` renderers now pass `alignSelf` from props to their root style. Accepts `"auto" | "flex-start" | "flex-end" | "center" | "stretch" | "baseline"`.
+- **`alignSelf` on `StackElement`** — `YStack` / `XStack` root `View` now applies `alignSelf` from props.
+
+### Fixed
+
+- **`InputElement` flattened to bare `<TextInput>`** — removed the wrapping `<View>` so `alignSelf`, `width`, `height`, and other layout props apply directly to the input rather than a container. All style props previously split between the wrapper and the inner `TextInput` are now on the single `TextInput`.
+- **`RadioGroup` item text collapse** — replaced `flex: 1` with `flexShrink: 1` on the label `<Text>` inside each radio item. Prevents Yoga from collapsing the text when the item is inside an `XStack`.
+
+---
+
 ## [1.8.0] - 2026-04-21
 
 ### Added

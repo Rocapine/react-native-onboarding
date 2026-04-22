@@ -2,8 +2,8 @@ import React, { useEffect } from "react";
 import { z } from "zod";
 import { View, Text, TouchableOpacity } from "react-native";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
-import { UIElement } from "../types";
-import { RenderContext } from "./shared";
+import type { UIElement } from "../types";
+import type { RenderContext } from "./shared";
 
 export type CheckboxGroupElementProps = BaseBoxProps & {
   variableName?: string;
@@ -54,11 +54,11 @@ export const CheckboxGroupElementPropsSchema = BaseBoxPropsSchema.extend({
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "item values must be unique", path: ["items"] });
   }
   if (data.defaultValues !== undefined) {
-    for (const dv of data.defaultValues) {
+    data.defaultValues.forEach((dv, i) => {
       if (!unique.has(dv)) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: `defaultValues entry "${dv}" must match one of the item values`, path: ["defaultValues"] });
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: `defaultValues entry "${dv}" must match one of the item values`, path: ["defaultValues", i] });
       }
-    }
+    });
   }
 });
 
@@ -73,7 +73,10 @@ export const CheckboxGroupComponent = ({ element, ctx }: Props): React.ReactElem
   const { theme, variables, setVariable } = ctx;
   // The variable stores a JSON-serialised string[] to stay compatible with the string-based variable system.
   const rawValue = element.props.variableName ? variables[element.props.variableName]?.value : undefined;
-  const selectedValues: string[] = rawValue ? JSON.parse(rawValue) : undefined;
+  const selectedValues: string[] | undefined = (() => {
+    if (typeof rawValue !== "string") return undefined;
+    try { return JSON.parse(rawValue) as string[]; } catch { return undefined; }
+  })();
 
   useEffect(() => {
     if (element.props.variableName && element.props.defaultValues && selectedValues === undefined) {
@@ -122,9 +125,8 @@ export const CheckboxGroupComponent = ({ element, ctx }: Props): React.ReactElem
     >
       {element.props.items.map((item) => {
         const isSelected = (selectedValues ?? []).includes(item.value);
-        // Note: "+ "15"" appends hex alpha (≈8% opacity) assuming a 6-digit hex primary color.
         const bgColor = isSelected
-          ? (element.props.itemSelectedBackgroundColor ?? theme.colors.primary + "15")
+          ? (element.props.itemSelectedBackgroundColor ?? (theme.colors.primary.startsWith("#") ? theme.colors.primary + "1A" : theme.colors.primary))
           : (element.props.itemBackgroundColor ?? "transparent");
         const textColor = isSelected
           ? (element.props.itemSelectedColor ?? theme.colors.primary)

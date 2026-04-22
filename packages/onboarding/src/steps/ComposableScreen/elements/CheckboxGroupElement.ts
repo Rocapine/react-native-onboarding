@@ -50,10 +50,10 @@ export const CheckboxGroupElementPropsSchema = BaseBoxPropsSchema.extend({
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "item values must be unique", path: ["items"] });
   }
   if (data.defaultValues !== undefined) {
-    for (const dv of data.defaultValues) {
+    data.defaultValues.forEach((dv, i) => {
       if (!unique.has(dv)) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: `defaultValues entry "${dv}" must match one of the item values`, path: ["defaultValues"] });
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: `defaultValues entry "${dv}" must match one of the item values`, path: ["defaultValues", i] });
       }
-    }
+    });
   }
 });

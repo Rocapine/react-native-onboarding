@@ -22,7 +22,7 @@ If the user already provided these in their message, skip asking.
 ## Step 1 — Create the type definition (headless SDK)
 
 **New file to create:**
-```
+```text
 packages/onboarding/src/steps/ComposableScreen/elements/{ElementName}Element.ts
 ```
 
@@ -77,7 +77,7 @@ export type { {ElementName}ElementProps } from "./elements/{ElementName}Element"
 ## Step 2 — Create the renderer (onboarding-ui)
 
 **New file to create:**
-```
+```text
 packages/onboarding-ui/src/UI/Pages/ComposableScreen/elements/{ElementName}Element.tsx
 ```
 
@@ -87,7 +87,7 @@ import React from "react";
 import { /* RN components */ } from "react-native";
 import { useTheme } from "../../../../Theme";
 import type { RenderContext } from "./shared";
-import type { {ElementName}ElementProps } from "./BaseBoxProps"; // or from the element file
+import type { {ElementName}ElementProps } from "@rocapine/react-native-onboarding";
 
 interface Props {
   element: {
@@ -170,7 +170,7 @@ Fix any TypeScript errors. The most common issues:
 
 After all changes are done, output this prompt for the `onboarding-studio` repo:
 
-```
+```text
 The ComposableScreen UIElement schema in the React Native SDK has been updated.
 Please mirror these schema changes in onboarding-studio.
 

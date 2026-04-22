@@ -29,15 +29,15 @@ The skill will guide you through:
 
 Follow the gitmoji commit convention (from `~/.claude/skills/gitmoji/SKILL.md`):
 
-1. Run `git diff --cached` to review staged changes
-2. Generate a commit message:
+1. Stage only the UIElement implementation files (NOT package.json or CHANGELOGs)
+2. Run `git diff --cached` to review staged changes
+3. Generate a commit message:
    ```
    ✨ feat(composable-screen): add <ElementName> UIElement
    ```
    - Subject lowercase, imperative, under 50 chars
    - Add a body bullet list if multiple files were changed
    - No `Co-Authored-By` trailer
-3. Stage only the UIElement implementation files (NOT package.json or CHANGELOGs)
 4. Commit immediately without asking for approval
 
 ### Step 3 — Bump the SDK version

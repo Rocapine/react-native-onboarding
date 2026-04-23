@@ -403,14 +403,14 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 - Any screen that doesn't fit a pre-built type
 
 **Key features:**
-- Recursive element tree (`YStack`, `XStack`, `Text`, `Image`, `Lottie`, `Rive`, `Icon`, `Video`, `Input`, `RadioGroup`)
+- Recursive element tree (`YStack`, `XStack`, `Text`, `Image`, `Lottie`, `Rive`, `Icon`, `Video`, `Input`, `RadioGroup`, `CheckboxGroup`, `Button`, `DatePicker`)
 - Full flexbox layout support
 - Border, radius, overflow, and opacity control
 - Dimension constraints (`width`, `height`, `min/max`)
 - Spacing with both `padding` and `margin`
 - Text color defaults to `theme.colors.text.primary`
-- Lottie, Rive, and Video as optional peer deps — graceful fallback if not installed
-- **Variable context** — `Input` and `RadioGroup` elements write into shared state; `Text` elements interpolate those values with `{{variableName}}` expressions — radio groups expose both a raw `value` and a human-readable `label` (e.g. `{{plan}}` renders `"Monthly"` not `"monthly"`)
+- Lottie, Rive, Video, and DatePicker as optional peer deps — graceful fallback if not installed
+- **Variable context** — `Input`, `RadioGroup`, `CheckboxGroup`, and `DatePicker` elements write into shared state; `Text` elements interpolate those values with `{{variableName}}` expressions
 
 **Element types:**
 
@@ -423,6 +423,9 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 | `Icon` | Lucide icon | — | — (bundled) |
 | `Input` | `<TextInput>` | — | — |
 | `RadioGroup` | Radio item list | — | — |
+| `CheckboxGroup` | Checkbox item list | — | — |
+| `Button` | `<TouchableOpacity>` | — | — |
+| `DatePicker` | Native date/time picker | — | `@react-native-community/datetimepicker` |
 | `Lottie` | `LottieView` | — | `lottie-react-native` |
 | `Rive` | `<Rive>` | — | `rive-react-native` |
 | `Video` | `<VideoView>` | — | `expo-video` |
@@ -532,13 +535,99 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 | `borderWidth` / `borderRadius` / `borderColor` | `number \| string` | Container border |
 | `opacity` | `number` | |
 
+**CheckboxGroup props:**
+
+| Prop | Type | Notes |
+|------|------|-------|
+| `items` | `Array<{ label: string; value: string }>` | **Required** — list of options; values must be unique |
+| `variableName` | `string` | Context key — selected values stored as `JSON.stringify(string[])`, label as comma-joined display names |
+| `defaultValues` | `string[]` | Pre-selects matching items on mount; must reference valid item values |
+| `direction` | `"vertical" \| "horizontal"` | Layout direction; defaults to `"vertical"` |
+| `gap` | `number` | Space between items; defaults to `8` |
+| `itemBackgroundColor` | `string` | Unselected item background; defaults to `"transparent"` |
+| `itemSelectedBackgroundColor` | `string` | Selected item background; defaults to `primary + 10% opacity` |
+| `itemBorderColor` | `string` | Unselected item border; defaults to `theme.colors.neutral.low` |
+| `itemSelectedBorderColor` | `string` | Selected item border; defaults to `theme.colors.primary` |
+| `itemBorderRadius` | `number` | Defaults to `8` |
+| `itemBorderWidth` | `number` | Defaults to `1` |
+| `itemColor` | `string` | Unselected label color; defaults to `theme.colors.text.primary` |
+| `itemSelectedColor` | `string` | Selected label color; defaults to `theme.colors.primary` |
+| `itemFontSize` | `number` | |
+| `itemFontWeight` | `string` | |
+| `itemFontFamily` | `string` | |
+| `itemPadding` | `number` | Defaults to `12` when no `itemPaddingHorizontal`/`Vertical` is set |
+| `itemPaddingHorizontal` / `itemPaddingVertical` | `number` | |
+| `alignSelf` | `"auto" \| "flex-start" \| "flex-end" \| "center" \| "stretch" \| "baseline"` | |
+| `width` / `height` | `number` | Container dimensions |
+| `margin` / `marginHorizontal` / `marginVertical` | `number` | |
+| `padding` / `paddingHorizontal` / `paddingVertical` | `number` | |
+| `borderWidth` / `borderRadius` / `borderColor` | `number \| string` | Container border |
+| `opacity` | `number` | |
+
+**Button props:**
+
+| Prop | Type | Notes |
+|------|------|-------|
+| `label` | `string` | **Required** — button text |
+| `variant` | `"filled" \| "outlined" \| "ghost"` | Visual style; `filled` = solid primary background, `outlined` = border only, `ghost` = no background or border |
+| `action` | `"continue"` | Calls `onContinue` when tapped; defaults to `"continue"` |
+| `backgroundColor` | `string` | Overrides variant background color |
+| `color` | `string` | Label text color |
+| `fontSize` | `number` | |
+| `fontWeight` | `string` | |
+| `fontFamily` | `string` | |
+| `textAlign` | `"left" \| "center" \| "right"` | |
+| `alignSelf` | `"auto" \| "flex-start" \| "center" \| "flex-end" \| "stretch"` | |
+| `width` / `height` | `number` | |
+| `margin` / `marginHorizontal` / `marginVertical` | `number` | |
+| `padding` / `paddingHorizontal` / `paddingVertical` | `number` | |
+| `borderWidth` / `borderRadius` / `borderColor` | `number \| string` | |
+| `opacity` | `number` | |
+
+**DatePicker props:**
+
+| Prop | Type | Notes |
+|------|------|-------|
+| `variableName` | `string` | Context key — selected date stored as ISO 8601 string (`value`) and locale-formatted string (`label`, e.g. `"Apr 23, 2026"`) |
+| `defaultValue` | `string` | ISO date string; used as initial value if no persisted value exists |
+| `minimumDate` | `string` | ISO date string — earliest selectable date |
+| `maximumDate` | `string` | ISO date string — latest selectable date |
+| `mode` | `"date" \| "time" \| "datetime"` | Defaults to `"date"` |
+| `display` | `"default" \| "spinner" \| "calendar" \| "clock" \| "compact" \| "inline"` | Platform-specific display style; iOS defaults to `"spinner"`, Android defaults to `"default"` |
+| `textColor` | `string` | Picker text color; defaults to `theme.colors.text.primary` |
+| `accentColor` | `string` | Picker accent/highlight color; defaults to `theme.colors.primary` |
+| `locale` | `string` | BCP 47 locale tag (e.g. `"fr-FR"`) |
+| `alignSelf` | `"auto" \| "flex-start" \| "flex-end" \| "center" \| "stretch" \| "baseline"` | |
+| `width` / `height` | `number` | Container dimensions |
+| `margin` / `marginHorizontal` / `marginVertical` | `number` | |
+| `padding` / `paddingHorizontal` / `paddingVertical` | `number` | |
+| `borderWidth` / `borderRadius` / `borderColor` | `number \| string` | Container border |
+| `opacity` | `number` | |
+
+:::note Android
+On Android, `DatePicker` renders as a `Pressable` showing the current value. Tapping opens the native modal picker. On iOS it renders inline.
+:::
+
+**Dependencies:** `@react-native-community/datetimepicker`
+
+```bash
+npx expo install @react-native-community/datetimepicker
+```
+
 **Variable context**
 
-`Input` and `RadioGroup` elements write into a shared `composableVariables` map stored in `OnboardingProgressContext`. This state persists across navigation between `ComposableScreen` steps, so values entered on an early screen are available on later screens.
+`Input`, `RadioGroup`, `CheckboxGroup`, and `DatePicker` elements write into a shared `composableVariables` map stored in `OnboardingProgressContext`. This state persists across navigation between `ComposableScreen` steps, so values collected on an early screen are available on later screens.
 
-Each entry is a structured object `{ value: string; label?: string }`. `Input` stores only `value`; `RadioGroup` stores both `value` (the raw option value, e.g. `"monthly"`) and `label` (the human-readable display text, e.g. `"Monthly"`).
+Each entry is a structured object `{ value: string; label?: string }`:
 
-`Text` elements with `mode: "expression"` interpolate `{{variableName}}` patterns in their `content` string from that map. The renderer prefers `label` over `value` when both are present — so a radio-backed `{{plan}}` renders `"Monthly"` instead of `"monthly"`. If a key has no value yet, the pattern is replaced with an empty string.
+| Element | `value` | `label` |
+|---------|---------|---------|
+| `Input` | Raw text string | — |
+| `RadioGroup` | Selected item value (e.g. `"monthly"`) | Selected item label (e.g. `"Monthly"`) |
+| `CheckboxGroup` | `JSON.stringify(string[])` of selected values | Comma-joined display labels (e.g. `"Health, Fitness"`) |
+| `DatePicker` | ISO 8601 string (e.g. `"1990-01-01T00:00:00.000Z"`) | Locale-formatted date (e.g. `"Jan 1, 1990"`) |
+
+`Text` elements with `mode: "expression"` interpolate `{{variableName}}` patterns in their `content` string from that map. The renderer prefers `label` over `value` when both are present. If a key has no value yet, the pattern is replaced with an empty string.
 
 ```json
 [
@@ -762,7 +851,7 @@ If `expo-video` is not installed, the element renders a placeholder view with an
 }
 ```
 
-**Dependencies:** None (for `YStack`, `XStack`, `Text`, `Image`, `Icon`, `Input`, `RadioGroup`). See Lottie, Rive, and Video sections above for elements with optional peer deps.
+**Dependencies:** None for `YStack`, `XStack`, `Text`, `Image`, `Icon`, `Input`, `RadioGroup`, `CheckboxGroup`, `Button`. See the Lottie, Rive, Video, and DatePicker sections above for elements with optional peer deps.
 
 ---
 

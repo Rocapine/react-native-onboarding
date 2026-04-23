@@ -15,9 +15,9 @@ export type DatePickerElementProps = BaseBoxProps & {
 
 export const DatePickerElementPropsSchema = BaseBoxPropsSchema.extend({
   variableName: z.string().min(1).optional(),
-  defaultValue: z.string().optional(),
-  minimumDate: z.string().optional(),
-  maximumDate: z.string().optional(),
+  defaultValue: z.string().refine((s) => !isNaN(Date.parse(s)), { message: "Invalid date string" }).optional(),
+  minimumDate: z.string().refine((s) => !isNaN(Date.parse(s)), { message: "Invalid date string" }).optional(),
+  maximumDate: z.string().refine((s) => !isNaN(Date.parse(s)), { message: "Invalid date string" }).optional(),
   mode: z.enum(["date", "time", "datetime"]).optional().default("date"),
   display: z.enum(["default", "spinner", "calendar", "clock", "compact", "inline"]).optional(),
   textColor: z.string().optional(),

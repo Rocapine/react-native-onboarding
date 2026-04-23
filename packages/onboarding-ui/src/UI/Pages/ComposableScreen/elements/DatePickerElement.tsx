@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { View, Platform } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { Pressable, Text, View, Platform } from "react-native";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { z } from "zod";
@@ -20,9 +20,9 @@ export type DatePickerElementProps = BaseBoxProps & {
 
 export const DatePickerElementPropsSchema = BaseBoxPropsSchema.extend({
   variableName: z.string().min(1).optional(),
-  defaultValue: z.string().optional(),
-  minimumDate: z.string().optional(),
-  maximumDate: z.string().optional(),
+  defaultValue: z.string().refine((s) => !isNaN(Date.parse(s)), { message: "Invalid date string" }).optional(),
+  minimumDate: z.string().refine((s) => !isNaN(Date.parse(s)), { message: "Invalid date string" }).optional(),
+  maximumDate: z.string().refine((s) => !isNaN(Date.parse(s)), { message: "Invalid date string" }).optional(),
   mode: z.enum(["date", "time", "datetime"]).optional().default("date"),
   display: z.enum(["default", "spinner", "calendar", "clock", "compact", "inline"]).optional(),
   textColor: z.string().optional(),
@@ -48,7 +48,7 @@ function formatDate(date: Date, mode: "date" | "time" | "datetime"): string {
 }
 
 export const DatePickerElementComponent = ({ element, ctx }: Props): React.ReactElement => {
-  const { variables, setVariable } = ctx;
+  const { theme, variables, setVariable } = ctx;
   const { props } = element;
 
   const persistedValue = props.variableName ? variables[props.variableName]?.value : undefined;
@@ -59,16 +59,26 @@ export const DatePickerElementComponent = ({ element, ctx }: Props): React.React
     : new Date();
 
   const [date, setDate] = useState<Date>(initialDate);
+  const [isPickerVisible, setPickerVisible] = useState(false);
   const mode = props.mode ?? "date";
 
+  // Tracks which variableName has been seeded so re-renders don't clobber a
+  // persisted value that arrived after the first render.
+  const seededVariableRef = useRef<string | undefined>(undefined);
+
   useEffect(() => {
-    if (props.variableName && persistedValue === undefined) {
+    if (
+      props.variableName &&
+      persistedValue === undefined &&
+      seededVariableRef.current !== props.variableName
+    ) {
+      seededVariableRef.current = props.variableName;
       setVariable(props.variableName, {
         value: initialDate.toISOString(),
         label: formatDate(initialDate, mode),
       });
     }
-  }, []);
+  }, [props.variableName, persistedValue, initialDate, mode, setVariable]);
 
   const handleChange = (_event: DateTimePickerEvent, selected?: Date) => {
     if (!selected) return;
@@ -81,35 +91,81 @@ export const DatePickerElementComponent = ({ element, ctx }: Props): React.React
     }
   };
 
+  const containerStyle = {
+    alignSelf: props.alignSelf,
+    width: props.width,
+    height: props.height,
+    margin: props.margin,
+    marginHorizontal: props.marginHorizontal,
+    marginVertical: props.marginVertical,
+    padding: props.padding,
+    paddingHorizontal: props.paddingHorizontal,
+    paddingVertical: props.paddingVertical,
+    opacity: props.opacity,
+    borderWidth: props.borderWidth,
+    borderRadius: props.borderRadius,
+    borderColor: props.borderColor,
+    overflow: "hidden" as const,
+  };
+
+  const pickerProps = {
+    value: date,
+    mode,
+    onChange: handleChange,
+    minimumDate: props.minimumDate ? new Date(props.minimumDate) : undefined,
+    maximumDate: props.maximumDate ? new Date(props.maximumDate) : undefined,
+    // Fall back to theme tokens when CMS props are not provided.
+    textColor: props.textColor ?? theme.colors.text.primary,
+    accentColor: props.accentColor ?? theme.colors.primary,
+    locale: props.locale,
+  };
+
+  if (Platform.OS === "android") {
+    return (
+      <View style={containerStyle}>
+        <Pressable
+          onPress={() => setPickerVisible(true)}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            borderRadius: props.borderRadius ?? 8,
+            borderWidth: props.borderWidth ?? 1,
+            borderColor: props.borderColor ?? theme.colors.neutral.low,
+            backgroundColor: theme.colors.neutral.lowest,
+          }}
+        >
+          <Text
+            style={{
+              color: props.textColor ?? theme.colors.text.primary,
+              fontSize: theme.typography.textStyles.body.fontSize,
+            }}
+          >
+            {formatDate(date, mode)}
+          </Text>
+          <Text style={{ color: theme.colors.text.tertiary, fontSize: 16 }}>›</Text>
+        </Pressable>
+        {isPickerVisible && (
+          <DateTimePicker
+            {...pickerProps}
+            display={(props.display ?? "default") as any}
+            onChange={(event, selected) => {
+              setPickerVisible(false);
+              handleChange(event, selected);
+            }}
+          />
+        )}
+      </View>
+    );
+  }
+
   return (
-    <View
-      style={{
-        alignSelf: props.alignSelf,
-        width: props.width,
-        height: props.height,
-        margin: props.margin,
-        marginHorizontal: props.marginHorizontal,
-        marginVertical: props.marginVertical,
-        padding: props.padding,
-        paddingHorizontal: props.paddingHorizontal,
-        paddingVertical: props.paddingVertical,
-        opacity: props.opacity,
-        borderWidth: props.borderWidth,
-        borderRadius: props.borderRadius,
-        borderColor: props.borderColor,
-        overflow: "hidden",
-      }}
-    >
+    <View style={containerStyle}>
       <DateTimePicker
-        value={date}
-        mode={mode}
-        display={(props.display ?? (Platform.OS === "ios" ? "spinner" : "default")) as any}
-        onChange={handleChange}
-        minimumDate={props.minimumDate ? new Date(props.minimumDate) : undefined}
-        maximumDate={props.maximumDate ? new Date(props.maximumDate) : undefined}
-        textColor={props.textColor}
-        accentColor={props.accentColor}
-        locale={props.locale}
+        {...pickerProps}
+        display={(props.display ?? "spinner") as any}
       />
     </View>
   );

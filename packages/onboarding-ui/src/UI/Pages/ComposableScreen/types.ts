@@ -11,6 +11,7 @@ import { type InputElementProps, InputElementPropsSchema } from "./elements/Inpu
 import { type ButtonElementProps, ButtonElementPropsSchema } from "./elements/ButtonElement";
 import { type RadioGroupElementProps, RadioGroupElementPropsSchema } from "./elements/RadioGroupElement";
 import { type CheckboxGroupElementProps, CheckboxGroupElementPropsSchema } from "./elements/CheckboxGroupElement";
+import { type DatePickerElementProps, DatePickerElementPropsSchema } from "./elements/DatePickerElement";
 
 export type { BaseBoxProps } from "./elements/BaseBoxProps";
 export { BaseBoxPropsSchema } from "./elements/BaseBoxProps";
@@ -25,6 +26,7 @@ export type { InputElementProps } from "./elements/InputElement";
 export type { ButtonElementProps } from "./elements/ButtonElement";
 export type { RadioGroupElementProps } from "./elements/RadioGroupElement";
 export type { CheckboxGroupElementProps } from "./elements/CheckboxGroupElement";
+export type { DatePickerElementProps } from "./elements/DatePickerElement";
 
 // UIElement union — must live here (not in elements/) to avoid circular deps
 // because the Stack variant's children: UIElement[] references itself.
@@ -95,6 +97,12 @@ export type UIElement =
       name?: string;
       type: "CheckboxGroup";
       props: CheckboxGroupElementProps;
+    }
+  | {
+      id: string;
+      name?: string;
+      type: "DatePicker";
+      props: DatePickerElementProps;
     };
 
 export const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
@@ -165,6 +173,12 @@ export const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
       name: z.string().optional(),
       type: z.literal("CheckboxGroup"),
       props: CheckboxGroupElementPropsSchema,
+    }),
+    z.object({
+      id: z.string(),
+      name: z.string().optional(),
+      type: z.literal("DatePicker"),
+      props: DatePickerElementPropsSchema,
     }),
   ])
 );

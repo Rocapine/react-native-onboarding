@@ -5,6 +5,22 @@ here.
 
 ---
 
+## [1.10.0] - 2026-04-23
+
+### Added
+
+- **`DatePicker` element renderer** — renders `DatePicker` UIElements using
+  `@react-native-community/datetimepicker` (new optional peer dependency). On mount,
+  initialises the variable from `defaultValue` (or today if omitted) as
+  `{ value: ISO string, label: locale-formatted string }`. On change, updates the
+  same variable; the `label` is human-readable (e.g. `"Apr 23, 2026"` for `mode: "date"`).
+  Supports `minimumDate`, `maximumDate`, `mode` (`date` / `time` / `datetime`),
+  `display` (platform-specific — iOS defaults to `"spinner"`, Android to `"default"`),
+  `textColor`, `accentColor`, `locale`, and all `BaseBoxProps` for the wrapping
+  container.
+
+---
+
 ## [1.9.0] - 2026-04-22
 
 ### Added

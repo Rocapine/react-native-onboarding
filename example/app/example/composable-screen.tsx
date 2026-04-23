@@ -255,6 +255,32 @@ export default function ComposableScreenExample() {
                 marginVertical: 4,
               },
             },
+            // Date picker element
+            {
+              id: 'hero-date-picker',
+              type: 'DatePicker' as const,
+              props: {
+                variableName: 'birthdate',
+                defaultValue: '1990-01-01T00:00:00.000Z',
+                mode: 'date' as const,
+                display: 'spinner' as const,
+                maximumDate: new Date().toISOString(),
+                marginVertical: 8,
+              },
+            },
+            // Expression text — shows selected date
+            {
+              id: 'birthdate-display',
+              type: 'Text' as const,
+              props: {
+                content: 'Birth date: {{birthdate}}',
+                mode: 'expression' as const,
+                fontSize: 14,
+                textAlign: 'center' as const,
+                opacity: 0.7,
+                marginVertical: 4,
+              },
+            },
             // Button element
             {
               id: 'hero-button',

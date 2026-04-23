@@ -4,6 +4,26 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.10.0] - 2026-04-23
+
+### Added
+
+- **`DatePicker` UIElement schema** for `ComposableScreen` — new discriminated-union
+  variant with `type: "DatePicker"`. Props: `variableName` (string, optional — context
+  key; selected date written as ISO 8601 string), `defaultValue` (ISO string, optional),
+  `minimumDate` / `maximumDate` (ISO strings, optional), `mode`
+  (`"date"` | `"time"` | `"datetime"`, default `"date"`), `display`
+  (`"default"` | `"spinner"` | `"calendar"` | `"clock"` | `"compact"` | `"inline"`,
+  optional — platform-specific), `textColor`, `accentColor`, `locale` (strings,
+  optional), plus all `BaseBoxProps`. Validated by `DatePickerElementPropsSchema` (Zod).
+
+> **Backend note:** The `onboarding-studio` server must be updated to accept and
+> emit the `DatePicker` `UIElement` variant in `ComposableScreen` payloads. Mirror
+> `DatePickerElementPropsSchema` in the backend validation layer and add `DatePicker`
+> to the CMS element-type picker.
+
+---
+
 ## [1.9.0] - 2026-04-22
 
 ### Added

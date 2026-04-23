@@ -4,6 +4,31 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.9.0] - 2026-04-22
+
+### Added
+
+- **`CheckboxGroup` UIElement schema** for `ComposableScreen` — new discriminated-union
+  variant with `type: "CheckboxGroup"`. Props: `variableName` (string, optional —
+  context key; selected values written as a JSON `string[]`), `items`
+  (`Array<{ label: string; value: string }>`, required, min 1), `defaultValues`
+  (`string[]`, optional — must reference valid item values), `gap` (number),
+  `direction` (`"vertical"` | `"horizontal"`), per-item styling
+  (`itemBackgroundColor`, `itemSelectedBackgroundColor`, `itemBorderColor`,
+  `itemSelectedBorderColor`, `itemBorderRadius`, `itemBorderWidth`, `itemColor`,
+  `itemSelectedColor`, `itemFontSize`, `itemFontWeight`, `itemFontFamily`,
+  `itemPadding`, `itemPaddingHorizontal`, `itemPaddingVertical`), plus all
+  `BaseBoxProps`. Validated by `CheckboxGroupElementPropsSchema` (Zod); includes
+  `superRefine` checks for unique item values and valid `defaultValues` entries
+  (per-index error paths).
+
+> **Backend note:** The `onboarding-studio` server must be updated to accept and
+> emit the `CheckboxGroup` `UIElement` variant in `ComposableScreen` payloads. Mirror
+> `CheckboxGroupElementPropsSchema` in the backend validation layer and add `CheckboxGroup`
+> to the CMS element-type picker.
+
+---
+
 ## [1.8.1] - 2026-04-22
 
 ### Added

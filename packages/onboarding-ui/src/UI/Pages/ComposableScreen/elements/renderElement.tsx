@@ -10,6 +10,7 @@ import { IconElementComponent } from "./IconElement";
 import { VideoElementRenderer } from "./VideoElement";
 import { InputElementComponent } from "./InputElement";
 import { RadioGroupComponent } from "./RadioGroupElement";
+import { CheckboxGroupComponent } from "./CheckboxGroupElement";
 import { ButtonElementComponent } from "./ButtonElement";
 
 export const renderElement = (
@@ -51,6 +52,10 @@ export const renderElement = (
 
   if (element.type === "RadioGroup") {
     return <RadioGroupComponent key={element.id} element={element} ctx={ctx} />;
+  }
+
+  if (element.type === "CheckboxGroup") {
+    return <CheckboxGroupComponent key={element.id} element={element} ctx={ctx} />;
   }
 
   if (element.type === "Button") {

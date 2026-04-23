@@ -5,6 +5,24 @@ here.
 
 ---
 
+## [1.9.0] - 2026-04-22
+
+### Added
+
+- **`CheckboxGroup` element renderer** — renders `CheckboxGroup` UIElements as a
+  vertical (default) or horizontal list of tappable checkbox items. Each item shows
+  a square checkbox indicator and a label; tapping toggles the item's value in/out
+  of the selected set. On mount, sets `defaultValues` into `composableVariables` (keyed
+  by `variableName`) as `{ value: JSON.stringify(string[]), label: string }`.
+  Subsequent toggles update the same entry. Supports all per-item style props
+  (`itemBackgroundColor`, `itemSelectedBackgroundColor`, `itemBorderColor`,
+  `itemSelectedBorderColor`, `itemBorderRadius`, `itemBorderWidth`, `itemColor`,
+  `itemSelectedColor`, `itemFontSize`, `itemFontWeight`, `itemFontFamily`,
+  `itemPadding`, `itemPaddingHorizontal`, `itemPaddingVertical`), `gap`,
+  `direction`, and all `BaseBoxProps` for the group container.
+
+---
+
 ## [1.8.1] - 2026-04-22
 
 ### Added

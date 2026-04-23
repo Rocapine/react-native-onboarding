@@ -225,6 +225,36 @@ export default function ComposableScreenExample() {
                 marginVertical: 4,
               },
             },
+            // Checkbox group element
+            {
+              id: 'hero-checkbox',
+              type: 'CheckboxGroup' as const,
+              props: {
+                variableName: 'goals',
+                defaultValues: ['health', 'fitness'],
+                gap: 8,
+                marginVertical: 8,
+                items: [
+                  { label: 'Improve health', value: 'health' },
+                  { label: 'Build fitness', value: 'fitness' },
+                  { label: 'Lose weight', value: 'weight' },
+                  { label: 'Gain muscle', value: 'muscle' },
+                ],
+              },
+            },
+            // Expression text — shows selected goals
+            {
+              id: 'goals-display',
+              type: 'Text' as const,
+              props: {
+                content: 'Goals: {{goals}}',
+                mode: 'expression' as const,
+                fontSize: 14,
+                textAlign: 'center' as const,
+                opacity: 0.7,
+                marginVertical: 4,
+              },
+            },
             // Button element
             {
               id: 'hero-button',

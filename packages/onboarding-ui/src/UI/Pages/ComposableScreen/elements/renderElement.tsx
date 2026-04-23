@@ -12,6 +12,7 @@ import { InputElementComponent } from "./InputElement";
 import { RadioGroupComponent } from "./RadioGroupElement";
 import { CheckboxGroupComponent } from "./CheckboxGroupElement";
 import { ButtonElementComponent } from "./ButtonElement";
+import { DatePickerElementComponent } from "./DatePickerElement";
 
 export const renderElement = (
   element: UIElement,
@@ -60,6 +61,10 @@ export const renderElement = (
 
   if (element.type === "Button") {
     return <ButtonElementComponent key={element.id} element={element} ctx={ctx} />;
+  }
+
+  if (element.type === "DatePicker") {
+    return <DatePickerElementComponent key={element.id} element={element} ctx={ctx} />;
   }
 
   return null;

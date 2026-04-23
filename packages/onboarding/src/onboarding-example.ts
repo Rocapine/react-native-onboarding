@@ -254,6 +254,30 @@ export const onboardingExample = {
                 },
               },
               {
+                id: "hero-date-picker",
+                type: "DatePicker",
+                props: {
+                  variableName: "birthdate",
+                  defaultValue: "1990-01-01T00:00:00.000Z",
+                  mode: "date",
+                  display: "spinner",
+                  maximumDate: new Date().toISOString(),
+                  marginVertical: 8,
+                },
+              },
+              {
+                id: "birthdate-display",
+                type: "Text",
+                props: {
+                  content: "Birth date: {{birthdate}}",
+                  mode: "expression",
+                  fontSize: 14,
+                  textAlign: "center",
+                  opacity: 0.6,
+                  marginVertical: 4,
+                },
+              },
+              {
                 id: "hero-button",
                 type: "Button",
                 props: {

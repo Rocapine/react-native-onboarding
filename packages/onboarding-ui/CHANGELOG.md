@@ -5,6 +5,23 @@ here.
 
 ---
 
+## [1.11.0] - 2026-04-24
+
+### Added
+
+- **`Carousel` element renderer** — renders `Carousel` UIElements using
+  `react-native-reanimated-carousel` (new optional peer dependency). Displays a
+  horizontal auto-playing carousel of slides; each slide can have an `image` (URL),
+  `title`, and `description` (overlaid at the bottom of the image with a semi-transparent
+  scrim). Supports `autoPlay` (default `true`), `autoPlayInterval` (default `3000 ms`),
+  `loop` (default `true`), and `showDots` (default `true` — renders animated pagination
+  dots below the carousel using theme `primary` / `neutral.low` colors). Width defaults
+  to `useWindowDimensions().width`; height defaults to `220 px`. Includes a graceful
+  fallback (renders the first slide statically) when the peer dep is absent. All
+  `BaseBoxProps` are applied to the outer container.
+
+---
+
 ## [1.10.0] - 2026-04-23
 
 ### Added

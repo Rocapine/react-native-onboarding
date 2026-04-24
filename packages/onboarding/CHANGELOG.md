@@ -4,6 +4,20 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.11.0] - 2026-04-24
+
+### Added
+
+- **`Carousel` UIElement schema** for `ComposableScreen` — new discriminated-union
+  variant with `type: "Carousel"`. Props: `items` (array of `{ image?: string; title?: string; description?: string }`, required, min 1), `autoPlay` (boolean, default `true`), `autoPlayInterval` (number ms, default `3000`), `loop` (boolean, default `true`), `showDots` (boolean — render pagination dots, default `true`), `height` (number, optional), plus all `BaseBoxProps`. Validated by `CarouselElementPropsSchema` (Zod). Exports `CarouselElementProps` and `CarouselItem` types.
+
+> **Backend note:** The `onboarding-studio` server must be updated to accept and
+> emit the `Carousel` `UIElement` variant in `ComposableScreen` payloads. Mirror
+> `CarouselElementPropsSchema` and `CarouselItemSchema` in the backend validation
+> layer and add `Carousel` to the CMS element-type picker.
+
+---
+
 ## [1.10.0] - 2026-04-23
 
 ### Added

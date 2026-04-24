@@ -69,7 +69,7 @@ export const renderElement = (
   }
 
   if (element.type === "Carousel") {
-    return <CarouselElementComponent key={element.id} element={element as any} ctx={ctx} />;
+    return <CarouselElementComponent key={element.id} element={element} ctx={ctx} />;
   }
 
   return null;

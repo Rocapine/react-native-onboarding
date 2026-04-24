@@ -111,6 +111,7 @@ export type UIElement =
       name?: string;
       type: "Carousel";
       props: CarouselElementProps;
+      children: UIElement[];
     };
 
 export const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
@@ -193,6 +194,7 @@ export const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
       name: z.string().optional(),
       type: z.literal("Carousel"),
       props: CarouselElementPropsSchema,
+      children: z.array(UIElementSchema),
     }),
   ])
 );

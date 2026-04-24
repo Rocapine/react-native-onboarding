@@ -286,23 +286,7 @@ export default function ComposableScreenExample() {
               id: 'hero-carousel',
               type: 'Carousel' as const,
               props: {
-                items: [
-                  {
-                    image: 'https://picsum.photos/400/220?random=10',
-                    title: 'Personalized for you',
-                    description: 'Tailored recommendations based on your goals',
-                  },
-                  {
-                    image: 'https://picsum.photos/400/220?random=11',
-                    title: 'Track your progress',
-                    description: 'Visualize every milestone along the way',
-                  },
-                  {
-                    image: 'https://picsum.photos/400/220?random=12',
-                    title: 'Stay motivated',
-                    description: 'Daily nudges to keep you on track',
-                  },
-                ],
+                carouselType: 'parallax' as const,
                 autoPlay: true,
                 autoPlayInterval: 3000,
                 loop: true,
@@ -311,6 +295,35 @@ export default function ComposableScreenExample() {
                 borderRadius: 16,
                 marginVertical: 8,
               },
+              children: [
+                {
+                  id: 'carousel-slide-1',
+                  type: 'Image' as const,
+                  props: {
+                    url: 'https://picsum.photos/400/220?random=10',
+                    height: 220,
+                    resizeMode: 'cover' as const,
+                  },
+                },
+                {
+                  id: 'carousel-slide-2',
+                  type: 'Image' as const,
+                  props: {
+                    url: 'https://picsum.photos/400/220?random=11',
+                    height: 220,
+                    resizeMode: 'cover' as const,
+                  },
+                },
+                {
+                  id: 'carousel-slide-3',
+                  type: 'Image' as const,
+                  props: {
+                    url: 'https://picsum.photos/400/220?random=12',
+                    height: 220,
+                    resizeMode: 'cover' as const,
+                  },
+                },
+              ],
             },
             // Button element
             {

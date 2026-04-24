@@ -81,9 +81,6 @@
     },
     "expo-video": {
       "optional": true
-    },
-    "react-native-reanimated-carousel": {
-      "optional": true
     }
   },
   "files": [

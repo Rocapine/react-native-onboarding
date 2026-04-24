@@ -15,7 +15,17 @@ type Example = {
 
 const examples: Example[] = [
   { name: "Carousel", route: "/example/carousel" },
-  { name: "Composable Screen", route: "/example/composable-screen" },
+  {
+    name: "Composable Screen",
+    variants: [
+      { name: "Media", route: "/example/composable-screen-media" },
+      { name: "Text & Layout", route: "/example/composable-screen-layout" },
+      { name: "Form", route: "/example/composable-screen-form" },
+      { name: "Carousel", route: "/example/composable-screen-carousel" },
+      { name: "Button", route: "/example/composable-screen-button" },
+      { name: "All", route: "/example/composable-screen" },
+    ],
+  },
   {
     name: "Commitment",
     variants: [

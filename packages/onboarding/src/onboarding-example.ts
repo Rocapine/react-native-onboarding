@@ -278,6 +278,36 @@ export const onboardingExample = {
                 },
               },
               {
+                id: "hero-carousel",
+                type: "Carousel",
+                props: {
+                  items: [
+                    {
+                      image: "https://picsum.photos/400/220?random=10",
+                      title: "Personalized for you",
+                      description: "Tailored recommendations based on your goals",
+                    },
+                    {
+                      image: "https://picsum.photos/400/220?random=11",
+                      title: "Track your progress",
+                      description: "Visualize every milestone along the way",
+                    },
+                    {
+                      image: "https://picsum.photos/400/220?random=12",
+                      title: "Stay motivated",
+                      description: "Daily nudges to keep you on track",
+                    },
+                  ],
+                  autoPlay: true,
+                  autoPlayInterval: 3000,
+                  loop: true,
+                  showDots: true,
+                  height: 220,
+                  borderRadius: 16,
+                  marginVertical: 8,
+                },
+              },
+              {
                 id: "hero-button",
                 type: "Button",
                 props: {

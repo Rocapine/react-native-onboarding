@@ -13,6 +13,12 @@ export type CarouselElementProps = BaseBoxProps & {
   autoPlayInterval?: number;
   loop?: boolean;
   showDots?: boolean;
+  dotColor?: string;
+  activeDotColor?: string;
+  dotWidth?: number;
+  dotHeight?: number;
+  dotsGap?: number;
+  dotsMarginTop?: number;
 };
 
 export const CarouselElementPropsSchema = BaseBoxPropsSchema.extend({
@@ -21,6 +27,12 @@ export const CarouselElementPropsSchema = BaseBoxPropsSchema.extend({
   autoPlayInterval: z.number().nonnegative().optional().default(3000),
   loop: z.boolean().optional().default(true),
   showDots: z.boolean().optional().default(true),
+  dotColor: z.string().optional(),
+  activeDotColor: z.string().optional(),
+  dotWidth: z.number().nonnegative().optional().default(20),
+  dotHeight: z.number().nonnegative().optional().default(4),
+  dotsGap: z.number().nonnegative().optional().default(8),
+  dotsMarginTop: z.number().optional().default(12),
 });
 
 type CarouselUIElement = Extract<UIElement, { type: "Carousel" }>;
@@ -115,16 +127,16 @@ export function CarouselElementComponent({ element, ctx }: Props): React.ReactEl
           progress={progress}
           data={children}
           dotStyle={{
-            width: 20,
-            height: 4,
+            width: props.dotWidth ?? 20,
+            height: props.dotHeight ?? 4,
             borderRadius: 2,
-            backgroundColor: theme.colors.neutral.low,
+            backgroundColor: props.dotColor ?? theme.colors.neutral.low,
           }}
           activeDotStyle={{
             overflow: "hidden",
-            backgroundColor: theme.colors.primary,
+            backgroundColor: props.activeDotColor ?? theme.colors.primary,
           }}
-          containerStyle={{ gap: 8, marginTop: 12 }}
+          containerStyle={{ gap: props.dotsGap ?? 8, marginTop: props.dotsMarginTop ?? 12 }}
           horizontal
           onPress={(index: number) => {
             ref.current?.scrollTo({ count: index - progress.value, animated: true });

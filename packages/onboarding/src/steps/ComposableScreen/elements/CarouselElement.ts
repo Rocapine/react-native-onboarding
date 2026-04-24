@@ -7,6 +7,12 @@ export type CarouselElementProps = BaseBoxProps & {
   autoPlayInterval?: number;
   loop?: boolean;
   showDots?: boolean;
+  dotColor?: string;
+  activeDotColor?: string;
+  dotWidth?: number;
+  dotHeight?: number;
+  dotsGap?: number;
+  dotsMarginTop?: number;
 };
 
 export const CarouselElementPropsSchema = BaseBoxPropsSchema.extend({
@@ -15,4 +21,10 @@ export const CarouselElementPropsSchema = BaseBoxPropsSchema.extend({
   autoPlayInterval: z.number().nonnegative().optional().default(3000),
   loop: z.boolean().optional().default(true),
   showDots: z.boolean().optional().default(true),
+  dotColor: z.string().optional(),
+  activeDotColor: z.string().optional(),
+  dotWidth: z.number().nonnegative().optional().default(20),
+  dotHeight: z.number().nonnegative().optional().default(4),
+  dotsGap: z.number().nonnegative().optional().default(8),
+  dotsMarginTop: z.number().optional().default(12),
 });

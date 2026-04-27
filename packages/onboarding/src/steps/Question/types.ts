@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ButtonSectionSchema, CustomPayloadSchema, InfoBoxSchema } from "../common.types";
+import { BaseStepTypeSchema, InfoBoxSchema } from "../common.types";
 
 export const AnswerSchema = z.object({
   label: z.string(),
@@ -16,16 +16,10 @@ export const QuestionStepPayloadSchema = z.object({
   infoBox: InfoBoxSchema.nullish(),
 });
 
-export const QuestionStepTypeSchema = z.object({
-  id: z.string(),
+export const QuestionStepTypeSchema = BaseStepTypeSchema.extend({
   type: z.literal("Question"),
-  name: z.string(),
-  displayProgressHeader: z.boolean(),
   payload: QuestionStepPayloadSchema,
-  customPayload: CustomPayloadSchema,
-  continueButtonLabel: z.string().optional().default("Continue"),
-  buttonSection: ButtonSectionSchema.optional(),
-  figmaUrl: z.string().nullish(),
+  variableName: z.string().min(1).optional(),
 });
 
 export type QuestionStepType = z.infer<typeof QuestionStepTypeSchema>;

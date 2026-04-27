@@ -1,3 +1,5 @@
+import type { NextStep } from "./steps/common.types";
+
 /**
  * Base step type that all onboarding steps must conform to.
  * This is the minimal interface required by the headless SDK.
@@ -11,6 +13,7 @@ export type BaseStepType = {
   customPayload?: any;
   continueButtonLabel?: string;
   figmaUrl?: string | null;
+  nextStep?: NextStep;
 };
 
 export type OnboardingStudioClientOptions<

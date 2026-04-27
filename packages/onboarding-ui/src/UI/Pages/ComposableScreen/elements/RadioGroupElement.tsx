@@ -3,7 +3,7 @@ import { z } from "zod";
 import { View, Text, TouchableOpacity } from "react-native";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
-import { RenderContext } from "./shared";
+import { RenderContext, dim } from "./shared";
 
 export type RadioGroupElementProps = BaseBoxProps & {
   variableName?: string;
@@ -92,8 +92,8 @@ export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement
         flexWrap: isHorizontal ? "wrap" : undefined,
         alignSelf: element.props.alignSelf,
         gap: element.props.gap ?? 8,
-        width: element.props.width,
-        height: element.props.height,
+        width: dim(element.props.width),
+        height: dim(element.props.height),
         margin: element.props.margin,
         marginHorizontal: element.props.marginHorizontal,
         marginVertical: element.props.marginVertical,

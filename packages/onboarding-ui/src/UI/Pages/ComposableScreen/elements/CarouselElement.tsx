@@ -5,7 +5,7 @@ import { useSharedValue } from "react-native-reanimated";
 import Carousel, { Pagination, ICarouselInstance } from "react-native-reanimated-carousel";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import type { UIElement } from "../types";
-import type { RenderContext } from "./shared";
+import { dim, type RenderContext } from "./shared";
 
 export type CarouselElementProps = BaseBoxProps & {
   carouselType?: "left-align" | "normal" | "parallax" | "stack";
@@ -23,7 +23,7 @@ export type CarouselElementProps = BaseBoxProps & {
 
 export const CarouselElementPropsSchema = BaseBoxPropsSchema.extend({
   carouselType: z.enum(["left-align", "normal", "parallax", "stack"]).optional().default("normal"),
-  autoPlay: z.boolean().optional().default(true),
+  autoPlay: z.boolean().optional().default(false),
   autoPlayInterval: z.number().nonnegative().optional().default(3000),
   loop: z.boolean().optional().default(true),
   showDots: z.boolean().optional().default(true),
@@ -56,13 +56,20 @@ export function CarouselElementComponent({ element, ctx }: Props): React.ReactEl
     carouselType === "stack"
       ? windowWidth * 0.75
       : carouselType === "left-align"
-      ? windowWidth * 0.82
-      : (props.width ?? windowWidth);
-  const itemHeight = props.height ?? 220;
+        ? windowWidth * 0.82
+        : (typeof props.width === "number" ? props.width : windowWidth);
+  const itemHeight = typeof props.height === "number" ? props.height : 220;
 
   const containerStyle = {
     alignSelf: props.alignSelf,
-    width: props.width,
+    flex: props.flex,
+    flexShrink: props.flexShrink,
+    flexGrow: props.flexGrow,
+    width: dim(props.width),
+    minWidth: props.minWidth,
+    maxWidth: props.maxWidth,
+    minHeight: props.minHeight,
+    maxHeight: props.maxHeight,
     margin: props.margin,
     marginHorizontal: props.marginHorizontal,
     marginVertical: props.marginVertical,
@@ -72,51 +79,48 @@ export function CarouselElementComponent({ element, ctx }: Props): React.ReactEl
     borderRadius: props.borderRadius,
     borderWidth: props.borderWidth,
     borderColor: props.borderColor,
+    backgroundColor: props.backgroundColor,
     opacity: props.opacity,
     // Left-align shows the next slide peeking — must not clip
-    overflow: carouselType === "left-align" ? ("visible" as const) : ("hidden" as const),
+    overflow: carouselType === "left-align" ? ("visible" as const) : (props.overflow ?? ("hidden" as const)),
   };
 
-  // Mode-specific props per rn-carousel docs
   const modeProps: Record<string, unknown> =
     carouselType === "parallax"
       ? {
-          mode: "parallax",
-          modeConfig: { parallaxScrollingScale: 0.9, parallaxScrollingOffset: 50 },
-        }
+        mode: "parallax",
+        modeConfig: { parallaxScrollingScale: 0.9, parallaxScrollingOffset: 50 },
+      }
       : carouselType === "stack"
-      ? {
+        ? {
           mode: "horizontal-stack",
           modeConfig: { snapDirection: "left", stackInterval: 18 },
           customConfig: () => ({ type: "positive", viewCount: 5 }),
         }
-      : {};
+        : {};
 
+  const dotW = props.dotWidth ?? 20;
+  const dotH = props.dotHeight ?? 4;
+  const dotsGap = props.dotsGap ?? 8;
+  const dotsMarginTop = props.dotsMarginTop ?? 12;
+  const dotBg = props.dotColor ?? theme.colors.neutral.low;
+  const activeDotBg = props.activeDotColor ?? theme.colors.primary;
+  console.log(props.autoPlay, props.autoPlayInterval);
+  console.log(element);
   return (
     <View style={containerStyle}>
       <Carousel
         ref={ref}
-        loop={props.loop ?? true}
-        autoPlay={props.autoPlay ?? true}
-        autoPlayInterval={props.autoPlayInterval ?? 3000}
+        loop={props.loop}
+        autoPlay={props.autoPlay}
+        autoPlayInterval={props.autoPlayInterval}
         snapEnabled={true}
         pagingEnabled={true}
         data={children}
         width={itemWidth}
         height={itemHeight}
         style={{ width: itemWidth, height: itemHeight }}
-        renderItem={({ item }: { item: UIElement }) => (
-          <View
-            style={{
-              width: itemWidth,
-              height: itemHeight,
-              borderRadius: props.borderRadius ?? 0,
-              overflow: "hidden",
-            }}
-          >
-            {ctx.renderChildren([item], "YStack")}
-          </View>
-        )}
+        renderItem={({ item }: { item: UIElement }) => ctx.renderChildren([item], "YStack")}
         onProgressChange={(_: number, absoluteProgress: number) => {
           progress.value = absoluteProgress;
         }}
@@ -127,16 +131,16 @@ export function CarouselElementComponent({ element, ctx }: Props): React.ReactEl
           progress={progress}
           data={children}
           dotStyle={{
-            width: props.dotWidth ?? 20,
-            height: props.dotHeight ?? 4,
-            borderRadius: 2,
-            backgroundColor: props.dotColor ?? theme.colors.neutral.low,
+            width: dotW,
+            height: dotH,
+            borderRadius: dotH / 2,
+            backgroundColor: dotBg,
           }}
           activeDotStyle={{
             overflow: "hidden",
-            backgroundColor: props.activeDotColor ?? theme.colors.primary,
+            backgroundColor: activeDotBg,
           }}
-          containerStyle={{ gap: props.dotsGap ?? 8, marginTop: props.dotsMarginTop ?? 12 }}
+          containerStyle={{ gap: dotsGap, marginTop: dotsMarginTop }}
           horizontal
           onPress={(index: number) => {
             ref.current?.scrollTo({ count: index - progress.value, animated: true });

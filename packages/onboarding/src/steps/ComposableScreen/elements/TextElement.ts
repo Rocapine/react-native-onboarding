@@ -1,6 +1,7 @@
 import { z } from "zod";
+import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 
-export type TextElementProps = {
+export type TextElementProps = BaseBoxProps & {
   content: string;
   mode?: "plain" | "expression";
   fontSize?: number;
@@ -10,20 +11,9 @@ export type TextElementProps = {
   textAlign?: "left" | "center" | "right";
   letterSpacing?: number;
   lineHeight?: number;
-  backgroundColor?: string;
-  padding?: number;
-  paddingHorizontal?: number;
-  paddingVertical?: number;
-  margin?: number;
-  marginHorizontal?: number;
-  marginVertical?: number;
-  borderWidth?: number;
-  borderRadius?: number;
-  borderColor?: string;
-  opacity?: number;
 };
 
-export const TextElementPropsSchema = z.object({
+export const TextElementPropsSchema = BaseBoxPropsSchema.extend({
   content: z.string(),
   mode: z.enum(["plain", "expression"]).optional(),
   fontSize: z.number().optional(),
@@ -33,15 +23,4 @@ export const TextElementPropsSchema = z.object({
   textAlign: z.enum(["left", "center", "right"]).optional(),
   letterSpacing: z.number().optional(),
   lineHeight: z.number().optional(),
-  backgroundColor: z.string().optional(),
-  padding: z.number().optional(),
-  paddingHorizontal: z.number().optional(),
-  paddingVertical: z.number().optional(),
-  margin: z.number().optional(),
-  marginHorizontal: z.number().optional(),
-  marginVertical: z.number().optional(),
-  borderWidth: z.number().optional(),
-  borderRadius: z.number().optional(),
-  borderColor: z.string().optional(),
-  opacity: z.number().min(0).max(1).optional(),
 });

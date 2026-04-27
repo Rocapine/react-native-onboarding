@@ -3,7 +3,7 @@ import { z } from "zod";
 import { View, Text, StyleSheet } from "react-native";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
-import { RenderContext } from "./shared";
+import { RenderContext, dim } from "./shared";
 import { getTextStyle } from "../../../Theme/helpers";
 
 export type VideoElementProps = BaseBoxProps & {
@@ -65,9 +65,18 @@ type Props = {
 export const VideoElementRenderer = ({ element, ctx }: Props): React.ReactElement => {
   const { theme } = ctx;
   const wrapperStyle = {
-    width: element.props.width ?? ("100%" as `${number}%`),
-    height: element.props.height ?? 200,
+    flex: element.props.flex,
+    flexShrink: element.props.flexShrink,
+    flexGrow: element.props.flexGrow,
+    alignSelf: element.props.alignSelf,
+    width: dim(element.props.width) ?? ("100%" as `${number}%`),
+    height: dim(element.props.height ?? 200),
+    minWidth: element.props.minWidth,
+    maxWidth: element.props.maxWidth,
+    minHeight: element.props.minHeight,
+    maxHeight: element.props.maxHeight,
     opacity: element.props.opacity,
+    backgroundColor: element.props.backgroundColor,
     margin: element.props.margin,
     marginHorizontal: element.props.marginHorizontal,
     marginVertical: element.props.marginVertical,

@@ -13,3 +13,7 @@ export type RenderContext = {
 
 export const interpolate = (template: string, variables: Record<string, ComposableVariableEntry>): string =>
   template.replace(/\{\{([^}]+?)\}\}/g, (_, key) => variables[key]?.label ?? variables[key]?.value ?? "");
+
+// Cast number | string dimension values to DimensionValue for React Native style props
+export const dim = (v: number | string | undefined): import("react-native").DimensionValue | undefined =>
+  v as import("react-native").DimensionValue | undefined;

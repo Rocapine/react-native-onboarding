@@ -3,7 +3,7 @@ import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 
 export type RiveElementProps = BaseBoxProps & {
   url: string;
-  autoplay?: boolean;
+  autoPlay?: boolean;
   fit?: "Contain" | "Cover" | "Fill" | "FitWidth" | "FitHeight" | "None" | "ScaleDown" | "Layout";
   alignment?: "TopLeft" | "TopCenter" | "TopRight" | "CenterLeft" | "Center" | "CenterRight" | "BottomLeft" | "BottomCenter" | "BottomRight";
   artboardName?: string;
@@ -12,7 +12,7 @@ export type RiveElementProps = BaseBoxProps & {
 
 export const RiveElementPropsSchema = BaseBoxPropsSchema.extend({
   url: z.string().min(1, "url must not be empty"),
-  autoplay: z.boolean().optional(),
+  autoPlay: z.boolean().optional(),
   fit: z.enum(["Contain", "Cover", "Fill", "FitWidth", "FitHeight", "None", "ScaleDown", "Layout"]).optional(),
   alignment: z.enum(["TopLeft", "TopCenter", "TopRight", "CenterLeft", "Center", "CenterRight", "BottomLeft", "BottomCenter", "BottomRight"]).optional(),
   artboardName: z.string().optional(),

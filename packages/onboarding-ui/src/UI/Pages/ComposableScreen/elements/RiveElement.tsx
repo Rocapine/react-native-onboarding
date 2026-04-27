@@ -3,12 +3,12 @@ import { z } from "zod";
 import { View, Text, StyleSheet } from "react-native";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
-import { RenderContext } from "./shared";
+import { RenderContext, dim } from "./shared";
 import { getTextStyle } from "../../../Theme/helpers";
 
 export type RiveElementProps = BaseBoxProps & {
   url: string;
-  autoplay?: boolean;
+  autoPlay?: boolean;
   fit?: "Contain" | "Cover" | "Fill" | "FitWidth" | "FitHeight" | "None" | "ScaleDown" | "Layout";
   alignment?: "TopLeft" | "TopCenter" | "TopRight" | "CenterLeft" | "Center" | "CenterRight" | "BottomLeft" | "BottomCenter" | "BottomRight";
   artboardName?: string;
@@ -17,7 +17,7 @@ export type RiveElementProps = BaseBoxProps & {
 
 export const RiveElementPropsSchema = BaseBoxPropsSchema.extend({
   url: z.string().min(1, "url must not be empty"),
-  autoplay: z.boolean().optional(),
+  autoPlay: z.boolean().optional(),
   fit: z.enum(["Contain", "Cover", "Fill", "FitWidth", "FitHeight", "None", "ScaleDown", "Layout"]).optional(),
   alignment: z.enum(["TopLeft", "TopCenter", "TopRight", "CenterLeft", "Center", "CenterRight", "BottomLeft", "BottomCenter", "BottomRight"]).optional(),
   artboardName: z.string().optional(),
@@ -35,7 +35,7 @@ try {
     return (
       <Rive
         url={element.props.url}
-        autoplay={element.props.autoplay ?? true}
+        autoplay={element.props.autoPlay ?? true}
         fit={element.props.fit ? Fit[element.props.fit] : Fit.Contain}
         alignment={element.props.alignment ? Alignment[element.props.alignment] : Alignment.Center}
         artboardName={element.props.artboardName}
@@ -56,19 +56,29 @@ type Props = {
 
 export const RiveElementRenderer = ({ element, ctx }: Props): React.ReactElement => {
   const { theme } = ctx;
+  const p = element.props;
   const wrapperStyle = {
-    width: element.props.width ?? ("100%" as `${number}%`),
-    height: element.props.height ?? 200,
-    opacity: element.props.opacity,
-    margin: element.props.margin,
-    marginHorizontal: element.props.marginHorizontal,
-    marginVertical: element.props.marginVertical,
-    padding: element.props.padding,
-    paddingHorizontal: element.props.paddingHorizontal,
-    paddingVertical: element.props.paddingVertical,
-    borderWidth: element.props.borderWidth,
-    borderRadius: element.props.borderRadius,
-    borderColor: element.props.borderColor,
+    flex: p.flex,
+    flexShrink: p.flexShrink,
+    flexGrow: p.flexGrow,
+    alignSelf: p.alignSelf,
+    width: dim(p.width) ?? ("100%" as `${number}%`),
+    height: dim(p.height ?? 200),
+    minWidth: p.minWidth,
+    maxWidth: p.maxWidth,
+    minHeight: p.minHeight,
+    maxHeight: p.maxHeight,
+    opacity: p.opacity,
+    backgroundColor: p.backgroundColor,
+    margin: p.margin,
+    marginHorizontal: p.marginHorizontal,
+    marginVertical: p.marginVertical,
+    padding: p.padding,
+    paddingHorizontal: p.paddingHorizontal,
+    paddingVertical: p.paddingVertical,
+    borderWidth: p.borderWidth,
+    borderRadius: p.borderRadius,
+    borderColor: p.borderColor,
     overflow: "hidden" as const,
   };
 

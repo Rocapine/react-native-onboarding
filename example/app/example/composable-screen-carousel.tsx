@@ -185,7 +185,7 @@ export default function ComposableScreenCarouselExample() {
                   type: 'YStack' as const,
                   props: { gap: 8, alignItems: 'center' as const },
                   children: [
-                    { id: 'rive-1', type: 'Rive' as const, props: { url: 'https://cdn.rive.app/animations/vehicles.riv', height: 180, autoplay: true, fit: 'Contain' } },
+                    { id: 'rive-1', type: 'Rive' as const, props: { url: 'https://cdn.rive.app/animations/vehicles.riv', height: 180, autoPlay: true, fit: 'Contain' } },
                     { id: 'rive-1-label', type: 'Text' as const, props: { content: 'Vehicles', fontSize: 12, opacity: 0.5, textAlign: 'center' as const } },
                   ],
                 },
@@ -194,7 +194,7 @@ export default function ComposableScreenCarouselExample() {
                   type: 'YStack' as const,
                   props: { gap: 8, alignItems: 'center' as const },
                   children: [
-                    { id: 'rive-2', type: 'Rive' as const, props: { url: 'https://cdn.rive.app/animations/vehicles.riv', height: 180, autoplay: true, fit: 'Contain' } },
+                    { id: 'rive-2', type: 'Rive' as const, props: { url: 'https://cdn.rive.app/animations/vehicles.riv', height: 180, autoPlay: true, fit: 'Contain' } },
                     { id: 'rive-2-label', type: 'Text' as const, props: { content: 'Vehicles 2', fontSize: 12, opacity: 0.5, textAlign: 'center' as const } },
                   ],
                 },
@@ -203,7 +203,7 @@ export default function ComposableScreenCarouselExample() {
                   type: 'YStack' as const,
                   props: { gap: 8, alignItems: 'center' as const },
                   children: [
-                    { id: 'rive-3', type: 'Rive' as const, props: { url: 'https://cdn.rive.app/animations/vehicles.riv', height: 180, autoplay: true, fit: 'Contain' } },
+                    { id: 'rive-3', type: 'Rive' as const, props: { url: 'https://cdn.rive.app/animations/vehicles.riv', height: 180, autoPlay: true, fit: 'Contain' } },
                     { id: 'rive-3-label', type: 'Text' as const, props: { content: 'Vehicles 3', fontSize: 12, opacity: 0.5, textAlign: 'center' as const } },
                   ],
                 },

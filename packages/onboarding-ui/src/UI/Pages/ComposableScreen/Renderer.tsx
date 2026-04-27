@@ -50,7 +50,8 @@ const ComposableScreenRendererBase = ({ step, onContinue }: ContentProps) => {
 
 const styles = StyleSheet.create({
   scrollContent: {
-    flexGrow: 1,
+    flex: 1,
+    flexDirection: "column",
   },
 });
 

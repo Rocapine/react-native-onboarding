@@ -78,7 +78,7 @@ export default function ComposableScreenMediaExample() {
               props: {
                 url: 'https://cdn.rive.app/animations/vehicles.riv',
                 height: 180,
-                autoplay: true,
+                autoPlay: true,
                 fit: 'Contain',
               },
             },

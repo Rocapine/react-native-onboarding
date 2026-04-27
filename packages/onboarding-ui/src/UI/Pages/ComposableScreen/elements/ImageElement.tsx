@@ -3,7 +3,7 @@ import { z } from "zod";
 import { Image } from "react-native";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
-import { RenderContext } from "./shared";
+import { RenderContext, dim } from "./shared";
 
 export type ImageElementProps = BaseBoxProps & {
   url: string;
@@ -26,16 +26,24 @@ type Props = {
 
 export const ImageElementComponent = ({ element }: Props): React.ReactElement => {
   const hasExplicitHeight = element.props.height !== undefined;
-  const aspectRatio = hasExplicitHeight ? undefined : (element.props.aspectRatio ?? 16 / 9);
 
   return (
     <Image
       source={{ uri: element.props.url }}
-      resizeMode={element.props.resizeMode ?? "cover"}
-      style={{
-        width: element.props.width ?? "100%",
-        height: element.props.height,
-        aspectRatio,
+      resizeMode={element.props.resizeMode}
+      style={({
+        flex: element.props.flex,
+        flexShrink: element.props.flexShrink,
+        flexGrow: element.props.flexGrow,
+        alignSelf: element.props.alignSelf,
+        width: dim(element.props.width),
+        height: dim(element.props.height),
+        minWidth: element.props.minWidth,
+        maxWidth: element.props.maxWidth,
+        minHeight: element.props.minHeight,
+        maxHeight: element.props.maxHeight,
+        backgroundColor: element.props.backgroundColor,
+        overflow: element.props.overflow,
         borderRadius: element.props.borderRadius,
         borderWidth: element.props.borderWidth,
         borderColor: element.props.borderColor,
@@ -46,7 +54,7 @@ export const ImageElementComponent = ({ element }: Props): React.ReactElement =>
         padding: element.props.padding,
         paddingHorizontal: element.props.paddingHorizontal,
         paddingVertical: element.props.paddingVertical,
-      }}
+      }) as any}
     />
   );
 };

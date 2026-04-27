@@ -3,7 +3,7 @@ import { z } from "zod";
 import { Text, TouchableOpacity } from "react-native";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
-import { RenderContext } from "./shared";
+import { RenderContext, dim } from "./shared";
 
 export type ButtonElementProps = BaseBoxProps & {
   label: string;
@@ -15,7 +15,6 @@ export type ButtonElementProps = BaseBoxProps & {
   fontWeight?: string;
   fontFamily?: string;
   textAlign?: "left" | "center" | "right";
-  alignSelf?: "auto" | "flex-start" | "center" | "flex-end" | "stretch";
 };
 
 export const ButtonElementPropsSchema = BaseBoxPropsSchema.extend({
@@ -28,7 +27,6 @@ export const ButtonElementPropsSchema = BaseBoxPropsSchema.extend({
   fontWeight: z.string().optional(),
   fontFamily: z.string().optional(),
   textAlign: z.enum(["left", "center", "right"]).optional(),
-  alignSelf: z.enum(["auto", "flex-start", "center", "flex-end", "stretch"]).optional(),
 });
 
 type ButtonUIElement = Extract<UIElement, { type: "Button" }>;
@@ -69,8 +67,8 @@ export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElem
         padding: element.props.padding,
         paddingVertical: element.props.paddingVertical ?? 14,
         paddingHorizontal: element.props.paddingHorizontal ?? 24,
-        width: element.props.width,
-        height: element.props.height,
+        width: dim(element.props.width),
+        height: dim(element.props.height),
         margin: element.props.margin,
         marginHorizontal: element.props.marginHorizontal,
         marginVertical: element.props.marginVertical,

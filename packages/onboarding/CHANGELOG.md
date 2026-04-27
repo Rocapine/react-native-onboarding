@@ -4,6 +4,39 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.11.1] - 2026-04-27
+
+### Changed
+
+- **`BaseBoxProps` expanded** — all UIElement schemas now inherit `minWidth`,
+  `maxWidth`, `minHeight`, `maxHeight`, `flexShrink`, `flexGrow`, `backgroundColor`,
+  and `overflow` from the base. Previously these were missing or inconsistently
+  defined per element.
+
+- **`StackElement` (`YStack` / `XStack`) props** — now correctly extends
+  `BaseBoxProps` instead of declaring `width`/`height` as number-only standalone
+  fields. `width` and `height` now accept `number | string` (e.g. `"100%"`).
+  Stack-specific props retained: `gap`, `alignItems`, `justifyContent`, `flexWrap`.
+
+- **`TextElement` props** — now correctly extends `BaseBoxProps` instead of
+  duplicating margin/padding/border fields. Text-specific props retained: `content`,
+  `mode`, `fontSize`, `fontWeight`, `fontFamily`, `color`, `textAlign`,
+  `letterSpacing`, `lineHeight`.
+
+- **`InputElement` props** — added `fontFamily`, `lineHeight`, `letterSpacing`.
+
+- **`ButtonElement` props** — removed redundant `alignSelf` override (now inherited
+  from `BaseBoxProps` with the full enum).
+
+- **`RiveElement` props** — renamed `autoplay` → `autoPlay` (consistent casing with
+  all other elements).
+
+- **`CarouselElement` props** — added dot style props: `dotColor`, `activeDotColor`,
+  `dotWidth` (default `20`), `dotHeight` (default `4`), `dotsGap` (default `8`),
+  `dotsMarginTop` (default `12`).
+
+---
+
 ## [1.11.0] - 2026-04-24
 
 ### Added

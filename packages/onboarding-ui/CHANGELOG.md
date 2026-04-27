@@ -5,6 +5,43 @@ here.
 
 ---
 
+## [1.11.1] - 2026-04-27
+
+### Changed
+
+- **All element renderers** updated to apply the full expanded `BaseBoxProps`:
+  `minWidth`, `maxWidth`, `minHeight`, `maxHeight`, `flexShrink`, `flexGrow`,
+  `backgroundColor`, `overflow` are now wired into every element's style output.
+
+- **`dim()` helper added** (`shared.ts`) — casts `number | string` width/height
+  values to React Native's `DimensionValue`, enabling percentage strings (e.g.
+  `"100%"`) across all elements.
+
+- **`StackElement` renderer** — applies `flexGrow`, all new `BaseBoxProps` layout
+  props. `width`/`height` now support percentage strings.
+
+- **`TextElement` renderer** — applies `flex`, `flexShrink`/`flexGrow`, `alignSelf`,
+  `width`/`height` (via `dim()`), `minWidth`/`maxWidth`/`minHeight`/`maxHeight`,
+  `overflow`.
+
+- **`InputElement` renderer** — applies `fontFamily`, `lineHeight`, `letterSpacing`;
+  also `flex`, `flexShrink`/`flexGrow`, `minWidth`/`maxWidth`/`minHeight`/`maxHeight`,
+  `overflow`.
+
+- **`ButtonElement` renderer** — `alignSelf` now uses the complete enum from
+  `BaseBoxProps`.
+
+- **`RiveElement` renderer** — prop renamed `autoplay` → `autoPlay` (schema-level
+  rename; the underlying `rive-react-native` library still receives `autoplay`).
+
+- **`CarouselElement` renderer** — `Pagination.Basic` now driven by dot style props:
+  `dotColor`, `activeDotColor`, `dotWidth`, `dotHeight`, `dotsGap`, `dotsMarginTop`.
+
+- **`IconElement`, `LottieElement`, `VideoElement` renderers** — apply `flex`,
+  `flexShrink`/`flexGrow`, `alignSelf`, `minWidth`/`maxWidth`/`minHeight`/`maxHeight`.
+
+---
+
 ## [1.11.0] - 2026-04-24
 
 ### Added

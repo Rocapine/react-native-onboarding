@@ -8,6 +8,8 @@
     "build": "tsc",
     "watch": "tsc --watch",
     "type:check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "patch": "npm version patch && npm run build && npm publish"
   },
   "keywords": [
@@ -29,7 +31,8 @@
     "@types/react": "^19.0.0",
     "react": "19.2.0",
     "react-native": "0.83.4",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vitest": "^4.1.5"
   },
   "peerDependencies": {
     "react": "*",

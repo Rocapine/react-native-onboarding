@@ -1,10 +1,11 @@
 import React from "react";
 import { z } from "zod";
 import { Text } from "react-native";
+import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
-import { RenderContext, interpolate } from "./shared";
+import { RenderContext, interpolate, dim } from "./shared";
 
-export type TextElementProps = {
+export type TextElementProps = BaseBoxProps & {
   content: string;
   mode?: "plain" | "expression";
   fontSize?: number;
@@ -14,20 +15,9 @@ export type TextElementProps = {
   textAlign?: "left" | "center" | "right";
   letterSpacing?: number;
   lineHeight?: number;
-  backgroundColor?: string;
-  padding?: number;
-  paddingHorizontal?: number;
-  paddingVertical?: number;
-  margin?: number;
-  marginHorizontal?: number;
-  marginVertical?: number;
-  borderWidth?: number;
-  borderRadius?: number;
-  borderColor?: string;
-  opacity?: number;
 };
 
-export const TextElementPropsSchema = z.object({
+export const TextElementPropsSchema = BaseBoxPropsSchema.extend({
   content: z.string(),
   mode: z.enum(["plain", "expression"]).optional(),
   fontSize: z.number().optional(),
@@ -37,17 +27,6 @@ export const TextElementPropsSchema = z.object({
   textAlign: z.enum(["left", "center", "right"]).optional(),
   letterSpacing: z.number().optional(),
   lineHeight: z.number().optional(),
-  backgroundColor: z.string().optional(),
-  padding: z.number().optional(),
-  paddingHorizontal: z.number().optional(),
-  paddingVertical: z.number().optional(),
-  margin: z.number().optional(),
-  marginHorizontal: z.number().optional(),
-  marginVertical: z.number().optional(),
-  borderWidth: z.number().optional(),
-  borderRadius: z.number().optional(),
-  borderColor: z.string().optional(),
-  opacity: z.number().min(0).max(1).optional(),
 });
 
 type TextUIElement = Extract<UIElement, { type: "Text" }>;
@@ -60,33 +39,43 @@ type Props = {
 
 export const TextElementComponent = ({ element, ctx, parentType }: Props): React.ReactElement => {
   const { theme, variables } = ctx;
+  const p = element.props;
   const content =
-    element.props.mode === "expression"
-      ? interpolate(element.props.content, variables)
-      : element.props.content;
+    p.mode === "expression"
+      ? interpolate(p.content, variables)
+      : p.content;
 
   return (
     <Text
       style={{
-        fontSize: element.props.fontSize,
-        fontWeight: element.props.fontWeight as any,
-        fontFamily: element.props.fontFamily,
-        color: element.props.color ?? theme.colors.text.primary,
-        textAlign: element.props.textAlign,
-        letterSpacing: element.props.letterSpacing,
-        lineHeight: element.props.lineHeight,
-        backgroundColor: element.props.backgroundColor,
-        padding: element.props.padding,
-        paddingHorizontal: element.props.paddingHorizontal,
-        paddingVertical: element.props.paddingVertical,
-        margin: element.props.margin,
-        marginHorizontal: element.props.marginHorizontal,
-        marginVertical: element.props.marginVertical,
-        borderWidth: element.props.borderWidth,
-        borderRadius: element.props.borderRadius,
-        borderColor: element.props.borderColor,
-        opacity: element.props.opacity,
-        flexShrink: parentType === "XStack" ? 1 : undefined,
+        flex: p.flex,
+        flexShrink: p.flexShrink ?? (parentType === "XStack" ? 1 : undefined),
+        flexGrow: p.flexGrow,
+        alignSelf: p.alignSelf,
+        width: dim(p.width),
+        height: dim(p.height),
+        minWidth: p.minWidth,
+        maxWidth: p.maxWidth,
+        minHeight: p.minHeight,
+        maxHeight: p.maxHeight,
+        fontSize: p.fontSize,
+        fontWeight: p.fontWeight as any,
+        fontFamily: p.fontFamily,
+        color: p.color ?? theme.colors.text.primary,
+        textAlign: p.textAlign,
+        letterSpacing: p.letterSpacing,
+        lineHeight: p.lineHeight,
+        backgroundColor: p.backgroundColor,
+        padding: p.padding,
+        paddingHorizontal: p.paddingHorizontal,
+        paddingVertical: p.paddingVertical,
+        margin: p.margin,
+        marginHorizontal: p.marginHorizontal,
+        marginVertical: p.marginVertical,
+        borderWidth: p.borderWidth,
+        borderRadius: p.borderRadius,
+        borderColor: p.borderColor,
+        opacity: p.opacity,
       }}
     >
       {content}

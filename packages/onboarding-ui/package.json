@@ -1,6 +1,6 @@
 {
   "name": "@rocapine/react-native-onboarding-ui",
-  "version": "1.10.0",
+  "version": "1.11.1",
   "description": "UI components and renderers for Rocapine Onboarding Studio - Built on top of the headless SDK",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -38,6 +38,7 @@
     "react-native": "0.83.4",
     "react-native-gesture-handler": "^2.28.0",
     "react-native-reanimated": "^4.1.2",
+    "react-native-reanimated-carousel": "^4.0.3",
     "react-native-safe-area-context": "^5.6.1",
     "react-native-svg": "15.15.3",
     "typescript": "^5.0.0"
@@ -45,18 +46,19 @@
   "peerDependencies": {
     "@react-native-community/datetimepicker": "*",
     "@react-native-picker/picker": "*",
-    "@rocapine/react-native-onboarding": "^1.10.0",
+    "@rocapine/react-native-onboarding": "^1.11.1",
     "@shopify/react-native-skia": ">=1.0.0",
     "@tanstack/react-query": ">=5.0.0",
     "@types/react": "*",
     "expo-router": ">=3.0.0",
     "expo-store-review": "*",
+    "expo-video": "*",
     "lottie-react-native": "*",
     "react": "*",
     "react-native": "*",
+    "react-native-reanimated-carousel": "*",
     "react-native-safe-area-context": "*",
-    "rive-react-native": "*",
-    "expo-video": "*"
+    "rive-react-native": "*"
   },
   "peerDependenciesMeta": {
     "@react-native-community/datetimepicker": {

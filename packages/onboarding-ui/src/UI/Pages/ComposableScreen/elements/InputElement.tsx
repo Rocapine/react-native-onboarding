@@ -3,7 +3,7 @@ import { z } from "zod";
 import { View, TextInput } from "react-native";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
-import { RenderContext } from "./shared";
+import { RenderContext, dim } from "./shared";
 
 export type InputElementProps = BaseBoxProps & {
   variableName?: string;
@@ -21,6 +21,9 @@ export type InputElementProps = BaseBoxProps & {
   backgroundColor?: string;
   fontSize?: number;
   fontWeight?: string;
+  fontFamily?: string;
+  lineHeight?: number;
+  letterSpacing?: number;
   textAlign?: "left" | "center" | "right";
   placeholderColor?: string;
 };
@@ -41,6 +44,9 @@ export const InputElementPropsSchema = BaseBoxPropsSchema.extend({
   backgroundColor: z.string().optional(),
   fontSize: z.number().optional(),
   fontWeight: z.string().optional(),
+  fontFamily: z.string().optional(),
+  lineHeight: z.number().optional(),
+  letterSpacing: z.number().optional(),
   textAlign: z.enum(["left", "center", "right"]).optional(),
   placeholderColor: z.string().optional(),
 });
@@ -85,10 +91,18 @@ export const InputElementComponent = ({ element, ctx }: Props): React.ReactEleme
       numberOfLines={element.props.numberOfLines}
       editable={element.props.editable ?? true}
       style={{
+        flex: element.props.flex,
+        flexShrink: element.props.flexShrink,
+        flexGrow: element.props.flexGrow,
         alignSelf: element.props.alignSelf,
-        width: element.props.width,
-        height: element.props.height,
+        width: dim(element.props.width),
+        height: dim(element.props.height),
+        minWidth: element.props.minWidth,
+        maxWidth: element.props.maxWidth,
+        minHeight: element.props.minHeight,
+        maxHeight: element.props.maxHeight,
         opacity: element.props.opacity,
+        overflow: element.props.overflow,
         margin: element.props.margin,
         marginHorizontal: element.props.marginHorizontal,
         marginVertical: element.props.marginVertical,
@@ -99,6 +113,9 @@ export const InputElementComponent = ({ element, ctx }: Props): React.ReactEleme
         color: element.props.color ?? theme.colors.text.primary,
         fontSize: element.props.fontSize ?? theme.typography.textStyles.body.fontSize,
         fontWeight: element.props.fontWeight as any,
+        fontFamily: element.props.fontFamily,
+        lineHeight: element.props.lineHeight,
+        letterSpacing: element.props.letterSpacing,
         textAlign: element.props.textAlign,
         padding: element.props.padding ?? 12,
         paddingHorizontal: element.props.paddingHorizontal,

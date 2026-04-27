@@ -5,6 +5,64 @@ here.
 
 ---
 
+## [1.11.1] - 2026-04-27
+
+### Changed
+
+- **All element renderers** updated to apply the full expanded `BaseBoxProps`:
+  `minWidth`, `maxWidth`, `minHeight`, `maxHeight`, `flexShrink`, `flexGrow`,
+  `backgroundColor`, `overflow` are now wired into every element's style output.
+
+- **`dim()` helper added** (`shared.ts`) — casts `number | string` width/height
+  values to React Native's `DimensionValue`, enabling percentage strings (e.g.
+  `"100%"`) across all elements.
+
+- **`StackElement` renderer** — applies `flexGrow`, all new `BaseBoxProps` layout
+  props. `width`/`height` now support percentage strings.
+
+- **`TextElement` renderer** — applies `flex`, `flexShrink`/`flexGrow`, `alignSelf`,
+  `width`/`height` (via `dim()`), `minWidth`/`maxWidth`/`minHeight`/`maxHeight`,
+  `overflow`.
+
+- **`InputElement` renderer** — applies `fontFamily`, `lineHeight`, `letterSpacing`;
+  also `flex`, `flexShrink`/`flexGrow`, `minWidth`/`maxWidth`/`minHeight`/`maxHeight`,
+  `overflow`.
+
+- **`ButtonElement` renderer** — `alignSelf` now uses the complete enum from
+  `BaseBoxProps`.
+
+- **`RiveElement` renderer** — prop renamed `autoplay` → `autoPlay` (schema-level
+  rename; the underlying `rive-react-native` library still receives `autoplay`).
+
+- **`CarouselElement` renderer** — `Pagination.Basic` now driven by dot style props:
+  `dotColor`, `activeDotColor`, `dotWidth`, `dotHeight`, `dotsGap`, `dotsMarginTop`.
+
+- **`IconElement`, `LottieElement`, `VideoElement` renderers** — apply `flex`,
+  `flexShrink`/`flexGrow`, `alignSelf`, `minWidth`/`maxWidth`/`minHeight`/`maxHeight`.
+
+---
+
+## [1.11.0] - 2026-04-24
+
+### Added
+
+- **`Carousel` element renderer** — renders `Carousel` UIElements using
+  `react-native-reanimated-carousel` (now a **required** peer dependency). Each slide
+  is a `UIElement` subtree rendered by the same recursive engine as `YStack`/`XStack`,
+  giving full layout flexibility per slide. Four modes via `carouselType`:
+  - `"normal"` — full-width paged carousel (default)
+  - `"parallax"` — depth-zoom effect using library `mode="parallax"`
+  - `"stack"` — stacked cards at 75 % window width via `mode="horizontal-stack"`
+  - `"left-align"` — peek effect at 82 % window width with `overflow: "visible"`
+
+  Pagination uses `Pagination.Basic` from the library: animated pill dots in theme
+  `primary` / `neutral.low` colors, tappable to jump to any slide. `autoPlay`
+  defaults to `false`; `loop` defaults to `true`; `showDots` defaults to `true`.
+  Width defaults to `useWindowDimensions().width`; height defaults to `220 px`. All
+  `BaseBoxProps` applied to the outer container.
+
+---
+
 ## [1.10.0] - 2026-04-23
 
 ### Added

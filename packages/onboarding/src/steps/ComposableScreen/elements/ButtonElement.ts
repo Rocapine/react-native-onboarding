@@ -11,7 +11,6 @@ export type ButtonElementProps = BaseBoxProps & {
   fontWeight?: string;
   fontFamily?: string;
   textAlign?: "left" | "center" | "right";
-  alignSelf?: "auto" | "flex-start" | "center" | "flex-end" | "stretch";
 };
 
 export const ButtonElementPropsSchema = BaseBoxPropsSchema.extend({
@@ -24,5 +23,4 @@ export const ButtonElementPropsSchema = BaseBoxPropsSchema.extend({
   fontWeight: z.string().optional(),
   fontFamily: z.string().optional(),
   textAlign: z.enum(["left", "center", "right"]).optional(),
-  alignSelf: z.enum(["auto", "flex-start", "center", "flex-end", "stretch"]).optional(),
 });

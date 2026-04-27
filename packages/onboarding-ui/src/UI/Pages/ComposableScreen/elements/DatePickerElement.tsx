@@ -4,7 +4,7 @@ import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/dat
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { z } from "zod";
 import type { UIElement } from "../types";
-import type { RenderContext } from "./shared";
+import { dim, type RenderContext } from "./shared";
 
 export type DatePickerElementProps = BaseBoxProps & {
   variableName?: string;
@@ -93,8 +93,8 @@ export const DatePickerElementComponent = ({ element, ctx }: Props): React.React
 
   const containerStyle = {
     alignSelf: props.alignSelf,
-    width: props.width,
-    height: props.height,
+    width: dim(props.width),
+    height: dim(props.height),
     margin: props.margin,
     marginHorizontal: props.marginHorizontal,
     marginVertical: props.marginVertical,

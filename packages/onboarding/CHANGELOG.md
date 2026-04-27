@@ -4,6 +4,60 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.11.1] - 2026-04-27
+
+### Changed
+
+- **`BaseBoxProps` expanded** — all UIElement schemas now inherit `minWidth`,
+  `maxWidth`, `minHeight`, `maxHeight`, `flexShrink`, `flexGrow`, `backgroundColor`,
+  and `overflow` from the base. Previously these were missing or inconsistently
+  defined per element.
+
+- **`StackElement` (`YStack` / `XStack`) props** — now correctly extends
+  `BaseBoxProps` instead of declaring `width`/`height` as number-only standalone
+  fields. `width` and `height` now accept `number | string` (e.g. `"100%"`).
+  Stack-specific props retained: `gap`, `alignItems`, `justifyContent`, `flexWrap`.
+
+- **`TextElement` props** — now correctly extends `BaseBoxProps` instead of
+  duplicating margin/padding/border fields. Text-specific props retained: `content`,
+  `mode`, `fontSize`, `fontWeight`, `fontFamily`, `color`, `textAlign`,
+  `letterSpacing`, `lineHeight`.
+
+- **`InputElement` props** — added `fontFamily`, `lineHeight`, `letterSpacing`.
+
+- **`ButtonElement` props** — removed redundant `alignSelf` override (now inherited
+  from `BaseBoxProps` with the full enum).
+
+- **`RiveElement` props** — renamed `autoplay` → `autoPlay` (consistent casing with
+  all other elements).
+
+- **`CarouselElement` props** — added dot style props: `dotColor`, `activeDotColor`,
+  `dotWidth` (default `20`), `dotHeight` (default `4`), `dotsGap` (default `8`),
+  `dotsMarginTop` (default `12`).
+
+---
+
+## [1.11.0] - 2026-04-24
+
+### Added
+
+- **`Carousel` UIElement schema** for `ComposableScreen` — new discriminated-union
+  variant with `type: "Carousel"`. Takes `children: UIElement[]` — any renderable
+  UIElement tree as slide content (same recursive system as `YStack`/`XStack`).
+  Props: `carouselType` (`"normal"` | `"left-align"` | `"parallax"` | `"stack"`,
+  default `"normal"`), `autoPlay` (boolean, default `false`), `autoPlayInterval`
+  (number ms, default `3000`), `loop` (boolean, default `true`), `showDots`
+  (boolean, default `true`), `height` (number, optional), plus all `BaseBoxProps`.
+  Validated by `CarouselElementPropsSchema` (Zod). Exports `CarouselElementProps`
+  type.
+
+> **Backend note:** The `onboarding-studio` server must be updated to accept and
+> emit the `Carousel` `UIElement` variant in `ComposableScreen` payloads. Mirror
+> `CarouselElementPropsSchema` in the backend validation layer and add `Carousel`
+> to the CMS element-type picker.
+
+---
+
 ## [1.10.0] - 2026-04-23
 
 ### Added

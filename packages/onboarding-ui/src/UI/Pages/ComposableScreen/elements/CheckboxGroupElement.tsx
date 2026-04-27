@@ -3,7 +3,7 @@ import { z } from "zod";
 import { View, Text, TouchableOpacity } from "react-native";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import type { UIElement } from "../types";
-import type { RenderContext } from "./shared";
+import { dim, type RenderContext } from "./shared";
 
 export type CheckboxGroupElementProps = BaseBoxProps & {
   variableName?: string;
@@ -109,8 +109,8 @@ export const CheckboxGroupComponent = ({ element, ctx }: Props): React.ReactElem
         flexWrap: isHorizontal ? "wrap" : undefined,
         alignSelf: element.props.alignSelf,
         gap: element.props.gap ?? 8,
-        width: element.props.width,
-        height: element.props.height,
+        width: dim(element.props.width),
+        height: dim(element.props.height),
         margin: element.props.margin,
         marginHorizontal: element.props.marginHorizontal,
         marginVertical: element.props.marginVertical,

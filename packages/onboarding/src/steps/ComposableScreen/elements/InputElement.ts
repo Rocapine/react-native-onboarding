@@ -17,6 +17,9 @@ export type InputElementProps = BaseBoxProps & {
   backgroundColor?: string;
   fontSize?: number;
   fontWeight?: string;
+  fontFamily?: string;
+  lineHeight?: number;
+  letterSpacing?: number;
   textAlign?: "left" | "center" | "right";
   placeholderColor?: string;
 };
@@ -37,6 +40,9 @@ export const InputElementPropsSchema = BaseBoxPropsSchema.extend({
   backgroundColor: z.string().optional(),
   fontSize: z.number().optional(),
   fontWeight: z.string().optional(),
+  fontFamily: z.string().optional(),
+  lineHeight: z.number().optional(),
+  letterSpacing: z.number().optional(),
   textAlign: z.enum(["left", "center", "right"]).optional(),
   placeholderColor: z.string().optional(),
 });

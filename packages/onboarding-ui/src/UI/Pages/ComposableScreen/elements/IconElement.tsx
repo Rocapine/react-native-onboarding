@@ -3,7 +3,7 @@ import { z } from "zod";
 import { View } from "react-native";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
-import { RenderContext } from "./shared";
+import { RenderContext, dim } from "./shared";
 
 export type IconElementProps = BaseBoxProps & {
   name: string;
@@ -40,8 +40,17 @@ export const IconElementComponent = ({ element, ctx }: Props): React.ReactElemen
   return (
     <View
       style={{
-        width: element.props.width,
-        height: element.props.height,
+        flex: element.props.flex,
+        flexShrink: element.props.flexShrink,
+        flexGrow: element.props.flexGrow,
+        alignSelf: element.props.alignSelf,
+        width: dim(element.props.width),
+        height: dim(element.props.height),
+        minWidth: element.props.minWidth,
+        maxWidth: element.props.maxWidth,
+        minHeight: element.props.minHeight,
+        maxHeight: element.props.maxHeight,
+        overflow: element.props.overflow,
         margin: element.props.margin,
         marginHorizontal: element.props.marginHorizontal,
         marginVertical: element.props.marginVertical,

@@ -116,7 +116,7 @@ export const onboardingExample = {
                 props: {
                   url: "https://cdn.rive.app/animations/vehicles.riv",
                   height: 180,
-                  autoplay: true,
+                  autoPlay: true,
                   fit: "Contain",
                 },
               },
@@ -276,6 +276,49 @@ export const onboardingExample = {
                   opacity: 0.6,
                   marginVertical: 4,
                 },
+              },
+              {
+                id: "hero-carousel",
+                type: "Carousel",
+                props: {
+                  carouselType: "parallax",
+                  autoPlay: true,
+                  autoPlayInterval: 3000,
+                  loop: true,
+                  showDots: true,
+                  height: 220,
+                  borderRadius: 16,
+                  marginVertical: 8,
+                },
+                children: [
+                  {
+                    id: "carousel-slide-1",
+                    type: "Image",
+                    props: {
+                      url: "https://picsum.photos/400/220?random=10",
+                      height: 220,
+                      resizeMode: "cover",
+                    },
+                  },
+                  {
+                    id: "carousel-slide-2",
+                    type: "Image",
+                    props: {
+                      url: "https://picsum.photos/400/220?random=11",
+                      height: 220,
+                      resizeMode: "cover",
+                    },
+                  },
+                  {
+                    id: "carousel-slide-3",
+                    type: "Image",
+                    props: {
+                      url: "https://picsum.photos/400/220?random=12",
+                      height: 220,
+                      resizeMode: "cover",
+                    },
+                  },
+                ],
               },
               {
                 id: "hero-button",

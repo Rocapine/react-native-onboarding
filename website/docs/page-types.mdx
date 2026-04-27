@@ -403,7 +403,7 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 - Any screen that doesn't fit a pre-built type
 
 **Key features:**
-- Recursive element tree (`YStack`, `XStack`, `Text`, `Image`, `Lottie`, `Rive`, `Icon`, `Video`, `Input`, `RadioGroup`, `CheckboxGroup`, `Button`, `DatePicker`)
+- Recursive element tree (`YStack`, `XStack`, `Text`, `Image`, `Lottie`, `Rive`, `Icon`, `Video`, `Input`, `RadioGroup`, `CheckboxGroup`, `Button`, `DatePicker`, `Carousel`)
 - Full flexbox layout support
 - Border, radius, overflow, and opacity control
 - Dimension constraints (`width`, `height`, `min/max`)
@@ -425,6 +425,7 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 | `RadioGroup` | Radio item list | — | — |
 | `CheckboxGroup` | Checkbox item list | — | — |
 | `Button` | `<TouchableOpacity>` | — | — |
+| `Carousel` | Horizontal slides | — | `react-native-reanimated-carousel` |
 | `DatePicker` | Native date/time picker | — | `@react-native-community/datetimepicker` |
 | `Lottie` | `LottieView` | — | `lottie-react-native` |
 | `Rive` | `<Rive>` | — | `rive-react-native` |
@@ -612,6 +613,37 @@ On Android, `DatePicker` renders as a `Pressable` showing the current value. Tap
 
 ```bash
 npx expo install @react-native-community/datetimepicker
+```
+
+**Carousel props:**
+
+| Prop | Type | Notes |
+|------|------|-------|
+| `carouselType` | `"normal" \| "left-align" \| "parallax" \| "stack"` | Layout mode — see below; defaults to `"normal"` |
+| `autoPlay` | `boolean` | Auto-advance slides; defaults to `false` |
+| `autoPlayInterval` | `number` | Milliseconds between auto-advances; defaults to `3000` |
+| `loop` | `boolean` | Loop back to first slide after last; defaults to `true` |
+| `showDots` | `boolean` | Show `Pagination.Basic` pill dots below carousel; defaults to `true` |
+| `height` | `number` | Slide height in dp; defaults to `220` |
+| `width` | `number` | Slide width; defaults to `useWindowDimensions().width` (overridden for `stack` and `left-align`) |
+| `borderRadius` | `number` | Applied to each slide's inner `View` |
+| All `BaseBoxProps` | — | `margin`, `padding`, `alignSelf`, `borderColor`, `borderWidth`, `opacity`, etc. applied to outer container |
+
+**`carouselType` modes:**
+
+| Mode | Width | Library prop | Description |
+|------|-------|-------------|-------------|
+| `"normal"` | 100 % window | — | Full-width paged carousel |
+| `"parallax"` | 100 % window | `mode="parallax"` | Depth-zoom effect on adjacent slides |
+| `"stack"` | 75 % window | `mode="horizontal-stack"` | Stacked card effect; multiple slides visible |
+| `"left-align"` | 82 % window | — | Next slide peeks in from the right; `overflow: "visible"` on container |
+
+Slides are arbitrary `UIElement` trees — place any renderable element (`Image`, `Text`, `YStack`, etc.) as children. Each child becomes one slide.
+
+**Dependencies:** `react-native-reanimated-carousel`
+
+```bash
+npx expo install react-native-reanimated-carousel
 ```
 
 **Variable context**
@@ -851,7 +883,7 @@ If `expo-video` is not installed, the element renders a placeholder view with an
 }
 ```
 
-**Dependencies:** None for `YStack`, `XStack`, `Text`, `Image`, `Icon`, `Input`, `RadioGroup`, `CheckboxGroup`, `Button`. See the Lottie, Rive, Video, and DatePicker sections above for elements with optional peer deps.
+**Dependencies:** None for `YStack`, `XStack`, `Text`, `Image`, `Icon`, `Input`, `RadioGroup`, `CheckboxGroup`, `Button`. See the Carousel, Lottie, Rive, Video, and DatePicker sections above for elements with peer deps.
 
 ---
 

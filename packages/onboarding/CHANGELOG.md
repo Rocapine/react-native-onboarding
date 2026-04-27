@@ -9,12 +9,19 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 ### Added
 
 - **`Carousel` UIElement schema** for `ComposableScreen` — new discriminated-union
-  variant with `type: "Carousel"`. Props: `items` (array of `{ image?: string; title?: string; description?: string }`, required, min 1), `autoPlay` (boolean, default `true`), `autoPlayInterval` (number ms, default `3000`), `loop` (boolean, default `true`), `showDots` (boolean — render pagination dots, default `true`), `height` (number, optional), plus all `BaseBoxProps`. Validated by `CarouselElementPropsSchema` (Zod). Exports `CarouselElementProps` and `CarouselItem` types.
+  variant with `type: "Carousel"`. Takes `children: UIElement[]` — any renderable
+  UIElement tree as slide content (same recursive system as `YStack`/`XStack`).
+  Props: `carouselType` (`"normal"` | `"left-align"` | `"parallax"` | `"stack"`,
+  default `"normal"`), `autoPlay` (boolean, default `false`), `autoPlayInterval`
+  (number ms, default `3000`), `loop` (boolean, default `true`), `showDots`
+  (boolean, default `true`), `height` (number, optional), plus all `BaseBoxProps`.
+  Validated by `CarouselElementPropsSchema` (Zod). Exports `CarouselElementProps`
+  type.
 
 > **Backend note:** The `onboarding-studio` server must be updated to accept and
 > emit the `Carousel` `UIElement` variant in `ComposableScreen` payloads. Mirror
-> `CarouselElementPropsSchema` and `CarouselItemSchema` in the backend validation
-> layer and add `Carousel` to the CMS element-type picker.
+> `CarouselElementPropsSchema` in the backend validation layer and add `Carousel`
+> to the CMS element-type picker.
 
 ---
 

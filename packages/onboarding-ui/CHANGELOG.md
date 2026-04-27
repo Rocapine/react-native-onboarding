@@ -10,15 +10,19 @@ here.
 ### Added
 
 - **`Carousel` element renderer** — renders `Carousel` UIElements using
-  `react-native-reanimated-carousel` (new optional peer dependency). Displays a
-  horizontal auto-playing carousel of slides; each slide can have an `image` (URL),
-  `title`, and `description` (overlaid at the bottom of the image with a semi-transparent
-  scrim). Supports `autoPlay` (default `true`), `autoPlayInterval` (default `3000 ms`),
-  `loop` (default `true`), and `showDots` (default `true` — renders animated pagination
-  dots below the carousel using theme `primary` / `neutral.low` colors). Width defaults
-  to `useWindowDimensions().width`; height defaults to `220 px`. Includes a graceful
-  fallback (renders the first slide statically) when the peer dep is absent. All
-  `BaseBoxProps` are applied to the outer container.
+  `react-native-reanimated-carousel` (now a **required** peer dependency). Each slide
+  is a `UIElement` subtree rendered by the same recursive engine as `YStack`/`XStack`,
+  giving full layout flexibility per slide. Four modes via `carouselType`:
+  - `"normal"` — full-width paged carousel (default)
+  - `"parallax"` — depth-zoom effect using library `mode="parallax"`
+  - `"stack"` — stacked cards at 75 % window width via `mode="horizontal-stack"`
+  - `"left-align"` — peek effect at 82 % window width with `overflow: "visible"`
+
+  Pagination uses `Pagination.Basic` from the library: animated pill dots in theme
+  `primary` / `neutral.low` colors, tappable to jump to any slide. `autoPlay`
+  defaults to `false`; `loop` defaults to `true`; `showDots` defaults to `true`.
+  Width defaults to `useWindowDimensions().width`; height defaults to `220 px`. All
+  `BaseBoxProps` applied to the outer container.
 
 ---
 

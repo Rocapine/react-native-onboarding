@@ -71,14 +71,17 @@ export function resolveNextStepNumber(
 
   const { nextStep } = currentStep;
 
-  if (nextStep == null || nextStep.branches.length === 0) return linearNext();
+  if (nextStep == null) return linearNext();
 
   for (const branch of nextStep.branches) {
-    if (evaluateCondition(branch.condition, variables)) {
+    if (branch.condition === null || evaluateCondition(branch.condition, variables)) {
       const idx = steps.findIndex((s) => s.id === branch.targetStepId);
       if (idx !== -1) return idx + 1;
     }
   }
+
+  const defaultIdx = steps.findIndex((s) => s.id === nextStep.defaultTargetStepId);
+  if (defaultIdx !== -1) return defaultIdx + 1;
 
   return linearNext();
 }

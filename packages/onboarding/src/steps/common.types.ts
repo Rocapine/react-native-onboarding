@@ -74,13 +74,16 @@ export const ConditionGroupSchema: z.ZodType<ConditionGroup> = z.lazy(() =>
 );
 
 export const BranchSchema = z.object({
-  condition: z.union([LeafConditionSchema, ConditionGroupSchema]),
+  condition: z.union([LeafConditionSchema, ConditionGroupSchema]).nullable().default(null),
   targetStepId: z.string().min(1),
 });
 export type Branch = z.infer<typeof BranchSchema>;
 
 export const NextStepSchema = z
-  .object({ branches: z.array(BranchSchema).min(1) })
+  .object({
+    defaultTargetStepId: z.string().min(1),
+    branches: z.array(BranchSchema),
+  })
   .nullable()
   .default(null);
 export type NextStep = z.infer<typeof NextStepSchema>;

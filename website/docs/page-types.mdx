@@ -403,7 +403,7 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 - Any screen that doesn't fit a pre-built type
 
 **Key features:**
-- Recursive element tree (`YStack`, `XStack`, `Text`, `Image`, `Lottie`, `Rive`, `Icon`, `Video`, `Input`, `RadioGroup`, `CheckboxGroup`, `Button`, `DatePicker`, `Carousel`)
+- Recursive element tree (`YStack`, `XStack`, `ZStack`, `Text`, `Image`, `Lottie`, `Rive`, `Icon`, `Video`, `Input`, `RadioGroup`, `CheckboxGroup`, `Button`, `DatePicker`, `Carousel`)
 - Full flexbox layout support
 - Border, radius, overflow, and opacity control
 - Dimension constraints (`width`, `height`, `min/max`)
@@ -418,6 +418,7 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 |---------|-----------|-----------|----------|
 | `YStack` | `<View>` | `column` | — |
 | `XStack` | `<View>` | `row` | — |
+| `ZStack` | `<View>` | depth (z-axis) | — |
 | `Text` | `<Text>` | — | — |
 | `Image` | `<Image>` | — | — |
 | `Icon` | Lucide icon | — | — (bundled) |
@@ -431,7 +432,7 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 | `Rive` | `<Rive>` | — | `rive-react-native` |
 | `Video` | `<VideoView>` | — | `expo-video` |
 
-**Stack props (`YStack` / `XStack`):**
+**Stack props (`YStack` / `XStack` / `ZStack`):**
 
 | Prop | Type | Notes |
 |------|------|-------|
@@ -447,6 +448,12 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 | `borderWidth` / `borderRadius` | `number` | |
 | `overflow` | `"hidden" \| "visible" \| "scroll"` | Use `"hidden"` to clip rounded corners |
 | `opacity` | `number` | |
+
+:::note ZStack sizing
+`ZStack` uses `position: "absolute"` for every child — meaning children don't contribute to the container's intrinsic size. Always set an explicit `height` (and optionally `width`) on the `ZStack` itself so the container has a defined size.
+
+Children are layered in the order they appear: the first child is rendered at the bottom, the last child on top.
+:::
 
 **Image props:**
 
@@ -883,7 +890,41 @@ If `expo-video` is not installed, the element renders a placeholder view with an
 }
 ```
 
-**Dependencies:** None for `YStack`, `XStack`, `Text`, `Image`, `Icon`, `Input`, `RadioGroup`, `CheckboxGroup`, `Button`. See the Carousel, Lottie, Rive, Video, and DatePicker sections above for elements with peer deps.
+**ZStack example — image with text overlay:**
+
+```json
+{
+  "id": "hero-overlay",
+  "type": "ZStack",
+  "props": {
+    "height": 200,
+    "borderRadius": 16,
+    "overflow": "hidden",
+    "marginVertical": 8
+  },
+  "children": [
+    {
+      "id": "bg",
+      "type": "Image",
+      "props": { "url": "https://example.com/hero.jpg", "height": 200, "resizeMode": "cover" }
+    },
+    {
+      "id": "overlay",
+      "type": "YStack",
+      "props": { "backgroundColor": "rgba(0,0,0,0.45)", "padding": 20, "justifyContent": "flex-end" },
+      "children": [
+        {
+          "id": "label",
+          "type": "Text",
+          "props": { "content": "Your headline here", "fontSize": 18, "fontWeight": "700", "color": "#fff" }
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Dependencies:** None for `YStack`, `XStack`, `ZStack`, `Text`, `Image`, `Icon`, `Input`, `RadioGroup`, `CheckboxGroup`, `Button`. See the Carousel, Lottie, Rive, Video, and DatePicker sections above for elements with peer deps.
 
 ---
 

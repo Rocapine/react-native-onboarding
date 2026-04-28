@@ -432,7 +432,7 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 | `Rive` | `<Rive>` | — | `rive-react-native` |
 | `Video` | `<VideoView>` | — | `expo-video` |
 
-**Stack props (`YStack` / `XStack` / `ZStack`):**
+**Stack props (`YStack` / `XStack`):**
 
 | Prop | Type | Notes |
 |------|------|-------|
@@ -449,10 +449,26 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 | `overflow` | `"hidden" \| "visible" \| "scroll"` | Use `"hidden"` to clip rounded corners |
 | `opacity` | `number` | |
 
-:::note ZStack sizing
-`ZStack` uses `position: "absolute"` for every child — meaning children don't contribute to the container's intrinsic size. Always set an explicit `height` (and optionally `width`) on the `ZStack` itself so the container has a defined size.
+**ZStack props:**
 
-Children are layered in the order they appear: the first child is rendered at the bottom, the last child on top.
+`ZStack` accepts only the `BaseBoxProps` subset listed below. Flex/flow props such as `gap`, `alignItems`, `justifyContent`, and `flexWrap` are **not** honored — children are absolutely positioned, so flex layout does not apply.
+
+| Prop | Type | Notes |
+|------|------|-------|
+| `width` / `height` / `minWidth` / `maxWidth` / `minHeight` / `maxHeight` | `number` | Explicit `height` is recommended — absolute children do not size the parent |
+| `padding` / `paddingHorizontal` / `paddingVertical` | `number` | Applied to the `ZStack` container |
+| `margin` / `marginHorizontal` / `marginVertical` | `number` | |
+| `flex` / `flexShrink` / `flexGrow` | `number` | Apply to the `ZStack` itself within a parent flex container |
+| `alignSelf` | `"auto" \| "flex-start" \| "flex-end" \| "center" \| "stretch" \| "baseline"` | |
+| `backgroundColor` / `backgroundGradient` | `string` / `GradientBackground` | |
+| `borderWidth` / `borderRadius` / `borderColor` | `number \| string` | |
+| `overflow` | `"hidden" \| "visible" \| "scroll"` | Use `"hidden"` to clip overflowing children to rounded corners |
+| `opacity` | `number` | |
+
+:::note ZStack behavior
+Children are layered in declaration order: first child = bottom, last child = top. Each child is wrapped in `position: "absolute"` filling the container, so flex props on `ZStack` itself (`gap`, `alignItems`, `justifyContent`) have no effect — instead control the layout of each layer's content via the layer's own props (e.g. wrap content in a `YStack` with `justifyContent: "flex-end"` to anchor it to the bottom).
+
+The wrapper for each child uses `pointerEvents="box-none"`, so touches pass through transparent regions to layers underneath.
 :::
 
 **Image props:**

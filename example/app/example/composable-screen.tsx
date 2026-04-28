@@ -76,6 +76,7 @@ export default function ComposableScreenExample() {
                 controls: false,
                 muted: true,
                 autoPlay: true,
+                contentFit: 'cover' as const,
               },
             },
             // Input element
@@ -349,6 +350,7 @@ export default function ComposableScreenExample() {
                   id: 'zstack-overlay',
                   type: 'YStack' as const,
                   props: {
+                    flex: 1,
                     backgroundColor: 'rgba(0,0,0,0.45)',
                     padding: 20,
                     justifyContent: 'flex-end' as const,

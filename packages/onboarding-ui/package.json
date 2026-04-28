@@ -46,7 +46,7 @@
   "peerDependencies": {
     "@react-native-community/datetimepicker": "*",
     "@react-native-picker/picker": "*",
-    "@rocapine/react-native-onboarding": "^1.11.1",
+    "@rocapine/react-native-onboarding": "^1.14.0",
     "@shopify/react-native-skia": ">=1.0.0",
     "@tanstack/react-query": ">=5.0.0",
     "@types/react": "*",

@@ -149,6 +149,7 @@ export const onboardingExample = {
                   borderRadius: 12,
                   controls: true,
                   muted: true,
+                  contentFit: "cover",
                 },
               },
               {
@@ -343,6 +344,7 @@ export const onboardingExample = {
                     id: "zstack-overlay",
                     type: "YStack",
                     props: {
+                      flex: 1,
                       backgroundColor: "rgba(0,0,0,0.45)",
                       padding: 20,
                       justifyContent: "flex-end",

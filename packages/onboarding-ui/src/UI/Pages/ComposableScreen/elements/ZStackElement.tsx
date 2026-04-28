@@ -47,7 +47,11 @@ export const ZStackElementComponent = ({ element, ctx }: Props): React.ReactElem
       }}
     >
       {element.children.map((child) => (
-        <View key={child.id} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
+        <View
+          key={child.id}
+          pointerEvents="box-none"
+          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+        >
           {ctx.renderChildren([child], "ZStack")}
         </View>
       ))}

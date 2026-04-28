@@ -97,6 +97,7 @@ export default function ComposableScreenMediaExample() {
                 controls: false,
                 muted: true,
                 autoPlay: true,
+                contentFit: 'cover',
               },
             },
             {

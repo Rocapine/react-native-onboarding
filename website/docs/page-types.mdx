@@ -403,7 +403,7 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 - Any screen that doesn't fit a pre-built type
 
 **Key features:**
-- Recursive element tree (`YStack`, `XStack`, `Text`, `Image`, `Lottie`, `Rive`, `Icon`, `Video`, `Input`, `RadioGroup`, `CheckboxGroup`, `Button`, `DatePicker`, `Carousel`)
+- Recursive element tree (`YStack`, `XStack`, `ZStack`, `Text`, `Image`, `Lottie`, `Rive`, `Icon`, `Video`, `Input`, `RadioGroup`, `CheckboxGroup`, `Button`, `DatePicker`, `Carousel`)
 - Full flexbox layout support
 - Border, radius, overflow, and opacity control
 - Dimension constraints (`width`, `height`, `min/max`)
@@ -418,6 +418,7 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 |---------|-----------|-----------|----------|
 | `YStack` | `<View>` | `column` | — |
 | `XStack` | `<View>` | `row` | — |
+| `ZStack` | `<View>` | depth (z-axis) | — |
 | `Text` | `<Text>` | — | — |
 | `Image` | `<Image>` | — | — |
 | `Icon` | Lucide icon | — | — (bundled) |
@@ -447,6 +448,28 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 | `borderWidth` / `borderRadius` | `number` | |
 | `overflow` | `"hidden" \| "visible" \| "scroll"` | Use `"hidden"` to clip rounded corners |
 | `opacity` | `number` | |
+
+**ZStack props:**
+
+`ZStack` accepts only the `BaseBoxProps` subset listed below. Flex/flow props such as `gap`, `alignItems`, `justifyContent`, and `flexWrap` are **not** honored — children are absolutely positioned, so flex layout does not apply.
+
+| Prop | Type | Notes |
+|------|------|-------|
+| `width` / `height` / `minWidth` / `maxWidth` / `minHeight` / `maxHeight` | `number` | Explicit `height` is recommended — absolute children do not size the parent |
+| `padding` / `paddingHorizontal` / `paddingVertical` | `number` | Applied to the `ZStack` container |
+| `margin` / `marginHorizontal` / `marginVertical` | `number` | |
+| `flex` / `flexShrink` / `flexGrow` | `number` | Apply to the `ZStack` itself within a parent flex container |
+| `alignSelf` | `"auto" \| "flex-start" \| "flex-end" \| "center" \| "stretch" \| "baseline"` | |
+| `backgroundColor` / `backgroundGradient` | `string` / `GradientBackground` | |
+| `borderWidth` / `borderRadius` / `borderColor` | `number \| string` | |
+| `overflow` | `"hidden" \| "visible" \| "scroll"` | Use `"hidden"` to clip overflowing children to rounded corners |
+| `opacity` | `number` | |
+
+:::note ZStack behavior
+Children are layered in declaration order: first child = bottom, last child = top. Each child is wrapped in `position: "absolute"` filling the container, so flex props on `ZStack` itself (`gap`, `alignItems`, `justifyContent`) have no effect — instead control the layout of each layer's content via the layer's own props (e.g. wrap content in a `YStack` with `justifyContent: "flex-end"` to anchor it to the bottom).
+
+The wrapper for each child uses `pointerEvents="box-none"`, so touches pass through transparent regions to layers underneath.
+:::
 
 **Image props:**
 
@@ -883,7 +906,41 @@ If `expo-video` is not installed, the element renders a placeholder view with an
 }
 ```
 
-**Dependencies:** None for `YStack`, `XStack`, `Text`, `Image`, `Icon`, `Input`, `RadioGroup`, `CheckboxGroup`, `Button`. See the Carousel, Lottie, Rive, Video, and DatePicker sections above for elements with peer deps.
+**ZStack example — image with text overlay:**
+
+```json
+{
+  "id": "hero-overlay",
+  "type": "ZStack",
+  "props": {
+    "height": 200,
+    "borderRadius": 16,
+    "overflow": "hidden",
+    "marginVertical": 8
+  },
+  "children": [
+    {
+      "id": "bg",
+      "type": "Image",
+      "props": { "url": "https://example.com/hero.jpg", "height": 200, "resizeMode": "cover" }
+    },
+    {
+      "id": "overlay",
+      "type": "YStack",
+      "props": { "backgroundColor": "rgba(0,0,0,0.45)", "padding": 20, "justifyContent": "flex-end" },
+      "children": [
+        {
+          "id": "label",
+          "type": "Text",
+          "props": { "content": "Your headline here", "fontSize": 18, "fontWeight": "700", "color": "#fff" }
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Dependencies:** None for `YStack`, `XStack`, `ZStack`, `Text`, `Image`, `Icon`, `Input`, `RadioGroup`, `CheckboxGroup`, `Button`. See the Carousel, Lottie, Rive, Video, and DatePicker sections above for elements with peer deps.
 
 ---
 

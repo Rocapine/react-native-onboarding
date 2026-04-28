@@ -35,7 +35,7 @@ type TextUIElement = Extract<UIElement, { type: "Text" }>;
 type Props = {
   element: TextUIElement;
   ctx: RenderContext;
-  parentType?: "XStack" | "YStack";
+  parentType?: "XStack" | "YStack" | "ZStack";
 };
 
 export const TextElementComponent = ({ element, ctx, parentType }: Props): React.ReactElement => {

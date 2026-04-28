@@ -14,11 +14,12 @@ import { CheckboxGroupComponent } from "./CheckboxGroupElement";
 import { ButtonElementComponent } from "./ButtonElement";
 import { DatePickerElementComponent } from "./DatePickerElement";
 import { CarouselElementComponent } from "./CarouselElement";
+import { ZStackElementComponent } from "./ZStackElement";
 
 export const renderElement = (
   element: UIElement,
   ctx: RenderContext,
-  parentType?: "XStack" | "YStack"
+  parentType?: "XStack" | "YStack" | "ZStack"
 ): React.ReactNode => {
   if (element.type === "YStack" || element.type === "XStack") {
     return <StackElementComponent key={element.id} element={element} ctx={ctx} parentType={parentType} />;
@@ -70,6 +71,10 @@ export const renderElement = (
 
   if (element.type === "Carousel") {
     return <CarouselElementComponent key={element.id} element={element} ctx={ctx} />;
+  }
+
+  if (element.type === "ZStack") {
+    return <ZStackElementComponent key={element.id} element={element} ctx={ctx} />;
   }
 
   return null;

@@ -4,6 +4,32 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.14.0] - 2026-04-28
+
+### Added
+
+- **`ZStack` UIElement** — new container type that stacks children on top of each
+  other using absolute positioning. Props: all `BaseBoxProps` fields (width,
+  height, padding, borderRadius, overflow, backgroundGradient, etc.). Children
+  fill the container bounds by default, enabling image-with-overlay patterns.
+  `ZStackElementProps` and `ZStackElementPropsSchema` exported from the headless
+  package.
+
+---
+
+## [1.13.1] - 2026-04-28
+
+### Added
+
+- **`ZStack` UIElement** — new container type that stacks children on top of each
+  other using absolute positioning. Props: all `BaseBoxProps` fields (width,
+  height, padding, borderRadius, overflow, backgroundGradient, etc.). Children
+  fill the container bounds by default, enabling image-with-overlay patterns.
+  `ZStackElementProps` and `ZStackElementPropsSchema` exported from the headless
+  package.
+
+---
+
 ## [1.13.0] - 2026-04-28
 
 ### Added

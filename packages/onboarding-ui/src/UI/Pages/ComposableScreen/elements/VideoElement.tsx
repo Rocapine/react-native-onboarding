@@ -13,6 +13,7 @@ export type VideoElementProps = BaseBoxProps & {
   loop?: boolean;
   muted?: boolean;
   controls?: boolean;
+  contentFit?: "contain" | "cover" | "fill";
 };
 
 export const VideoElementPropsSchema = BaseBoxPropsSchema.extend({
@@ -21,6 +22,7 @@ export const VideoElementPropsSchema = BaseBoxPropsSchema.extend({
   loop: z.boolean().optional(),
   muted: z.boolean().optional(),
   controls: z.boolean().optional(),
+  contentFit: z.enum(["contain", "cover", "fill"]).optional(),
 });
 
 type VideoUIElement = Extract<UIElement, { type: "Video" }>;
@@ -51,6 +53,7 @@ try {
         style={style}
         allowsFullscreen={false}
         nativeControls={element.props.controls ?? false}
+        contentFit={element.props.contentFit ?? "contain"}
       />
     );
   };

@@ -13,6 +13,7 @@ import { type RadioGroupElementProps, RadioGroupElementPropsSchema } from "./ele
 import { type CheckboxGroupElementProps, CheckboxGroupElementPropsSchema } from "./elements/CheckboxGroupElement";
 import { type DatePickerElementProps, DatePickerElementPropsSchema } from "./elements/DatePickerElement";
 import { type CarouselElementProps, CarouselElementPropsSchema } from "./elements/CarouselElement";
+import { type ZStackElementProps, ZStackElementPropsSchema } from "./elements/ZStackElement";
 
 export type { BaseBoxProps, GradientBackground, GradientEdge, GradientStop, LinearGradientConfig } from "./elements/BaseBoxProps";
 export { BaseBoxPropsSchema, GradientBackgroundSchema } from "./elements/BaseBoxProps";
@@ -29,6 +30,7 @@ export type { RadioGroupElementProps } from "./elements/RadioGroupElement";
 export type { CheckboxGroupElementProps } from "./elements/CheckboxGroupElement";
 export type { DatePickerElementProps } from "./elements/DatePickerElement";
 export type { CarouselElementProps } from "./elements/CarouselElement";
+export type { ZStackElementProps } from "./elements/ZStackElement";
 
 // UIElement union — must live here (not in elements/) to avoid circular deps
 // because the Stack variant's children: UIElement[] references itself.
@@ -112,6 +114,13 @@ type UIElement =
       type: "Carousel";
       props: CarouselElementProps;
       children: UIElement[];
+    }
+  | {
+      id: string;
+      name?: string;
+      type: "ZStack";
+      props: ZStackElementProps;
+      children: UIElement[];
     };
 
 const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
@@ -194,6 +203,13 @@ const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
       name: z.string().optional(),
       type: z.literal("Carousel"),
       props: CarouselElementPropsSchema,
+      children: z.array(UIElementSchema),
+    }),
+    z.object({
+      id: z.string(),
+      name: z.string().optional(),
+      type: z.literal("ZStack"),
+      props: ZStackElementPropsSchema,
       children: z.array(UIElementSchema),
     }),
   ])

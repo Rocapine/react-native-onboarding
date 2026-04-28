@@ -1,9 +1,9 @@
 import React from "react";
 import { z } from "zod";
-import { View } from "react-native";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
 import { RenderContext, dim } from "./shared";
+import { GradientBox } from "./GradientBox";
 
 export type StackElementProps = BaseBoxProps & {
   gap?: number;
@@ -30,7 +30,8 @@ type Props = {
 export const StackElementComponent = ({ element, ctx, parentType }: Props): React.ReactElement => {
   const p = element.props;
   return (
-    <View
+    <GradientBox
+      gradient={p.backgroundGradient}
       style={{
         flexDirection: element.type === "XStack" ? "row" : "column",
         gap: p.gap,
@@ -53,7 +54,7 @@ export const StackElementComponent = ({ element, ctx, parentType }: Props): Reac
         margin: p.margin,
         marginHorizontal: p.marginHorizontal,
         marginVertical: p.marginVertical,
-        backgroundColor: p.backgroundColor,
+        backgroundColor: p.backgroundGradient ? undefined : p.backgroundColor,
         borderWidth: p.borderWidth,
         borderRadius: p.borderRadius,
         borderColor: p.borderColor,
@@ -62,6 +63,6 @@ export const StackElementComponent = ({ element, ctx, parentType }: Props): Reac
       }}
     >
       {ctx.renderChildren(element.children, element.type)}
-    </View>
+    </GradientBox>
   );
 };

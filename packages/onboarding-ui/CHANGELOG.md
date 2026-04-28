@@ -5,6 +5,37 @@ here.
 
 ---
 
+## [1.13.0] - 2026-04-28
+
+### Added
+
+- **Gradient backgrounds on all `ComposableScreen` elements** — every element
+  that renders a container (`YStack`, `XStack`, `Icon`, `Image`, `Text`,
+  `Button`, `Lottie`, `Video`, `RadioGroup`, `CheckboxGroup`, `Carousel`,
+  `DatePicker`) now respects `backgroundGradient` from `BaseBoxProps`.
+
+- **`GradientBox` component** — internal utility that wraps `expo-linear-gradient`
+  (`LinearGradient`) when the library is installed, falling back to a plain `View`
+  silently when it is not. All element renderers delegate their outer container to
+  `GradientBox`.
+
+- **`expo-linear-gradient` optional peer dependency** — install it to enable
+  gradient rendering; omitting it degrades gracefully to a solid background.
+
+- **Linear gradient API** — `backgroundGradient: { type: "linear", from: GradientEdge,
+  to: GradientEdge, stops: GradientStop[] }`. `GradientEdge` is one of 8 named
+  positions (`"top"`, `"bottom"`, `"left"`, `"right"`, `"topLeft"`, `"topRight"`,
+  `"bottomLeft"`, `"bottomRight"`). Stops support optional explicit `position`
+  (0–1); when all stops declare a position, `locations` is passed to
+  `LinearGradient`.
+
+### Fixed
+
+- **`figmaUrl` type in `ComposableScreen` step schema** — changed from `.nullable()`
+  to `.nullish()` to align with all other page-type schemas and the headless SDK.
+
+---
+
 ## [1.12.0] - 2026-04-28
 
 ### Changed

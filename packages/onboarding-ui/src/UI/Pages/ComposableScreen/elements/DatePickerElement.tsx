@@ -5,6 +5,7 @@ import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { z } from "zod";
 import type { UIElement } from "../types";
 import { dim, type RenderContext } from "./shared";
+import { GradientBox } from "./GradientBox";
 
 export type DatePickerElementProps = BaseBoxProps & {
   variableName?: string;
@@ -105,6 +106,7 @@ export const DatePickerElementComponent = ({ element, ctx }: Props): React.React
     borderWidth: props.borderWidth,
     borderRadius: props.borderRadius,
     borderColor: props.borderColor,
+    backgroundColor: props.backgroundGradient ? undefined : props.backgroundColor,
     overflow: "hidden" as const,
   };
 
@@ -122,7 +124,7 @@ export const DatePickerElementComponent = ({ element, ctx }: Props): React.React
 
   if (Platform.OS === "android") {
     return (
-      <View style={containerStyle}>
+      <GradientBox gradient={props.backgroundGradient} style={containerStyle as any}>
         <Pressable
           onPress={() => setPickerVisible(true)}
           style={{
@@ -157,16 +159,16 @@ export const DatePickerElementComponent = ({ element, ctx }: Props): React.React
             }}
           />
         )}
-      </View>
+      </GradientBox>
     );
   }
 
   return (
-    <View style={containerStyle}>
+    <GradientBox gradient={props.backgroundGradient} style={containerStyle as any}>
       <DateTimePicker
         {...pickerProps}
         display={(props.display ?? "spinner") as any}
       />
-    </View>
+    </GradientBox>
   );
 };

@@ -1,11 +1,12 @@
 import React, { useRef } from "react";
-import { useWindowDimensions, View } from "react-native";
+import { useWindowDimensions } from "react-native";
 import { z } from "zod";
 import { useSharedValue } from "react-native-reanimated";
 import Carousel, { Pagination, ICarouselInstance } from "react-native-reanimated-carousel";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import type { UIElement } from "../types";
 import { dim, type RenderContext } from "./shared";
+import { GradientBox } from "./GradientBox";
 
 export type CarouselElementProps = BaseBoxProps & {
   carouselType?: "left-align" | "normal" | "parallax" | "stack";
@@ -79,7 +80,7 @@ export function CarouselElementComponent({ element, ctx }: Props): React.ReactEl
     borderRadius: props.borderRadius,
     borderWidth: props.borderWidth,
     borderColor: props.borderColor,
-    backgroundColor: props.backgroundColor,
+    backgroundColor: props.backgroundGradient ? undefined : props.backgroundColor,
     opacity: props.opacity,
     // Left-align shows the next slide peeking — must not clip
     overflow: carouselType === "left-align" ? ("visible" as const) : (props.overflow ?? ("hidden" as const)),
@@ -108,7 +109,7 @@ export function CarouselElementComponent({ element, ctx }: Props): React.ReactEl
   console.log(props.autoPlay, props.autoPlayInterval);
   console.log(element);
   return (
-    <View style={containerStyle}>
+    <GradientBox gradient={props.backgroundGradient} style={containerStyle as any}>
       <Carousel
         ref={ref}
         loop={props.loop}
@@ -147,6 +148,6 @@ export function CarouselElementComponent({ element, ctx }: Props): React.ReactEl
           }}
         />
       )}
-    </View>
+    </GradientBox>
   );
 }

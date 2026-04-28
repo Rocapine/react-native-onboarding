@@ -4,6 +4,25 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.13.0] - 2026-04-28
+
+### Added
+
+- **`backgroundGradient` on `BaseBoxProps`** — all UIElement types now accept an
+  optional `backgroundGradient` prop alongside `backgroundColor`. Accepts a
+  `GradientBackground` discriminated union (currently `type: "linear"`).
+
+- **`LinearGradientConfig`** — linear gradient config: `from` and `to` are named
+  `GradientEdge` positions (`"top"`, `"bottom"`, `"left"`, `"right"`, `"topLeft"`,
+  `"topRight"`, `"bottomLeft"`, `"bottomRight"`); `stops` is an array of
+  `{ color: string; position?: number }` (min 2 stops, position 0–1).
+
+- **Exports** — `GradientBackground`, `GradientEdge`, `GradientStop`,
+  `LinearGradientConfig`, and `GradientBackgroundSchema` exported from the
+  headless package.
+
+---
+
 ## [1.12.0] - 2026-04-28
 
 ### Added

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ButtonSectionSchema, CustomPayloadSchema } from "../common.types";
+import { BaseStepTypeSchema } from "../common.types";
 
 export const CommitmentItemSchema = z.object({
   text: z.string(),
@@ -14,16 +14,9 @@ export const CommitmentStepPayloadSchema = z.object({
   variant: z.enum(["signature", "simple"]).default("signature"),
 });
 
-export const CommitmentStepTypeSchema = z.object({
-  id: z.string(),
+export const CommitmentStepTypeSchema = BaseStepTypeSchema.extend({
   type: z.literal("Commitment"),
-  name: z.string(),
-  displayProgressHeader: z.boolean(),
   payload: CommitmentStepPayloadSchema,
-  customPayload: CustomPayloadSchema,
-  continueButtonLabel: z.string().optional().default("Continue"),
-  buttonSection: ButtonSectionSchema.optional(),
-  figmaUrl: z.string().nullish(),
 });
 
 export type CommitmentStepType = z.infer<typeof CommitmentStepTypeSchema>;

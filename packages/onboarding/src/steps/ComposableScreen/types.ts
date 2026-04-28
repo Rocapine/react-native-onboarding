@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CustomPayloadSchema } from "../common.types";
+import { BaseStepTypeSchema } from "../common.types";
 import { type StackElementProps, StackElementPropsSchema } from "./elements/StackElement";
 import { type TextElementProps, TextElementPropsSchema } from "./elements/TextElement";
 import { type ImageElementProps, ImageElementPropsSchema } from "./elements/ImageElement";
@@ -203,15 +203,9 @@ export const ComposableScreenStepPayloadSchema = z.object({
   elements: z.array(UIElementSchema),
 });
 
-export const ComposableScreenStepTypeSchema = z.object({
-  id: z.string(),
+export const ComposableScreenStepTypeSchema = BaseStepTypeSchema.extend({
   type: z.literal("ComposableScreen"),
-  name: z.string(),
-  displayProgressHeader: z.boolean(),
   payload: ComposableScreenStepPayloadSchema,
-  customPayload: CustomPayloadSchema,
-  continueButtonLabel: z.string().optional().default("Continue"),
-  figmaUrl: z.string().nullable(),
 });
 
 export type ComposableScreenStepType = z.infer<typeof ComposableScreenStepTypeSchema>;

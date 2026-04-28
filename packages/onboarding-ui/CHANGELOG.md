@@ -5,6 +5,21 @@ here.
 
 ---
 
+## [1.12.0] - 2026-04-28
+
+### Changed
+
+- **`ComposableScreen` element variable sync** — when a `ComposableScreen`
+  element with a `variableName` (e.g. `Input`, `RadioGroup`, `DatePicker`,
+  `CheckboxGroup`) changes its value, the change is now written to both the
+  UI-layer `composableVariables` store (drives `{{interpolation}}` within the
+  current screen) and the headless `variables` store
+  (`OnboardingProgressContext.setVariable`). This makes composable element
+  answers available to `resolveNextStepNumber` branch conditions on subsequent
+  steps.
+
+---
+
 ## [1.11.1] - 2026-04-27
 
 ### Changed

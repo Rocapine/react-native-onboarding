@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ButtonSectionSchema, CustomPayloadSchema } from "../common.types";
+import { BaseStepTypeSchema } from "../common.types";
 
 export const PickerTypeEnum = z.enum([
   "height",
@@ -17,16 +17,10 @@ export const PickerStepPayloadSchema = z.object({
   pickerType: z.union([PickerTypeEnum, z.string()]),
 });
 
-export const PickerStepTypeSchema = z.object({
-  id: z.string(),
+export const PickerStepTypeSchema = BaseStepTypeSchema.extend({
   type: z.literal("Picker"),
-  name: z.string(),
-  displayProgressHeader: z.boolean(),
   payload: PickerStepPayloadSchema,
-  customPayload: CustomPayloadSchema,
-  continueButtonLabel: z.string().optional().default("Continue"),
-  buttonSection: ButtonSectionSchema.optional(),
-  figmaUrl: z.string().nullish(),
+  variableName: z.string().min(1).optional(),
 });
 
 export type PickerStepType = z.infer<typeof PickerStepTypeSchema>;

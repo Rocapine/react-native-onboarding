@@ -1,9 +1,10 @@
-import { useContext, useMemo } from "react";
+import { useCallback, useContext, useMemo } from "react";
 import { ScrollView, StyleSheet } from "react-native";
+import { OnboardingProgressContext as HeadlessProgressContext } from "@rocapine/react-native-onboarding";
 import { ComposableScreenStepType, ComposableScreenStepTypeSchema, UIElement } from "./types";
 import { withErrorBoundary } from "../../ErrorBoundary";
 import { OnboardingTemplate } from "../../Templates/OnboardingTemplate";
-import { OnboardingProgressContext } from "../../Provider/OnboardingProgressProvider";
+import { OnboardingProgressContext, ComposableVariableEntry } from "../../Provider/OnboardingProgressProvider";
 import { useTheme } from "../../Theme/useTheme";
 import { RenderContext } from "./elements/shared";
 import { renderElement } from "./elements/renderElement";
@@ -18,6 +19,15 @@ const ComposableScreenRendererBase = ({ step, onContinue }: ContentProps) => {
   const validatedData = useMemo(() => ComposableScreenStepTypeSchema.parse(step), [step]);
   const { elements } = validatedData.payload;
   const { composableVariables, setComposableVariable } = useContext(OnboardingProgressContext);
+  const { setVariable: setHeadlessVariable } = useContext(HeadlessProgressContext);
+
+  const setVariableAndSync = useCallback(
+    (key: string, entry: ComposableVariableEntry) => {
+      setComposableVariable(key, entry);
+      setHeadlessVariable(key, entry.value);
+    },
+    [setComposableVariable, setHeadlessVariable]
+  );
 
   const renderChildren = (children: UIElement[], parentType: "XStack" | "YStack") =>
     children.map((child) => renderElement(child, ctx, parentType));
@@ -25,7 +35,7 @@ const ComposableScreenRendererBase = ({ step, onContinue }: ContentProps) => {
   const ctx: RenderContext = {
     theme,
     variables: composableVariables,
-    setVariable: setComposableVariable,
+    setVariable: setVariableAndSync,
     onContinue,
     renderChildren,
   };

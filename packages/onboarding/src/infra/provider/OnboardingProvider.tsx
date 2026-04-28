@@ -1,4 +1,4 @@
-import { createContext, useState } from "react";
+import { createContext, useCallback, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { OnboardingStudioClient } from "../../OnboardingStudioClient";
 import { getOnboardingQuery } from "../queries/getOnboarding.query";
@@ -32,6 +32,10 @@ export const OnboardingProvider = ({
   });
   const [totalSteps, setTotalSteps] = useState(0);
   const [onboarding, setOnboarding] = useState<Onboarding<OnboardingStepType> | null>(null);
+  const [variables, setVariables] = useState<Record<string, any>>({});
+  const setVariable = useCallback((name: string, value: any) => {
+    setVariables((prev) => ({ ...prev, [name]: value }));
+  }, []);
 
   queryClient.prefetchQuery(getOnboardingQuery(client, locale, customAudienceParams, setOnboarding))
 
@@ -49,6 +53,8 @@ export const OnboardingProvider = ({
           customAudienceParams,
           onboarding,
           setOnboarding,
+          variables,
+          setVariable,
         }}
       >
         {children}
@@ -67,6 +73,8 @@ export const OnboardingProgressContext = createContext<{
   customAudienceParams: Record<string, any>;
   onboarding: Onboarding<OnboardingStepType> | null;
   setOnboarding: (onboarding: Onboarding<OnboardingStepType>) => void;
+  variables: Record<string, any>;
+  setVariable: (name: string, value: any) => void;
 }>({
   activeStep: { number: 0, displayProgressHeader: false },
   setActiveStep: () => { },
@@ -77,4 +85,6 @@ export const OnboardingProgressContext = createContext<{
   customAudienceParams: {},
   onboarding: null,
   setOnboarding: () => { },
+  variables: {},
+  setVariable: () => { },
 });

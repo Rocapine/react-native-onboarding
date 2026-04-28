@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ButtonSectionSchema, CustomPayloadSchema, MediaSourceSchema } from "../common.types";
+import { BaseStepTypeSchema, MediaSourceSchema } from "../common.types";
 
 export const LoaderStepSchema = z.object({
   label: z.string(),
@@ -17,16 +17,9 @@ export const LoaderStepPayloadSchema = z.object({
     .default("bars"),
 });
 
-export const LoaderStepTypeSchema = z.object({
-  id: z.string(),
+export const LoaderStepTypeSchema = BaseStepTypeSchema.extend({
   type: z.literal("Loader"),
-  name: z.string(),
-  displayProgressHeader: z.boolean(),
   payload: LoaderStepPayloadSchema,
-  customPayload: CustomPayloadSchema,
-  continueButtonLabel: z.string().optional().default("Continue"),
-  buttonSection: ButtonSectionSchema.optional(),
-  figmaUrl: z.string().nullish(),
 });
 
 export type LoaderStepType = z.infer<typeof LoaderStepTypeSchema>;

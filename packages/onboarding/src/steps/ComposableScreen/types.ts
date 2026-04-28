@@ -14,8 +14,8 @@ import { type CheckboxGroupElementProps, CheckboxGroupElementPropsSchema } from 
 import { type DatePickerElementProps, DatePickerElementPropsSchema } from "./elements/DatePickerElement";
 import { type CarouselElementProps, CarouselElementPropsSchema } from "./elements/CarouselElement";
 
-export type { BaseBoxProps } from "./elements/BaseBoxProps";
-export { BaseBoxPropsSchema } from "./elements/BaseBoxProps";
+export type { BaseBoxProps, GradientBackground, GradientEdge, GradientStop, LinearGradientConfig } from "./elements/BaseBoxProps";
+export { BaseBoxPropsSchema, GradientBackgroundSchema } from "./elements/BaseBoxProps";
 export type { StackElementProps } from "./elements/StackElement";
 export type { TextElementProps } from "./elements/TextElement";
 export type { ImageElementProps } from "./elements/ImageElement";

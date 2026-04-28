@@ -211,7 +211,7 @@ export const ComposableScreenStepTypeSchema = z.object({
   payload: ComposableScreenStepPayloadSchema,
   customPayload: CustomPayloadSchema,
   continueButtonLabel: z.string().optional().default("Continue"),
-  figmaUrl: z.string().nullable(),
+  figmaUrl: z.string().nullish(),
 });
 
 export type ComposableScreenStepType = z.infer<typeof ComposableScreenStepTypeSchema>;

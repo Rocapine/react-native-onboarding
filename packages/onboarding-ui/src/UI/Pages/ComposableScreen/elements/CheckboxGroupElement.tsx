@@ -4,6 +4,7 @@ import { View, Text, TouchableOpacity } from "react-native";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import type { UIElement } from "../types";
 import { dim, type RenderContext } from "./shared";
+import { GradientBox } from "./GradientBox";
 
 export type CheckboxGroupElementProps = BaseBoxProps & {
   variableName?: string;
@@ -102,8 +103,8 @@ export const CheckboxGroupComponent = ({ element, ctx }: Props): React.ReactElem
   const isHorizontal = element.props.direction === "horizontal";
 
   return (
-    <View
-      accessibilityRole="list"
+    <GradientBox
+      gradient={element.props.backgroundGradient}
       style={{
         flexDirection: isHorizontal ? "row" : "column",
         flexWrap: isHorizontal ? "wrap" : undefined,
@@ -120,6 +121,7 @@ export const CheckboxGroupComponent = ({ element, ctx }: Props): React.ReactElem
         borderWidth: element.props.borderWidth,
         borderRadius: element.props.borderRadius,
         borderColor: element.props.borderColor,
+        backgroundColor: element.props.backgroundGradient ? undefined : element.props.backgroundColor,
         opacity: element.props.opacity,
       }}
     >
@@ -195,6 +197,6 @@ export const CheckboxGroupComponent = ({ element, ctx }: Props): React.ReactElem
           </TouchableOpacity>
         );
       })}
-    </View>
+    </GradientBox>
   );
 };

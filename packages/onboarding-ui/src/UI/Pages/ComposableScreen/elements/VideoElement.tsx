@@ -1,10 +1,11 @@
 import React, { useEffect } from "react";
 import { z } from "zod";
-import { View, Text, StyleSheet } from "react-native";
+import { Text, StyleSheet } from "react-native";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
 import { RenderContext, dim } from "./shared";
 import { getTextStyle } from "../../../Theme/helpers";
+import { GradientBox } from "./GradientBox";
 
 export type VideoElementProps = BaseBoxProps & {
   url: string;
@@ -76,7 +77,7 @@ export const VideoElementRenderer = ({ element, ctx }: Props): React.ReactElemen
     minHeight: element.props.minHeight,
     maxHeight: element.props.maxHeight,
     opacity: element.props.opacity,
-    backgroundColor: element.props.backgroundColor,
+    backgroundColor: element.props.backgroundGradient ? undefined : element.props.backgroundColor,
     margin: element.props.margin,
     marginHorizontal: element.props.marginHorizontal,
     marginVertical: element.props.marginVertical,
@@ -91,18 +92,21 @@ export const VideoElementRenderer = ({ element, ctx }: Props): React.ReactElemen
 
   if (!VideoElementComponent) {
     return (
-      <View style={[wrapperStyle, styles.mediaFallback, { backgroundColor: theme.colors.neutral.lowest }]}>
+      <GradientBox
+        gradient={element.props.backgroundGradient}
+        style={[wrapperStyle, styles.mediaFallback, { backgroundColor: theme.colors.neutral.lowest }] as any}
+      >
         <Text style={[styles.mediaFallbackText, getTextStyle(theme, "caption"), { color: theme.colors.text.tertiary }]}>
           Install expo-video to render videos.
         </Text>
-      </View>
+      </GradientBox>
     );
   }
 
   return (
-    <View style={wrapperStyle}>
+    <GradientBox gradient={element.props.backgroundGradient} style={wrapperStyle as any}>
       <VideoElementComponent element={element} style={styles.fill} />
-    </View>
+    </GradientBox>
   );
 };
 

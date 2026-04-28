@@ -1,5 +1,45 @@
 import { z } from "zod";
 
+export type GradientStop = {
+  color: string;
+  position?: number;
+};
+
+export type GradientEdge =
+  | "top"
+  | "bottom"
+  | "left"
+  | "right"
+  | "topLeft"
+  | "topRight"
+  | "bottomLeft"
+  | "bottomRight";
+
+export type LinearGradientConfig = {
+  type: "linear";
+  from: GradientEdge;
+  to: GradientEdge;
+  stops: GradientStop[];
+};
+
+export type GradientBackground = LinearGradientConfig;
+
+const GradientEdgeSchema = z.enum(["top", "bottom", "left", "right", "topLeft", "topRight", "bottomLeft", "bottomRight"]);
+
+const GradientStopSchema = z.object({
+  color: z.string(),
+  position: z.number().min(0).max(1).optional(),
+});
+
+export const GradientBackgroundSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("linear"),
+    from: GradientEdgeSchema,
+    to: GradientEdgeSchema,
+    stops: z.array(GradientStopSchema).min(2, "gradient requires at least 2 stops"),
+  }),
+]);
+
 export type BaseBoxProps = {
   width?: number | string;
   height?: number | string;
@@ -13,6 +53,7 @@ export type BaseBoxProps = {
   alignSelf?: "auto" | "flex-start" | "flex-end" | "center" | "stretch" | "baseline";
   opacity?: number;
   backgroundColor?: string;
+  backgroundGradient?: GradientBackground;
   overflow?: "hidden" | "visible" | "scroll";
   margin?: number;
   marginHorizontal?: number;
@@ -38,6 +79,7 @@ export const BaseBoxPropsSchema = z.object({
   alignSelf: z.enum(["auto", "flex-start", "flex-end", "center", "stretch", "baseline"]).optional(),
   opacity: z.number().min(0).max(1).optional(),
   backgroundColor: z.string().optional(),
+  backgroundGradient: GradientBackgroundSchema.optional(),
   overflow: z.enum(["hidden", "visible", "scroll"]).optional(),
   margin: z.number().optional(),
   marginHorizontal: z.number().optional(),

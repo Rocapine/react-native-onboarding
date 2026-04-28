@@ -4,6 +4,7 @@ import { View, Text, TouchableOpacity } from "react-native";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
 import { RenderContext, dim } from "./shared";
+import { GradientBox } from "./GradientBox";
 
 export type RadioGroupElementProps = BaseBoxProps & {
   variableName?: string;
@@ -85,8 +86,8 @@ export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement
   const isHorizontal = element.props.direction === "horizontal";
 
   return (
-    <View
-      accessibilityRole="radiogroup"
+    <GradientBox
+      gradient={element.props.backgroundGradient}
       style={{
         flexDirection: isHorizontal ? "row" : "column",
         flexWrap: isHorizontal ? "wrap" : undefined,
@@ -103,6 +104,7 @@ export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement
         borderWidth: element.props.borderWidth,
         borderRadius: element.props.borderRadius,
         borderColor: element.props.borderColor,
+        backgroundColor: element.props.backgroundGradient ? undefined : element.props.backgroundColor,
         opacity: element.props.opacity,
       }}
     >
@@ -177,6 +179,6 @@ export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement
           </TouchableOpacity>
         );
       })}
-    </View>
+    </GradientBox>
   );
 };

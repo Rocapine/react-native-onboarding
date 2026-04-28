@@ -399,6 +399,91 @@ export default function ComposableScreenExample() {
                 },
               ],
             },
+            // Gradient backgrounds demo
+            {
+              id: 'gradient-section-title',
+              type: 'Text' as const,
+              props: {
+                content: 'Gradient Backgrounds',
+                fontSize: 17,
+                fontWeight: '700',
+                marginVertical: 8,
+              },
+            },
+            // Gradient YStack card
+            {
+              id: 'gradient-card',
+              type: 'YStack' as const,
+              props: {
+                padding: 20,
+                gap: 8,
+                borderRadius: 16,
+                overflow: 'hidden',
+                marginVertical: 4,
+                backgroundGradient: {
+                  type: 'linear' as const,
+                  from: 'topLeft' as const,
+                  to: 'bottomRight' as const,
+                  stops: [
+                    { color: '#6C63FF' },
+                    { color: '#FF6584' },
+                  ],
+                },
+              },
+              children: [
+                {
+                  id: 'gradient-card-title',
+                  type: 'Text',
+                  props: { content: 'Linear gradient', fontSize: 15, fontWeight: '700', color: '#fff' },
+                },
+                {
+                  id: 'gradient-card-body',
+                  type: 'Text',
+                  props: { content: 'from: topLeft → to: bottomRight', fontSize: 12, color: '#fff', opacity: 0.85 },
+                },
+              ],
+            },
+            // Gradient Button
+            {
+              id: 'gradient-button',
+              type: 'Button' as const,
+              props: {
+                label: 'Gradient Button',
+                variant: 'filled' as const,
+                marginVertical: 4,
+                backgroundGradient: {
+                  type: 'linear' as const,
+                  from: 'left' as const,
+                  to: 'right' as const,
+                  stops: [
+                    { color: '#FF6584', position: 0 },
+                    { color: '#6C63FF', position: 1 },
+                  ],
+                },
+              },
+            },
+            // Gradient horizontal band
+            {
+              id: 'gradient-band',
+              type: 'XStack' as const,
+              props: {
+                height: 48,
+                borderRadius: 8,
+                marginVertical: 4,
+                overflow: 'hidden',
+                backgroundGradient: {
+                  type: 'linear' as const,
+                  from: 'left' as const,
+                  to: 'right' as const,
+                  stops: [
+                    { color: '#43E97B', position: 0 },
+                    { color: '#38F9D7', position: 0.5 },
+                    { color: '#4FACFE', position: 1 },
+                  ],
+                },
+              },
+              children: [],
+            },
           ],
         },
       ],

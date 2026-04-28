@@ -329,6 +329,56 @@ export const onboardingExample = {
                   marginVertical: 8,
                 },
               },
+              {
+                id: "gradient-card",
+                type: "YStack",
+                props: {
+                  padding: 20,
+                  gap: 8,
+                  borderRadius: 16,
+                  overflow: "hidden",
+                  marginVertical: 4,
+                  backgroundGradient: {
+                    type: "linear",
+                    from: "topLeft",
+                    to: "bottomRight",
+                    stops: [
+                      { color: "#6C63FF" },
+                      { color: "#FF6584" },
+                    ],
+                  },
+                },
+                children: [
+                  {
+                    id: "gradient-card-title",
+                    type: "Text",
+                    props: { content: "Linear gradient", fontSize: 15, fontWeight: "700", color: "#fff" },
+                  },
+                  {
+                    id: "gradient-card-body",
+                    type: "Text",
+                    props: { content: "topLeft → bottomRight", fontSize: 12, color: "#fff", opacity: 0.85 },
+                  },
+                ],
+              },
+              {
+                id: "gradient-button",
+                type: "Button",
+                props: {
+                  label: "Gradient Button",
+                  variant: "filled",
+                  marginVertical: 4,
+                  backgroundGradient: {
+                    type: "linear",
+                    from: "left",
+                    to: "right",
+                    stops: [
+                      { color: "#FF6584", position: 0 },
+                      { color: "#6C63FF", position: 1 },
+                    ],
+                  },
+                },
+              },
             ],
           },
         ],

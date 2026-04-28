@@ -52,6 +52,7 @@
     "@types/react": "*",
     "expo-router": ">=3.0.0",
     "expo-store-review": "*",
+    "expo-linear-gradient": "*",
     "expo-video": "*",
     "lottie-react-native": "*",
     "react": "*",
@@ -68,6 +69,9 @@
       "optional": true
     },
     "@shopify/react-native-skia": {
+      "optional": true
+    },
+    "expo-linear-gradient": {
       "optional": true
     },
     "expo-store-review": {

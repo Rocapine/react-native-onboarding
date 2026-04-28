@@ -1,9 +1,9 @@
 import React from "react";
 import { z } from "zod";
-import { View } from "react-native";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
 import { RenderContext, dim } from "./shared";
+import { GradientBox } from "./GradientBox";
 
 export type IconElementProps = BaseBoxProps & {
   name: string;
@@ -38,7 +38,8 @@ export const IconElementComponent = ({ element, ctx }: Props): React.ReactElemen
   }> | undefined;
 
   return (
-    <View
+    <GradientBox
+      gradient={element.props.backgroundGradient}
       style={{
         flex: element.props.flex,
         flexShrink: element.props.flexShrink,
@@ -60,7 +61,7 @@ export const IconElementComponent = ({ element, ctx }: Props): React.ReactElemen
         borderWidth: element.props.borderWidth,
         borderRadius: element.props.borderRadius,
         borderColor: element.props.borderColor,
-        backgroundColor: element.props.backgroundColor,
+        backgroundColor: element.props.backgroundGradient ? undefined : element.props.backgroundColor,
         opacity: element.props.opacity,
       }}
     >
@@ -71,6 +72,6 @@ export const IconElementComponent = ({ element, ctx }: Props): React.ReactElemen
           strokeWidth={element.props.strokeWidth ?? 2}
         />
       ) : null}
-    </View>
+    </GradientBox>
   );
 };

@@ -4,6 +4,65 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.12.0] - 2026-04-28
+
+### Added
+
+- **Multi-path branching** — every step schema now includes a `nextStep` field
+  (nullable, defaults to `null`). When `null`, navigation proceeds linearly.
+  When set, an ordered list of `branches` is evaluated; the first matching branch
+  wins and navigation jumps to `branch.targetStepId`. If no branch matches,
+  `defaultTargetStepId` is used as a fallback; if that is absent or unresolved,
+  linear progression applies.
+
+- **`Branch.condition` nullable** — a `null` condition on a branch is treated as
+  unconditional (always matches). Useful as a final catch-all entry after guarded
+  branches.
+
+- **Condition schema** — `LeafConditionSchema`, `ConditionGroupSchema`,
+  `BranchSchema`, and `NextStepSchema` added to `common.types.ts` and exported
+  from the package. Supported operators: `eq`, `neq`, `gt`, `lt`, `gte`, `lte`,
+  `contains`, `in`, `not_in`. Conditions nest recursively via `ConditionGroup`
+  (`logic: "and" | "or"`, `conditions: Array<LeafCondition | ConditionGroup>`).
+  `ConditionValueSchema` accepts `string | number | boolean | Array<string | number | boolean>`.
+
+- **`BaseStepTypeSchema`** — all per-step Zod schemas now extend a single shared
+  base (`id`, `name`, `displayProgressHeader`, `customPayload`,
+  `continueButtonLabel`, `buttonSection`, `figmaUrl`, `nextStep`) via `.extend()`.
+  Previously each schema declared these fields independently.
+
+- **`variableName` on `Question` and `Picker`** — optional `z.string().min(1)`
+  field. When set, the answer selected on that step is stored in the global
+  variable store under this key and becomes available to branch conditions on
+  subsequent steps.
+
+- **Variable store** — `OnboardingProgressContext` gains `variables:
+  Record<string, any>` and `setVariable(name, value)`. The store is written by
+  the host app's `onContinue` handler and read by `resolveNextStepNumber`.
+
+- **`resolveNextStepNumber(currentStep, variables, steps)`** — new exported pure
+  function. Returns the 1-indexed step number to navigate to, or `null` when the
+  flow ends. Resolution order: matching branch → `defaultTargetStepId` → linear
+  next → `null`. Self-referencing targets (branch or default pointing back to the
+  current step) are silently skipped to prevent infinite-loop routing.
+
+- **`evaluateCondition` module** — pure condition-evaluation logic extracted to
+  `src/evaluateCondition.ts` with no domain dependencies. Exports
+  `evaluateLeaf`, `evaluateCondition`, `isConditionGroup`, and the `Condition`
+  type.
+
+- **Test suite** — Vitest added as a dev dependency. 75 tests across
+  `evaluateCondition.test.ts` and `resolveNextStepNumber.test.ts` covering all
+  operators, AND/OR nesting up to 3 levels, branch ordering, unconditional
+  branches, `defaultTargetStepId` fallback, self-loop guard, and edge cases.
+
+### Changed
+
+- `NextStepSchema.branches` now defaults to `[]` — omitting `branches` from a
+  `nextStep` object is valid; callers can set only `defaultTargetStepId`.
+
+---
+
 ## [1.11.1] - 2026-04-27
 
 ### Changed

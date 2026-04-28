@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { CommitmentStepType, CommitmentStepTypeSchema } from "./types";
 import { OnboardingTemplate } from "../../Templates/OnboardingTemplate";
+import { SafeAreaView } from "react-native-safe-area-context";
 import {
   Gesture,
   GestureDetector,
@@ -80,6 +81,7 @@ const CommitmentRendererBase = ({ step, onContinue, theme = defaultTheme }: Cont
   const isButtonDisabled = payload.variant === "signature" && !hasSignature;
 
   return (
+    <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
     <OnboardingTemplate
       step={validatedData}
       onContinue={onContinue}
@@ -219,6 +221,7 @@ const CommitmentRendererBase = ({ step, onContinue, theme = defaultTheme }: Cont
         </View>
       </ScrollView>
     </OnboardingTemplate>
+    </SafeAreaView>
   );
 };
 

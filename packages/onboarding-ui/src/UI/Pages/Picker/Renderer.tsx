@@ -1,4 +1,5 @@
 import { OnboardingTemplate } from "../../Templates/OnboardingTemplate";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { PickerStepType, PickerStepTypeSchema, WeightUnit, HeightUnit } from "./types";
 import { View, Text, StyleSheet, TextInput, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from "react-native";
 import { useState } from "react";
@@ -86,6 +87,7 @@ const PickerRendererBase = ({ step, onContinue, theme = defaultTheme }: ContentP
 
   // Fallback for other picker types (to be implemented)
   return (
+    <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
     <OnboardingTemplate
       step={step}
       onContinue={() => onContinue()}
@@ -102,6 +104,7 @@ const PickerRendererBase = ({ step, onContinue, theme = defaultTheme }: ContentP
         </View>
       </View>
     </OnboardingTemplate>
+    </SafeAreaView>
   );
 };
 
@@ -145,6 +148,7 @@ const WeightPicker = ({
   };
 
   return (
+    <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
     <OnboardingTemplate
       step={step}
       onContinue={handleContinue}
@@ -189,6 +193,7 @@ const WeightPicker = ({
         </View>
       </View>
     </OnboardingTemplate>
+    </SafeAreaView>
   );
 };
 
@@ -261,6 +266,7 @@ const HeightPicker = ({
   };
 
   return (
+    <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
     <OnboardingTemplate
       step={step}
       onContinue={handleContinue}
@@ -330,6 +336,7 @@ const HeightPicker = ({
         </View>
       </View>
     </OnboardingTemplate>
+    </SafeAreaView>
   );
 };
 
@@ -361,6 +368,7 @@ const NamePicker = ({
   };
 
   return (
+    <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={{ flex: 1 }}
@@ -412,6 +420,7 @@ const NamePicker = ({
         </View>
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
@@ -476,6 +485,7 @@ const DatePicker = ({
   };
 
   return (
+    <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
     <OnboardingTemplate
       step={step}
       onContinue={handleContinue}
@@ -531,6 +541,7 @@ const DatePicker = ({
         </View>
       </View>
     </OnboardingTemplate>
+    </SafeAreaView>
   );
 };
 

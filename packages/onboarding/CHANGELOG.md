@@ -4,6 +4,19 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.15.0] - 2026-04-28
+
+### Added
+
+- **`SafeAreaView` UIElement** — new container element mirroring
+  `react-native-safe-area-context`'s `SafeAreaView`. Props: `mode?: "padding" | "margin"`,
+  `edges?` accepting either `("top" | "right" | "bottom" | "left")[]` or a per-edge
+  object mapping each edge to `"off" | "additive" | "maximum"`. Extends `BaseBoxProps`.
+  Exports: `SafeAreaViewElementProps`, `SafeAreaEdge`, `SafeAreaEdgeMode`,
+  `SafeAreaViewElementPropsSchema`.
+
+---
+
 ## [1.14.0] - 2026-04-28
 
 ### Added

@@ -1,4 +1,5 @@
 import { OnboardingTemplate } from "../../Templates/OnboardingTemplate";
+import { SafeAreaView } from "react-native-safe-area-context";
 import {
   CarouselStepType,
   CarouselStepTypeSchema,
@@ -58,6 +59,7 @@ const CarouselRendererBase = ({ step, onContinue, theme = defaultTheme }: Conten
   const isLastPage = currentPage === screens.length - 1;
 
   return (
+    <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
     <OnboardingTemplate
       step={step}
       onContinue={handleButtonPress}
@@ -101,6 +103,7 @@ const CarouselRendererBase = ({ step, onContinue, theme = defaultTheme }: Conten
         </View>
       </View>
     </OnboardingTemplate>
+    </SafeAreaView>
   );
 };
 

@@ -96,6 +96,11 @@ export const onboardingExample = {
       payload: {
         elements: [
           {
+            id: "safe-root",
+            type: "SafeAreaView",
+            props: { flex: 1, edges: ["top", "bottom"] },
+            children: [
+          {
             id: "root",
             type: "YStack",
             props: { gap: 24, padding: 24 },
@@ -423,6 +428,8 @@ export const onboardingExample = {
                   },
                 },
               },
+            ],
+          },
             ],
           },
         ],

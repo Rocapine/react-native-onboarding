@@ -17,6 +17,11 @@ export default function ComposableScreenExample() {
     payload: {
       elements: [
         {
+          id: 'safe-root',
+          type: 'SafeAreaView' as const,
+          props: { flex: 1, edges: ['top', 'bottom'] as ('top' | 'right' | 'bottom' | 'left')[] },
+          children: [
+        {
           id: 'root',
           type: 'YStack',
           props: { gap: 24, padding: 24 },
@@ -529,6 +534,8 @@ export default function ComposableScreenExample() {
               },
               children: [],
             },
+          ],
+        },
           ],
         },
       ],

@@ -1,6 +1,7 @@
 import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { OnboardingTemplate } from "../../Templates/OnboardingTemplate";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { RatingsStepType, RatingsStepTypeSchema } from "./types";
 import { useState } from "react";
 import { Theme } from "../../Theme/types";
@@ -76,6 +77,7 @@ const RatingsRendererBase = ({ step, onContinue, theme = defaultTheme }: Ratings
   };
 
   return (
+    <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
     <OnboardingTemplate
       step={step}
       onContinue={handlePress}
@@ -168,6 +170,7 @@ const RatingsRendererBase = ({ step, onContinue, theme = defaultTheme }: Ratings
         </ScrollView>
       </View>
     </OnboardingTemplate>
+    </SafeAreaView>
   );
 };
 

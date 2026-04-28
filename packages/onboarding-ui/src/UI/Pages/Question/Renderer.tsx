@@ -8,6 +8,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { OnboardingTemplate } from "../../Templates/OnboardingTemplate";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { getTextStyle } from "../../Theme/helpers";
 import { Theme } from "../../Theme/types";
 import { defaultTheme } from "../../Theme/defaultTheme";
@@ -86,6 +87,7 @@ const QuestionRendererBase = ({ step, onContinue, theme = defaultTheme, customCo
     customComponents?.QuestionAnswerButton || DefaultQuestionAnswerButton;
 
   return (
+    <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
     <OnboardingTemplate
       step={step}
       onContinue={handleContinue || (() => { })}
@@ -139,6 +141,7 @@ const QuestionRendererBase = ({ step, onContinue, theme = defaultTheme, customCo
         </View>
       </View>
     </OnboardingTemplate>
+    </SafeAreaView>
   );
 };
 

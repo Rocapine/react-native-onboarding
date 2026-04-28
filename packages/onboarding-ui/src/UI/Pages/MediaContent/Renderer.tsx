@@ -1,4 +1,5 @@
 import { OnboardingTemplate } from "../../Templates/OnboardingTemplate";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { MediaContentStepType, MediaContentStepTypeSchema } from "./types";
 import { View, Text, StyleSheet, Image, ScrollView } from "react-native";
 import { Theme } from "../../Theme/types";
@@ -115,6 +116,7 @@ const MediaContentRendererBase = ({ step, onContinue, theme = defaultTheme }: Co
   };
 
   return (
+    <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
     <OnboardingTemplate
       step={step}
       onContinue={onContinue}
@@ -126,6 +128,7 @@ const MediaContentRendererBase = ({ step, onContinue, theme = defaultTheme }: Co
     >
       {renderContent()}
     </OnboardingTemplate>
+    </SafeAreaView>
   );
 };
 

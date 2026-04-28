@@ -5,6 +5,29 @@ here.
 
 ---
 
+## [1.15.0] - 2026-04-28
+
+### Added
+
+- **`SafeAreaView` UIElement renderer** — new `SafeAreaViewElementComponent` that
+  delegates to `SafeAreaView` from `react-native-safe-area-context`. Forwards
+  `mode` and `edges` (array or per-edge object) and applies `BaseBoxProps`
+  styling.
+
+### Changed
+
+- **`OnboardingTemplate` no longer applies safe-area insets.** The template
+  previously read `useSafeAreaInsets()` and added `paddingTop`/`paddingBottom`.
+  Renderers now own safe-area handling: `Carousel`, `Commitment`, `Loader`,
+  `MediaContent`, `Picker`, `Question`, and `Ratings` wrap their content with
+  `<SafeAreaView edges={["top", "bottom"]}>`. The `ComposableScreen` renderer
+  intentionally does **not** wrap — author safe-area placement using the new
+  `SafeAreaView` UIElement so screens can render edge-to-edge backgrounds.
+- The progress-header offset (40px) remains in `OnboardingTemplate` as plain
+  padding, no longer combined with the top inset.
+
+---
+
 ## [1.14.0] - 2026-04-28
 
 ### Added

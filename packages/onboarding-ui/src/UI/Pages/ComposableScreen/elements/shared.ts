@@ -8,7 +8,7 @@ export type RenderContext = {
   variables: Record<string, ComposableVariableEntry>;
   setVariable: (key: string, entry: ComposableVariableEntry) => void;
   onContinue: () => void;
-  renderChildren: (elements: UIElement[], parentType: "XStack" | "YStack") => React.ReactNode;
+  renderChildren: (elements: UIElement[], parentType: "XStack" | "YStack" | "ZStack") => React.ReactNode;
 };
 
 export const interpolate = (template: string, variables: Record<string, ComposableVariableEntry>): string =>

@@ -321,6 +321,48 @@ export const onboardingExample = {
                 ],
               },
               {
+                id: "zstack-demo",
+                type: "ZStack",
+                props: {
+                  height: 200,
+                  borderRadius: 16,
+                  overflow: "hidden",
+                  marginVertical: 8,
+                },
+                children: [
+                  {
+                    id: "zstack-bg",
+                    type: "Image",
+                    props: {
+                      url: "https://picsum.photos/800/400?random=20",
+                      height: 200,
+                      resizeMode: "cover",
+                    },
+                  },
+                  {
+                    id: "zstack-overlay",
+                    type: "YStack",
+                    props: {
+                      backgroundColor: "rgba(0,0,0,0.45)",
+                      padding: 20,
+                      justifyContent: "flex-end",
+                    },
+                    children: [
+                      {
+                        id: "zstack-label",
+                        type: "Text",
+                        props: {
+                          content: "ZStack: layered elements",
+                          fontSize: 18,
+                          fontWeight: "700",
+                          color: "#fff",
+                        },
+                      },
+                    ],
+                  },
+                ],
+              },
+              {
                 id: "hero-button",
                 type: "Button",
                 props: {

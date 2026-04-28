@@ -5,6 +5,18 @@ here.
 
 ---
 
+## [1.13.1] - 2026-04-28
+
+### Added
+
+- **`ZStack` UIElement renderer** — new `ZStackElementComponent` that renders
+  children layered on top of each other. Each child is wrapped in
+  `position: "absolute"` filling the container, enabling image-with-text-overlay
+  and other depth-compositing patterns. Supports all `BaseBoxProps` including
+  `backgroundGradient` via `GradientBox`.
+
+---
+
 ## [1.13.0] - 2026-04-28
 
 ### Added

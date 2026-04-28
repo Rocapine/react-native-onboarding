@@ -29,7 +29,7 @@ const ComposableScreenRendererBase = ({ step, onContinue }: ContentProps) => {
     [setComposableVariable, setHeadlessVariable]
   );
 
-  const renderChildren = (children: UIElement[], parentType: "XStack" | "YStack") =>
+  const renderChildren = (children: UIElement[], parentType: "XStack" | "YStack" | "ZStack") =>
     children.map((child) => renderElement(child, ctx, parentType));
 
   const ctx: RenderContext = {

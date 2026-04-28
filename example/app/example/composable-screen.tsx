@@ -325,6 +325,49 @@ export default function ComposableScreenExample() {
                 },
               ],
             },
+            // ZStack: image with text overlay
+            {
+              id: 'zstack-demo',
+              type: 'ZStack' as const,
+              props: {
+                height: 200,
+                borderRadius: 16,
+                overflow: 'hidden',
+                marginVertical: 8,
+              },
+              children: [
+                {
+                  id: 'zstack-bg',
+                  type: 'Image' as const,
+                  props: {
+                    url: 'https://picsum.photos/800/400?random=20',
+                    height: 200,
+                    resizeMode: 'cover' as const,
+                  },
+                },
+                {
+                  id: 'zstack-overlay',
+                  type: 'YStack' as const,
+                  props: {
+                    backgroundColor: 'rgba(0,0,0,0.45)',
+                    padding: 20,
+                    justifyContent: 'flex-end' as const,
+                  },
+                  children: [
+                    {
+                      id: 'zstack-label',
+                      type: 'Text' as const,
+                      props: {
+                        content: 'ZStack: layered elements',
+                        fontSize: 18,
+                        fontWeight: '700',
+                        color: '#fff',
+                      },
+                    },
+                  ],
+                },
+              ],
+            },
             // Button element
             {
               id: 'hero-button',

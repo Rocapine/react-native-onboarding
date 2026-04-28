@@ -48,7 +48,7 @@ export const ConditionValueSchema = z.union([
   z.string(),
   z.number(),
   z.boolean(),
-  z.array(z.string()),
+  z.array(z.union([z.string(), z.number(), z.boolean()])),
 ]);
 export type ConditionValue = z.infer<typeof ConditionValueSchema>;
 
@@ -82,7 +82,7 @@ export type Branch = z.infer<typeof BranchSchema>;
 export const NextStepSchema = z
   .object({
     defaultTargetStepId: z.string().min(1),
-    branches: z.array(BranchSchema),
+    branches: z.array(BranchSchema).default([]),
   })
   .nullable()
   .default(null);

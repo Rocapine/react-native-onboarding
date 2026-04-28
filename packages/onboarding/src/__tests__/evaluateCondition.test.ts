@@ -60,12 +60,16 @@ describe("evaluateLeaf — in", () => {
   it("fails when variable not in list", () => expect(evaluateLeaf({ variable: "gender", operator: "in", value: ["male", "female"] }, { gender: "other" })).toBe(false));
   it("returns false when value is not array", () => expect(evaluateLeaf({ variable: "x", operator: "in", value: "male" as any }, { x: "male" })).toBe(false));
   it("empty list always false", () => expect(evaluateLeaf({ variable: "x", operator: "in", value: [] }, { x: "male" })).toBe(false));
+  it("coerces numeric raw to string before comparison", () => expect(evaluateLeaf({ variable: "age", operator: "in", value: ["18", "25"] }, { age: 18 })).toBe(true));
+  it("numeric raw not in string list returns false", () => expect(evaluateLeaf({ variable: "age", operator: "in", value: ["30", "40"] }, { age: 18 })).toBe(false));
 });
 
 describe("evaluateLeaf — not_in", () => {
   it("passes when variable not in list", () => expect(evaluateLeaf({ variable: "gender", operator: "not_in", value: ["male", "female"] }, { gender: "other" })).toBe(true));
   it("fails when variable is in list", () => expect(evaluateLeaf({ variable: "gender", operator: "not_in", value: ["male", "female"] }, { gender: "male" })).toBe(false));
   it("returns true when value is not array (safe default)", () => expect(evaluateLeaf({ variable: "x", operator: "not_in", value: "male" as any }, { x: "male" })).toBe(true));
+  it("coerces numeric raw to string before comparison", () => expect(evaluateLeaf({ variable: "age", operator: "not_in", value: ["18", "25"] }, { age: 30 })).toBe(true));
+  it("numeric raw in string list returns false", () => expect(evaluateLeaf({ variable: "age", operator: "not_in", value: ["18", "25"] }, { age: 18 })).toBe(false));
 });
 
 describe("evaluateLeaf — unknown operator", () => {

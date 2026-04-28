@@ -25,14 +25,17 @@ export function resolveNextStepNumber(
   if (nextStep == null) return linearNext();
 
   for (const branch of nextStep.branches) {
+    if (branch.targetStepId === currentStep.id) continue;
     if (branch.condition === null || evaluateCondition(branch.condition, variables)) {
       const idx = steps.findIndex((s) => s.id === branch.targetStepId);
       if (idx !== -1) return idx + 1;
     }
   }
 
-  const defaultIdx = steps.findIndex((s) => s.id === nextStep.defaultTargetStepId);
-  if (defaultIdx !== -1) return defaultIdx + 1;
+  if (nextStep.defaultTargetStepId !== currentStep.id) {
+    const defaultIdx = steps.findIndex((s) => s.id === nextStep.defaultTargetStepId);
+    if (defaultIdx !== -1) return defaultIdx + 1;
+  }
 
   return linearNext();
 }

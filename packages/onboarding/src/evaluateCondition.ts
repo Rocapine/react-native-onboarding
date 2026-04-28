@@ -32,9 +32,9 @@ export function evaluateLeaf(condition: LeafCondition, variables: Record<string,
         ? raw.includes(value)
         : String(raw).includes(String(value));
     case "in":
-      return Array.isArray(value) ? value.includes(raw as string) : false;
+      return Array.isArray(value) ? value.includes(String(raw)) : false;
     case "not_in":
-      return Array.isArray(value) ? !value.includes(raw as string) : true;
+      return Array.isArray(value) ? !value.includes(String(raw)) : true;
     default:
       return false;
   }

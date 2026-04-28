@@ -230,6 +230,58 @@ describe("branch — compound conditions", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Self-loop guard
+// ---------------------------------------------------------------------------
+
+describe("self-loop guard", () => {
+  it("skips branch where targetStepId equals currentStep.id", () => {
+    const step = makeStep("s1", {
+      nextStep: {
+        defaultTargetStepId: "s2",
+        branches: [
+          { condition: null, targetStepId: "s1" }, // would self-loop
+          { condition: null, targetStepId: "s3" },
+        ],
+      },
+    });
+    expect(resolveNextStepNumber(step, {}, steps)).toBe(3);
+  });
+
+  it("falls back to linear when only self-targeting branch matches", () => {
+    const step = makeStep("s1", {
+      nextStep: {
+        defaultTargetStepId: "s2",
+        branches: [
+          { condition: null, targetStepId: "s1" }, // would self-loop, only branch
+        ],
+      },
+    });
+    // defaultTargetStepId is "s2" which is valid → returns 2
+    expect(resolveNextStepNumber(step, {}, steps)).toBe(2);
+  });
+
+  it("skips defaultTargetStepId when it equals currentStep.id, falls back to linear", () => {
+    const step = makeStep("s2", {
+      nextStep: {
+        defaultTargetStepId: "s2", // self-reference
+        branches: [],
+      },
+    });
+    expect(resolveNextStepNumber(step, {}, steps)).toBe(3);
+  });
+
+  it("returns null when only route is self-loop and no linear next", () => {
+    const last = makeStep("s4", {
+      nextStep: {
+        defaultTargetStepId: "s4", // self-reference, and s4 is last
+        branches: [],
+      },
+    });
+    expect(resolveNextStepNumber(last, {}, steps)).toBe(null);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Edge cases
 // ---------------------------------------------------------------------------
 

@@ -49,8 +49,8 @@ export const TextElementComponent = ({ element, ctx, parentType }: Props): React
   const textNode = (
     <Text
       style={{
-        flex: p.backgroundGradient ? 1 : p.flex,
-        flexShrink: p.backgroundGradient ? undefined : (p.flexShrink ?? (parentType === "XStack" ? 1 : undefined)),
+        flex: p.flex,
+        flexShrink: p.flexShrink ?? (parentType === "XStack" ? 1 : undefined),
         flexGrow: p.backgroundGradient ? undefined : p.flexGrow,
         alignSelf: p.backgroundGradient ? undefined : p.alignSelf,
         width: p.backgroundGradient ? undefined : dim(p.width),

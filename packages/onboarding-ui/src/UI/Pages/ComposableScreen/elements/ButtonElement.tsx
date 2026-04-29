@@ -5,9 +5,35 @@ import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
 import { RenderContext, dim } from "./shared";
 import { GradientBox } from "./GradientBox";
+import { ComposableVariableEntry } from "../../../Provider/OnboardingProgressProvider";
+
+export type CustomButtonAction = {
+  type: "custom";
+  function: string;
+  variables?: string[];
+};
+
+export const CustomButtonActionSchema = z.object({
+  type: z.literal("custom"),
+  function: z.string().min(1, "function must not be empty"),
+  variables: z.array(z.string()).optional(),
+});
+
+export type ButtonAction = "continue" | CustomButtonAction;
+
+export const ButtonActionSchema = z.union([
+  z.literal("continue"),
+  CustomButtonActionSchema,
+]);
 
 export type ButtonElementProps = BaseBoxProps & {
   label: string;
+  /**
+   * Ordered list of actions to run on press. Sequential, await async handlers,
+   * abort on error, `"continue"` is terminal.
+   */
+  actions?: ButtonAction[];
+  /** @deprecated Use `actions` instead. */
   action?: "continue";
   variant?: "filled" | "outlined" | "ghost";
   backgroundColor?: string;
@@ -20,6 +46,7 @@ export type ButtonElementProps = BaseBoxProps & {
 
 export const ButtonElementPropsSchema = BaseBoxPropsSchema.extend({
   label: z.string().min(1, "label must not be empty"),
+  actions: z.array(ButtonActionSchema).optional(),
   action: z.enum(["continue"]).optional(),
   variant: z.enum(["filled", "outlined", "ghost"]).optional(),
   backgroundColor: z.string().optional(),
@@ -38,13 +65,37 @@ type Props = {
 };
 
 export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElement => {
-  const { theme, onContinue } = ctx;
-  const action = element.props.action;
-  const handlePress = () => {
-    if (action === undefined || action === "continue") {
-      onContinue();
+  const { theme, onContinue, customActions, variables } = ctx;
+  const handlePress = async () => {
+    const { actions, action } = element.props;
+    const effective: ButtonAction[] =
+      actions ?? (action === "continue" ? ["continue"] : []);
+
+    for (const act of effective) {
+      if (act === "continue") {
+        onContinue();
+        return;
+      }
+      const handler = customActions[act.function];
+      if (!handler) {
+        console.warn(
+          `[ComposableScreen] No customAction registered for "${act.function}"`
+        );
+        continue;
+      }
+      const requested = act.variables ?? [];
+      const vars: Record<string, ComposableVariableEntry | undefined> = {};
+      for (const name of requested) vars[name] = variables[name];
+      try {
+        await handler({ variables: vars });
+      } catch (err) {
+        console.error(
+          `[ComposableScreen] customAction "${act.function}" threw:`,
+          err
+        );
+        return;
+      }
     }
-    // other action values are no-ops
   };
   const variant = element.props.variant ?? "filled";
   const isFilled = variant === "filled";

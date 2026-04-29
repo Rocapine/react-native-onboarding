@@ -1,7 +1,10 @@
 import { createContext, useState, useCallback } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import type { ComposableVariableEntry } from "@rocapine/react-native-onboarding";
 import { ThemeProvider } from "../Theme/ThemeProvider";
 import { ColorScheme } from "../Theme/types";
+
+export type { ComposableVariableEntry };
 
 export const OnboardingProgressProvider = ({
   children,
@@ -34,8 +37,6 @@ export const OnboardingProgressProvider = ({
     </SafeAreaProvider>
   );
 };
-
-export type ComposableVariableEntry = { value: string; label?: string };
 
 export const OnboardingProgressContext = createContext({
   activeStep: { number: 0, displayProgressHeader: false },

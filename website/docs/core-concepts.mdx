@@ -71,6 +71,11 @@ When you wrap your app with `OnboardingProvider` and `ThemeProvider`:
 <OnboardingProvider
   client={client}
   customAudienceParams={{ onboardingId: "abc-123" }}
+  customActions={{
+    trackCta: async ({ variables }) => {
+      console.log("trackCta", variables);
+    },
+  }}
 >
   <ThemeProvider>
     <YourApp />
@@ -83,6 +88,7 @@ The SDK:
 2. Sets up AsyncStorage caching (OnboardingProvider)
 3. Prepares theme context (ThemeProvider)
 4. Establishes progress tracking (OnboardingProvider)
+5. Registers `customActions` for `ComposableScreen` Button presses — see [Custom Actions](./customization/custom-actions.mdx)
 
 ### 2. Data Fetching
 

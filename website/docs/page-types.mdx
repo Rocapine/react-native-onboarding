@@ -622,7 +622,8 @@ As of 1.15.0, `OnboardingTemplate` does not apply safe-area insets. Built-in pag
 |------|------|-------|
 | `label` | `string` | **Required** — button text |
 | `variant` | `"filled" \| "outlined" \| "ghost"` | Visual style; `filled` = solid primary background, `outlined` = border only, `ghost` = no background or border |
-| `action` | `"continue"` | Calls `onContinue` when tapped; defaults to `"continue"` |
+| `actions` | `ButtonAction[]` | Ordered list run on press. See **Button actions** below. When omitted (and no legacy `action`), the press is a no-op |
+| `action` | `"continue"` | **Deprecated** — back-compat alias. When `actions` is absent and `action === "continue"`, runtime treats it as `actions: ["continue"]` |
 | `backgroundColor` | `string` | Overrides variant background color |
 | `color` | `string` | Label text color |
 | `fontSize` | `number` | |
@@ -635,6 +636,59 @@ As of 1.15.0, `OnboardingTemplate` does not apply safe-area insets. Built-in pag
 | `padding` / `paddingHorizontal` / `paddingVertical` | `number` | |
 | `borderWidth` / `borderRadius` / `borderColor` | `number \| string` | |
 | `opacity` | `number` | |
+
+**Button actions**
+
+`Button.actions` is an ordered array. Each entry is one of:
+
+- `"continue"` — advances to the next onboarding step (calls the `onContinue` callback wired to the renderer).
+- `{ type: "custom", function: string, variables?: string[] }` — invokes a developer-injected handler registered on `OnboardingProvider.customActions`. `variables` lists the keys to read from the live ComposableScreen variable map and forward to the handler.
+
+Execution rules:
+
+- Sequential. Each action awaits the previous before starting.
+- Async-aware. If a custom handler returns a `Promise`, the runtime awaits it.
+- `"continue"` is **terminal** — any actions after it are ignored.
+- A thrown error in a custom handler is logged via `console.error` and the remaining chain is aborted.
+- An unknown `function` name (no matching key in `customActions`) emits `console.warn` and the chain skips to the next action.
+
+```jsonc
+{
+  "id": "primary-cta",
+  "type": "Button",
+  "props": {
+    "label": "Get Started",
+    "variant": "filled",
+    "actions": [
+      { "type": "custom", "function": "trackCta", "variables": ["name", "plan"] },
+      "continue"
+    ]
+  }
+}
+```
+
+Register the matching handlers on `OnboardingProvider`:
+
+```tsx
+import { OnboardingProvider } from "@rocapine/react-native-onboarding";
+
+<OnboardingProvider
+  client={client}
+  customActions={{
+    trackCta: async ({ variables }) => {
+      // variables → { name?: { value, label? }, plan?: { value, label? } }
+      await analytics.track("cta_pressed", {
+        name: variables.name?.value,
+        plan: variables.plan?.value,
+      });
+    },
+  }}
+>
+  {children}
+</OnboardingProvider>
+```
+
+See [Custom Actions](./customization/custom-actions.mdx) for the full handler signature and patterns.
 
 **DatePicker props:**
 

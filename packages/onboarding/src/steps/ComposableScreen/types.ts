@@ -26,13 +26,20 @@ export type { RiveElementProps } from "./elements/RiveElement";
 export type { IconElementProps } from "./elements/IconElement";
 export type { VideoElementProps } from "./elements/VideoElement";
 export type { InputElementProps } from "./elements/InputElement";
-export type { ButtonElementProps } from "./elements/ButtonElement";
+export type { ButtonElementProps, ButtonAction, CustomButtonAction } from "./elements/ButtonElement";
+export { ButtonActionSchema, CustomButtonActionSchema } from "./elements/ButtonElement";
 export type { RadioGroupElementProps } from "./elements/RadioGroupElement";
 export type { CheckboxGroupElementProps } from "./elements/CheckboxGroupElement";
 export type { DatePickerElementProps } from "./elements/DatePickerElement";
 export type { CarouselElementProps } from "./elements/CarouselElement";
 export type { ZStackElementProps } from "./elements/ZStackElement";
 export type { SafeAreaViewElementProps, SafeAreaEdge, SafeAreaEdgeMode } from "./elements/SafeAreaViewElement";
+
+/**
+ * A variable entry stored in the ComposableScreen variables map.
+ * `value` is the canonical value (string), `label` is an optional display label.
+ */
+export type ComposableVariableEntry = { value: string; label?: string };
 
 // UIElement union — must live here (not in elements/) to avoid circular deps
 // because the Stack variant's children: UIElement[] references itself.

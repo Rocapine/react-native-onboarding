@@ -376,6 +376,10 @@ export const onboardingExample = {
                   label: "Get Started",
                   variant: "filled",
                   marginVertical: 8,
+                  actions: [
+                    { type: "custom", function: "trackCta", variables: ["name", "plan", "goals"] },
+                    "continue",
+                  ],
                 },
               },
               {

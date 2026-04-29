@@ -4,6 +4,11 @@ export type {
   Onboarding,
   OnboardingMetadata,
   OnboardingStudioClientOptions,
+  CustomActionHandler,
+  CustomActions,
+  ButtonAction,
+  CustomButtonAction,
+  ComposableVariableEntry,
 } from "@rocapine/react-native-onboarding";
 
 // UI Components and Router

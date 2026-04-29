@@ -1,4 +1,5 @@
 import React from "react";
+import { CustomActions } from "@rocapine/react-native-onboarding";
 import { UIElement } from "../types";
 import { Theme } from "../../../Theme/types";
 import { ComposableVariableEntry } from "../../../Provider/OnboardingProgressProvider";
@@ -8,6 +9,7 @@ export type RenderContext = {
   variables: Record<string, ComposableVariableEntry>;
   setVariable: (key: string, entry: ComposableVariableEntry) => void;
   onContinue: () => void;
+  customActions: CustomActions;
   renderChildren: (elements: UIElement[], parentType: "XStack" | "YStack" | "ZStack") => React.ReactNode;
 };
 

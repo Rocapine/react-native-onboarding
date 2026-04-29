@@ -1,0 +1,190 @@
+---
+sidebar_position: 4
+---
+
+# Custom Actions
+
+Wire developer-defined functions to `ComposableScreen` `Button` presses. Run analytics, fire side effects, gate navigation on async work — all without writing a custom renderer.
+
+## Overview
+
+Each `Button` element in a `ComposableScreen` carries an ordered `actions` array. The runtime walks the array on press, executing each entry sequentially:
+
+- `"continue"` — advances the onboarding (terminal — anything after is ignored).
+- `{ type: "custom", function: "<name>", variables?: ["<key>", ...] }` — invokes a handler you registered on `OnboardingProvider.customActions`. Listed variables are read from the live ComposableScreen variable map and forwarded to the handler.
+
+Handlers may be async — the chain awaits each `Promise` before proceeding.
+
+## Schema
+
+```typescript
+type ButtonAction =
+  | "continue"
+  | { type: "custom"; function: string; variables?: string[] };
+```
+
+```jsonc
+// CMS payload — Button element
+{
+  "id": "primary-cta",
+  "type": "Button",
+  "props": {
+    "label": "Get Started",
+    "variant": "filled",
+    "actions": [
+      { "type": "custom", "function": "trackCta", "variables": ["name", "plan"] },
+      { "type": "custom", "function": "syncProfile", "variables": ["name", "plan", "goals"] },
+      "continue"
+    ]
+  }
+}
+```
+
+## Handler signature
+
+```typescript
+import type {
+  CustomActionHandler,
+  CustomActions,
+  ComposableVariableEntry,
+} from "@rocapine/react-native-onboarding";
+
+type CustomActionHandler = (args: {
+  variables: Record<string, ComposableVariableEntry | undefined>;
+}) => void | Promise<void>;
+
+type CustomActions = Record<string, CustomActionHandler>;
+```
+
+`variables` is filtered to the names listed in the action's `variables` array. Each entry is `{ value: string; label?: string }` — the same shape `Input`, `RadioGroup`, `CheckboxGroup`, and `DatePicker` write to the variable context. Missing keys yield `undefined` so the handler can detect them.
+
+## Registration
+
+Pass `customActions` to the headless `OnboardingProvider` once at the app root.
+
+```tsx
+import {
+  OnboardingProvider,
+  OnboardingStudioClient,
+} from "@rocapine/react-native-onboarding";
+
+const client = new OnboardingStudioClient(process.env.EXPO_PUBLIC_PROJECT_ID!, {
+  appVersion: "1.0.0",
+});
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <OnboardingProvider
+      client={client}
+      customActions={{
+        trackCta: async ({ variables }) => {
+          await analytics.track("cta_pressed", {
+            name: variables.name?.value,
+            plan: variables.plan?.value,
+          });
+        },
+        syncProfile: async ({ variables }) => {
+          await api.post("/profile", {
+            name: variables.name?.value,
+            plan: variables.plan?.value,
+            goals: variables.goals?.value, // CheckboxGroup writes JSON.stringify(string[])
+          });
+        },
+      }}
+    >
+      {children}
+    </OnboardingProvider>
+  );
+}
+```
+
+## Execution semantics
+
+| Behavior | Detail |
+|---|---|
+| **Order** | Sequential — each action awaits the prior. |
+| **Async** | Returned `Promise` is awaited. |
+| **`"continue"`** | Terminal — chain stops. Place `"continue"` last. |
+| **Thrown error** | `console.error` and chain aborts (subsequent actions, including `"continue"`, do not run). |
+| **Unknown handler name** | `console.warn` and chain skips to the next action. |
+| **Empty array / no `actions` / no legacy `action`** | Press is a no-op. |
+
+## Variable shape by element
+
+`variables` reflects whatever the variable-writing elements stored. Keep this table handy when authoring handlers:
+
+| Element | `value` | `label` |
+|---|---|---|
+| `Input` | Raw text | — |
+| `RadioGroup` | Selected item value (`"monthly"`) | Selected item label (`"Monthly"`) |
+| `CheckboxGroup` | `JSON.stringify(string[])` of selected values | Comma-joined display labels |
+| `DatePicker` | ISO 8601 string | Locale-formatted date |
+
+Parse `CheckboxGroup` values with `JSON.parse(variables.goals?.value ?? "[]")` when you need the array.
+
+## Patterns
+
+### Analytics-only (no nav change)
+
+`"continue"` not present → no navigation. Use this for buttons that fire side effects but stay on the screen.
+
+```jsonc
+{
+  "actions": [
+    { "type": "custom", "function": "trackTooltipOpen" }
+  ]
+}
+```
+
+### Gate navigation on a network call
+
+```jsonc
+{
+  "actions": [
+    { "type": "custom", "function": "validateProfile", "variables": ["name", "email"] },
+    "continue"
+  ]
+}
+```
+
+```tsx
+customActions={{
+  validateProfile: async ({ variables }) => {
+    const res = await api.post("/validate", {
+      name: variables.name?.value,
+      email: variables.email?.value,
+    });
+    if (!res.ok) throw new Error("validation failed"); // aborts chain → "continue" skipped
+  },
+}}
+```
+
+### Fan-out side effects, then continue
+
+```jsonc
+{
+  "actions": [
+    { "type": "custom", "function": "trackCta" },
+    { "type": "custom", "function": "syncProfile", "variables": ["name", "plan"] },
+    "continue"
+  ]
+}
+```
+
+## Migrating from `action: "continue"`
+
+The legacy `action?: "continue"` field is still accepted for back-compat. When `actions` is absent and `action === "continue"`, the runtime treats it as `actions: ["continue"]`. Prefer emitting `actions` from new CMS payloads.
+
+```jsonc
+// Old
+{ "props": { "label": "Continue", "action": "continue" } }
+
+// New
+{ "props": { "label": "Continue", "actions": ["continue"] } }
+```
+
+## Related
+
+- [ComposableScreen page type & `Button` props](../page-types.mdx#composablescreen)
+- [API Reference — `OnboardingProvider`](../api-reference.mdx#onboardingprovider)
+- [Custom Components](./custom-components.mdx) — replace UI components rather than wire callbacks

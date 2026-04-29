@@ -4,6 +4,38 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.16.0] - 2026-04-29
+
+### Added
+
+- **`Button.actions` ordered action array** — `ButtonElement.props` now accepts
+  `actions?: ButtonAction[]`, where `ButtonAction = "continue" | { type: "custom"; function: string; variables?: string[] }`.
+  Actions run sequentially on press; `await`s any returned Promise; aborts the
+  remaining chain on a thrown error; `"continue"` is terminal.
+- **`OnboardingProvider.customActions` prop** — `Record<string, CustomActionHandler>`
+  where `CustomActionHandler = (args: { variables: Record<string, ComposableVariableEntry | undefined> }) => void | Promise<void>`.
+  Functions are invoked by name from `Button.actions` `{ type: "custom", function, variables }`,
+  receiving the requested variables filtered from the live ComposableScreen
+  variable map.
+- New exports: `ButtonAction`, `CustomButtonAction`, `ButtonActionSchema`,
+  `CustomButtonActionSchema`, `CustomActionHandler`, `CustomActions`,
+  `ComposableVariableEntry`.
+
+### Changed
+
+- `Button.action?: "continue"` is now **deprecated** but still accepted as a
+  back-compat alias. When `actions` is absent and `action === "continue"`,
+  runtime treats it as `actions: ["continue"]`. CMS payloads should migrate to
+  `actions`.
+
+> **Backend note:** The `onboarding-studio` server must mirror the new
+> `Button.actions` field in its `ComposableScreen` UIElement schema (Zod) and
+> CMS editor (ordered list of `"continue"` or
+> `{ type: "custom"; function: string; variables?: string[] }`). The legacy
+> `action` field should be kept readable for historical payloads.
+
+---
+
 ## [1.15.0] - 2026-04-28
 
 ### Added

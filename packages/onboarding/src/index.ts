@@ -2,6 +2,16 @@
 export { OnboardingStudioClient } from "./OnboardingStudioClient";
 export * from "./types";
 export * from "./onboarding-example";
+// ComposableScreen types (Button actions, variable entry, etc.)
+export type {
+  ButtonAction,
+  CustomButtonAction,
+  ComposableVariableEntry,
+} from "./steps/ComposableScreen/types";
+export {
+  ButtonActionSchema,
+  CustomButtonActionSchema,
+} from "./steps/ComposableScreen/types";
 // Hooks and providers
 export * from "./infra";
 // Branching

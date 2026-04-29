@@ -375,7 +375,7 @@ export default function ComposableScreenExample() {
                 },
               ],
             },
-            // Button element
+            // Button element — runs a custom action with selected variables, then continues.
             {
               id: 'hero-button',
               type: 'Button' as const,
@@ -383,9 +383,13 @@ export default function ComposableScreenExample() {
                 label: 'Get Started',
                 variant: 'filled' as const,
                 marginVertical: 8,
+                actions: [
+                  { type: 'custom' as const, function: 'trackCta', variables: ['name', 'plan', 'goals'] },
+                  'continue' as const,
+                ],
               },
             },
-            // Outlined button variant
+            // Outlined button — uses the legacy `action: "continue"` form (back-compat alias).
             {
               id: 'hero-button-outlined',
               type: 'Button' as const,
@@ -393,6 +397,7 @@ export default function ComposableScreenExample() {
                 label: 'Learn More',
                 variant: 'outlined' as const,
                 marginVertical: 4,
+                action: 'continue' as const,
               },
             },
             // Highlighted info block
@@ -493,7 +498,7 @@ export default function ComposableScreenExample() {
                 },
               ],
             },
-            // Gradient Button
+            // Gradient Button — fires multiple custom actions before continuing.
             {
               id: 'gradient-button',
               type: 'Button' as const,
@@ -501,6 +506,11 @@ export default function ComposableScreenExample() {
                 label: 'Gradient Button',
                 variant: 'filled' as const,
                 marginVertical: 4,
+                actions: [
+                  { type: 'custom' as const, function: 'celebrate' },
+                  { type: 'custom' as const, function: 'trackCta', variables: ['name'] },
+                  'continue' as const,
+                ],
                 backgroundGradient: {
                   type: 'linear' as const,
                   from: 'left' as const,

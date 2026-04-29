@@ -5,6 +5,28 @@ here.
 
 ---
 
+## [1.16.0] - 2026-04-29
+
+### Added
+
+- **Button `actions` execution** — `ButtonElement` now runs the headless
+  `ButtonAction[]` chain on press: sequential, `await`s async handlers,
+  warns on missing handler, aborts on thrown error, `"continue"` is terminal.
+- **`customActions` plumbing** — `RenderContext` exposes `customActions` to
+  every ComposableScreen element. `ComposableScreenRenderer` reads them from
+  the headless `OnboardingProgressContext` (set via
+  `<OnboardingProvider customActions={...}>`).
+- Re-exports `ButtonAction`, `CustomButtonAction`, `CustomActionHandler`,
+  `CustomActions`, `ComposableVariableEntry` from the headless package.
+
+### Changed
+
+- `ComposableVariableEntry` is now sourced from the headless package
+  (`@rocapine/react-native-onboarding`); the UI provider re-exports it.
+  Existing imports from `OnboardingProgressProvider` continue to work.
+
+---
+
 ## [1.15.0] - 2026-04-28
 
 ### Added

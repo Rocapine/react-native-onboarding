@@ -45,6 +45,14 @@ export default function RootLayout() {
       locale="en"
       customAudienceParams={{
       }}
+      customActions={{
+        trackCta: async ({ variables }) => {
+          console.log("[customAction] trackCta fired with variables:", variables);
+        },
+        celebrate: async ({ variables }) => {
+          console.log("[customAction] celebrate", variables);
+        },
+      }}
     >
       <OnboardingProgressProvider>
         <Stack screenOptions={{ headerShown: false }} />

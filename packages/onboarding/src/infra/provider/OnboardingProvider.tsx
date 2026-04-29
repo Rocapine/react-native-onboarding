@@ -4,6 +4,7 @@ import { OnboardingStudioClient } from "../../OnboardingStudioClient";
 import { getOnboardingQuery } from "../queries/getOnboarding.query";
 import { Onboarding } from "../../types";
 import { OnboardingStepType } from "../../steps/types";
+import { ComposableVariableEntry } from "../../steps/ComposableScreen/types";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -13,11 +14,24 @@ const queryClient = new QueryClient({
   },
 })
 
+export type CustomActionHandler = (args: {
+  variables: Record<string, ComposableVariableEntry | undefined>;
+}) => void | Promise<void>;
+
+export type CustomActions = Record<string, CustomActionHandler>;
+
 interface OnboardingProviderProps {
   children: React.ReactNode;
   client: OnboardingStudioClient;
   locale?: string;
   customAudienceParams?: Record<string, any>;
+  /**
+   * Map of named handlers invokable from ComposableScreen Button `actions`
+   * with `{ type: "custom", function: <name>, variables?: [...] }`. Handlers
+   * receive the requested variables filtered from the live ComposableScreen
+   * variable map and may return a Promise.
+   */
+  customActions?: CustomActions;
 }
 
 export const OnboardingProvider = ({
@@ -25,6 +39,7 @@ export const OnboardingProvider = ({
   client,
   locale = "en",
   customAudienceParams = {},
+  customActions = {},
 }: OnboardingProviderProps) => {
   const [activeStep, setActiveStep] = useState({
     number: 0,
@@ -55,6 +70,7 @@ export const OnboardingProvider = ({
           setOnboarding,
           variables,
           setVariable,
+          customActions,
         }}
       >
         {children}
@@ -75,6 +91,7 @@ export const OnboardingProgressContext = createContext<{
   setOnboarding: (onboarding: Onboarding<OnboardingStepType>) => void;
   variables: Record<string, any>;
   setVariable: (name: string, value: any) => void;
+  customActions: CustomActions;
 }>({
   activeStep: { number: 0, displayProgressHeader: false },
   setActiveStep: () => { },
@@ -87,4 +104,5 @@ export const OnboardingProgressContext = createContext<{
   setOnboarding: () => { },
   variables: {},
   setVariable: () => { },
+  customActions: {},
 });

@@ -129,6 +129,7 @@ const QuestionRendererBase = ({ step, onContinue, theme = defaultTheme, customCo
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
+            alwaysBounceVertical={false}
           >
             <AnswersList
               answers={answers}

@@ -17,7 +17,7 @@ export const SafeAreaViewElementPropsSchema = BaseBoxPropsSchema.extend({
   edges: z
     .union([
       z.array(EdgeSchema),
-      z.object({
+      z.strictObject({
         top: EdgeModeSchema.optional(),
         right: EdgeModeSchema.optional(),
         bottom: EdgeModeSchema.optional(),

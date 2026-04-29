@@ -115,6 +115,7 @@ const BarsVariant = ({
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        alwaysBounceVertical={false}
       >
         <View style={styles.container}>
           {/* Title */}
@@ -179,6 +180,7 @@ const CircleVariant = ({
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        alwaysBounceVertical={false}
       >
         <View style={styles.container}>
           {/* Circular Progress */}

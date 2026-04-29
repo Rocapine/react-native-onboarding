@@ -94,6 +94,7 @@ const RatingsRendererBase = ({ step, onContinue, theme = defaultTheme }: Ratings
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          alwaysBounceVertical={false}
         >
           {/* Award Section */}
           <View style={styles.awardSection}>

@@ -87,7 +87,7 @@ const PickerRendererBase = ({ step, onContinue, theme = defaultTheme }: ContentP
 
   // Fallback for other picker types (to be implemented)
   return (
-    <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
+    <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom", "left", "right"]}>
     <OnboardingTemplate
       step={step}
       onContinue={() => onContinue()}
@@ -148,7 +148,7 @@ const WeightPicker = ({
   };
 
   return (
-    <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
+    <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom", "left", "right"]}>
     <OnboardingTemplate
       step={step}
       onContinue={handleContinue}
@@ -266,7 +266,7 @@ const HeightPicker = ({
   };
 
   return (
-    <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
+    <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom", "left", "right"]}>
     <OnboardingTemplate
       step={step}
       onContinue={handleContinue}
@@ -368,7 +368,7 @@ const NamePicker = ({
   };
 
   return (
-    <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
+    <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom", "left", "right"]}>
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={{ flex: 1 }}
@@ -485,7 +485,7 @@ const DatePicker = ({
   };
 
   return (
-    <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
+    <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom", "left", "right"]}>
     <OnboardingTemplate
       step={step}
       onContinue={handleContinue}

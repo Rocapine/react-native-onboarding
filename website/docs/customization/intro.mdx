@@ -72,6 +72,38 @@ import { ThemeProvider } from "@rocapine/react-native-onboarding-ui";
 
 ---
 
+### Level 2b: Custom Actions ⚡
+**Run developer-defined functions on `ComposableScreen` `Button` presses**
+
+- Targets the `ComposableScreen` Button `actions` array
+- Inject named handlers via `OnboardingProvider.customActions`
+- Forward selected variables (e.g. `Input`/`RadioGroup` values) to your handler
+- Async-aware — chain awaits `Promise` returns; throw to abort navigation
+
+**Best for:**
+- Analytics on CTA presses
+- Gating navigation on a network call
+- Triggering side effects (deep links, native modules, profile sync) from the CMS
+
+```typescript
+import { OnboardingProvider } from "@rocapine/react-native-onboarding";
+
+<OnboardingProvider
+  client={client}
+  customActions={{
+    trackCta: async ({ variables }) => {
+      await analytics.track("cta_pressed", { name: variables.name?.value });
+    },
+  }}
+>
+  <YourApp />
+</OnboardingProvider>
+```
+
+[Learn more about Custom Actions →](./custom-actions.mdx)
+
+---
+
 ### Level 3: Custom Renderers 🎭
 **Complete control over entire screens**
 
@@ -189,7 +221,8 @@ Start with the customization level that matches your needs:
 
 1. 🎨 [**Theming**](./theming.mdx) - Colors, typography, and semantic styles
 2. 🔧 [**Custom Components**](./custom-components.mdx) - Replace specific UI components
-3. 🎭 [**Custom Renderers**](./custom-renderers.mdx) - Complete screen control
+3. ⚡ [**Custom Actions**](./custom-actions.mdx) - Wire handlers to ComposableScreen Button presses
+4. 🎭 [**Custom Renderers**](./custom-renderers.mdx) - Complete screen control
 
 :::tip Start Simple
 We recommend starting with Level 1 (Theming) and only moving to higher levels when needed. Most customization needs can be met with theming alone.

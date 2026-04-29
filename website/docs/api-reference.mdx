@@ -19,6 +19,11 @@ import { OnboardingProvider } from "@rocapine/react-native-onboarding";
   client={client}
   locale="en"
   customAudienceParams={{ onboardingId: "abc-123" }}
+  customActions={{
+    trackCta: async ({ variables }) => {
+      console.log("trackCta", variables);
+    },
+  }}
 >
   <YourApp />
 </OnboardingProvider>
@@ -31,6 +36,25 @@ import { OnboardingProvider } from "@rocapine/react-native-onboarding";
 | `client` | `OnboardingStudioClient` | **Required** | Client instance for API communication |
 | `locale` | `string` | `"en"` | Locale for fetching steps |
 | `customAudienceParams` | `Record<string, any>` | `{}` | Additional parameters for API |
+| `customActions` | `CustomActions` | `{}` | Map of named handlers invokable from `ComposableScreen` `Button.actions` `{ type: "custom", function, variables? }`. See [Custom Actions](./customization/custom-actions.mdx) |
+
+#### CustomActionHandler
+
+```typescript
+import type {
+  CustomActionHandler,
+  CustomActions,
+  ComposableVariableEntry,
+} from "@rocapine/react-native-onboarding";
+
+type CustomActionHandler = (args: {
+  variables: Record<string, ComposableVariableEntry | undefined>;
+}) => void | Promise<void>;
+
+type CustomActions = Record<string, CustomActionHandler>;
+```
+
+`variables` is filtered to the names listed in the action's `variables` array (missing keys yield `undefined`). Handlers may return a `Promise` — the action chain awaits before proceeding.
 
 ---
 

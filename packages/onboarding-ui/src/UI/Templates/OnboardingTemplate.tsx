@@ -1,6 +1,5 @@
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { OnboardingStepType } from "../types";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getTextStyle } from "../Theme/helpers";
 import { Theme } from "../Theme/types";
 import { defaultTheme } from "../Theme/defaultTheme";
@@ -60,16 +59,13 @@ export const OnboardingTemplate = ({
   button,
   theme = defaultTheme,
 }: OnboardingTemplateProps) => {
-  const { top, bottom } = useSafeAreaInsets();
-
   return (
     <View
       style={[
         styles.container,
         {
           backgroundColor: theme.colors.neutral.lowest,
-          paddingTop: step.displayProgressHeader ? top + 40 : top,
-          paddingBottom: bottom
+          paddingTop: step.displayProgressHeader ? 40 : 0,
         },
       ]}
     >

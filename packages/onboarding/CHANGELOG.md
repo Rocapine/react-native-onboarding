@@ -4,6 +4,27 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.15.0] - 2026-04-28
+
+### Added
+
+- **`SafeAreaView` UIElement** — new container element mirroring
+  `react-native-safe-area-context`'s `SafeAreaView`. Props: `mode?: "padding" | "margin"`,
+  `edges?` accepting either `("top" | "right" | "bottom" | "left")[]` or a per-edge
+  object mapping each edge to `"off" | "additive" | "maximum"`. Extends `BaseBoxProps`.
+  Exports: `SafeAreaViewElementProps`, `SafeAreaEdge`, `SafeAreaEdgeMode`,
+  `SafeAreaViewElementPropsSchema`.
+
+> **Backend note:** The `onboarding-studio` server must be updated to accept and
+> validate the new `"SafeAreaView"` element type in the `ComposableScreen`
+> UIElement union. Mirror `SafeAreaViewElementPropsSchema` (with the strict
+> per-edge object) in the backend validation layer and add `SafeAreaView` to the
+> CMS editor element-type picker. Run the schema-sync/publish process in
+> `onboarding-studio` (regenerate Zod schemas, bump validator package, deploy)
+> before publishing this SDK release so CI and runtime payloads do not drift.
+
+---
+
 ## [1.14.0] - 2026-04-28
 
 ### Added

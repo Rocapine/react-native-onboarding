@@ -15,6 +15,7 @@ import { ButtonElementComponent } from "./ButtonElement";
 import { DatePickerElementComponent } from "./DatePickerElement";
 import { CarouselElementComponent } from "./CarouselElement";
 import { ZStackElementComponent } from "./ZStackElement";
+import { SafeAreaViewElementComponent } from "./SafeAreaViewElement";
 
 export const renderElement = (
   element: UIElement,
@@ -75,6 +76,10 @@ export const renderElement = (
 
   if (element.type === "ZStack") {
     return <ZStackElementComponent key={element.id} element={element} ctx={ctx} />;
+  }
+
+  if (element.type === "SafeAreaView") {
+    return <SafeAreaViewElementComponent key={element.id} element={element} ctx={ctx} />;
   }
 
   return null;

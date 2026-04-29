@@ -1,4 +1,5 @@
 import { OnboardingTemplate } from "../../Templates/OnboardingTemplate";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { LoaderStepType, LoaderStepTypeSchema, LoaderStep } from "./types";
 import {
   View,
@@ -97,6 +98,7 @@ const BarsVariant = ({
   const styles = createStyles(theme);
 
   return (
+    <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
     <OnboardingTemplate
       step={step}
       onContinue={onContinue}
@@ -113,6 +115,7 @@ const BarsVariant = ({
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        alwaysBounceVertical={false}
       >
         <View style={styles.container}>
           {/* Title */}
@@ -147,6 +150,7 @@ const BarsVariant = ({
         />
       )}
     </OnboardingTemplate>
+    </SafeAreaView>
   );
 };
 
@@ -171,10 +175,12 @@ const CircleVariant = ({
   const styles = createStyles(theme);
 
   return (
+    <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
     <OnboardingTemplate step={step} onContinue={onContinue} theme={theme}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        alwaysBounceVertical={false}
       >
         <View style={styles.container}>
           {/* Circular Progress */}
@@ -201,6 +207,7 @@ const CircleVariant = ({
         </View>
       </ScrollView>
     </OnboardingTemplate>
+    </SafeAreaView>
   );
 };
 

@@ -14,6 +14,7 @@ import { type CheckboxGroupElementProps, CheckboxGroupElementPropsSchema } from 
 import { type DatePickerElementProps, DatePickerElementPropsSchema } from "./elements/DatePickerElement";
 import { type CarouselElementProps, CarouselElementPropsSchema } from "./elements/CarouselElement";
 import { type ZStackElementProps, ZStackElementPropsSchema } from "./elements/ZStackElement";
+import { type SafeAreaViewElementProps, SafeAreaViewElementPropsSchema } from "./elements/SafeAreaViewElement";
 
 export type { BaseBoxProps, GradientBackground, GradientEdge, GradientStop, LinearGradientConfig } from "./elements/BaseBoxProps";
 export { BaseBoxPropsSchema, GradientBackgroundSchema } from "./elements/BaseBoxProps";
@@ -31,6 +32,7 @@ export type { CheckboxGroupElementProps } from "./elements/CheckboxGroupElement"
 export type { DatePickerElementProps } from "./elements/DatePickerElement";
 export type { CarouselElementProps } from "./elements/CarouselElement";
 export type { ZStackElementProps } from "./elements/ZStackElement";
+export type { SafeAreaViewElementProps, SafeAreaEdge, SafeAreaEdgeMode } from "./elements/SafeAreaViewElement";
 
 // UIElement union — must live here (not in elements/) to avoid circular deps
 // because the Stack variant's children: UIElement[] references itself.
@@ -121,6 +123,13 @@ type UIElement =
       type: "ZStack";
       props: ZStackElementProps;
       children: UIElement[];
+    }
+  | {
+      id: string;
+      name?: string;
+      type: "SafeAreaView";
+      props: SafeAreaViewElementProps;
+      children: UIElement[];
     };
 
 const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
@@ -210,6 +219,13 @@ const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
       name: z.string().optional(),
       type: z.literal("ZStack"),
       props: ZStackElementPropsSchema,
+      children: z.array(UIElementSchema),
+    }),
+    z.object({
+      id: z.string(),
+      name: z.string().optional(),
+      type: z.literal("SafeAreaView"),
+      props: SafeAreaViewElementPropsSchema,
       children: z.array(UIElementSchema),
     }),
   ])

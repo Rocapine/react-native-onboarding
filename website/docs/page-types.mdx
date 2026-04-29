@@ -403,7 +403,7 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 - Any screen that doesn't fit a pre-built type
 
 **Key features:**
-- Recursive element tree (`YStack`, `XStack`, `ZStack`, `Text`, `Image`, `Lottie`, `Rive`, `Icon`, `Video`, `Input`, `RadioGroup`, `CheckboxGroup`, `Button`, `DatePicker`, `Carousel`)
+- Recursive element tree (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `Text`, `Image`, `Lottie`, `Rive`, `Icon`, `Video`, `Input`, `RadioGroup`, `CheckboxGroup`, `Button`, `DatePicker`, `Carousel`)
 - Full flexbox layout support
 - Border, radius, overflow, and opacity control
 - Dimension constraints (`width`, `height`, `min/max`)
@@ -419,6 +419,7 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 | `YStack` | `<View>` | `column` | — |
 | `XStack` | `<View>` | `row` | — |
 | `ZStack` | `<View>` | depth (z-axis) | — |
+| `SafeAreaView` | `<SafeAreaView>` | column | `react-native-safe-area-context` |
 | `Text` | `<Text>` | — | — |
 | `Image` | `<Image>` | — | — |
 | `Icon` | Lucide icon | — | — (bundled) |
@@ -469,6 +470,33 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 Children are layered in declaration order: first child = bottom, last child = top. Each child is wrapped in `position: "absolute"` filling the container, so flex props on `ZStack` itself (`gap`, `alignItems`, `justifyContent`) have no effect — instead control the layout of each layer's content via the layer's own props (e.g. wrap content in a `YStack` with `justifyContent: "flex-end"` to anchor it to the bottom).
 
 The wrapper for each child uses `pointerEvents="box-none"`, so touches pass through transparent regions to layers underneath.
+:::
+
+**SafeAreaView props:**
+
+`SafeAreaView` mirrors the props of `SafeAreaView` from `react-native-safe-area-context`. Use it to inset content from system UI (notch, home indicator) inside a `ComposableScreen`. Other renderers wrap themselves in `SafeAreaView` automatically; `ComposableScreen` does not, so opt in here when needed.
+
+| Prop | Type | Notes |
+|------|------|-------|
+| `mode` | `"padding" \| "margin"` | Defaults to `"padding"`. `"margin"` is useful when the SafeAreaView itself has a background that should not extend into the inset region |
+| `edges` | `Edge[]` or `{ top?, right?, bottom?, left? }` | `Edge` is `"top" \| "right" \| "bottom" \| "left"`. Object form maps each edge to `"off" \| "additive" \| "maximum"` for fine-grained control |
+| All `BaseBoxProps` | — | `flex`, `padding`, `backgroundColor`, `borderRadius`, etc. |
+
+**SafeAreaView example:**
+
+```json
+{
+  "id": "safe-root",
+  "type": "SafeAreaView",
+  "props": { "flex": 1, "edges": ["top", "bottom"] },
+  "children": [
+    { "id": "content", "type": "YStack", "props": { "padding": 24, "gap": 16 }, "children": [ /* ... */ ] }
+  ]
+}
+```
+
+:::note OnboardingTemplate no longer applies insets
+As of 1.15.0, `OnboardingTemplate` does not apply safe-area insets. Built-in page types (`Question`, `MediaContent`, `Carousel`, etc.) now wrap themselves with `SafeAreaView edges={["top","bottom"]}`. For `ComposableScreen`, place a `SafeAreaView` UIElement at the root of your tree (or omit it for full edge-to-edge rendering).
 :::
 
 **Image props:**
@@ -940,7 +968,7 @@ If `expo-video` is not installed, the element renders a placeholder view with an
 }
 ```
 
-**Dependencies:** None for `YStack`, `XStack`, `ZStack`, `Text`, `Image`, `Icon`, `Input`, `RadioGroup`, `CheckboxGroup`, `Button`. See the Carousel, Lottie, Rive, Video, and DatePicker sections above for elements with peer deps.
+**Dependencies:** None for `YStack`, `XStack`, `ZStack`, `Text`, `Image`, `Icon`, `Input`, `RadioGroup`, `CheckboxGroup`, `Button`. `SafeAreaView` requires `react-native-safe-area-context` (already a peer dep of `@rocapine/react-native-onboarding-ui`). See the Carousel, Lottie, Rive, Video, and DatePicker sections above for elements with peer deps.
 
 ---
 

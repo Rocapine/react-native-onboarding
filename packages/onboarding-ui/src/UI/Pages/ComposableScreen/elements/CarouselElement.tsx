@@ -1,5 +1,5 @@
-import React, { useRef } from "react";
-import { useWindowDimensions } from "react-native";
+import React, { useRef, useState } from "react";
+import { Dimensions, View, type LayoutChangeEvent } from "react-native";
 import { z } from "zod";
 import { useSharedValue } from "react-native-reanimated";
 import Carousel, { Pagination, ICarouselInstance } from "react-native-reanimated-carousel";
@@ -46,20 +46,27 @@ type Props = {
 export function CarouselElementComponent({ element, ctx }: Props): React.ReactElement {
   const { theme } = ctx;
   const { props, children } = element;
-  const { width: windowWidth } = useWindowDimensions();
   const progress = useSharedValue<number>(0);
   const ref = useRef<ICarouselInstance>(null);
+  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
 
   const carouselType = props.carouselType ?? "normal";
 
+  const onLayout = (e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    if (!size || size.width !== width || size.height !== height) {
+      setSize({ width, height });
+    }
+  };
+
   // Stack uses 75% width (shows side items); left-align uses 82% (peek effect)
+  const availableWidth = size?.width ?? 0;
   const itemWidth =
     carouselType === "stack"
-      ? windowWidth * 0.75
+      ? availableWidth * 0.75
       : carouselType === "left-align"
-        ? windowWidth * 0.82
-        : (typeof props.width === "number" ? props.width : windowWidth);
-  const itemHeight = typeof props.height === "number" ? props.height : 220;
+        ? availableWidth * 0.82
+        : availableWidth;
 
   const containerStyle = {
     alignSelf: props.alignSelf,
@@ -67,6 +74,7 @@ export function CarouselElementComponent({ element, ctx }: Props): React.ReactEl
     flexShrink: props.flexShrink,
     flexGrow: props.flexGrow,
     width: dim(props.width),
+    height: dim(props.height),
     minWidth: props.minWidth,
     maxWidth: props.maxWidth,
     minHeight: props.minHeight,
@@ -106,10 +114,10 @@ export function CarouselElementComponent({ element, ctx }: Props): React.ReactEl
   const dotsMarginTop = props.dotsMarginTop ?? 12;
   const dotBg = props.dotColor ?? theme.colors.neutral.low;
   const activeDotBg = props.activeDotColor ?? theme.colors.primary;
-  console.log(props.autoPlay, props.autoPlayInterval);
-  console.log(element);
+  console.log(Dimensions.get("window"));
+
   return (
-    <GradientBox gradient={props.backgroundGradient} style={containerStyle as any}>
+    <GradientBox gradient={props.backgroundGradient} style={containerStyle}>
       <Carousel
         ref={ref}
         loop={props.loop}
@@ -118,9 +126,9 @@ export function CarouselElementComponent({ element, ctx }: Props): React.ReactEl
         snapEnabled={true}
         pagingEnabled={true}
         data={children}
-        width={itemWidth}
-        height={itemHeight}
-        style={{ width: itemWidth, height: itemHeight }}
+        width={Dimensions.get("window").width}
+        height={props.height}
+        style={{ height: "100%", width: "100%" }}
         renderItem={({ item }: { item: UIElement }) => ctx.renderChildren([item], "YStack")}
         onProgressChange={(_: number, absoluteProgress: number) => {
           progress.value = absoluteProgress;

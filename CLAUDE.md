@@ -101,6 +101,29 @@ Available step types (each in `UI/Pages/{Type}/`):
 - Use `useTheme()` for all colors and typography — never hardcode values
 - `onContinue` receives selected value as parameter (for types like Picker, Question)
 
+## ComposableScreen UIElement Conventions
+
+### Container style (BaseBoxProps)
+
+Every UIElement renderer that wraps content must build a `containerStyle` from `BaseBoxProps` covering: `alignSelf`, `flex`, `flexShrink`, `flexGrow`, `width` (via `dim()`), `height` (via `dim()`), `minWidth/maxWidth/minHeight/maxHeight`, `margin*`, `padding*`, `borderRadius/Width/Color`, `backgroundColor` (only if no `backgroundGradient`), `opacity`, `overflow`. Apply to outermost wrapper (`GradientBox` or `View`). Missing fields = user can't control that aspect from CMS payload.
+
+### Sizing libraries that need numeric pixels
+
+`react-native-reanimated-carousel`, `react-native-video`, Lottie/Rive components don't accept `"50%"` strings. When wrapping such a library in a UIElement:
+
+1. Pass `containerStyle` (with `dim()`) to the outermost wrapper
+2. Wrap the library in an inner `View` with `flex: 1` + `onLayout`
+3. Render the library only after first measurement (`size.width > 0 && size.height > 0`)
+4. Pass measured numeric `size.width/height` to the library
+
+### Overflow gotcha
+
+Default `overflow` is `hidden`. Carousel's `left-align` carouselType needs `visible` for the peek effect. Same for shadows/badges spilling outside bounds. Don't blanket-set `hidden` in refactors.
+
+### Gradient peer dep
+
+`GradientBox` silently falls back to plain `View` if `expo-linear-gradient` isn't installed. If `backgroundGradient` appears unrendered, check the peer dep first.
+
 ## Custom Components System
 
 `OnboardingProvider` accepts `customComponents` prop to replace UI components while keeping SDK data flow.

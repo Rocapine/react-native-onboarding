@@ -1,6 +1,7 @@
 import React from "react";
 import { z } from "zod";
 import { Text } from "react-native";
+import { useResolvedFontFamily } from "@rocapine/react-native-onboarding";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
 import { RenderContext, interpolate, dim } from "./shared";
@@ -45,6 +46,7 @@ export const TextElementComponent = ({ element, ctx, parentType }: Props): React
     p.mode === "expression"
       ? interpolate(p.content, variables)
       : p.content;
+  const resolvedFontFamily = useResolvedFontFamily(p.fontFamily, p.fontWeight);
 
   const textNode = (
     <Text
@@ -61,7 +63,7 @@ export const TextElementComponent = ({ element, ctx, parentType }: Props): React
         maxHeight: p.backgroundGradient ? undefined : p.maxHeight,
         fontSize: p.fontSize,
         fontWeight: p.fontWeight as any,
-        fontFamily: p.fontFamily,
+        fontFamily: resolvedFontFamily,
         color: p.color ?? theme.colors.text.primary,
         textAlign: p.textAlign,
         letterSpacing: p.letterSpacing,

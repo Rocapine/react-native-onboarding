@@ -35,8 +35,14 @@
     "vitest": "^4.1.5"
   },
   "peerDependencies": {
+    "expo-font": "*",
     "react": "*",
     "react-native": "*"
+  },
+  "peerDependenciesMeta": {
+    "expo-font": {
+      "optional": true
+    }
   },
   "files": [
     "dist",

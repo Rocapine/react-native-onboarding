@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { z } from "zod";
 import { View, TextInput } from "react-native";
+import { useResolvedFontFamily } from "@rocapine/react-native-onboarding";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
 import { RenderContext, dim } from "./shared";
@@ -76,6 +77,11 @@ export const InputElementComponent = ({ element, ctx }: Props): React.ReactEleme
     }
   };
 
+  const resolvedFontFamily = useResolvedFontFamily(
+    element.props.fontFamily,
+    element.props.fontWeight
+  );
+
   return (
     <TextInput
       value={value}
@@ -113,7 +119,7 @@ export const InputElementComponent = ({ element, ctx }: Props): React.ReactEleme
         color: element.props.color ?? theme.colors.text.primary,
         fontSize: element.props.fontSize ?? theme.typography.textStyles.body.fontSize,
         fontWeight: element.props.fontWeight as any,
-        fontFamily: element.props.fontFamily,
+        fontFamily: resolvedFontFamily,
         lineHeight: element.props.lineHeight,
         letterSpacing: element.props.letterSpacing,
         textAlign: element.props.textAlign,

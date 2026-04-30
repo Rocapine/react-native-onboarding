@@ -1,6 +1,7 @@
 import React from "react";
 import { z } from "zod";
 import { Text, TouchableOpacity } from "react-native";
+import { useResolvedFontFamily } from "@rocapine/react-native-onboarding";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
 import { RenderContext, dim } from "./shared";
@@ -109,6 +110,10 @@ export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElem
 
   const hasGradient = isFilled && !!element.props.backgroundGradient;
   const borderRadius = element.props.borderRadius ?? 90;
+  const resolvedFontFamily = useResolvedFontFamily(
+    element.props.fontFamily,
+    element.props.fontWeight
+  );
 
   const labelNode = (
     <Text
@@ -116,7 +121,7 @@ export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElem
         color: textColor,
         fontSize: element.props.fontSize ?? theme.typography.textStyles.button.fontSize,
         fontWeight: (element.props.fontWeight as any) ?? theme.typography.textStyles.button.fontWeight,
-        fontFamily: element.props.fontFamily,
+        fontFamily: resolvedFontFamily,
         textAlign: element.props.textAlign ?? "center",
       }}
     >

@@ -201,9 +201,13 @@ The SDK uses three font categories:
 - **text**: Used for body text, buttons, labels
 - **tagline**: Used for special emphasis text
 
-**IMPORTANT:** The SDK accepts font names but **does not load fonts**. You must load custom fonts using `expo-font`.
+There are two ways to load custom fonts:
 
-#### Step 1: Load Fonts
+1. **Bundle locally with `expo-font`** — for fonts shipped with the app binary.
+2. **Download at runtime via the `Onboarding.fonts` manifest** — for fonts the
+   CMS declares per onboarding (no native rebuild required).
+
+#### Option A — Local fonts via `expo-font`
 
 ```typescript
 import { useFonts } from 'expo-font';
@@ -233,6 +237,73 @@ export default function RootLayout() {
   );
 }
 ```
+
+#### Option B — Runtime fonts via the Onboarding payload (since 1.17.0)
+
+The backend can ship a font manifest in the onboarding response. The SDK
+downloads each variant via `expo-font` (optional peer dep) and blocks render
+until they are ready. ComposableScreen `TextElement`, `ButtonElement`, and
+`InputElement` automatically resolve `fontFamily + fontWeight` to the right
+registered variant — CMS authors keep using the family name they declared.
+
+Backend `Onboarding` response shape:
+
+```json
+{
+  "metadata": { /* ... */ },
+  "steps": [ /* ... */ ],
+  "configuration": { /* ... */ },
+  "fonts": {
+    "Inter": {
+      "regular": "https://cdn/.../Inter-Regular.ttf",
+      "medium": "https://cdn/.../Inter-Medium.ttf",
+      "bold": "https://cdn/.../Inter-Bold.ttf"
+    },
+    "Lobster": {
+      "regular": "https://cdn/.../Lobster-Regular.ttf"
+    }
+  }
+}
+```
+
+Weight keys may be **named** (`regular`, `medium`, `semibold`, `bold`,
+`extrabold`) or **numeric** (`100`…`900`); both are normalized internally.
+When the requested weight is not registered, the resolver falls back to the
+closest available weight (CSS-style font matching).
+
+Show a fallback while fonts download:
+
+```tsx
+import { OnboardingProvider } from "@rocapine/react-native-onboarding";
+import { ActivityIndicator } from "react-native";
+
+<OnboardingProvider
+  client={client}
+  fontsFallback={<ActivityIndicator />}
+>
+  <YourApp />
+</OnboardingProvider>
+```
+
+For non-`OnboardingProvider` hosts, mount fonts directly with `FontLoaderGate`:
+
+```tsx
+import { FontLoaderGate, type FontsManifest } from "@rocapine/react-native-onboarding";
+
+const fonts: FontsManifest = {
+  Inter: {
+    regular: "https://cdn/.../Inter-Regular.ttf",
+    bold: "https://cdn/.../Inter-Bold.ttf",
+  },
+};
+
+<FontLoaderGate fonts={fonts} fallback={<ActivityIndicator />}>
+  <YourScreen />
+</FontLoaderGate>
+```
+
+If `expo-font` is not installed in the host app, `registerFonts` resolves to an
+empty registry and logs a single warning — text falls back to system fonts.
 
 ### Font Sizes
 

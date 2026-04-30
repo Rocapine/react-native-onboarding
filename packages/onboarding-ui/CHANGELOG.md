@@ -5,6 +5,29 @@ here.
 
 ---
 
+## [1.17.0] - 2026-04-30
+
+### Changed
+
+- **ComposableScreen typography elements use the runtime font registry** —
+  `TextElement`, `ButtonElement`, and `InputElement` now call
+  `useResolvedFontFamily(fontFamily, fontWeight)` from
+  `@rocapine/react-native-onboarding` to resolve a `family + weight` request
+  to the runtime-registered font variant. CMS authors continue to set
+  `fontFamily` to the family name declared in the `Onboarding.fonts` manifest;
+  the SDK picks the right registered variant (e.g. `Inter` + `500` →
+  `Inter-500`) and falls back to the closest registered weight when an exact
+  match is unavailable.
+
+> Element Zod schemas are unchanged. No CMS migration required for existing
+> payloads — they keep working with system fonts.
+
+### Bumped
+
+- Peer dependency on `@rocapine/react-native-onboarding` is now `^1.17.0`.
+
+---
+
 ## [1.16.0] - 2026-04-29
 
 ### Added

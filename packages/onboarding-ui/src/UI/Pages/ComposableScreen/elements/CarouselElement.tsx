@@ -38,6 +38,8 @@ export const CarouselElementPropsSchema = BaseBoxPropsSchema.extend({
 
 type CarouselUIElement = Extract<UIElement, { type: "Carousel" }>;
 
+const DEFAULT_HEIGHT = 240;
+
 type Props = {
   element: CarouselUIElement;
   ctx: RenderContext;
@@ -68,13 +70,17 @@ export function CarouselElementComponent({ element, ctx }: Props): React.ReactEl
         ? availableWidth * 0.82
         : availableWidth;
 
+  const hasExplicitSize =
+    props.height != null || props.flex != null || props.flexGrow != null;
+  const heightFallback = hasExplicitSize ? undefined : DEFAULT_HEIGHT;
+
   const containerStyle = {
     alignSelf: props.alignSelf,
     flex: props.flex,
     flexShrink: props.flexShrink,
     flexGrow: props.flexGrow,
     width: dim(props.width),
-    height: dim(props.height),
+    height: dim(props.height) ?? heightFallback,
     minWidth: props.minWidth,
     maxWidth: props.maxWidth,
     minHeight: props.minHeight,

@@ -39,6 +39,20 @@ here.
 
 ---
 
+## [1.17.1] - 2026-05-04
+
+### Fixed
+
+- **Runtime font registration** via `OnboardingProvider` — fonts declared on
+  the onboarding payload now load correctly when the backend returns the
+  variant-array shape (`{ family: [{ weight, style, url }, ...] }`). Previous
+  versions silently failed with `loadSingleFontAsync expected resource of
+  type Asset` and bogus `weight 8 from [object Object]` warnings, leaving
+  `fontFamily` strings unmapped to weighted variants. No UI-package API
+  change; fix lives in the headless SDK consumed by `FontLoaderGate`.
+
+---
+
 ## [1.17.0] - 2026-04-30
 
 ### Changed

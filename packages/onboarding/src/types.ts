@@ -44,10 +44,31 @@ export interface OnboardingMetadata {
   draft?: boolean;
 }
 
+export type FontWeightKey =
+  | "regular"
+  | "medium"
+  | "semibold"
+  | "bold"
+  | "extrabold"
+  | "100"
+  | "200"
+  | "300"
+  | "400"
+  | "500"
+  | "600"
+  | "700"
+  | "800"
+  | "900";
+
+export type FontFamilyManifest = Partial<Record<FontWeightKey, string>>;
+
+export type FontsManifest = Record<string, FontFamilyManifest>;
+
 export interface Onboarding<StepType extends BaseStepType = BaseStepType> {
   metadata: OnboardingMetadata;
   steps: StepType[];
   configuration: any;
+  fonts?: FontsManifest;
 }
 
 export interface GetStepsResponseHeaders {

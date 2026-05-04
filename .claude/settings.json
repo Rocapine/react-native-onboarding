@@ -1,5 +1,13 @@
 {
   "enabledPlugins": {
     "expo@claude-plugins-official": true
+  },
+  "permissions": {
+    "allow": [
+      "Bash(pnpm type:check)",
+      "Bash(npm run type)",
+      "Bash(npm run type:check)",
+      "Bash(pnpm lint)"
+    ]
   }
 }

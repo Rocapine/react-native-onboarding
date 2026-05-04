@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { z } from "zod";
 import { View, TextInput } from "react-native";
+import { useResolvedFontStyle } from "@rocapine/react-native-onboarding";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
 import { RenderContext, dim } from "./shared";
@@ -22,6 +23,7 @@ export type InputElementProps = BaseBoxProps & {
   fontSize?: number;
   fontWeight?: string;
   fontFamily?: string;
+  fontStyle?: "normal" | "italic";
   lineHeight?: number;
   letterSpacing?: number;
   textAlign?: "left" | "center" | "right";
@@ -45,6 +47,7 @@ export const InputElementPropsSchema = BaseBoxPropsSchema.extend({
   fontSize: z.number().optional(),
   fontWeight: z.string().optional(),
   fontFamily: z.string().optional(),
+  fontStyle: z.enum(["normal", "italic"]).optional(),
   lineHeight: z.number().optional(),
   letterSpacing: z.number().optional(),
   textAlign: z.enum(["left", "center", "right"]).optional(),
@@ -75,6 +78,11 @@ export const InputElementComponent = ({ element, ctx }: Props): React.ReactEleme
       setVariable(element.props.variableName, { value: text });
     }
   };
+
+  const resolvedFont = useResolvedFontStyle(
+    element.props.fontFamily,
+    element.props.fontWeight
+  );
 
   return (
     <TextInput
@@ -112,8 +120,9 @@ export const InputElementComponent = ({ element, ctx }: Props): React.ReactEleme
         borderColor: element.props.borderColor ?? theme.colors.neutral.low,
         color: element.props.color ?? theme.colors.text.primary,
         fontSize: element.props.fontSize ?? theme.typography.textStyles.body.fontSize,
-        fontWeight: element.props.fontWeight as any,
-        fontFamily: element.props.fontFamily,
+        fontWeight: resolvedFont.resolvedToVariant ? undefined : (element.props.fontWeight as any),
+        fontFamily: resolvedFont.fontFamily,
+        fontStyle: element.props.fontStyle,
         lineHeight: element.props.lineHeight,
         letterSpacing: element.props.letterSpacing,
         textAlign: element.props.textAlign,

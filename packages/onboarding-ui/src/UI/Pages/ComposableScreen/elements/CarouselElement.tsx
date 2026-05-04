@@ -1,5 +1,5 @@
-import React, { useRef } from "react";
-import { useWindowDimensions } from "react-native";
+import React, { useRef, useState } from "react";
+import { View, type LayoutChangeEvent } from "react-native";
 import { z } from "zod";
 import { useSharedValue } from "react-native-reanimated";
 import Carousel, { Pagination, ICarouselInstance } from "react-native-reanimated-carousel";
@@ -38,6 +38,8 @@ export const CarouselElementPropsSchema = BaseBoxPropsSchema.extend({
 
 type CarouselUIElement = Extract<UIElement, { type: "Carousel" }>;
 
+const DEFAULT_HEIGHT = 240;
+
 type Props = {
   element: CarouselUIElement;
   ctx: RenderContext;
@@ -46,20 +48,31 @@ type Props = {
 export function CarouselElementComponent({ element, ctx }: Props): React.ReactElement {
   const { theme } = ctx;
   const { props, children } = element;
-  const { width: windowWidth } = useWindowDimensions();
   const progress = useSharedValue<number>(0);
   const ref = useRef<ICarouselInstance>(null);
+  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
 
   const carouselType = props.carouselType ?? "normal";
 
+  const onLayout = (e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    if (!size || size.width !== width || size.height !== height) {
+      setSize({ width, height });
+    }
+  };
+
   // Stack uses 75% width (shows side items); left-align uses 82% (peek effect)
+  const availableWidth = size?.width ?? 0;
   const itemWidth =
     carouselType === "stack"
-      ? windowWidth * 0.75
+      ? availableWidth * 0.75
       : carouselType === "left-align"
-        ? windowWidth * 0.82
-        : (typeof props.width === "number" ? props.width : windowWidth);
-  const itemHeight = typeof props.height === "number" ? props.height : 220;
+        ? availableWidth * 0.82
+        : availableWidth;
+
+  const hasExplicitSize =
+    props.height != null || props.flex != null || props.flexGrow != null;
+  const heightFallback = hasExplicitSize ? undefined : DEFAULT_HEIGHT;
 
   const containerStyle = {
     alignSelf: props.alignSelf,
@@ -67,6 +80,7 @@ export function CarouselElementComponent({ element, ctx }: Props): React.ReactEl
     flexShrink: props.flexShrink,
     flexGrow: props.flexGrow,
     width: dim(props.width),
+    height: dim(props.height) ?? heightFallback,
     minWidth: props.minWidth,
     maxWidth: props.maxWidth,
     minHeight: props.minHeight,
@@ -106,27 +120,32 @@ export function CarouselElementComponent({ element, ctx }: Props): React.ReactEl
   const dotsMarginTop = props.dotsMarginTop ?? 12;
   const dotBg = props.dotColor ?? theme.colors.neutral.low;
   const activeDotBg = props.activeDotColor ?? theme.colors.primary;
-  console.log(props.autoPlay, props.autoPlayInterval);
-  console.log(element);
+
+  const ready = !!size && size.width > 0 && size.height > 0;
+
   return (
-    <GradientBox gradient={props.backgroundGradient} style={containerStyle as any}>
-      <Carousel
-        ref={ref}
-        loop={props.loop}
-        autoPlay={props.autoPlay}
-        autoPlayInterval={props.autoPlayInterval}
-        snapEnabled={true}
-        pagingEnabled={true}
-        data={children}
-        width={itemWidth}
-        height={itemHeight}
-        style={{ width: itemWidth, height: itemHeight }}
-        renderItem={({ item }: { item: UIElement }) => ctx.renderChildren([item], "YStack")}
-        onProgressChange={(_: number, absoluteProgress: number) => {
-          progress.value = absoluteProgress;
-        }}
-        {...(modeProps as any)}
-      />
+    <GradientBox gradient={props.backgroundGradient} style={containerStyle}>
+      <View style={{ flex: 1 }} onLayout={onLayout}>
+        {ready && (
+          <Carousel
+            ref={ref}
+            loop={props.loop}
+            autoPlay={props.autoPlay}
+            autoPlayInterval={props.autoPlayInterval}
+            snapEnabled={true}
+            pagingEnabled={true}
+            data={children}
+            width={itemWidth}
+            height={size!.height}
+            style={{ width: size!.width, height: size!.height }}
+            renderItem={({ item }: { item: UIElement }) => ctx.renderChildren([item], "YStack")}
+            onProgressChange={(_: number, absoluteProgress: number) => {
+              progress.value = absoluteProgress;
+            }}
+            {...(modeProps as any)}
+          />
+        )}
+      </View>
       {(props.showDots ?? true) && (
         <Pagination.Basic
           progress={progress}

@@ -1,6 +1,7 @@
 import React from "react";
 import { z } from "zod";
 import { Text } from "react-native";
+import { useResolvedFontStyle } from "@rocapine/react-native-onboarding";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
 import { RenderContext, interpolate, dim } from "./shared";
@@ -12,6 +13,7 @@ export type TextElementProps = BaseBoxProps & {
   fontSize?: number;
   fontWeight?: string;
   fontFamily?: string;
+  fontStyle?: "normal" | "italic";
   color?: string;
   textAlign?: "left" | "center" | "right";
   letterSpacing?: number;
@@ -24,6 +26,7 @@ export const TextElementPropsSchema = BaseBoxPropsSchema.extend({
   fontSize: z.number().optional(),
   fontWeight: z.string().optional(),
   fontFamily: z.string().optional(),
+  fontStyle: z.enum(["normal", "italic"]).optional(),
   color: z.string().optional(),
   textAlign: z.enum(["left", "center", "right"]).optional(),
   letterSpacing: z.number().optional(),
@@ -45,6 +48,7 @@ export const TextElementComponent = ({ element, ctx, parentType }: Props): React
     p.mode === "expression"
       ? interpolate(p.content, variables)
       : p.content;
+  const resolvedFont = useResolvedFontStyle(p.fontFamily, p.fontWeight);
 
   const textNode = (
     <Text
@@ -60,8 +64,9 @@ export const TextElementComponent = ({ element, ctx, parentType }: Props): React
         minHeight: p.backgroundGradient ? undefined : p.minHeight,
         maxHeight: p.backgroundGradient ? undefined : p.maxHeight,
         fontSize: p.fontSize,
-        fontWeight: p.fontWeight as any,
-        fontFamily: p.fontFamily,
+        fontWeight: resolvedFont.resolvedToVariant ? undefined : (p.fontWeight as any),
+        fontFamily: resolvedFont.fontFamily,
+        fontStyle: p.fontStyle,
         color: p.color ?? theme.colors.text.primary,
         textAlign: p.textAlign,
         letterSpacing: p.letterSpacing,

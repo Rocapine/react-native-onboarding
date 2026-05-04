@@ -18,6 +18,7 @@ export type InputElementProps = BaseBoxProps & {
   fontSize?: number;
   fontWeight?: string;
   fontFamily?: string;
+  fontStyle?: "normal" | "italic";
   lineHeight?: number;
   letterSpacing?: number;
   textAlign?: "left" | "center" | "right";
@@ -41,6 +42,7 @@ export const InputElementPropsSchema = BaseBoxPropsSchema.extend({
   fontSize: z.number().optional(),
   fontWeight: z.string().optional(),
   fontFamily: z.string().optional(),
+  fontStyle: z.enum(["normal", "italic"]).optional(),
   lineHeight: z.number().optional(),
   letterSpacing: z.number().optional(),
   textAlign: z.enum(["left", "center", "right"]).optional(),

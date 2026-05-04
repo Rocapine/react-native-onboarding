@@ -1,6 +1,7 @@
 import React from "react";
 import { z } from "zod";
 import { Text, TouchableOpacity } from "react-native";
+import { useResolvedFontStyle } from "@rocapine/react-native-onboarding";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
 import { RenderContext, dim } from "./shared";
@@ -41,6 +42,7 @@ export type ButtonElementProps = BaseBoxProps & {
   fontSize?: number;
   fontWeight?: string;
   fontFamily?: string;
+  fontStyle?: "normal" | "italic";
   textAlign?: "left" | "center" | "right";
 };
 
@@ -54,6 +56,7 @@ export const ButtonElementPropsSchema = BaseBoxPropsSchema.extend({
   fontSize: z.number().optional(),
   fontWeight: z.string().optional(),
   fontFamily: z.string().optional(),
+  fontStyle: z.enum(["normal", "italic"]).optional(),
   textAlign: z.enum(["left", "center", "right"]).optional(),
 });
 
@@ -109,14 +112,21 @@ export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElem
 
   const hasGradient = isFilled && !!element.props.backgroundGradient;
   const borderRadius = element.props.borderRadius ?? 90;
+  const resolvedFont = useResolvedFontStyle(
+    element.props.fontFamily,
+    element.props.fontWeight
+  );
 
   const labelNode = (
     <Text
       style={{
         color: textColor,
         fontSize: element.props.fontSize ?? theme.typography.textStyles.button.fontSize,
-        fontWeight: (element.props.fontWeight as any) ?? theme.typography.textStyles.button.fontWeight,
-        fontFamily: element.props.fontFamily,
+        fontWeight: resolvedFont.resolvedToVariant
+          ? undefined
+          : ((resolvedFont.fontWeight as any) ?? theme.typography.textStyles.button.fontWeight),
+        fontFamily: resolvedFont.fontFamily,
+        fontStyle: element.props.fontStyle,
         textAlign: element.props.textAlign ?? "center",
       }}
     >

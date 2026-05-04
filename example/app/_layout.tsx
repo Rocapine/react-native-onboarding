@@ -8,6 +8,7 @@ import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import { OnboardingProgressProvider } from "@rocapine/react-native-onboarding-ui";
+import { Dimensions } from "react-native";
 
 // Keep splash screen visible while fonts load
 SplashScreen.preventAutoHideAsync();

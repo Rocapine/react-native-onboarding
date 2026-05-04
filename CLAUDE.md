@@ -31,7 +31,7 @@ npm run publish:all        # Build and publish both packages to npm
 cd example/
 npm install
 npm start             # Start Expo dev server
-npm run type          # TypeScript type checking (tsc --noEmit)
+npm run type:check    # TypeScript type checking (tsc --noEmit)
 npm run lint          # ESLint via expo lint
 npm run ios
 npm run android
@@ -39,16 +39,19 @@ npm run android
 
 **Important**: After modifying anything in `packages/`, run `npm run build` (or the relevant workspace build) before reloading the example app, since the example references local packages via `file:../packages/*`.
 
+**Workspace type resolution**: `@rocapine/react-native-onboarding` resolves to its `dist/index.d.ts` via the workspace symlink + `package.json#types`. Adding a new exported symbol in `packages/onboarding/src/` is invisible to `packages/onboarding-ui/` and `example/` `tsc` runs until the headless package is built (or `npm run watch:headless` is running). Build before typechecking after adding exports.
+
 ## Architecture
 
 ### Two-Package Split
 
 **Headless SDK** (`packages/onboarding/src/`):
 - `OnboardingStudioClient.ts` — API client that fetches steps from Supabase backend. URL params: `projectId`, `platform`, `appVersion`, `locale`, `draft`. Returns step data + custom headers (`ONBS-Onboarding-Id`, `ONBS-Audience-Id`, `ONBS-Onboarding-Name`).
-- `infra/provider/` — `OnboardingProvider`: wraps app with `QueryClientProvider` + `ThemeProvider`, manages caching via AsyncStorage, and **automatically includes ProgressBar**
+- `infra/provider/` — `OnboardingProvider`: wraps app with `QueryClientProvider` + `ThemeProvider`, manages caching via AsyncStorage, and **automatically includes ProgressBar**. The internal `OnboardingDataGate` reads `useQuery({ data, error })` and **throws `error`** so a host `ErrorBoundary` catches network/parse failures — never swallow the error and fall through to `fontsFallback`.
 - `infra/hooks/useOnboardingQuestions.ts` — Hook returning `{ step, isLastStep, stepsLength, onboardingMetadata, steps }`. Uses `useSuspenseQuery`; manages progress context automatically.
+- `infra/fonts/` — Runtime font registry (see "Runtime Fonts" section).
 - `steps/` — Zod schemas and TypeScript types for each step variant (source of truth for data shapes)
-- `types.ts` — Core types; `index.ts` — public exports
+- `types.ts` — Core types; `index.ts` — public exports. **CHANGELOG entries describing union/enum members are illustrative** — when in doubt, check the actual exported type (e.g. `FontWeightKey`) for the canonical set.
 
 **UI Package** (`packages/onboarding-ui/src/`):
 - `UI/OnboardingPage.tsx` — Central router: switch on `step.type` → delegates to specific Renderer
@@ -100,6 +103,52 @@ Available step types (each in `UI/Pages/{Type}/`):
 - Use `validatedData.continueButtonLabel` for button text
 - Use `useTheme()` for all colors and typography — never hardcode values
 - `onContinue` receives selected value as parameter (for types like Picker, Question)
+
+## ComposableScreen UIElement Conventions
+
+### Container style (BaseBoxProps)
+
+Every UIElement renderer that wraps content must build a `containerStyle` from `BaseBoxProps` covering: `alignSelf`, `flex`, `flexShrink`, `flexGrow`, `width` (via `dim()`), `height` (via `dim()`), `minWidth/maxWidth/minHeight/maxHeight`, `margin*`, `padding*`, `borderRadius/Width/Color`, `backgroundColor` (only if no `backgroundGradient`), `opacity`, `overflow`. Apply to outermost wrapper (`GradientBox` or `View`). Missing fields = user can't control that aspect from CMS payload.
+
+### Sizing libraries that need numeric pixels
+
+`react-native-reanimated-carousel`, `react-native-video`, Lottie/Rive components don't accept `"50%"` strings. When wrapping such a library in a UIElement:
+
+1. Pass `containerStyle` (with `dim()`) to the outermost wrapper
+2. Wrap the library in an inner `View` with `flex: 1` + `onLayout`
+3. Render the library only after first measurement (`size.width > 0 && size.height > 0`)
+4. Pass measured numeric `size.width/height` to the library
+
+### Overflow gotcha
+
+Default `overflow` is `hidden`. Carousel's `left-align` carouselType needs `visible` for the peek effect. Same for shadows/badges spilling outside bounds. Don't blanket-set `hidden` in refactors.
+
+### Gradient peer dep
+
+`GradientBox` silently falls back to plain `View` if `expo-linear-gradient` isn't installed. If `backgroundGradient` appears unrendered, check the peer dep first.
+
+## Runtime Fonts
+
+The `Onboarding` response carries an optional `fonts?: FontsManifest` field — `Record<family, Partial<Record<FontWeightKey, url>>>`. Files are downloaded and registered via `expo-font` (optional peer) by `FontLoaderGate`, which mounts a `FontRegistryContext`.
+
+### `FontLoaderGate` state convention
+
+- `registry === null` is the **loading sentinel** — gate renders `fallback`.
+- `registry === {}` is **ready, no fonts** — gate renders children.
+- Async registration must `setRegistry(null)` before the call and `.catch(() => setRegistry({}))` so a fetch failure doesn't strand the gate.
+
+### Hook choice rule (Text-rendering elements)
+
+For any UIElement that renders `<Text>` or `<TextInput>` and accepts `fontWeight`:
+
+```ts
+const f = useResolvedFontStyle(props.fontFamily, props.fontWeight);
+// style: { fontFamily: f.fontFamily, fontWeight: f.resolvedToVariant ? undefined : (props.fontWeight as any) ?? <theme default> }
+```
+
+When `f.resolvedToVariant === true`, the registry matched a concrete weighted variant (e.g. `Inter-700`) — **suppress `fontWeight`**, otherwise iOS/Android will apply synthetic emboldening on top of an already-weighted font file.
+
+Use the legacy `useResolvedFontFamily` only for elements that never set `fontWeight`.
 
 ## Custom Components System
 

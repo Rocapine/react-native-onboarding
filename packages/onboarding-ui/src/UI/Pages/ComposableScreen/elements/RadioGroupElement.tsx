@@ -23,6 +23,7 @@ export type RadioGroupElementProps = BaseBoxProps & {
   itemFontSize?: number;
   itemFontWeight?: string;
   itemFontFamily?: string;
+  itemFontStyle?: "normal" | "italic";
   itemPadding?: number;
   itemPaddingHorizontal?: number;
   itemPaddingVertical?: number;
@@ -45,6 +46,7 @@ export const RadioGroupElementPropsSchema = BaseBoxPropsSchema.extend({
   itemFontSize: z.number().optional(),
   itemFontWeight: z.string().optional(),
   itemFontFamily: z.string().optional(),
+  itemFontStyle: z.enum(["normal", "italic"]).optional(),
   itemPadding: z.number().optional(),
   itemPaddingHorizontal: z.number().optional(),
   itemPaddingVertical: z.number().optional(),
@@ -172,6 +174,7 @@ export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement
                 fontSize: element.props.itemFontSize ?? theme.typography.textStyles.body.fontSize,
                 fontWeight: (element.props.itemFontWeight as any) ?? theme.typography.textStyles.body.fontWeight,
                 fontFamily: element.props.itemFontFamily,
+                fontStyle: element.props.itemFontStyle,
               }}
             >
               {item.label}

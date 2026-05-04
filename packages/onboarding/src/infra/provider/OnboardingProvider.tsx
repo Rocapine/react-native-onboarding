@@ -1,10 +1,11 @@
 import { createContext, useCallback, useState } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { OnboardingStudioClient } from "../../OnboardingStudioClient";
 import { getOnboardingQuery } from "../queries/getOnboarding.query";
 import { Onboarding } from "../../types";
 import { OnboardingStepType } from "../../steps/types";
 import { ComposableVariableEntry } from "../../steps/ComposableScreen/types";
+import { FontLoaderGate } from "./FontLoader";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -32,7 +33,44 @@ interface OnboardingProviderProps {
    * variable map and may return a Promise.
    */
   customActions?: CustomActions;
+  /**
+   * Rendered while the onboarding payload is fetched and any remote fonts
+   * declared in the response (`onboarding.fonts`) are downloaded and registered.
+   * Defaults to `null`.
+   */
+  fontsFallback?: React.ReactNode;
 }
+
+interface OnboardingDataGateProps {
+  client: OnboardingStudioClient;
+  locale: string;
+  customAudienceParams: Record<string, any>;
+  setOnboarding: (onboarding: Onboarding<OnboardingStepType>) => void;
+  fontsFallback?: React.ReactNode;
+  children: React.ReactNode;
+}
+
+const OnboardingDataGate = ({
+  client,
+  locale,
+  customAudienceParams,
+  setOnboarding,
+  fontsFallback,
+  children,
+}: OnboardingDataGateProps) => {
+  const { data, error } = useQuery<Onboarding<OnboardingStepType>>(
+    getOnboardingQuery<OnboardingStepType>(client, locale, customAudienceParams, setOnboarding)
+  );
+
+  if (error) throw error;
+  if (!data) return <>{fontsFallback ?? null}</>;
+
+  return (
+    <FontLoaderGate fonts={data.fonts} fallback={fontsFallback}>
+      {children}
+    </FontLoaderGate>
+  );
+};
 
 export const OnboardingProvider = ({
   children,
@@ -40,6 +78,7 @@ export const OnboardingProvider = ({
   locale = "en",
   customAudienceParams = {},
   customActions = {},
+  fontsFallback,
 }: OnboardingProviderProps) => {
   const [activeStep, setActiveStep] = useState({
     number: 0,
@@ -52,11 +91,8 @@ export const OnboardingProvider = ({
     setVariables((prev) => ({ ...prev, [name]: value }));
   }, []);
 
-  queryClient.prefetchQuery(getOnboardingQuery(client, locale, customAudienceParams, setOnboarding))
-
   return (
     <QueryClientProvider client={queryClient}>
-
       <OnboardingProgressContext.Provider
         value={{
           activeStep,
@@ -73,7 +109,15 @@ export const OnboardingProvider = ({
           customActions,
         }}
       >
-        {children}
+        <OnboardingDataGate
+          client={client}
+          locale={locale}
+          customAudienceParams={customAudienceParams}
+          setOnboarding={setOnboarding}
+          fontsFallback={fontsFallback}
+        >
+          {children}
+        </OnboardingDataGate>
       </OnboardingProgressContext.Provider>
     </QueryClientProvider>
   );

@@ -30,7 +30,7 @@
         "request": "launch",
         "cwd": "${workspaceFolder:📱 example app}",
         "runtimeExecutable": "npm",
-        "runtimeArgs": ["run", "ios"],
+        "runtimeArgs": ["run", "start"],
         "console": "integratedTerminal",
         "skipFiles": ["<node_internals>/**"],
       },

@@ -9,6 +9,16 @@ export const onboardingExample = {
     audienceOrder: undefined,
     draft: true,
   },
+  fonts: {
+    Inter: {
+      regular: "https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-400-normal.ttf",
+      medium: "https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-500-normal.ttf",
+      bold: "https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-700-normal.ttf",
+    },
+    Lobster: {
+      regular: "https://cdn.jsdelivr.net/fontsource/fonts/lobster@latest/latin-400-normal.ttf",
+    },
+  },
   steps: [
     {
       id: "welcome",
@@ -188,8 +198,20 @@ export const onboardingExample = {
                   content: "Built from the CMS",
                   fontSize: 28,
                   fontWeight: "700",
-                  fontFamily: "System",
+                  fontFamily: "Inter",
                   textAlign: "center",
+                },
+              },
+              {
+                id: "headline-display",
+                type: "Text",
+                props: {
+                  content: "Runtime-loaded font",
+                  fontSize: 32,
+                  fontFamily: "Lobster",
+                  fontStyle: "italic",
+                  textAlign: "center",
+                  marginVertical: 4,
                 },
               },
               {

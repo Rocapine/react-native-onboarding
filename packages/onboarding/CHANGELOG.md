@@ -4,6 +4,61 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- **`fontStyle: "normal" | "italic"`** on Text-rendering ComposableScreen
+  UIElements. Top-level prop on `TextElementProps`, `ButtonElementProps`,
+  `InputElementProps`. Per-item prop `itemFontStyle` on
+  `RadioGroupElementProps` and `CheckboxGroupElementProps`. All optional;
+  Zod-validated as `z.enum(["normal", "italic"]).optional()`.
+
+> **Backend note:** The `onboarding-studio` server must mirror the new
+> `fontStyle` (and `itemFontStyle` for RadioGroup/CheckboxGroup) field on the
+> affected UIElement schemas and expose it in the CMS editor wherever
+> `fontWeight`/`fontFamily` are configurable.
+
+---
+
+## [1.17.0] - 2026-04-30
+
+### Added
+
+- **Runtime font download + load** — `Onboarding` response now accepts an
+  optional top-level `fonts?: FontsManifest` field, where
+  `FontsManifest = Record<string, Partial<Record<FontWeightKey, string>>>`.
+  Font files are downloaded and registered via `expo-font` (optional peer
+  dependency) when the onboarding payload is fetched. `FontWeightKey` accepts
+  named (`regular`, `medium`, `semibold`, `bold`, `extrabold`) or numeric
+  (`100`…`900`) keys, normalized internally.
+- **`OnboardingProvider.fontsFallback?: ReactNode`** — rendered while the
+  onboarding payload is fetched and remote fonts are downloading. Defaults to
+  `null`.
+- **`<FontLoaderGate fonts={...} fallback={...}>`** — standalone gate component
+  that registers fonts and exposes a `FontRegistry` via context, for hosts that
+  do not use `OnboardingProvider`.
+- **`useFontRegistry()`** and **`useResolvedFontFamily(family, weight)`** hooks
+  for resolving a `family + weight` request to the registered font name with a
+  closest-weight fallback (CSS-style font matching).
+- New exports: `FontWeightKey`, `FontFamilyManifest`, `FontsManifest`,
+  `FontRegistry`, `registerFonts`, `resolveFontFamily`, `normalizeWeight`,
+  `FontRegistryProvider`, `useFontRegistry`, `useResolvedFontFamily`,
+  `FontLoaderGate`.
+
+### Changed
+
+- `OnboardingProvider` now wraps children in an internal `OnboardingDataGate`
+  (`useQuery`) followed by `FontLoaderGate`, blocking render until the
+  onboarding payload is fetched and any declared fonts finish loading. The
+  previous `prefetchQuery` call is removed.
+
+> **Backend note:** `onboarding-studio` should mirror the new `Onboarding.fonts`
+> field — see the migration prompt in the PR description. ComposableScreen
+> UIElement schemas are unchanged; this is an API-level addition.
+
+---
+
 ## [1.16.0] - 2026-04-29
 
 ### Added

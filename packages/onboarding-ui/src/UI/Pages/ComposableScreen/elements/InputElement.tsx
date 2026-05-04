@@ -23,6 +23,7 @@ export type InputElementProps = BaseBoxProps & {
   fontSize?: number;
   fontWeight?: string;
   fontFamily?: string;
+  fontStyle?: "normal" | "italic";
   lineHeight?: number;
   letterSpacing?: number;
   textAlign?: "left" | "center" | "right";
@@ -46,6 +47,7 @@ export const InputElementPropsSchema = BaseBoxPropsSchema.extend({
   fontSize: z.number().optional(),
   fontWeight: z.string().optional(),
   fontFamily: z.string().optional(),
+  fontStyle: z.enum(["normal", "italic"]).optional(),
   lineHeight: z.number().optional(),
   letterSpacing: z.number().optional(),
   textAlign: z.enum(["left", "center", "right"]).optional(),
@@ -120,6 +122,7 @@ export const InputElementComponent = ({ element, ctx }: Props): React.ReactEleme
         fontSize: element.props.fontSize ?? theme.typography.textStyles.body.fontSize,
         fontWeight: resolvedFont.resolvedToVariant ? undefined : (element.props.fontWeight as any),
         fontFamily: resolvedFont.fontFamily,
+        fontStyle: element.props.fontStyle,
         lineHeight: element.props.lineHeight,
         letterSpacing: element.props.letterSpacing,
         textAlign: element.props.textAlign,

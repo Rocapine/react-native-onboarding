@@ -13,6 +13,7 @@ export type TextElementProps = BaseBoxProps & {
   fontSize?: number;
   fontWeight?: string;
   fontFamily?: string;
+  fontStyle?: "normal" | "italic";
   color?: string;
   textAlign?: "left" | "center" | "right";
   letterSpacing?: number;
@@ -25,6 +26,7 @@ export const TextElementPropsSchema = BaseBoxPropsSchema.extend({
   fontSize: z.number().optional(),
   fontWeight: z.string().optional(),
   fontFamily: z.string().optional(),
+  fontStyle: z.enum(["normal", "italic"]).optional(),
   color: z.string().optional(),
   textAlign: z.enum(["left", "center", "right"]).optional(),
   letterSpacing: z.number().optional(),
@@ -64,6 +66,7 @@ export const TextElementComponent = ({ element, ctx, parentType }: Props): React
         fontSize: p.fontSize,
         fontWeight: resolvedFont.resolvedToVariant ? undefined : (p.fontWeight as any),
         fontFamily: resolvedFont.fontFamily,
+        fontStyle: p.fontStyle,
         color: p.color ?? theme.colors.text.primary,
         textAlign: p.textAlign,
         letterSpacing: p.letterSpacing,

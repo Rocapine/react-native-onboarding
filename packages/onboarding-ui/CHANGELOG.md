@@ -5,6 +5,40 @@ here.
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- **`fontStyle` rendering** on `TextElement`, `ButtonElement`,
+  `InputElement` (top-level), and `RadioGroupElement` /
+  `CheckboxGroupElement` (`itemFontStyle`). Renderers pass the value through
+  to the underlying `<Text>` / `<TextInput>` style, alongside `fontFamily` and
+  `fontWeight`.
+
+### Changed
+
+- **`Button`/`Text`/`Input` font weight resolution** — switched from
+  `useResolvedFontFamily` to `useResolvedFontStyle` from
+  `@rocapine/react-native-onboarding`. When the registry matches a concrete
+  weighted variant (e.g. `Inter-700`), `fontWeight` is suppressed on the
+  rendered `<Text>` to avoid synthetic emboldening on top of an
+  already-weighted font file.
+
+### Fixed
+
+- **`CarouselElement` sizing** — wrap the carousel in an inner
+  `View flex:1` with `onLayout` and pass measured `width`/`height` to
+  `react-native-reanimated-carousel` instead of `Dimensions.get("window")`.
+  Render is gated until first measurement.
+- **`OnboardingDataGate` error handling** — `useQuery` errors are now thrown
+  so a host `ErrorBoundary` catches them, instead of silently rendering the
+  `fontsFallback` forever.
+- **`FontLoaderGate`** — resets registry to a loading sentinel before async
+  registration and falls back to an empty registry on rejection so a fetch
+  failure doesn't strand the gate.
+
+---
+
 ## [1.17.0] - 2026-04-30
 
 ### Changed

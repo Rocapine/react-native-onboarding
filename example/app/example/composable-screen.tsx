@@ -129,6 +129,7 @@ export default function ComposableScreenExample() {
               props: {
                 content: 'This screen is composed entirely from a JSON payload — no custom renderer needed.',
                 fontSize: 15,
+                fontStyle: 'italic',
                 textAlign: 'center',
                 lineHeight: 22,
                 opacity: 0.6,

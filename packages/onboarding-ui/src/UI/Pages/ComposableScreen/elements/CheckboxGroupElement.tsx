@@ -23,6 +23,7 @@ export type CheckboxGroupElementProps = BaseBoxProps & {
   itemFontSize?: number;
   itemFontWeight?: string;
   itemFontFamily?: string;
+  itemFontStyle?: "normal" | "italic";
   itemPadding?: number;
   itemPaddingHorizontal?: number;
   itemPaddingVertical?: number;
@@ -45,6 +46,7 @@ export const CheckboxGroupElementPropsSchema = BaseBoxPropsSchema.extend({
   itemFontSize: z.number().optional(),
   itemFontWeight: z.string().optional(),
   itemFontFamily: z.string().optional(),
+  itemFontStyle: z.enum(["normal", "italic"]).optional(),
   itemPadding: z.number().optional(),
   itemPaddingHorizontal: z.number().optional(),
   itemPaddingVertical: z.number().optional(),
@@ -190,6 +192,7 @@ export const CheckboxGroupComponent = ({ element, ctx }: Props): React.ReactElem
                 fontSize: element.props.itemFontSize ?? theme.typography.textStyles.body.fontSize,
                 fontWeight: (element.props.itemFontWeight as any) ?? theme.typography.textStyles.body.fontWeight,
                 fontFamily: element.props.itemFontFamily,
+                fontStyle: element.props.itemFontStyle,
               }}
             >
               {item.label}

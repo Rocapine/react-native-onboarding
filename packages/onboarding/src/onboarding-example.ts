@@ -209,6 +209,7 @@ export const onboardingExample = {
                   content: "Runtime-loaded font",
                   fontSize: 32,
                   fontFamily: "Lobster",
+                  fontStyle: "italic",
                   textAlign: "center",
                   marginVertical: 4,
                 },

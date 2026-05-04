@@ -4,6 +4,23 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- **`fontStyle: "normal" | "italic"`** on Text-rendering ComposableScreen
+  UIElements. Top-level prop on `TextElementProps`, `ButtonElementProps`,
+  `InputElementProps`. Per-item prop `itemFontStyle` on
+  `RadioGroupElementProps` and `CheckboxGroupElementProps`. All optional;
+  Zod-validated as `z.enum(["normal", "italic"]).optional()`.
+
+> **Backend note:** The `onboarding-studio` server must mirror the new
+> `fontStyle` (and `itemFontStyle` for RadioGroup/CheckboxGroup) field on the
+> affected UIElement schemas and expose it in the CMS editor wherever
+> `fontWeight`/`fontFamily` are configurable.
+
+---
+
 ## [1.17.0] - 2026-04-30
 
 ### Added

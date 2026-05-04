@@ -42,6 +42,7 @@ export type ButtonElementProps = BaseBoxProps & {
   fontSize?: number;
   fontWeight?: string;
   fontFamily?: string;
+  fontStyle?: "normal" | "italic";
   textAlign?: "left" | "center" | "right";
 };
 
@@ -55,6 +56,7 @@ export const ButtonElementPropsSchema = BaseBoxPropsSchema.extend({
   fontSize: z.number().optional(),
   fontWeight: z.string().optional(),
   fontFamily: z.string().optional(),
+  fontStyle: z.enum(["normal", "italic"]).optional(),
   textAlign: z.enum(["left", "center", "right"]).optional(),
 });
 
@@ -124,6 +126,7 @@ export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElem
           ? undefined
           : ((resolvedFont.fontWeight as any) ?? theme.typography.textStyles.button.fontWeight),
         fontFamily: resolvedFont.fontFamily,
+        fontStyle: element.props.fontStyle,
         textAlign: element.props.textAlign ?? "center",
       }}
     >

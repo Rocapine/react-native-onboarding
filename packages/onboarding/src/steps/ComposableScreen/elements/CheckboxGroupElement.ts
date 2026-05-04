@@ -18,6 +18,7 @@ export type CheckboxGroupElementProps = BaseBoxProps & {
   itemFontSize?: number;
   itemFontWeight?: string;
   itemFontFamily?: string;
+  itemFontStyle?: "normal" | "italic";
   itemPadding?: number;
   itemPaddingHorizontal?: number;
   itemPaddingVertical?: number;
@@ -40,6 +41,7 @@ export const CheckboxGroupElementPropsSchema = BaseBoxPropsSchema.extend({
   itemFontSize: z.number().optional(),
   itemFontWeight: z.string().optional(),
   itemFontFamily: z.string().optional(),
+  itemFontStyle: z.enum(["normal", "italic"]).optional(),
   itemPadding: z.number().optional(),
   itemPaddingHorizontal: z.number().optional(),
   itemPaddingVertical: z.number().optional(),

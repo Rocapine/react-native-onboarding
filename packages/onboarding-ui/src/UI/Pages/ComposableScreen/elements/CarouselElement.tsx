@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { Dimensions, View, type LayoutChangeEvent } from "react-native";
+import { View, type LayoutChangeEvent } from "react-native";
 import { z } from "zod";
 import { useSharedValue } from "react-native-reanimated";
 import Carousel, { Pagination, ICarouselInstance } from "react-native-reanimated-carousel";
@@ -114,27 +114,32 @@ export function CarouselElementComponent({ element, ctx }: Props): React.ReactEl
   const dotsMarginTop = props.dotsMarginTop ?? 12;
   const dotBg = props.dotColor ?? theme.colors.neutral.low;
   const activeDotBg = props.activeDotColor ?? theme.colors.primary;
-  console.log(Dimensions.get("window"));
+
+  const ready = !!size && size.width > 0 && size.height > 0;
 
   return (
     <GradientBox gradient={props.backgroundGradient} style={containerStyle}>
-      <Carousel
-        ref={ref}
-        loop={props.loop}
-        autoPlay={props.autoPlay}
-        autoPlayInterval={props.autoPlayInterval}
-        snapEnabled={true}
-        pagingEnabled={true}
-        data={children}
-        width={Dimensions.get("window").width}
-        height={props.height}
-        style={{ height: "100%", width: "100%" }}
-        renderItem={({ item }: { item: UIElement }) => ctx.renderChildren([item], "YStack")}
-        onProgressChange={(_: number, absoluteProgress: number) => {
-          progress.value = absoluteProgress;
-        }}
-        {...(modeProps as any)}
-      />
+      <View style={{ flex: 1 }} onLayout={onLayout}>
+        {ready && (
+          <Carousel
+            ref={ref}
+            loop={props.loop}
+            autoPlay={props.autoPlay}
+            autoPlayInterval={props.autoPlayInterval}
+            snapEnabled={true}
+            pagingEnabled={true}
+            data={children}
+            width={itemWidth}
+            height={size!.height}
+            style={{ width: size!.width, height: size!.height }}
+            renderItem={({ item }: { item: UIElement }) => ctx.renderChildren([item], "YStack")}
+            onProgressChange={(_: number, absoluteProgress: number) => {
+              progress.value = absoluteProgress;
+            }}
+            {...(modeProps as any)}
+          />
+        )}
+      </View>
       {(props.showDots ?? true) && (
         <Pagination.Basic
           progress={progress}

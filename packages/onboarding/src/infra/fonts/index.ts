@@ -8,4 +8,5 @@ export {
   FontRegistryProvider,
   useFontRegistry,
   useResolvedFontFamily,
+  useResolvedFontStyle,
 } from "./FontRegistryContext";

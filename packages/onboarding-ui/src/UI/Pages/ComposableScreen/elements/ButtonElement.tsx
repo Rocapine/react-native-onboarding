@@ -1,7 +1,7 @@
 import React from "react";
 import { z } from "zod";
 import { Text, TouchableOpacity } from "react-native";
-import { useResolvedFontFamily } from "@rocapine/react-native-onboarding";
+import { useResolvedFontStyle } from "@rocapine/react-native-onboarding";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
 import { RenderContext, dim } from "./shared";
@@ -110,7 +110,7 @@ export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElem
 
   const hasGradient = isFilled && !!element.props.backgroundGradient;
   const borderRadius = element.props.borderRadius ?? 90;
-  const resolvedFontFamily = useResolvedFontFamily(
+  const resolvedFont = useResolvedFontStyle(
     element.props.fontFamily,
     element.props.fontWeight
   );
@@ -120,8 +120,10 @@ export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElem
       style={{
         color: textColor,
         fontSize: element.props.fontSize ?? theme.typography.textStyles.button.fontSize,
-        fontWeight: (element.props.fontWeight as any) ?? theme.typography.textStyles.button.fontWeight,
-        fontFamily: resolvedFontFamily,
+        fontWeight: resolvedFont.resolvedToVariant
+          ? undefined
+          : ((resolvedFont.fontWeight as any) ?? theme.typography.textStyles.button.fontWeight),
+        fontFamily: resolvedFont.fontFamily,
         textAlign: element.props.textAlign ?? "center",
       }}
     >

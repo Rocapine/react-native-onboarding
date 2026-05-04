@@ -19,9 +19,17 @@ export const FontLoaderGate = ({ fonts, fallback = null, children }: FontLoaderG
       return;
     }
     let cancelled = false;
-    registerFonts(fonts).then((result) => {
-      if (!cancelled) setRegistry(result);
-    });
+    setRegistry(null);
+    registerFonts(fonts)
+      .then((result) => {
+        if (!cancelled) setRegistry(result);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          console.error("[onboarding] Font registration failed:", err);
+          setRegistry({});
+        }
+      });
     return () => {
       cancelled = true;
     };

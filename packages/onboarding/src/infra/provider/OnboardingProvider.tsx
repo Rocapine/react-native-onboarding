@@ -58,10 +58,11 @@ const OnboardingDataGate = ({
   fontsFallback,
   children,
 }: OnboardingDataGateProps) => {
-  const { data } = useQuery<Onboarding<OnboardingStepType>>(
+  const { data, error } = useQuery<Onboarding<OnboardingStepType>>(
     getOnboardingQuery<OnboardingStepType>(client, locale, customAudienceParams, setOnboarding)
   );
 
+  if (error) throw error;
   if (!data) return <>{fontsFallback ?? null}</>;
 
   return (

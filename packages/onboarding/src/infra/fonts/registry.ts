@@ -1,4 +1,10 @@
-import type { FontFamilyManifest, FontsManifest, FontWeightKey } from "../../types";
+import type {
+  FontFamilyManifest,
+  FontFamilyManifestInput,
+  FontsManifest,
+  FontVariantEntry,
+  FontWeightKey,
+} from "../../types";
 
 export type FontRegistry = Record<string, Record<number, string>>;
 
@@ -36,6 +42,33 @@ const loadExpoFont = (): typeof import("expo-font") | null => {
   }
 };
 
+type NormalizedVariant = { weight: number; url: string };
+
+const normalizeFamilyVariants = (input: FontFamilyManifestInput | undefined): NormalizedVariant[] => {
+  if (!input) return [];
+
+  if (Array.isArray(input)) {
+    const byWeight = new Map<number, NormalizedVariant>();
+    for (const entry of input as FontVariantEntry[]) {
+      if (!entry || typeof entry.url !== "string" || !entry.url) continue;
+      const weight = normalizeWeight(entry.weight as FontWeightKey | number);
+      const existing = byWeight.get(weight);
+      const isNormalStyle = !entry.style || entry.style === "normal";
+      if (!existing || isNormalStyle) {
+        byWeight.set(weight, { weight, url: entry.url });
+      }
+    }
+    return Array.from(byWeight.values());
+  }
+
+  const out: NormalizedVariant[] = [];
+  for (const [weightKey, url] of Object.entries(input as FontFamilyManifest)) {
+    if (typeof url !== "string" || !url) continue;
+    out.push({ weight: normalizeWeight(weightKey as FontWeightKey), url });
+  }
+  return out;
+};
+
 export const registerFonts = async (manifest: FontsManifest | undefined): Promise<FontRegistry> => {
   const registry: FontRegistry = {};
   if (!manifest || Object.keys(manifest).length === 0) return registry;
@@ -45,13 +78,12 @@ export const registerFonts = async (manifest: FontsManifest | undefined): Promis
 
   const loads: Array<Promise<void>> = [];
 
-  for (const [family, variants] of Object.entries(manifest)) {
-    if (!variants) continue;
+  for (const [family, variantsInput] of Object.entries(manifest)) {
+    const variants = normalizeFamilyVariants(variantsInput);
+    if (variants.length === 0) continue;
     registry[family] = registry[family] ?? {};
 
-    for (const [weightKey, url] of Object.entries(variants as FontFamilyManifest)) {
-      if (!url) continue;
-      const weight = normalizeWeight(weightKey as FontWeightKey);
+    for (const { weight, url } of variants) {
       const registeredName = buildRegisteredName(family, weight);
       registry[family][weight] = registeredName;
 

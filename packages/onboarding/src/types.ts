@@ -62,7 +62,15 @@ export type FontWeightKey =
 
 export type FontFamilyManifest = Partial<Record<FontWeightKey, string>>;
 
-export type FontsManifest = Record<string, FontFamilyManifest>;
+export interface FontVariantEntry {
+  weight: FontWeightKey | number;
+  style?: "normal" | "italic" | string;
+  url: string;
+}
+
+export type FontFamilyManifestInput = FontFamilyManifest | FontVariantEntry[];
+
+export type FontsManifest = Record<string, FontFamilyManifestInput>;
 
 export interface Onboarding<StepType extends BaseStepType = BaseStepType> {
   metadata: OnboardingMetadata;

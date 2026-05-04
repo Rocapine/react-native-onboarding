@@ -21,6 +21,29 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.17.1] - 2026-05-04
+
+### Fixed
+
+- **Runtime fonts manifest** — `registerFonts` now accepts the array shape
+  returned by `onboarding-studio`
+  (`{ family: [{ weight, style, url }, ...] }`) in addition to the legacy
+  `{ family: { weightKey: url } }` map. Previously, iterating an array with
+  `Object.entries` produced numeric indices (`"0".."N"`) as weight keys and
+  passed the variant object as `url`, causing native expo-font to throw
+  `loadSingleFontAsync expected resource of type Asset` and warnings like
+  `Failed to load font "X" weight 8 from [object Object]`. The new
+  `normalizeFamilyVariants` dedupes by weight and prefers `style: "normal"`
+  variants over italic.
+
+### Added
+
+- **`FontVariantEntry`** and **`FontFamilyManifestInput`** exported types.
+  `FontsManifest` widened to `Record<string, FontFamilyManifestInput>` so
+  array-shape manifests are typed end-to-end.
+
+---
+
 ## [1.17.0] - 2026-04-30
 
 ### Added

@@ -20,11 +20,26 @@ export const CustomButtonActionSchema = z.object({
   variables: z.array(z.string()).optional(),
 });
 
-export type ButtonAction = "continue" | CustomButtonAction;
+export type SetVariableButtonAction = {
+  type: "setVariable";
+  name: string;
+  value: string;
+  label?: string;
+};
+
+export const SetVariableButtonActionSchema = z.object({
+  type: z.literal("setVariable"),
+  name: z.string().min(1, "name must not be empty"),
+  value: z.string(),
+  label: z.string().optional(),
+});
+
+export type ButtonAction = "continue" | CustomButtonAction | SetVariableButtonAction;
 
 export const ButtonActionSchema = z.union([
   z.literal("continue"),
   CustomButtonActionSchema,
+  SetVariableButtonActionSchema,
 ]);
 
 export type ButtonElementProps = BaseBoxProps & {
@@ -68,7 +83,7 @@ type Props = {
 };
 
 export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElement => {
-  const { theme, onContinue, customActions, variables } = ctx;
+  const { theme, onContinue, customActions, variables, setVariable } = ctx;
   const handlePress = async () => {
     const { actions, action } = element.props;
     const effective: ButtonAction[] =
@@ -78,6 +93,10 @@ export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElem
       if (act === "continue") {
         onContinue();
         return;
+      }
+      if (act.type === "setVariable") {
+        setVariable(act.name, { value: act.value, label: act.label });
+        continue;
       }
       const handler = customActions[act.function];
       if (!handler) {

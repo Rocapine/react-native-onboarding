@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { useOnboarding } from "@rocapine/react-native-onboarding";
 import { useTheme } from "@rocapine/react-native-onboarding-ui";
+import { SUPPORTED_LOCALES, useLocale } from "../contexts/locale-context";
 
 export const unstable_settings = {
   anchor: "(tabs)",
@@ -11,6 +12,7 @@ export default function RootLayout() {
   const router = useRouter();
   const { theme, colorScheme, toggleTheme } = useTheme();
   const { } = useOnboarding();
+  const { locale, setLocale } = useLocale();
 
   const handleStartOnboarding = () => {
     router.push("/onboarding/1");
@@ -24,6 +26,34 @@ export default function RootLayout() {
 
       <Text style={[styles.title, { color: theme.colors.text.primary }]}>Welcome to Onboarding</Text>
       <Text style={[styles.subtitle, { color: theme.colors.text.secondary }]}>Get started with your journey</Text>
+
+      <View style={styles.localeRow}>
+        {SUPPORTED_LOCALES.map((loc) => {
+          const active = loc === locale;
+          return (
+            <Pressable
+              key={loc}
+              onPress={() => setLocale(loc)}
+              style={[
+                styles.localeChip,
+                {
+                  backgroundColor: active ? theme.colors.primary : "transparent",
+                  borderColor: active ? theme.colors.primary : theme.colors.neutral.medium,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.localeChipText,
+                  { color: active ? theme.colors.text.opposite : theme.colors.text.primary },
+                ]}
+              >
+                {loc.toUpperCase()}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
 
       <Pressable style={[styles.button, { backgroundColor: theme.colors.primary }]} onPress={handleStartOnboarding}>
         <Text style={[styles.buttonText, { color: theme.colors.text.opposite }]}>Start the onboarding</Text>
@@ -69,8 +99,25 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 16,
-    marginBottom: 40,
+    marginBottom: 24,
     textAlign: "center",
+  },
+  localeRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 8,
+    marginBottom: 32,
+  },
+  localeChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  localeChipText: {
+    fontSize: 14,
+    fontWeight: "600",
   },
   button: {
     paddingHorizontal: 30,

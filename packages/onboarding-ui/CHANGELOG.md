@@ -7,6 +7,10 @@ here.
 
 ## [Unreleased]
 
+---
+
+## [1.18.0] - 2026-05-06
+
 ### Added
 
 - **`fontStyle` rendering** on `TextElement`, `ButtonElement`,
@@ -14,6 +18,12 @@ here.
   `CheckboxGroupElement` (`itemFontStyle`). Renderers pass the value through
   to the underlying `<Text>` / `<TextInput>` style, alongside `fontFamily` and
   `fontWeight`.
+- **`setVariable` `Button` action** — `ButtonElement` handles a new action
+  variant `{ type: "setVariable", name, value, label? }`. The handler writes
+  to the ComposableScreen variable map (and syncs the headless variable map)
+  before any subsequent action in the chain runs, so a following
+  `"continue"` sees the updated value when `resolveNextStepNumber` evaluates
+  branch conditions.
 
 ### Changed
 

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useState } from "react";
+import { createContext, useCallback, useRef, useState } from "react";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { OnboardingStudioClient } from "../../OnboardingStudioClient";
 import { getOnboardingQuery } from "../queries/getOnboarding.query";
@@ -87,9 +87,12 @@ export const OnboardingProvider = ({
   const [totalSteps, setTotalSteps] = useState(0);
   const [onboarding, setOnboarding] = useState<Onboarding<OnboardingStepType> | null>(null);
   const [variables, setVariables] = useState<Record<string, any>>({});
+  const variablesRef = useRef<Record<string, any>>(variables);
   const setVariable = useCallback((name: string, value: any) => {
-    setVariables((prev) => ({ ...prev, [name]: value }));
+    variablesRef.current = { ...variablesRef.current, [name]: value };
+    setVariables(variablesRef.current);
   }, []);
+  const getVariables = useCallback(() => variablesRef.current, []);
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -106,6 +109,7 @@ export const OnboardingProvider = ({
           setOnboarding,
           variables,
           setVariable,
+          getVariables,
           customActions,
         }}
       >
@@ -135,6 +139,7 @@ export const OnboardingProgressContext = createContext<{
   setOnboarding: (onboarding: Onboarding<OnboardingStepType>) => void;
   variables: Record<string, any>;
   setVariable: (name: string, value: any) => void;
+  getVariables: () => Record<string, any>;
   customActions: CustomActions;
 }>({
   activeStep: { number: 0, displayProgressHeader: false },
@@ -148,5 +153,6 @@ export const OnboardingProgressContext = createContext<{
   setOnboarding: () => { },
   variables: {},
   setVariable: () => { },
+  getVariables: () => ({}),
   customActions: {},
 });

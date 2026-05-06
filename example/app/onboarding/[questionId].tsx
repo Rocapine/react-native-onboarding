@@ -17,21 +17,20 @@ export default function QuestionPage() {
     stepNumber: parseInt(questionId as string, 10),
   });
 
-  const { variables, setVariable } = useContext(OnboardingProgressContext);
+  const { setVariable, getVariables } = useContext(OnboardingProgressContext);
   const router = useRouter();
 
   const onContinue = (value?: any) => {
     const variableName = (step as any).variableName as string | undefined;
 
-    // Build updated vars synchronously — setVariable is async (state update)
-    const updatedVars =
-      variableName && value !== undefined
-        ? { ...variables, [variableName]: value }
-        : variables;
-
     if (variableName && value !== undefined) {
       setVariable(variableName, value);
     }
+
+    const updatedVars =
+      variableName && value !== undefined
+        ? { ...getVariables(), [variableName]: value }
+        : getVariables();
 
     const nextNumber = resolveNextStepNumber(step, updatedVars, steps);
     if (nextNumber === null) {

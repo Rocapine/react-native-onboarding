@@ -9,6 +9,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import { OnboardingProgressProvider } from "@rocapine/react-native-onboarding-ui";
 import { Dimensions } from "react-native";
+import { LocaleProvider, useLocale } from "../contexts/locale-context";
 
 // Keep splash screen visible while fonts load
 SplashScreen.preventAutoHideAsync();
@@ -41,9 +42,18 @@ export default function RootLayout() {
   }
 
   return (
+    <LocaleProvider>
+      <OnboardingProviderWithLocale />
+    </LocaleProvider>
+  );
+}
+
+function OnboardingProviderWithLocale() {
+  const { locale } = useLocale();
+  return (
     <OnboardingProvider
       client={client}
-      locale="en"
+      locale={locale}
       customAudienceParams={{
       }}
       customActions={{

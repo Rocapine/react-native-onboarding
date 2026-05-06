@@ -1,15 +1,20 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code working in this repository.
+
+Path-scoped rules auto-load from `.claude/rules/`:
+- `page-renderers.md` — page renderer rules, adding a Page Type
+- `composable-screen-runtime.md` — UIElement runtime conventions, BaseBoxProps, font hook rule, gradient peer dep
+- `example-app.md` — example app workflow, workspace type-resolution gotcha
 
 ## Project Overview
 
-This is a **monorepo** containing two npm packages for Rocapine Onboarding Studio — a CMS-driven onboarding system for React Native apps:
+**Monorepo** with two npm packages for Rocapine Onboarding Studio — CMS-driven onboarding system for React Native apps:
 
 - **`@rocapine/react-native-onboarding`** (`packages/onboarding/`) — Headless SDK: data fetching, state management, hooks, Zod schemas for step types
 - **`@rocapine/react-native-onboarding-ui`** (`packages/onboarding-ui/`) — UI layer: renderers, theme system, components, templates
 
-The UI package depends on the headless package as a peer dependency.
+UI package depends on headless package as peer dependency.
 
 ## Development Commands
 
@@ -17,54 +22,38 @@ The UI package depends on the headless package as a peer dependency.
 
 ```bash
 npm run build              # Build both packages
-npm run build:headless     # Build packages/onboarding only
-npm run build:ui           # Build packages/onboarding-ui only (also copies src/assets → dist/assets)
-npm run watch:headless     # Watch mode for headless package
-npm run watch:ui           # Watch mode for UI package
+npm run build:headless     # packages/onboarding only
+npm run build:ui           # packages/onboarding-ui only (also copies src/assets → dist/assets)
+npm run watch:headless     # Watch mode for headless
+npm run watch:ui           # Watch mode for UI
 npm run clean              # Remove all dist/ and node_modules/
-npm run publish:all        # Build and publish both packages to npm
+npm run publish:all        # Build + publish both packages to npm
 ```
 
-### Example App
-
-```bash
-cd example/
-npm install
-npm start             # Start Expo dev server
-npm run type:check    # TypeScript type checking (tsc --noEmit)
-npm run lint          # ESLint via expo lint
-npm run ios
-npm run android
-```
-
-**Important**: After modifying anything in `packages/`, run `npm run build` (or the relevant workspace build) before reloading the example app, since the example references local packages via `file:../packages/*`.
-
-**Workspace type resolution**: `@rocapine/react-native-onboarding` resolves to its `dist/index.d.ts` via the workspace symlink + `package.json#types`. Adding a new exported symbol in `packages/onboarding/src/` is invisible to `packages/onboarding-ui/` and `example/` `tsc` runs until the headless package is built (or `npm run watch:headless` is running). Build before typechecking after adding exports.
+After modifying `packages/`, run `npm run build` (or relevant workspace build) before reloading the example app — it references local packages via `file:../packages/*`.
 
 ## Architecture
 
 ### Two-Package Split
 
 **Headless SDK** (`packages/onboarding/src/`):
-- `OnboardingStudioClient.ts` — API client that fetches steps from Supabase backend. URL params: `projectId`, `platform`, `appVersion`, `locale`, `draft`. Returns step data + custom headers (`ONBS-Onboarding-Id`, `ONBS-Audience-Id`, `ONBS-Onboarding-Name`).
-- `infra/provider/` — `OnboardingProvider`: wraps app with `QueryClientProvider` + `ThemeProvider`, manages caching via AsyncStorage, and **automatically includes ProgressBar**. The internal `OnboardingDataGate` reads `useQuery({ data, error })` and **throws `error`** so a host `ErrorBoundary` catches network/parse failures — never swallow the error and fall through to `fontsFallback`.
+- `OnboardingStudioClient.ts` — API client fetching steps from Supabase backend. URL params: `projectId`, `platform`, `appVersion`, `locale`, `draft`. Returns step data + custom headers (`ONBS-Onboarding-Id`, `ONBS-Audience-Id`, `ONBS-Onboarding-Name`).
+- `infra/provider/` — `OnboardingProvider`: wraps app with `QueryClientProvider` + `ThemeProvider`, manages caching via AsyncStorage, **automatically includes ProgressBar**. Internal `OnboardingDataGate` reads `useQuery({ data, error })` and **throws `error`** so host `ErrorBoundary` catches network/parse failures — never swallow error and fall through to `fontsFallback`.
 - `infra/hooks/useOnboardingQuestions.ts` — Hook returning `{ step, isLastStep, stepsLength, onboardingMetadata, steps }`. Uses `useSuspenseQuery`; manages progress context automatically.
-- `infra/fonts/` — Runtime font registry (see "Runtime Fonts" section).
-- `steps/` — Zod schemas and TypeScript types for each step variant (source of truth for data shapes)
-- `types.ts` — Core types; `index.ts` — public exports. **CHANGELOG entries describing union/enum members are illustrative** — when in doubt, check the actual exported type (e.g. `FontWeightKey`) for the canonical set.
+- `infra/fonts/` — Runtime font registry.
+- `steps/` — Zod schemas + TypeScript types for each step variant (source of truth)
+- `types.ts` — Core types; `index.ts` — public exports. **CHANGELOG entries describing union/enum members are illustrative** — check actual exported type (e.g. `FontWeightKey`) for canonical set.
 
 **UI Package** (`packages/onboarding-ui/src/`):
-- `UI/OnboardingPage.tsx` — Central router: switch on `step.type` → delegates to specific Renderer
-- `UI/Pages/` — One directory per step type; each has `types.ts` (Zod schema), `Renderer.tsx`, `index.ts`
-- `UI/Templates/OnboardingTemplate.tsx` — Reusable layout: safe area insets, progress header, CTA button at bottom
-- `UI/Components/` — Shared components: `ProgressBar`, `CircularProgress`, `StaggeredTextList`
-- `UI/Theme/` — Theme context, hooks, deep-merge utils, `tokens/lightTokens.ts`, `tokens/darkTokens.ts`, `tokens/typography.ts`
+- `UI/OnboardingPage.tsx` — Central router: switch on `step.type` → specific Renderer
+- `UI/Pages/` — One dir per step type (each with `types.ts`, `Renderer.tsx`, `index.ts`)
+- `UI/Templates/OnboardingTemplate.tsx` — Reusable layout: safe area, progress header, CTA at bottom
+- `UI/Components/` — `ProgressBar`, `CircularProgress`, `StaggeredTextList`
+- `UI/Theme/` — Theme context, hooks, deep-merge utils, `tokens/lightTokens.ts`, `darkTokens.ts`, `typography.ts`
 - `UI/Provider/` — `OnboardingProgressProvider`
 - `UI/ErrorBoundary/` — HOC for error handling
 
 ### Page Types
-
-Available step types (each in `UI/Pages/{Type}/`):
 
 | Type | Key Behavior |
 |------|-------------|
@@ -83,80 +72,13 @@ Available step types (each in `UI/Pages/{Type}/`):
 - Back button appears when `router.canGoBack()` is true (uses expo-router)
 - Control back nav: use `router.push()` vs `router.replace()` in `onContinue` handlers
 
-## Adding a New Page Type
-
-1. Add Zod schema + TypeScript type in `packages/onboarding/src/steps/{NewType}/` (source of truth)
-2. Create `packages/onboarding-ui/src/UI/Pages/{NewType}/`:
-   - `types.ts` — re-export or re-define schema; include `continueButtonLabel: z.string().optional().default("Continue")`
-   - `Renderer.tsx` — use `OnboardingTemplate`, validate with Zod, use `useTheme()`, **no ProgressBar**
-   - `index.ts` — export both
-3. Export from `packages/onboarding-ui/src/UI/Pages/index.ts`
-4. Add to union in `packages/onboarding-ui/src/UI/types.ts`
-5. Add case to switch in `packages/onboarding-ui/src/UI/OnboardingPage.tsx`
-6. Add example to `example/app/example/` and register in `example/app/example/index.tsx`
-
-### Renderer Guidelines
-
-- Use `OnboardingTemplate` for consistent layout and CTA positioning
-- Wrap content in `ScrollView` with `alwaysBounceVertical={false}`
-- Always `const validatedData = StepTypeSchema.parse(step)` before use
-- Use `validatedData.continueButtonLabel` for button text
-- Use `useTheme()` for all colors and typography — never hardcode values
-- `onContinue` receives selected value as parameter (for types like Picker, Question)
-
-## ComposableScreen UIElement Conventions
-
-### Container style (BaseBoxProps)
-
-Every UIElement renderer that wraps content must build a `containerStyle` from `BaseBoxProps` covering: `alignSelf`, `flex`, `flexShrink`, `flexGrow`, `width` (via `dim()`), `height` (via `dim()`), `minWidth/maxWidth/minHeight/maxHeight`, `margin*`, `padding*`, `borderRadius/Width/Color`, `backgroundColor` (only if no `backgroundGradient`), `opacity`, `overflow`. Apply to outermost wrapper (`GradientBox` or `View`). Missing fields = user can't control that aspect from CMS payload.
-
-### Sizing libraries that need numeric pixels
-
-`react-native-reanimated-carousel`, `react-native-video`, Lottie/Rive components don't accept `"50%"` strings. When wrapping such a library in a UIElement:
-
-1. Pass `containerStyle` (with `dim()`) to the outermost wrapper
-2. Wrap the library in an inner `View` with `flex: 1` + `onLayout`
-3. Render the library only after first measurement (`size.width > 0 && size.height > 0`)
-4. Pass measured numeric `size.width/height` to the library
-
-### Overflow gotcha
-
-Default `overflow` is `hidden`. Carousel's `left-align` carouselType needs `visible` for the peek effect. Same for shadows/badges spilling outside bounds. Don't blanket-set `hidden` in refactors.
-
-### Gradient peer dep
-
-`GradientBox` silently falls back to plain `View` if `expo-linear-gradient` isn't installed. If `backgroundGradient` appears unrendered, check the peer dep first.
-
-## Runtime Fonts
-
-The `Onboarding` response carries an optional `fonts?: FontsManifest` field — `Record<family, Partial<Record<FontWeightKey, url>>>`. Files are downloaded and registered via `expo-font` (optional peer) by `FontLoaderGate`, which mounts a `FontRegistryContext`.
-
-### `FontLoaderGate` state convention
-
-- `registry === null` is the **loading sentinel** — gate renders `fallback`.
-- `registry === {}` is **ready, no fonts** — gate renders children.
-- Async registration must `setRegistry(null)` before the call and `.catch(() => setRegistry({}))` so a fetch failure doesn't strand the gate.
-
-### Hook choice rule (Text-rendering elements)
-
-For any UIElement that renders `<Text>` or `<TextInput>` and accepts `fontWeight`:
-
-```ts
-const f = useResolvedFontStyle(props.fontFamily, props.fontWeight);
-// style: { fontFamily: f.fontFamily, fontWeight: f.resolvedToVariant ? undefined : (props.fontWeight as any) ?? <theme default> }
-```
-
-When `f.resolvedToVariant === true`, the registry matched a concrete weighted variant (e.g. `Inter-700`) — **suppress `fontWeight`**, otherwise iOS/Android will apply synthetic emboldening on top of an already-weighted font file.
-
-Use the legacy `useResolvedFontFamily` only for elements that never set `fontWeight`.
-
 ## Custom Components System
 
 `OnboardingProvider` accepts `customComponents` prop to replace UI components while keeping SDK data flow.
 
 **Context**: `src/infra/provider/CustomComponentsContext.tsx` → `useCustomComponents()` hook
 
-**Customizable components**: `QuestionAnswerButton`, `QuestionAnswersList` (more can be added following the same pattern)
+**Customizable components**: `QuestionAnswerButton`, `QuestionAnswersList` (more can be added following same pattern)
 
 **Resolution order**: Custom List → Custom Button → Default implementation
 
@@ -167,11 +89,11 @@ const customComponents = useCustomComponents();
 const AnswersList = customComponents.QuestionAnswersList || DefaultQuestionAnswersList;
 ```
 
-**Adding new customizable components**: define props interface → create default implementation → add to `CustomComponents` interface → use in renderer → export from module.
+**Adding new customizable components**: define props interface → create default impl → add to `CustomComponents` interface → use in renderer → export from module.
 
 ## Theme Customization
 
-`OnboardingProvider` accepts `theme`, `lightTheme`, `darkTheme`, and `initialColorScheme` props.
+`OnboardingProvider` accepts `theme`, `lightTheme`, `darkTheme`, `initialColorScheme` props.
 
 ### Available Tokens
 
@@ -184,7 +106,7 @@ colors.surface.{ lowest..highest, opposite }
 colors.text.{ primary, secondary, tertiary, opposite, disable }
 
 // Typography
-typography.fontFamily.{ title, text, tagline }   // Names only; you must load fonts via expo-font
+typography.fontFamily.{ title, text, tagline }   // Names only; load fonts via expo-font
 typography.fontSize.{ xs, sm, md, lg, xl, "2xl", "3xl", "4xl" }
 typography.fontWeight.{ regular, medium, semibold, bold, extrabold }
 typography.lineHeight.{ tight, normal, relaxed }
@@ -195,7 +117,7 @@ typography.textStyles.{ heading1, heading2, heading3, body, bodyMedium, label, c
 ```typescript
 import { useTheme, getTextStyle } from "@rocapine/react-native-onboarding-ui";
 const { theme } = useTheme();
-// Use: theme.colors.*, theme.typography.textStyles.*, getTextStyle(theme, "heading1")
+// theme.colors.*, theme.typography.textStyles.*, getTextStyle(theme, "heading1")
 ```
 
 **Import default tokens for extension**:
@@ -205,20 +127,18 @@ import { lightTokens, darkTokens, typography } from "@rocapine/react-native-onbo
 
 ## Peer Dependencies
 
-The UI package has these **optional** peer dependencies (install only if using the feature):
-- `@react-native-picker/picker` — required by Picker step type
-- `@shopify/react-native-skia` — required by specific visual components
-- `expo-store-review` — required by Ratings step type
+UI package optional peer deps (install only if using feature):
+- `@react-native-picker/picker` — Picker step type
+- `@shopify/react-native-skia` — specific visual components
+- `expo-store-review` — Ratings step type
 
 ## Updating ComposableScreen UIElement Schema
 
-When adding or changing a `UIElement` type in either ComposableScreen `types.ts` file, **always**:
+When adding/changing a `UIElement` type in either ComposableScreen `types.ts`, **always**:
 
-1. **Update `packages/onboarding/src/onboarding-example.ts`** — add or update an example step that exercises the new/changed element type so the default onboarding stays in sync with the schema.
-
-2. **Update `example/app/example/composable-screen.tsx`** — add or update the element in the rendered example payload.
-
-3. **Display the following prompt for the `onboarding-studio` repository** (the CMS backend that must mirror these schema changes) after completing the changes:
+1. **Update `packages/onboarding/src/onboarding-example.ts`** — add/update example step exercising the new/changed element type so default onboarding stays in sync with schema.
+2. **Update `example/app/example/composable-screen.tsx`** — add/update element in rendered example payload.
+3. **Display this prompt for `onboarding-studio` repo** (CMS backend that must mirror schema changes):
 
 ```
 The ComposableScreen UIElement schema in the React Native SDK has been updated.
@@ -248,13 +168,3 @@ npm run publish:all
 cd packages/onboarding && npm run patch    # bump + build + publish
 cd packages/onboarding-ui && npm run patch # bump + build + publish
 ```
-
-## Example App
-
-Located in `example/`. Uses local packages via `"file:../packages/onboarding"` and `"file:../packages/onboarding-ui"`.
-
-- `app/example/` — Individual page type demos; registered in `app/example/index.tsx`
-- `app/onboarding/[questionId].tsx` — Full onboarding flow with real API
-- `app/onboarding_custom_screens/` — Custom component override demos
-- `app/_layout.tsx` — Root layout with `OnboardingProvider` setup
-- `components/` — Demo custom components (e.g., `MinimalAnswerButton`, `AnimatedAnswersList`)

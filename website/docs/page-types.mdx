@@ -643,6 +643,7 @@ As of 1.15.0, `OnboardingTemplate` does not apply safe-area insets. Built-in pag
 
 - `"continue"` — advances to the next onboarding step (calls the `onContinue` callback wired to the renderer).
 - `{ type: "custom", function: string, variables?: string[] }` — invokes a developer-injected handler registered on `OnboardingProvider.customActions`. `variables` lists the keys to read from the live ComposableScreen variable map and forward to the handler.
+- `{ type: "setVariable", name: string, value: string, label?: string }` — writes to the variable map (`{ value, label }`). Pair with `"continue"` to set a discriminator a downstream `nextStep` rule can branch on; the value is visible to the same-tick branch evaluation.
 
 Execution rules:
 

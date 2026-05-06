@@ -6,6 +6,10 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ## [Unreleased]
 
+---
+
+## [1.18.0] - 2026-05-06
+
 ### Added
 
 - **`fontStyle: "normal" | "italic"`** on Text-rendering ComposableScreen
@@ -13,11 +17,29 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   `InputElementProps`. Per-item prop `itemFontStyle` on
   `RadioGroupElementProps` and `CheckboxGroupElementProps`. All optional;
   Zod-validated as `z.enum(["normal", "italic"]).optional()`.
+- **`setVariable` button action** — `Button.actions` accepts a new entry
+  `{ type: "setVariable", name: string, value: string, label?: string }`
+  that writes directly into the variable map. Useful to capture which
+  branch a user chose before `"continue"` triggers `resolveNextStepNumber`.
+  Stored shape matches existing element writes (`{ value, label }`).
+- **`OnboardingProgressContext.getVariables()`** — synchronous getter that
+  returns the latest variable snapshot from a ref. Use it inside
+  `onContinue` handlers to feed `resolveNextStepNumber` with values just
+  written by `setVariable`, since React state reads are stale within the
+  same tick.
+
+### Fixed
+
+- **Branching with same-tick `setVariable` + `continue`** — variables were
+  read from React state in the handler that just wrote them, so branch
+  conditions evaluated against pre-set values and fell through to the
+  default target. `setVariable` now updates a ref synchronously alongside
+  the state setter; `getVariables()` exposes the fresh snapshot.
 
 > **Backend note:** The `onboarding-studio` server must mirror the new
 > `fontStyle` (and `itemFontStyle` for RadioGroup/CheckboxGroup) field on the
-> affected UIElement schemas and expose it in the CMS editor wherever
-> `fontWeight`/`fontFamily` are configurable.
+> affected UIElement schemas, and the new `setVariable` button action variant
+> in the `ButtonAction` union and CMS editor.
 
 ---
 

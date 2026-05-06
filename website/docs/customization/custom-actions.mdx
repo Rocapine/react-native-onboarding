@@ -12,6 +12,7 @@ Each `Button` element in a `ComposableScreen` carries an ordered `actions` array
 
 - `"continue"` — advances the onboarding (terminal — anything after is ignored).
 - `{ type: "custom", function: "<name>", variables?: ["<key>", ...] }` — invokes a handler you registered on `OnboardingProvider.customActions`. Listed variables are read from the live ComposableScreen variable map and forwarded to the handler.
+- `{ type: "setVariable", name: "<key>", value: "<value>", label?: "<label>" }` — writes directly to the variable map (`{ value, label }` shape, matching `Input` / `RadioGroup` / `CheckboxGroup` / `DatePicker`). Useful to capture which branch a user chose before a following `"continue"` triggers `resolveNextStepNumber`.
 
 Handlers may be async — the chain awaits each `Promise` before proceeding.
 
@@ -20,7 +21,8 @@ Handlers may be async — the chain awaits each `Promise` before proceeding.
 ```typescript
 type ButtonAction =
   | "continue"
-  | { type: "custom"; function: string; variables?: string[] };
+  | { type: "custom"; function: string; variables?: string[] }
+  | { type: "setVariable"; name: string; value: string; label?: string };
 ```
 
 ```jsonc
@@ -166,6 +168,19 @@ customActions={{
   "actions": [
     { "type": "custom", "function": "trackCta" },
     { "type": "custom", "function": "syncProfile", "variables": ["name", "plan"] },
+    "continue"
+  ]
+}
+```
+
+### Branch on a button-chosen value
+
+Pair `setVariable` with `"continue"` to set a discriminator a downstream `nextStep` rule can branch on. The handler reads from a ref under the hood, so the branch evaluation in the same tick sees the value just written.
+
+```jsonc
+{
+  "actions": [
+    { "type": "setVariable", "name": "plan", "value": "monthly", "label": "Monthly" },
     "continue"
   ]
 }

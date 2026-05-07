@@ -4,7 +4,7 @@ import { Text } from "react-native";
 import { useResolvedFontStyle } from "@rocapine/react-native-onboarding";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
-import { RenderContext, interpolate, dim } from "./shared";
+import { RenderContext, interpolate, dim, resolveInheritedFontFamily } from "./shared";
 import { GradientBox } from "./GradientBox";
 
 export type TextElementProps = BaseBoxProps & {
@@ -12,7 +12,7 @@ export type TextElementProps = BaseBoxProps & {
   mode?: "plain" | "expression";
   fontSize?: number;
   fontWeight?: string;
-  fontFamily?: string;
+  fontFamily?: string | "inherit";
   fontStyle?: "normal" | "italic";
   color?: string;
   textAlign?: "left" | "center" | "right";
@@ -48,7 +48,11 @@ export const TextElementComponent = ({ element, ctx, parentType }: Props): React
     p.mode === "expression"
       ? interpolate(p.content, variables)
       : p.content;
-  const resolvedFont = useResolvedFontStyle(p.fontFamily, p.fontWeight);
+  const inheritedFontFamily = resolveInheritedFontFamily(
+    p.fontFamily,
+    theme.typography.defaultFontFamily
+  );
+  const resolvedFont = useResolvedFontStyle(inheritedFontFamily, p.fontWeight);
 
   const textNode = (
     <Text

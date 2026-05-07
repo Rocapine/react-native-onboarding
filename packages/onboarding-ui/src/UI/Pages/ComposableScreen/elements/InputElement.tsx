@@ -4,7 +4,7 @@ import { View, TextInput } from "react-native";
 import { useResolvedFontStyle } from "@rocapine/react-native-onboarding";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
-import { RenderContext, dim } from "./shared";
+import { RenderContext, dim, resolveInheritedFontFamily } from "./shared";
 
 export type InputElementProps = BaseBoxProps & {
   variableName?: string;
@@ -22,7 +22,7 @@ export type InputElementProps = BaseBoxProps & {
   backgroundColor?: string;
   fontSize?: number;
   fontWeight?: string;
-  fontFamily?: string;
+  fontFamily?: string | "inherit";
   fontStyle?: "normal" | "italic";
   lineHeight?: number;
   letterSpacing?: number;
@@ -79,8 +79,12 @@ export const InputElementComponent = ({ element, ctx }: Props): React.ReactEleme
     }
   };
 
-  const resolvedFont = useResolvedFontStyle(
+  const inheritedFontFamily = resolveInheritedFontFamily(
     element.props.fontFamily,
+    theme.typography.defaultFontFamily
+  );
+  const resolvedFont = useResolvedFontStyle(
+    inheritedFontFamily,
     element.props.fontWeight
   );
 

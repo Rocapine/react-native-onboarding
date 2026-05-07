@@ -19,3 +19,15 @@ export const interpolate = (template: string, variables: Record<string, Composab
 // Cast number | string dimension values to DimensionValue for React Native style props
 export const dim = (v: number | string | undefined): import("react-native").DimensionValue | undefined =>
   v as import("react-native").DimensionValue | undefined;
+
+// Resolve element fontFamily against theme `typography.defaultFontFamily`.
+// Returns the theme default when element omits fontFamily or sets it to "inherit".
+export const resolveInheritedFontFamily = (
+  elementFontFamily: string | undefined,
+  themeDefault: string | undefined
+): string | undefined => {
+  if (elementFontFamily === undefined || elementFontFamily === "inherit") {
+    return themeDefault;
+  }
+  return elementFontFamily;
+};

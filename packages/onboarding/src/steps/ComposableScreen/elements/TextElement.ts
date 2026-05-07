@@ -6,7 +6,11 @@ export type TextElementProps = BaseBoxProps & {
   mode?: "plain" | "expression";
   fontSize?: number;
   fontWeight?: string;
-  fontFamily?: string;
+  /**
+   * Font family name. Omit or set to `"inherit"` to inherit from
+   * `theme.typography.defaultFontFamily`.
+   */
+  fontFamily?: string | "inherit";
   fontStyle?: "normal" | "italic";
   color?: string;
   textAlign?: "left" | "center" | "right";

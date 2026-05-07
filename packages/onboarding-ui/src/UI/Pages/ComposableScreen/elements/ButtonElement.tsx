@@ -4,7 +4,7 @@ import { Text, TouchableOpacity } from "react-native";
 import { useResolvedFontStyle } from "@rocapine/react-native-onboarding";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
-import { RenderContext, dim } from "./shared";
+import { RenderContext, dim, resolveInheritedFontFamily } from "./shared";
 import { GradientBox } from "./GradientBox";
 import { ComposableVariableEntry } from "../../../Provider/OnboardingProgressProvider";
 
@@ -56,7 +56,7 @@ export type ButtonElementProps = BaseBoxProps & {
   color?: string;
   fontSize?: number;
   fontWeight?: string;
-  fontFamily?: string;
+  fontFamily?: string | "inherit";
   fontStyle?: "normal" | "italic";
   textAlign?: "left" | "center" | "right";
 };
@@ -131,8 +131,12 @@ export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElem
 
   const hasGradient = isFilled && !!element.props.backgroundGradient;
   const borderRadius = element.props.borderRadius ?? 90;
-  const resolvedFont = useResolvedFontStyle(
+  const inheritedFontFamily = resolveInheritedFontFamily(
     element.props.fontFamily,
+    theme.typography.defaultFontFamily
+  );
+  const resolvedFont = useResolvedFontStyle(
+    inheritedFontFamily,
     element.props.fontWeight
   );
 

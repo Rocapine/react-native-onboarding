@@ -215,6 +215,27 @@ export const onboardingExample = {
                 },
               },
               {
+                id: "inherit-implicit",
+                type: "Text",
+                props: {
+                  content: "Inherits theme.typography.defaultFontFamily (omitted)",
+                  fontSize: 14,
+                  textAlign: "center",
+                  opacity: 0.6,
+                },
+              },
+              {
+                id: "inherit-explicit",
+                type: "Text",
+                props: {
+                  content: "Inherits theme.typography.defaultFontFamily (explicit \"inherit\")",
+                  fontFamily: "inherit",
+                  fontSize: 14,
+                  textAlign: "center",
+                  opacity: 0.6,
+                },
+              },
+              {
                 id: "subheadline",
                 type: "Text",
                 props: {

@@ -63,4 +63,5 @@ export const typography = {
       fontFamily: "Inter",
     },
   },
+  defaultFontFamily: "Inter",
 } satisfies TypographyTokens;

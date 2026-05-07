@@ -112,6 +112,25 @@ export default function ComposableScreenFontsExample() {
                   },
                 },
                 {
+                  id: 'inherit-implicit',
+                  type: 'Text' as const,
+                  props: {
+                    content: 'Inherits default font (fontFamily omitted)',
+                    fontSize: 16,
+                    textAlign: 'center' as const,
+                  },
+                },
+                {
+                  id: 'inherit-explicit',
+                  type: 'Text' as const,
+                  props: {
+                    content: 'Inherits default font (fontFamily: "inherit")',
+                    fontFamily: 'inherit',
+                    fontSize: 16,
+                    textAlign: 'center' as const,
+                  },
+                },
+                {
                   id: 'cta',
                   type: 'Button' as const,
                   props: {

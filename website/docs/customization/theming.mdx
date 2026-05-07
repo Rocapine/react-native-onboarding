@@ -306,6 +306,39 @@ const fonts: FontsManifest = {
 If `expo-font` is not installed in the host app, `registerFonts` resolves to an
 empty registry and logs a single warning — text falls back to system fonts.
 
+### Default Font Family (since 1.19.0)
+
+`typography.defaultFontFamily` is the inherit target for ComposableScreen
+`Text`, `Button`, and `Input` elements. When an element omits `fontFamily` or
+sets it to the literal `"inherit"`, the renderer falls back to this token.
+
+Set it once at the theme level to brand every onboarding text element with a
+single family — no need to patch each `textStyles.*.fontFamily` entry or
+sprinkle `fontFamily` on every CMS payload element.
+
+```typescript
+<ThemeProvider
+  customTheme={{
+    typography: {
+      defaultFontFamily: "Lobster",
+    },
+  }}
+>
+  <YourApp />
+</ThemeProvider>
+```
+
+CMS payload examples:
+
+```json
+{ "type": "Text", "props": { "content": "Inherits Lobster" } }
+{ "type": "Text", "props": { "content": "Also Lobster", "fontFamily": "inherit" } }
+{ "type": "Text", "props": { "content": "Stays Inter", "fontFamily": "Inter" } }
+```
+
+Default value: `"Inter"`. Set to `undefined` to fall back to the platform
+system font when an element does not declare its own `fontFamily`.
+
 ### Font Sizes
 
 Override font size tokens:

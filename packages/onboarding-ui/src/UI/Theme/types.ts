@@ -52,6 +52,11 @@ export type TypographyTokens = {
     relaxed: number;
   };
   textStyles: TextStyles;
+  /**
+   * Inherit target for ComposableScreen typographic elements (Text/Button/Input).
+   * When an element omits `fontFamily` or sets it to `"inherit"`, this value is used.
+   */
+  defaultFontFamily?: string;
 };
 
 export type Theme = {

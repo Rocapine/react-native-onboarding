@@ -8,6 +8,25 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.19.0] - 2026-05-07
+
+### Added
+
+- **`fontFamily: "inherit"` on ComposableScreen `Text`/`Button`/`Input`** —
+  `TextElementProps`, `ButtonElementProps`, and `InputElementProps` now type
+  `fontFamily` as `string | "inherit"`. Omitting the prop or passing the
+  literal `"inherit"` makes the renderer fall back to
+  `theme.typography.defaultFontFamily`. Zod schemas remain
+  `z.string().optional()` — the `"inherit"` literal is just a recognised
+  string, no migration required for existing payloads.
+
+> **Backend note:** The `onboarding-studio` server should surface
+> `"inherit"` (or omission) as a first-class option when authoring
+> Text/Button/Input `fontFamily` so CMS users can opt into the host app's
+> default font.
+
+---
+
 ## [1.18.0] - 2026-05-06
 
 ### Added

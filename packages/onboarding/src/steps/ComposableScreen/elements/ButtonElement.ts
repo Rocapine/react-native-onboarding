@@ -37,7 +37,11 @@ export type ButtonElementProps = BaseBoxProps & {
   color?: string;
   fontSize?: number;
   fontWeight?: string;
-  fontFamily?: string;
+  /**
+   * Font family name. Omit or set to `"inherit"` to inherit from
+   * `theme.typography.defaultFontFamily`.
+   */
+  fontFamily?: string | "inherit";
   fontStyle?: "normal" | "italic";
   textAlign?: "left" | "center" | "right";
 };

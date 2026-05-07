@@ -46,6 +46,7 @@ const ComposableScreenRendererBase = ({ step, onContinue }: ContentProps) => {
       step={validatedData}
       onContinue={onContinue}
       theme={theme}
+      disableTopPadding
     >
       <ScrollView
         contentContainerStyle={styles.scrollContent}

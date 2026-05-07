@@ -9,6 +9,31 @@ here.
 
 ---
 
+## [1.19.0] - 2026-05-07
+
+### Added
+
+- **`typography.defaultFontFamily` theme token** — new optional field on
+  `TypographyTokens`. Defaults to `"Inter"`. Override via
+  `customTheme={{ typography: { defaultFontFamily: "Lobster" } }}` to brand
+  every ComposableScreen text element with one font without patching each
+  `textStyles.*.fontFamily` entry.
+- **Font inheritance on `Text`/`Button`/`Input` ComposableScreen
+  renderers** — when an element omits `fontFamily` or sets it to the
+  literal `"inherit"`, the renderer resolves the family against
+  `theme.typography.defaultFontFamily` before passing it to
+  `useResolvedFontStyle`. Resolution helper exported as
+  `resolveInheritedFontFamily` from the ComposableScreen `shared` module.
+- New `resolveInheritedFontFamily(elementFontFamily, themeDefault)` util at
+  `UI/Pages/ComposableScreen/elements/shared.ts`.
+
+### Changed
+
+- `ButtonElement`, `InputElement`, `TextElement` typings: `fontFamily?:
+  string | "inherit"` (was `string`).
+
+---
+
 ## [1.18.0] - 2026-05-06
 
 ### Added

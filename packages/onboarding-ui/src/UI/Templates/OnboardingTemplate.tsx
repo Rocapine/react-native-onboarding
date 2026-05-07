@@ -50,6 +50,7 @@ type OnboardingTemplateProps = {
   };
   step: OnboardingStepType;
   theme?: Theme;
+  disableTopPadding?: boolean;
 };
 
 export const OnboardingTemplate = ({
@@ -58,6 +59,7 @@ export const OnboardingTemplate = ({
   step,
   button,
   theme = defaultTheme,
+  disableTopPadding = false,
 }: OnboardingTemplateProps) => {
   return (
     <View
@@ -65,7 +67,8 @@ export const OnboardingTemplate = ({
         styles.container,
         {
           backgroundColor: theme.colors.neutral.lowest,
-          paddingTop: step.displayProgressHeader ? 40 : 0,
+          paddingTop:
+            disableTopPadding || !step.displayProgressHeader ? 0 : 40,
         },
       ]}
     >

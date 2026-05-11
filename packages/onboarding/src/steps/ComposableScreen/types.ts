@@ -36,10 +36,21 @@ export type { ZStackElementProps } from "./elements/ZStackElement";
 export type { SafeAreaViewElementProps, SafeAreaEdge, SafeAreaEdgeMode } from "./elements/SafeAreaViewElement";
 
 /**
- * A variable entry stored in the ComposableScreen variables map.
- * `value` is the canonical value (string), `label` is an optional display label.
+ * Type tag for a ComposableScreen variable. Drives expression-mode coercion
+ * in `setVariable` action evaluation (int/float math vs string concat).
  */
-export type ComposableVariableEntry = { value: string; label?: string };
+export type ComposableVariableKind = "int" | "float" | "string";
+
+/**
+ * A variable entry stored in the ComposableScreen variables map.
+ * `value` is the canonical value (always a string), `label` is an optional
+ * display label, `kind` optionally tags the underlying type.
+ */
+export type ComposableVariableEntry = {
+  value: string;
+  label?: string;
+  kind?: ComposableVariableKind;
+};
 
 // UIElement union — must live here (not in elements/) to avoid circular deps
 // because the Stack variant's children: UIElement[] references itself.

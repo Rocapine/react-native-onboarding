@@ -8,6 +8,20 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.22.0] - 2026-05-11
+
+### Added
+
+- **`kind` on `ComposableVariableEntry`** — optional `"int" | "float" | "string"`
+  tag on stored variables, exported as `ComposableVariableKind`. Drives
+  expression-mode coercion for `setVariable` actions (numeric math vs string
+  concat). Existing code paths ignore the tag, so back-compat is preserved.
+
+> **Backend note:** `onboarding-studio` should optionally surface a `kind`
+> field on `setVariable` actions and on any default variable seeding UI.
+
+---
+
 ## [1.21.0] - 2026-05-11
 
 ### Added

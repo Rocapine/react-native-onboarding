@@ -204,33 +204,49 @@ export default function ComposableScreenCarouselExample() {
               props: { gap: 8 },
               children: [
                 {
-                  id: 'vb-go-first',
+                  id: 'vb-go-prev',
                   type: 'Button' as const,
                   props: {
-                    label: 'First',
+                    label: 'Prev (expr)',
                     variant: 'outlined' as const,
                     flex: 1,
-                    actions: [{ type: 'setVariable' as const, name: 'carouselPage', value: '0' }],
-                  },
-                },
-                {
-                  id: 'vb-go-middle',
-                  type: 'Button' as const,
-                  props: {
-                    label: 'Middle',
-                    variant: 'outlined' as const,
-                    flex: 1,
-                    actions: [{ type: 'setVariable' as const, name: 'carouselPage', value: '1' }],
+                    actions: [
+                      {
+                        type: 'setVariable' as const,
+                        name: 'carouselPage',
+                        value: '{{carouselPage}} - 1',
+                        valueMode: 'expression' as const,
+                      },
+                    ],
                   },
                 },
                 {
                   id: 'vb-go-last',
                   type: 'Button' as const,
                   props: {
-                    label: 'Last',
+                    label: 'Last (literal)',
                     variant: 'outlined' as const,
                     flex: 1,
-                    actions: [{ type: 'setVariable' as const, name: 'carouselPage', value: '2' }],
+                    actions: [
+                      { type: 'setVariable' as const, name: 'carouselPage', value: '2', kind: 'int' as const },
+                    ],
+                  },
+                },
+                {
+                  id: 'vb-go-next',
+                  type: 'Button' as const,
+                  props: {
+                    label: 'Next (expr)',
+                    variant: 'outlined' as const,
+                    flex: 1,
+                    actions: [
+                      {
+                        type: 'setVariable' as const,
+                        name: 'carouselPage',
+                        value: '{{carouselPage}} + 1',
+                        valueMode: 'expression' as const,
+                      },
+                    ],
                   },
                 },
               ],

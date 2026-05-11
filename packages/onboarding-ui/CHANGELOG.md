@@ -9,6 +9,30 @@ here.
 
 ---
 
+## [1.22.0] - 2026-05-11
+
+### Added
+
+- **Expression mode on `setVariable` button action** — new optional
+  `valueMode?: "literal" | "expression"` and `kind?: "int" | "float" | "string"`
+  fields on `SetVariableButtonAction`. In `"expression"` mode `value` is
+  evaluated as an arithmetic expression supporting `{{var}}` references,
+  numeric literals, `+ - * /`, and parens. Variable values are coerced
+  according to their `kind` tag (string / int / float) or inferred from
+  string content when no tag is present. Numeric `+` on any string operand
+  becomes concat. Missing variables default to numeric 0 in arithmetic
+  context (so `{{counter}} + 1` works on first click). On any parse failure
+  the action falls back to plain `{{var}}` interpolation. Result kind is
+  written back to the variable entry so subsequent expressions can
+  re-evaluate without re-tagging.
+
+### Internal
+
+- New `elements/expression.ts` module — tokenizer + recursive-descent parser
+  for the expression-mode subset. Pure function, no dependencies, deterministic.
+
+---
+
 ## [1.21.0] - 2026-05-11
 
 ### Added

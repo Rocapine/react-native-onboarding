@@ -6,6 +6,7 @@ import {
   evaluateCondition,
   type LeafCondition,
   type ConditionGroup,
+  type ComposableVariableKind,
   LeafConditionSchema,
   ConditionGroupSchema,
 } from "@rocapine/react-native-onboarding";
@@ -14,6 +15,7 @@ import { UIElement } from "../types";
 import { RenderContext, dim, resolveInheritedFontFamily } from "./shared";
 import { GradientBox } from "./GradientBox";
 import { ComposableVariableEntry } from "../../../Provider/OnboardingProgressProvider";
+import { evaluateSetVariableExpression } from "./expression";
 
 export type CustomButtonAction = {
   type: "custom";
@@ -32,6 +34,20 @@ export type SetVariableButtonAction = {
   name: string;
   value: string;
   label?: string;
+  /**
+   * When `"expression"`, `value` is parsed as an arithmetic expression with
+   * `{{var}}` references, numeric literals, and `+ - * /` (parens supported).
+   * On parse failure, falls back to plain interpolation (string).
+   * Defaults to `"literal"` — `value` stored verbatim.
+   */
+  valueMode?: "literal" | "expression";
+  /**
+   * Tags the stored variable's underlying type. In `"literal"` mode this is
+   * used as-is. In `"expression"` mode the inferred result kind is used
+   * unless `kind` is explicitly set (ignored — expression mode derives kind
+   * from evaluation).
+   */
+  kind?: ComposableVariableKind;
 };
 
 export const SetVariableButtonActionSchema = z.object({
@@ -39,6 +55,8 @@ export const SetVariableButtonActionSchema = z.object({
   name: z.string().min(1, "name must not be empty"),
   value: z.string(),
   label: z.string().optional(),
+  valueMode: z.enum(["literal", "expression"]).optional(),
+  kind: z.enum(["int", "float", "string"]).optional(),
 });
 
 export type ButtonAction = "continue" | CustomButtonAction | SetVariableButtonAction;
@@ -119,7 +137,17 @@ export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElem
         return;
       }
       if (act.type === "setVariable") {
-        setVariable(act.name, { value: act.value, label: act.label });
+        let value: string;
+        let kind: ComposableVariableKind | undefined;
+        if (act.valueMode === "expression") {
+          const computed = evaluateSetVariableExpression(act.value, variables);
+          value = computed.value;
+          kind = computed.kind;
+        } else {
+          value = act.value;
+          kind = act.kind;
+        }
+        setVariable(act.name, { value, label: act.label, kind });
         continue;
       }
       const handler = customActions[act.function];

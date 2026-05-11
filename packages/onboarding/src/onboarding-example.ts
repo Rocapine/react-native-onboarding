@@ -337,7 +337,7 @@ export const onboardingExample = {
                   height: 220,
                   borderRadius: 16,
                   marginVertical: 8,
-                  defaultIndex: 1,
+                  defaultIndex: 0,
                   variableName: "carouselPage",
                 },
                 children: [
@@ -388,23 +388,37 @@ export const onboardingExample = {
                 props: { gap: 8, marginVertical: 4 },
                 children: [
                   {
-                    id: "carousel-go-first",
+                    id: "carousel-go-prev",
                     type: "Button",
                     props: {
-                      label: "First",
+                      label: "Prev",
                       variant: "outlined",
                       flex: 1,
-                      actions: [{ type: "setVariable", name: "carouselPage", value: "0" }],
+                      actions: [
+                        {
+                          type: "setVariable",
+                          name: "carouselPage",
+                          value: "{{carouselPage}} - 1",
+                          valueMode: "expression",
+                        },
+                      ],
                     },
                   },
                   {
-                    id: "carousel-go-last",
+                    id: "carousel-go-next",
                     type: "Button",
                     props: {
-                      label: "Last",
+                      label: "Next",
                       variant: "outlined",
                       flex: 1,
-                      actions: [{ type: "setVariable", name: "carouselPage", value: "2" }],
+                      actions: [
+                        {
+                          type: "setVariable",
+                          name: "carouselPage",
+                          value: "{{carouselPage}} + 1",
+                          valueMode: "expression",
+                        },
+                      ],
                     },
                   },
                 ],

@@ -21,7 +21,7 @@ UI package depends on headless package as peer dependency.
 ### Root (Monorepo)
 
 ```bash
-npm run build              # Build both packages
+npm run build              # Build both packages (trailing "Missing script: build" for `example` workspace is expected — both packages still build)
 npm run build:headless     # packages/onboarding only
 npm run build:ui           # packages/onboarding-ui only (also copies src/assets → dist/assets)
 npm run watch:headless     # Watch mode for headless
@@ -138,7 +138,8 @@ When adding/changing a `UIElement` type in either ComposableScreen `types.ts`, *
 
 1. **Update `packages/onboarding/src/onboarding-example.ts`** — add/update example step exercising the new/changed element type so default onboarding stays in sync with schema.
 2. **Update `example/app/example/composable-screen.tsx`** — add/update element in rendered example payload.
-3. **Display this prompt for `onboarding-studio` repo** (CMS backend that must mirror schema changes):
+3. **Watch for schema duplication in UI renderers.** Some UI element renderers (notably `Pages/ComposableScreen/elements/ButtonElement.tsx`) re-declare their Zod schemas + `*Props` type in lockstep with the headless source. When changing headless `elements/*.ts`, search the UI mirror file for the same field and update it too — TS won't catch the drift because the UI re-declares its own type.
+4. **Display this prompt for `onboarding-studio` repo** (CMS backend that must mirror schema changes):
 
 ```
 The ComposableScreen UIElement schema in the React Native SDK has been updated.

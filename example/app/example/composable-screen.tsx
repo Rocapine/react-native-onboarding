@@ -523,6 +523,34 @@ export default function ComposableScreenExample() {
                 },
               },
             },
+            // Disable-on-condition demo: gated continue + a setVariable companion.
+            {
+              id: 'consent-toggle',
+              type: 'Button' as const,
+              props: {
+                label: 'I agree to the terms',
+                variant: 'outlined' as const,
+                marginVertical: 8,
+                actions: [
+                  { type: 'setVariable' as const, name: 'consent_given', value: 'yes', label: 'Agreed' },
+                ],
+              },
+            },
+            {
+              id: 'gated-continue',
+              type: 'Button' as const,
+              props: {
+                label: 'Continue (gated)',
+                variant: 'filled' as const,
+                marginVertical: 4,
+                actions: ['continue' as const],
+                disabledWhen: {
+                  variable: 'consent_given',
+                  operator: 'neq' as const,
+                  value: 'yes',
+                },
+              },
+            },
             // Gradient horizontal band
             {
               id: 'gradient-band',

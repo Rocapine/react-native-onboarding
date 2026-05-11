@@ -475,6 +475,33 @@ export const onboardingExample = {
                   },
                 },
               },
+              {
+                id: "consent-toggle",
+                type: "Button",
+                props: {
+                  label: "I agree to the terms",
+                  variant: "outlined",
+                  marginVertical: 8,
+                  actions: [
+                    { type: "setVariable", name: "consent_given", value: "yes", label: "Agreed" },
+                  ],
+                },
+              },
+              {
+                id: "gated-continue",
+                type: "Button",
+                props: {
+                  label: "Continue (gated)",
+                  variant: "filled",
+                  marginVertical: 4,
+                  actions: ["continue"],
+                  disabledWhen: {
+                    variable: "consent_given",
+                    operator: "neq",
+                    value: "yes",
+                  },
+                },
+              },
             ],
           },
             ],

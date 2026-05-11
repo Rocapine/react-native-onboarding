@@ -1,5 +1,11 @@
 import { z } from "zod";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
+import {
+  type LeafCondition,
+  type ConditionGroup,
+  LeafConditionSchema,
+  ConditionGroupSchema,
+} from "../../common.types";
 
 export type CustomButtonAction = {
   type: "custom";
@@ -44,6 +50,16 @@ export type ButtonElementProps = BaseBoxProps & {
   fontFamily?: string | "inherit";
   fontStyle?: "normal" | "italic";
   textAlign?: "left" | "center" | "right";
+  /**
+   * When the condition evaluates truthy against current onboarding variables,
+   * the button blocks all press actions and renders in a disabled style. Uses
+   * the same condition schema as `Branch.condition`.
+   */
+  disabledWhen?: LeafCondition | ConditionGroup;
+  /** Override background color in the disabled state (filled variant). Defaults to `theme.colors.disable`. */
+  disabledBackgroundColor?: string;
+  /** Override text color in the disabled state. Defaults to `theme.colors.text.disable`. */
+  disabledColor?: string;
 };
 
 export const ButtonElementPropsSchema = BaseBoxPropsSchema.extend({
@@ -58,4 +74,7 @@ export const ButtonElementPropsSchema = BaseBoxPropsSchema.extend({
   fontFamily: z.string().optional(),
   fontStyle: z.enum(["normal", "italic"]).optional(),
   textAlign: z.enum(["left", "center", "right"]).optional(),
+  disabledWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
+  disabledBackgroundColor: z.string().optional(),
+  disabledColor: z.string().optional(),
 });

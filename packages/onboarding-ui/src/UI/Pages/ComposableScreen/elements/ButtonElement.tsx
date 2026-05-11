@@ -1,7 +1,14 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { z } from "zod";
 import { Text, TouchableOpacity } from "react-native";
-import { useResolvedFontStyle } from "@rocapine/react-native-onboarding";
+import {
+  useResolvedFontStyle,
+  evaluateCondition,
+  type LeafCondition,
+  type ConditionGroup,
+  LeafConditionSchema,
+  ConditionGroupSchema,
+} from "@rocapine/react-native-onboarding";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
 import { RenderContext, dim, resolveInheritedFontFamily } from "./shared";
@@ -59,6 +66,9 @@ export type ButtonElementProps = BaseBoxProps & {
   fontFamily?: string | "inherit";
   fontStyle?: "normal" | "italic";
   textAlign?: "left" | "center" | "right";
+  disabledWhen?: LeafCondition | ConditionGroup;
+  disabledBackgroundColor?: string;
+  disabledColor?: string;
 };
 
 export const ButtonElementPropsSchema = BaseBoxPropsSchema.extend({
@@ -73,6 +83,9 @@ export const ButtonElementPropsSchema = BaseBoxPropsSchema.extend({
   fontFamily: z.string().optional(),
   fontStyle: z.enum(["normal", "italic"]).optional(),
   textAlign: z.enum(["left", "center", "right"]).optional(),
+  disabledWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
+  disabledBackgroundColor: z.string().optional(),
+  disabledColor: z.string().optional(),
 });
 
 type ButtonUIElement = Extract<UIElement, { type: "Button" }>;
@@ -84,7 +97,18 @@ type Props = {
 
 export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElement => {
   const { theme, onContinue, customActions, variables, setVariable } = ctx;
+  const flatVariables = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(variables).map(([k, v]) => [k, v?.value])
+      ),
+    [variables]
+  );
+  const isDisabled = element.props.disabledWhen
+    ? evaluateCondition(element.props.disabledWhen, flatVariables)
+    : false;
   const handlePress = async () => {
+    if (isDisabled) return;
     const { actions, action } = element.props;
     const effective: ButtonAction[] =
       actions ?? (action === "continue" ? ["continue"] : []);
@@ -122,14 +146,27 @@ export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElem
   const variant = element.props.variant ?? "filled";
   const isFilled = variant === "filled";
   const isOutlined = variant === "outlined";
-  const bgColor = isFilled
-    ? (element.props.backgroundColor ?? theme.colors.primary)
-    : "transparent";
-  const textColor = isFilled
-    ? (element.props.color ?? theme.colors.text.opposite)
-    : (element.props.color ?? theme.colors.primary);
+  const disabledBg =
+    element.props.disabledBackgroundColor ?? theme.colors.disable;
+  const disabledText =
+    element.props.disabledColor ?? theme.colors.text.disable;
+  const bgColor = isDisabled
+    ? isFilled
+      ? disabledBg
+      : "transparent"
+    : isFilled
+      ? (element.props.backgroundColor ?? theme.colors.primary)
+      : "transparent";
+  const textColor = isDisabled
+    ? disabledText
+    : isFilled
+      ? (element.props.color ?? theme.colors.text.opposite)
+      : (element.props.color ?? theme.colors.primary);
+  const outlinedBorderColor = isDisabled
+    ? disabledBg
+    : (element.props.borderColor ?? theme.colors.primary);
 
-  const hasGradient = isFilled && !!element.props.backgroundGradient;
+  const hasGradient = isFilled && !isDisabled && !!element.props.backgroundGradient;
   const borderRadius = element.props.borderRadius ?? 90;
   const inheritedFontFamily = resolveInheritedFontFamily(
     element.props.fontFamily,
@@ -164,7 +201,7 @@ export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElem
         style={{
           borderRadius,
           borderWidth: isOutlined ? (element.props.borderWidth ?? 1) : (element.props.borderWidth ?? 0),
-          borderColor: isOutlined ? (element.props.borderColor ?? theme.colors.primary) : element.props.borderColor,
+          borderColor: isOutlined ? outlinedBorderColor : element.props.borderColor,
           width: dim(element.props.width),
           height: dim(element.props.height),
           margin: element.props.margin,
@@ -178,6 +215,7 @@ export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElem
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={handlePress}
+          disabled={isDisabled}
           style={{
             flex: 1,
             padding: element.props.padding,
@@ -197,11 +235,12 @@ export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElem
     <TouchableOpacity
       activeOpacity={0.8}
       onPress={handlePress}
+      disabled={isDisabled}
       style={{
         backgroundColor: bgColor,
         borderRadius,
         borderWidth: isOutlined ? (element.props.borderWidth ?? 1) : (element.props.borderWidth ?? 0),
-        borderColor: isOutlined ? (element.props.borderColor ?? theme.colors.primary) : element.props.borderColor,
+        borderColor: isOutlined ? outlinedBorderColor : element.props.borderColor,
         padding: element.props.padding,
         paddingVertical: element.props.paddingVertical ?? 14,
         paddingHorizontal: element.props.paddingHorizontal ?? 24,

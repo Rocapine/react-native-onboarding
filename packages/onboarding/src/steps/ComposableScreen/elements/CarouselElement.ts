@@ -13,6 +13,8 @@ export type CarouselElementProps = BaseBoxProps & {
   dotHeight?: number;
   dotsGap?: number;
   dotsMarginTop?: number;
+  defaultIndex?: number | null;
+  variableName?: string;
 };
 
 export const CarouselElementPropsSchema = BaseBoxPropsSchema.extend({
@@ -27,4 +29,6 @@ export const CarouselElementPropsSchema = BaseBoxPropsSchema.extend({
   dotHeight: z.number().nonnegative().optional().default(4),
   dotsGap: z.number().nonnegative().optional().default(8),
   dotsMarginTop: z.number().optional().default(12),
+  defaultIndex: z.number().int().nonnegative().nullable().optional(),
+  variableName: z.string().min(1).optional(),
 });

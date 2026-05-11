@@ -9,6 +9,22 @@ here.
 
 ---
 
+## [1.21.0] - 2026-05-11
+
+### Added
+
+- **Variable-bound `Carousel` index** — Carousel renderer mirrors the new
+  `defaultIndex` and `variableName` schema fields. Initial page resolves from
+  the variable value (when `variableName` set and parsable as int) then falls
+  back to `defaultIndex ?? 0`; index is clamped to `[0, children.length - 1]`
+  and frozen at mount to avoid carousel remounts. A `useEffect` watching the
+  variable value calls `ref.scrollTo()` on external changes (e.g. `setVariable`
+  button actions); `onSnapToItem` writes the current index back as a string
+  when `variableName` is set. A `lastSyncedIndex` ref prevents
+  external↔swipe feedback loops.
+
+---
+
 ## [1.20.0] - 2026-05-11
 
 ### Added

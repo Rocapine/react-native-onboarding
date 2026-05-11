@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { View, type LayoutChangeEvent } from "react-native";
 import { z } from "zod";
 import { useSharedValue } from "react-native-reanimated";
@@ -20,6 +20,8 @@ export type CarouselElementProps = BaseBoxProps & {
   dotHeight?: number;
   dotsGap?: number;
   dotsMarginTop?: number;
+  defaultIndex?: number | null;
+  variableName?: string;
 };
 
 export const CarouselElementPropsSchema = BaseBoxPropsSchema.extend({
@@ -34,6 +36,8 @@ export const CarouselElementPropsSchema = BaseBoxPropsSchema.extend({
   dotHeight: z.number().nonnegative().optional().default(4),
   dotsGap: z.number().nonnegative().optional().default(8),
   dotsMarginTop: z.number().optional().default(12),
+  defaultIndex: z.number().int().nonnegative().nullable().optional(),
+  variableName: z.string().min(1).optional(),
 });
 
 type CarouselUIElement = Extract<UIElement, { type: "Carousel" }>;
@@ -53,6 +57,30 @@ export function CarouselElementComponent({ element, ctx }: Props): React.ReactEl
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
 
   const carouselType = props.carouselType ?? "normal";
+
+  const variableName = props.variableName;
+  const variableValue = variableName ? ctx.variables[variableName]?.value : undefined;
+  const childrenCount = children.length;
+  const clampIndex = (n: number) => Math.max(0, Math.min(n, Math.max(0, childrenCount - 1)));
+
+  // Frozen on first mount — RNRC `defaultIndex` only applies at mount.
+  const initialIndexRef = useRef<number | null>(null);
+  if (initialIndexRef.current === null) {
+    const parsed = variableValue !== undefined ? parseInt(variableValue, 10) : NaN;
+    const fromVar = Number.isFinite(parsed) ? parsed : null;
+    initialIndexRef.current = clampIndex(fromVar ?? props.defaultIndex ?? 0);
+  }
+  const lastSyncedIndexRef = useRef<number>(initialIndexRef.current);
+
+  useEffect(() => {
+    if (!variableName) return;
+    const parsed = parseInt(variableValue ?? "", 10);
+    if (!Number.isFinite(parsed)) return;
+    const target = clampIndex(parsed);
+    if (target === lastSyncedIndexRef.current) return;
+    lastSyncedIndexRef.current = target;
+    ref.current?.scrollTo({ count: target - progress.value, animated: true });
+  }, [variableName, variableValue, childrenCount]);
 
   const onLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
@@ -132,6 +160,7 @@ export function CarouselElementComponent({ element, ctx }: Props): React.ReactEl
             loop={props.loop}
             autoPlay={props.autoPlay}
             autoPlayInterval={props.autoPlayInterval}
+            defaultIndex={initialIndexRef.current ?? 0}
             snapEnabled={true}
             pagingEnabled={true}
             data={children}
@@ -141,6 +170,12 @@ export function CarouselElementComponent({ element, ctx }: Props): React.ReactEl
             renderItem={({ item }: { item: UIElement }) => ctx.renderChildren([item], "YStack")}
             onProgressChange={(_: number, absoluteProgress: number) => {
               progress.value = absoluteProgress;
+            }}
+            onSnapToItem={(index: number) => {
+              if (!variableName) return;
+              if (index === lastSyncedIndexRef.current) return;
+              lastSyncedIndexRef.current = index;
+              ctx.setVariable(variableName, { value: String(index) });
             }}
             {...(modeProps as any)}
           />

@@ -8,6 +8,26 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.21.0] - 2026-05-11
+
+### Added
+
+- **`defaultIndex` and `variableName` on ComposableScreen `Carousel`** — new
+  optional props on `CarouselElementProps`. `defaultIndex` (integer, ≥ 0,
+  nullable) sets the initial page at mount. `variableName` binds the carousel
+  index to a variable in the ComposableScreen variable store: `setVariable`
+  button actions targeting that name scroll the carousel imperatively, and
+  user swipes write the new index back to the variable so other elements
+  (`Text` `{{var}}` interpolation, branching `evaluateCondition`) can react.
+  Invalid / out-of-range values clamp to `[0, children.length - 1]`; missing
+  / non-numeric values fall back to `defaultIndex ?? 0`.
+
+> **Backend note:** `onboarding-studio` should mirror the `defaultIndex` and
+> `variableName` fields on the Carousel UIElement schema and surface them in
+> the CMS editor.
+
+---
+
 ## [1.20.0] - 2026-05-11
 
 ### Added

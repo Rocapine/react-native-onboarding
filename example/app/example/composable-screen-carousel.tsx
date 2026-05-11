@@ -164,6 +164,78 @@ export default function ComposableScreenCarouselExample() {
               ],
             },
             {
+              id: 'variable-bound-label',
+              type: 'Text',
+              props: { content: 'variable-bound (defaultIndex + variableName)', fontSize: 13, fontWeight: '600', opacity: 0.5 },
+            },
+            {
+              id: 'carousel-variable-bound',
+              type: 'Carousel' as const,
+              props: {
+                carouselType: 'normal' as const,
+                autoPlay: false,
+                loop: false,
+                showDots: true,
+                height: 160,
+                borderRadius: 12,
+                defaultIndex: 0,
+                variableName: 'carouselPage',
+              },
+              children: [
+                { id: 'vb-slide-1', type: 'Image' as const, props: { url: 'https://picsum.photos/400/160?random=21', height: 160, resizeMode: 'cover' as const } },
+                { id: 'vb-slide-2', type: 'Image' as const, props: { url: 'https://picsum.photos/400/160?random=22', height: 160, resizeMode: 'cover' as const } },
+                { id: 'vb-slide-3', type: 'Image' as const, props: { url: 'https://picsum.photos/400/160?random=23', height: 160, resizeMode: 'cover' as const } },
+              ],
+            },
+            {
+              id: 'variable-bound-page',
+              type: 'Text' as const,
+              props: {
+                content: 'Current page: {{carouselPage}}',
+                mode: 'expression' as const,
+                fontSize: 14,
+                textAlign: 'center' as const,
+                opacity: 0.6,
+              },
+            },
+            {
+              id: 'variable-bound-controls',
+              type: 'XStack' as const,
+              props: { gap: 8 },
+              children: [
+                {
+                  id: 'vb-go-first',
+                  type: 'Button' as const,
+                  props: {
+                    label: 'First',
+                    variant: 'outlined' as const,
+                    flex: 1,
+                    actions: [{ type: 'setVariable' as const, name: 'carouselPage', value: '0' }],
+                  },
+                },
+                {
+                  id: 'vb-go-middle',
+                  type: 'Button' as const,
+                  props: {
+                    label: 'Middle',
+                    variant: 'outlined' as const,
+                    flex: 1,
+                    actions: [{ type: 'setVariable' as const, name: 'carouselPage', value: '1' }],
+                  },
+                },
+                {
+                  id: 'vb-go-last',
+                  type: 'Button' as const,
+                  props: {
+                    label: 'Last',
+                    variant: 'outlined' as const,
+                    flex: 1,
+                    actions: [{ type: 'setVariable' as const, name: 'carouselPage', value: '2' }],
+                  },
+                },
+              ],
+            },
+            {
               id: 'rive-label',
               type: 'Text',
               props: { content: 'rive slides', fontSize: 13, fontWeight: '600', opacity: 0.5 },

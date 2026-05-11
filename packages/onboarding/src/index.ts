@@ -7,6 +7,7 @@ export type {
   ButtonAction,
   CustomButtonAction,
   ComposableVariableEntry,
+  ComposableVariableKind,
 } from "./steps/ComposableScreen/types";
 export {
   ButtonActionSchema,

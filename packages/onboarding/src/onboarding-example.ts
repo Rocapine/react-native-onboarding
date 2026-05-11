@@ -331,13 +331,14 @@ export const onboardingExample = {
                 type: "Carousel",
                 props: {
                   carouselType: "parallax",
-                  autoPlay: true,
-                  autoPlayInterval: 3000,
+                  autoPlay: false,
                   loop: true,
                   showDots: true,
                   height: 220,
                   borderRadius: 16,
                   marginVertical: 8,
+                  defaultIndex: 0,
+                  variableName: "carouselPage",
                 },
                 children: [
                   {
@@ -365,6 +366,59 @@ export const onboardingExample = {
                       url: "https://picsum.photos/400/220?random=12",
                       height: 220,
                       resizeMode: "cover",
+                    },
+                  },
+                ],
+              },
+              {
+                id: "carousel-page-label",
+                type: "Text",
+                props: {
+                  content: "Carousel page: {{carouselPage}}",
+                  mode: "expression",
+                  fontSize: 14,
+                  textAlign: "center",
+                  opacity: 0.6,
+                  marginVertical: 4,
+                },
+              },
+              {
+                id: "carousel-controls",
+                type: "XStack",
+                props: { gap: 8, marginVertical: 4 },
+                children: [
+                  {
+                    id: "carousel-go-prev",
+                    type: "Button",
+                    props: {
+                      label: "Prev",
+                      variant: "outlined",
+                      flex: 1,
+                      actions: [
+                        {
+                          type: "setVariable",
+                          name: "carouselPage",
+                          value: "{{carouselPage}} - 1",
+                          valueMode: "expression",
+                        },
+                      ],
+                    },
+                  },
+                  {
+                    id: "carousel-go-next",
+                    type: "Button",
+                    props: {
+                      label: "Next",
+                      variant: "outlined",
+                      flex: 1,
+                      actions: [
+                        {
+                          type: "setVariable",
+                          name: "carouselPage",
+                          value: "{{carouselPage}} + 1",
+                          valueMode: "expression",
+                        },
+                      ],
                     },
                   },
                 ],

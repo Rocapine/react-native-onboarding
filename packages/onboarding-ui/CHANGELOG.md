@@ -9,6 +9,22 @@ here.
 
 ---
 
+## [1.20.0] - 2026-05-11
+
+### Added
+
+- **Disabled-state support on ComposableScreen `Button` renderer** — the
+  renderer now reads `disabledWhen`, `disabledBackgroundColor`, and
+  `disabledColor` from `ButtonElementProps`. When the condition evaluates
+  truthy against `ctx.variables` (flattened to primitive values), the
+  `TouchableOpacity` is disabled and the button renders with the disable
+  color tokens (`theme.colors.disable`, `theme.colors.text.disable`) or
+  the per-button overrides. Filled buttons with a `backgroundGradient`
+  drop the gradient in the disabled state for a clearer affordance;
+  outlined buttons swap the border to the disable color.
+
+---
+
 ## [1.19.0] - 2026-05-07
 
 ### Added

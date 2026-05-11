@@ -8,6 +8,29 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.20.0] - 2026-05-11
+
+### Added
+
+- **`disabledWhen` on ComposableScreen `Button`** — new optional prop on
+  `ButtonElementProps` accepting a `LeafCondition | ConditionGroup` (the
+  same schema used by `Branch.condition`). When the condition evaluates
+  truthy against current onboarding variables, the button blocks all
+  press actions (continue, setVariable, custom) and renders in a disabled
+  visual style.
+- **`disabledBackgroundColor` and `disabledColor` on `Button`** — optional
+  per-button overrides for the disabled-state colors. Defaults fall back to
+  `theme.colors.disable` and `theme.colors.text.disable`.
+- **`evaluateCondition`, `evaluateLeaf`, `isConditionGroup`, `Condition`**
+  now exported from the package root so UI code (and host apps) can reuse
+  the same condition runtime that powers branching.
+
+> **Backend note:** `onboarding-studio` should mirror these `Button`
+> schema fields and reuse the existing condition-builder UI from the
+> `Branch.condition` editor.
+
+---
+
 ## [1.19.0] - 2026-05-07
 
 ### Added

@@ -16,6 +16,8 @@ export {
 export * from "./infra";
 // Branching
 export { resolveNextStepNumber } from "./resolveNextStepNumber";
+export { evaluateCondition, evaluateLeaf, isConditionGroup } from "./evaluateCondition";
+export type { Condition } from "./evaluateCondition";
 export type {
   LeafCondition,
   ConditionGroup,

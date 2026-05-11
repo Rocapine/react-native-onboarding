@@ -36,3 +36,16 @@ const f = useResolvedFontStyle(props.fontFamily, props.fontWeight);
 `f.resolvedToVariant === true` → registry matched concrete weighted variant (e.g. `Inter-700`); **suppress `fontWeight`** or iOS/Android applies synthetic emboldening on top of already-weighted font file.
 
 Use legacy `useResolvedFontFamily` only for elements that never set `fontWeight`.
+
+## RenderContext variables → primitive flattening
+
+`ctx.variables` is `Record<string, ComposableVariableEntry>` (each entry `{value, label?}`). Headless utils that expect primitive variables (`evaluateCondition`, `evaluateLeaf`, `resolveNextStepNumber`) want `Record<string, unknown>`. Flatten before calling:
+
+```ts
+const flatVars = useMemo(
+  () => Object.fromEntries(Object.entries(variables).map(([k, v]) => [k, v?.value])),
+  [variables]
+);
+```
+
+Skip the flatten and your condition reads the entry object, not its value — every `eq`/`neq` silently mis-evaluates.

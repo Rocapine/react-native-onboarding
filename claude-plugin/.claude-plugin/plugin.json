@@ -1,0 +1,17 @@
+{
+  "name": "rocapine-onboarding",
+  "version": "0.1.0",
+  "description": "End-to-end workflow for building and updating Rocapine Onboarding Studio flows: author step JSON, integrate the headless + UI SDKs, customize theme/components, and review onboarding quality.",
+  "author": {
+    "name": "Rocapine",
+    "email": "paulb@rocapine.com"
+  },
+  "homepage": "https://github.com/rocapine/react-native-onboarding",
+  "keywords": [
+    "rocapine",
+    "onboarding",
+    "react-native",
+    "expo",
+    "composable-screen"
+  ]
+}

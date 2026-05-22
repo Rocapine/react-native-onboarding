@@ -12,11 +12,13 @@ Install `@rocapine/react-native-onboarding` and wire `OnboardingProvider` + `use
 ## When invoked
 
 1. **Inspect target app first** — run the probe from `../onboarding-best-practices/references/inspect-target-app.md`. Capture entry point, existing theme system, font loading mechanism, env-var convention, error-boundary library in use. Tailor every step below to those findings.
-2. Verify target is an Expo/RN app: `package.json` contains `expo` or `react-native`.
-3. Check if SDK already installed. If yes, jump to wiring step.
-3. Install:
+2. **Run `check-sdk-version` skill** if SDK already installed — if mismatched, propose upgrade and wait for user decision before continuing. User refusal is fine; carry on with whatever's installed.
+3. Verify target is an Expo/RN app: `package.json` contains `expo` or `react-native`.
+4. Check if SDK already installed. If yes, jump to wiring step.
+5. Install (pin to the plugin's version so authoring + runtime align):
    ```bash
-   npm install @rocapine/react-native-onboarding
+   PLUGIN_VERSION=$(node -p "require('<plugin-path>/.claude-plugin/plugin.json').version")
+   npm install @rocapine/react-native-onboarding@$PLUGIN_VERSION
    # peer deps already in most RN apps:
    npm install @tanstack/react-query @react-native-async-storage/async-storage
    ```

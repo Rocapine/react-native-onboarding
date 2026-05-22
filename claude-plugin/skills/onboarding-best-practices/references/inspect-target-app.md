@@ -1,68 +1,177 @@
 # Inspect Target App Before Building
 
-Every authoring/integration skill in this plugin should run a 60-second target-app probe before producing output. Copy steps it cares about.
+Every authoring + integration skill in this plugin must run this probe before producing output. The goal: produce a structured **Design Profile** that downstream skills inject into every UIElement they emit.
 
-## Why
+Generic onboarding output is a regression. ComposableScreens should be indistinguishable from screens written by hand inside the host app.
 
-ComposableScreen authoring without app context produces generic results that drift from the host design system. The plugin must match: tokens, fonts, components, copy voice, motion language.
+## The Design Profile (target output of this probe)
 
-## Probe checklist
+```ts
+type DesignProfile = {
+  // Colors — all from existing design system, never invented
+  brand: { primary: string; secondary?: string; accent?: string; danger?: string };
+  surface: { app: string; card: string; raised: string; inverse: string };
+  text: { primary: string; secondary: string; tertiary: string; onBrand: string; muted: string };
+  border: { default: string; subtle: string; strong: string };
 
-1. **App entry point** — find the OnboardingProvider mount:
-   - `app/_layout.tsx` (Expo Router)
-   - `App.tsx` / `src/App.tsx` (bare RN)
-   - `index.ts`
+  // Typography — names + scale
+  fonts: {
+    heading: string;   // family name loaded via expo-font / useFonts
+    body: string;
+    mono?: string;
+    loadedNames: string[];  // every family the app actually loads
+  };
+  typeScale: {
+    display: number; h1: number; h2: number; h3: number;
+    body: number; bodySm: number; caption: number;
+  };
+  fontWeights: {
+    regular: string; medium: string; semibold: string; bold: string;
+  };
+  lineHeightMultiplier: number; // usually 1.2–1.5
 
-2. **Theme tokens** — find lightTheme / darkTheme passed to OnboardingProvider. Read the brand color, surface colors, font families. Note any override pattern (object spread on `lightTokens` / `darkTokens`).
+  // Spacing + shape — pulled from existing Button + Card components
+  radius: { sm: number; md: number; lg: number; pill: number };
+  spacing: { xs: number; sm: number; md: number; lg: number; xl: number };
+  buttonHeight: number;          // standard primary button height
+  buttonPaddingH: number;        // standard primary button horizontal padding
+  buttonBorderRadius: number;    // standard primary button corner radius
+  inputHeight: number;
+  inputBorderRadius: number;
 
-3. **Fonts** — grep `Font.loadAsync` or `useFonts` to enumerate loaded font families. Match these names in any `Text` element you author.
+  // Brand voice
+  voice: {
+    case: "sentence" | "title";
+    person: "you" | "we" | "mixed";
+    ctaVerbs: string[];          // ["Continue", "Get started", ...]
+    usesEmoji: boolean;
+  };
 
-4. **Design system** — look for one of:
-   - `src/design-system/`, `src/theme/`, `src/ui/`, `src/components/ui/`
-   - `tamagui.config.ts`, `nativewind`, `tailwind.config.*`
-   - Style tokens file (`tokens.ts`, `colors.ts`, `spacing.ts`)
-   - Storybook (`*.stories.tsx`)
-   
-   Read the most representative button + text styles. Note: border radius, button height, padding, font weight conventions.
+  // Media + motion
+  motion: {
+    reanimated: boolean;
+    moti: boolean;
+    lottie: boolean;
+    rive: boolean;
+  };
+  iconLib: "lucide" | "material" | "feather" | "phosphor" | "custom" | "none";
 
-5. **Voice/tone** — read any existing onboarding screen, marketing copy, or App Store description. Note:
-   - Sentence case vs Title Case
-   - CTA verbs the brand uses ("Get started", "Let's go", "Begin")
-   - Whether app uses emoji in UI
-   - Person (you/your vs we/our)
+  // App architecture
+  entry: "expo-router" | "react-navigation" | "other";
+  themeProvider: "tamagui" | "nativewind" | "restyle" | "custom" | "none";
+  i18n: boolean;
+  varNamingStyle: "camelCase" | "snake_case" | "kebab-case";
 
-6. **Component library** — check for custom button, input, card components. Mirror their visual language in `BaseBoxProps`:
-   - `borderRadius` from the most-used button
-   - `padding` from the standard button
-   - `backgroundColor` token mapping
+  // Existing assets to reuse
+  existingButtonComponent?: { path: string; importName: string };
+  existingCardComponent?: { path: string; importName: string };
+  designSystemRoot?: string;     // e.g. "src/design-system"
+  tokenFiles: string[];          // paths to discovered token files
+};
+```
 
-7. **Existing onboarding** — if any step JSON or `ComposableScreen` already exists in the repo (`*.json`, examples, fixtures), read 1–2 to learn:
-   - Naming conventions for IDs
-   - Variable naming style (`goal` vs `userGoal`)
-   - Whether `name` mirrors `id` or is human-readable
+## Extraction protocol
 
-8. **Motion** — check if `react-native-reanimated` is installed and used. If yes, the brand expects motion; lean into Carousel/animated transitions. If no, keep static.
+For each field, run the listed checks. Capture file:line citations so the user can audit.
 
-9. **Locale strategy** — single-locale or multi? Look for `i18n`, `expo-localization`, locale files. If multi-locale, keep copy short for translation.
+### Brand colors
 
-10. **Accessibility level** — grep `accessibilityLabel`. High coverage = ship accessibility-first; low = match team's existing baseline.
+1. `grep -r "primary\s*[:=]\s*['\"#]"` in `src/**`, `app/**`, `theme*`, `tokens*`, `colors*`
+2. Check `tailwind.config.*` → `theme.colors`
+3. Check `tamagui.config.ts` → `themes.light.primary`
+4. Check `app.json` / `app.config.*` → `expo.primaryColor`, `splash.backgroundColor`
+5. Fall back: read 3 prominent screens and pull the most-used hex
+6. If `react-native-paper` / `restyle`: read its theme
 
-## How to use the probe output
+### Typography
 
-Inject into the authoring output:
+1. `grep -rn "useFonts\|Font.loadAsync\|fontFamily"` in entry files
+2. `grep -rn "fontSize:"` to derive scale from common values
+3. Read existing `<Text>` / typography component for weight conventions
+4. Check `src/theme/typography.ts`, `tokens/typography.ts`
 
-- Use brand color from theme, not generic `#FF6B35`.
-- Use font families from probe, not arbitrary names.
-- Match border radius and padding conventions in `BaseBoxProps`.
-- Match copy voice ("Continue" vs "Let's go") in `continueButtonLabel`.
-- Reuse variable naming style.
+### Spacing + radius
+
+1. Find the primary button component (`Button.tsx`, `PrimaryButton.tsx`, `CTAButton.tsx`):
+   - Read its `borderRadius`, `paddingHorizontal`, `height`, `backgroundColor` props/styles
+   - Read child `<Text>` styles for label typography
+2. Same for input component (`Input.tsx`, `TextField.tsx`)
+3. Same for card/list-item component
+4. If Tamagui: read `tokens.size` + `tokens.radius`
+5. If Tailwind: parse `theme.borderRadius`, `theme.spacing`
+
+### Voice
+
+1. Read 3 existing screens of copy (titles, button labels, descriptions)
+2. Check `package.json.description` and App Store description if present
+3. Note case style, person, verb patterns
+4. Sample: `grep -rn "title=\|label=" app/onboarding/` if any existing onboarding present
+
+### Architecture detection
+
+| Indicator | Detect |
+|-----------|--------|
+| `app/_layout.tsx` exists | `expo-router` |
+| `@react-navigation/native` in deps | `react-navigation` |
+| `tamagui` in deps | `themeProvider: "tamagui"` |
+| `nativewind` or `tailwind.config.*` | `themeProvider: "nativewind"` |
+| `@shopify/restyle` | `themeProvider: "restyle"` |
+| `expo-localization` / `i18n-js` / `react-i18next` in deps | `i18n: true` |
+
+### Variable naming style
+
+Read existing state/variable names (`useState`, function params, prop interfaces) to derive convention.
+
+## Output the Design Profile
+
+After the probe, surface a compact block at the top of every authoring output:
+
+```
+## Design profile
+- Brand: #27ae60 (primary), #1e8449 (secondary)  ← src/design-system/tokens.ts:5-9
+- Fonts: Geist-Bold (heading), Geist-Regular (body)  ← app/_layout.tsx:12-16
+- Type scale: h1=28, h2=22, body=16, caption=13
+- Radius: 12 (buttons), 16 (cards)  ← src/components/Button.tsx:14
+- Spacing: 4/8/16/24/32
+- Button: 56px tall, 24h padding, primary bg #27ae60, white text  ← src/components/Button.tsx:8-20
+- Input: 48px tall, 12 radius, 1px border #E5E5E5  ← src/components/Input.tsx
+- Voice: sentence case, "you"-form, CTAs: "Continue", "Get started"
+- Motion: Reanimated ✓, Lottie ✓
+- Icon lib: lucide
+- Architecture: expo-router, tamagui, i18n enabled
+```
+
+## How downstream skills use it
+
+For every UIElement they emit:
+
+- `Button.props.backgroundColor` ← `brand.primary`
+- `Button.props.color` ← `text.onBrand`
+- `Button.props.fontFamily` ← `fonts.heading` (or `body` if buttons use body font)
+- `Button.props.fontSize` ← match standard from probe
+- `Button.props.fontWeight` ← `fontWeights.semibold`
+- `Button.props.borderRadius` ← `buttonBorderRadius`
+- `Button.props.height` ← `buttonHeight` (or use `paddingVertical` derived)
+- `Text` `fontFamily` / `fontSize` / `color` from profile
+- `Input.borderRadius` ← `inputBorderRadius`
+- `YStack`/`XStack` `gap` + `padding` snap to `spacing` ladder (4/8/16/24/32 etc.)
+- `Image` / `Card` containers use `radius.md` or `radius.lg`
+- CTA label verb from `voice.ctaVerbs`
+
+## Anti-patterns
+
+- Don't use generic Tailwind defaults (`#3b82f6` blue, `#22c55e` green) when app uses different brand.
+- Don't pick a font family that isn't in `fonts.loadedNames`.
+- Don't snap to "design-system-y" radius like 8 if the app's button uses 16.
+- Don't case-shift copy ("Continue" → "CONTINUE") to look bolder.
+- Don't add emoji when `voice.usesEmoji === false`.
 
 ## When probe is impossible
 
-If working without access to a target app (just designing JSON in isolation), say so explicitly in the output:
+If working in isolation (no target app):
 
 ```
-⚠ No target app inspected — using SDK defaults. Re-run inside the consuming app to align with brand tokens.
+⚠ No target app inspected — Design Profile is the SDK defaults. Re-run inside the consuming app to align with brand tokens, typography, and component conventions.
 ```
 
-Don't silently invent brand colors.
+Don't silently use generic values.

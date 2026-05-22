@@ -12,15 +12,15 @@ This plugin uses **ComposableScreen exclusively**. This skill is the deep refere
 
 ### 1. Inspect target app first
 
-Run probe from `../onboarding-best-practices/references/inspect-target-app.md`. Capture:
+Run probe from `../onboarding-best-practices/references/inspect-target-app.md`. Capture the structured **Design Profile** (brand colors, surface tones, text colors, fonts + scale, font weights, radius scale, spacing scale, button height/padding/radius, input height/radius, voice, motion libs, icon lib, naming style, existing button/card component paths).
 
-- Brand colors (primary, surface, text)
-- Font families (loaded via `expo-font`)
-- Border radius + padding conventions
-- Whether host uses Reanimated (motion-friendly)
-- Existing custom components / icon sets
+Inject every value into every element you emit. Never:
 
-Inject probe output into every element. No generic hex. No invented font names.
+- ship a `Text` without explicit `fontFamily` / `fontSize` / `color`
+- ship a `Button` without explicit `backgroundColor` / `color` / `borderRadius` / `fontFamily`
+- ship a `RadioGroup` without explicit `itemBackgroundColor` / `itemSelectedBackgroundColor` / `itemBorderRadius`
+- pick `gap` / `padding` values not on the app's spacing ladder
+- use generic Tailwind-default colors when the app has its own brand
 
 ### 2. Pick archetype
 
@@ -57,8 +57,8 @@ Authoritative prop shapes: `packages/onboarding/src/steps/ComposableScreen/eleme
 
 **There is no `payload.variables` map.** Variables live at runtime in the headless provider's variables store. They are populated by:
 
-- Prior steps' `variableName` (Picker, Question — legacy step types)
 - This screen's `Input` / `RadioGroup` / `CheckboxGroup` / `DatePicker` `variableName` prop
+- Prior ComposableScreen steps' bound element captures
 - `Button.actions` containing a `setVariable` action: `{ "type": "setVariable", "name": "counter", "value": "{{counter}} + 1", "valueMode": "expression" }`
 
 Reference variables from `Text` ONLY when `Text.props.mode === "expression"`. Then `{{name}}` in `content` interpolates. Without `mode: "expression"`, `{{name}}` renders as literal text.
@@ -138,7 +138,7 @@ Group form:
 3. Replace tokens/copy with probe values.
 4. Declare every variable referenced.
 5. Add elements top-to-bottom with kebab-case IDs.
-6. Put `{ "type": "YStack", "props": { "flex": 1 } }` spacer above CTA when CTA should pin to bottom.
+6. Put `{ "type": "YStack", "props": { "flex": 1 }, "children": [] }` spacer above CTA when CTA should pin to bottom. The empty `children: []` is required — Studio renderer crashes without it.
 7. Validate via `validate-step-json`.
 
 ## Schema source of truth
@@ -165,6 +165,7 @@ Group form:
 ## Anti-patterns
 
 - Don't write `payload.root` or `payload.variables` — they don't exist and crash Studio (`els is not iterable` when reading `payload.elements`).
+- **Every container element (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `Carousel`) MUST have a `children` field. Use `"children": []` for empty containers (spacers, blank panels).** Studio renderer does `el.children.map(...)` unconditionally — missing `children` crashes with `Cannot read properties of undefined (reading 'map')`. The headless Zod schema also requires it (`children: z.array(UIElementSchema)`).
 - Don't omit `id` on any element.
 - Don't use `{{var}}` in `Text.content` without `mode: "expression"` — interpolation silently disabled otherwise.
 - Don't use `Text.variant` — it doesn't exist. Set `fontSize` / `fontWeight` / `fontFamily` directly.

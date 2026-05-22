@@ -5,7 +5,7 @@ description: Provides conversion-optimized onboarding patterns for Rocapine Comp
 
 # Onboarding Best Practices
 
-Knowledge for designing high-converting Rocapine onboarding flows. This plugin uses **ComposableScreen exclusively** — every screen is a ComposableScreen tree, not a typed variant.
+Knowledge for designing high-converting Rocapine onboarding flows. Every screen is a ComposableScreen tree.
 
 ## Always inspect target app first
 
@@ -130,5 +130,5 @@ Total: 8–12 screens. > 15 = measurable drop-off.
 - Generic brand colors when app probe data is available.
 - Inventing font names not loaded by `expo-font`.
 - Long-form copy that won't translate (if multi-locale).
-- Authoring with the legacy typed variants — this plugin is ComposableScreen-only.
 - Writing `payload.root` or `payload.variables` — those keys do not exist in the ComposableScreen schema. Correct shape: `payload: { "elements": UIElement[] }`. Wrong shape crashes Studio with `els is not iterable`.
+- Emitting a container element (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `Carousel`) without a `children` array. Empty container → `"children": []`. Missing `children` crashes Studio with `Cannot read properties of undefined (reading 'map')`.

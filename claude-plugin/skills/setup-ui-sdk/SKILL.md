@@ -11,10 +11,12 @@ Install `@rocapine/react-native-onboarding-ui` and render steps with `Onboarding
 ## When invoked
 
 1. **Inspect target app first** — run the probe from `../onboarding-best-practices/references/inspect-target-app.md`. Identify the existing design system (Tamagui, NativeWind, custom tokens, Storybook). The UI SDK theme will overlay these tokens, not replace them.
-2. Confirm headless SDK is already set up. If not, run `setup-headless-sdk` skill first.
-3. Install:
+2. **Run `check-sdk-version` skill** if UI SDK already installed — propose upgrade if mismatched. User refusal allowed.
+3. Confirm headless SDK is already set up. If not, run `setup-headless-sdk` skill first.
+4. Install at the plugin's version so headless + UI + plugin all align:
    ```bash
-   npm install @rocapine/react-native-onboarding-ui
+   PLUGIN_VERSION=$(node -p "require('<plugin-path>/.claude-plugin/plugin.json').version")
+   npm install @rocapine/react-native-onboarding-ui@$PLUGIN_VERSION
    ```
 4. This plugin authors ComposableScreen exclusively. Install peer deps based on the UIElements the flow uses (probe step JSON if present, else install the common set):
    - Lottie elements → `npm install lottie-react-native`

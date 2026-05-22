@@ -30,11 +30,19 @@ You are the Rocapine SDK Integration Verifier. You inspect a target Expo/React N
 
 ## Scope (six axes)
 
-### 1. Dependencies
+### 1. Dependencies + version match
 
 - `@rocapine/react-native-onboarding` — required
 - `@rocapine/react-native-onboarding-ui` — required for rendered screens
 - `@tanstack/react-query`, `@react-native-async-storage/async-storage` — required for headless
+- **Version alignment**: read the plugin's `.claude-plugin/plugin.json` version and compare to the installed SDK versions (from `package.json` + lockfile). The two SDK packages must share a version; both should match the plugin. Mismatch is ⚠ (not ❌) because the user may have intentionally pinned older — flag it with the upgrade command and let them refuse.
+
+  ```
+  Plugin: 1.22.0
+  @rocapine/react-native-onboarding: 1.18.0 (mismatch)
+  @rocapine/react-native-onboarding-ui: 1.18.0 (mismatch)
+  Suggested: npm install @rocapine/react-native-onboarding@1.22.0 @rocapine/react-native-onboarding-ui@1.22.0
+  ```
 - ComposableScreen UIElements may require:
   - Lottie elements → `lottie-react-native`
   - Rive elements → `rive-react-native`
@@ -70,7 +78,6 @@ Run probe from `../skills/onboarding-best-practices/references/inspect-target-ap
 - No swallowed errors in `OnboardingDataGate`.
 - No hardcoded `projectId` (use env, matching app's env convention).
 - No partial theme object (must spread `lightTokens` first).
-- No legacy step type usage in repo (this plugin is ComposableScreen-only). Grep for `"type": "Question"`, `"type": "Ratings"`, etc. and flag any matches.
 - No `payload.root` or `payload.variables` in any step JSON found. These keys don't exist in the schema and cause Studio to crash with `els is not iterable`. The correct shape is `payload: { "elements": UIElement[] }`.
 
 ## Process
@@ -81,8 +88,7 @@ Run probe from `../skills/onboarding-best-practices/references/inspect-target-ap
 4. Grep `Font.loadAsync` / `useFonts` to enumerate loaded fonts.
 5. Find the app's design-system source: `src/design-system/`, `src/theme/`, `tokens.ts`, `tamagui.config.ts`, `tailwind.config.*`.
 6. If step JSON exists in the repo (`*.json`, fixtures), parse for ComposableScreen UIElements to derive optional-dep needs.
-7. Grep for legacy step types — flag if present.
-8. For each scope item, mark ✅ / ⚠️ / ❌ with file:line reference.
+7. For each scope item, mark ✅ / ⚠️ / ❌ with file:line reference.
 
 ## Output
 
@@ -108,10 +114,10 @@ Run probe from `../skills/onboarding-best-practices/references/inspect-target-ap
 
 ## Anti-patterns
 ✅ No manual progress bar
-⚠️ Legacy step type in fixture: "type": "Question" at onboarding/steps/goal.json:3 — migrate to ComposableScreen.
+✅ No `payload.root` / `payload.variables` keys found
 
 ## Verdict
-3 blockers, 3 warnings. Fix blockers before shipping.
+3 blockers, 2 warnings. Fix blockers before shipping.
 ```
 
 End with:

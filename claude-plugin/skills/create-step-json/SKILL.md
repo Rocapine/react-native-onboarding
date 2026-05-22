@@ -7,7 +7,7 @@ argument-hint: [screen purpose / archetype]
 
 # Create Step JSON (ComposableScreen-only)
 
-This plugin authors **ComposableScreen** steps exclusively. The legacy typed variants (Ratings, MediaContent, Picker, Commitment, Carousel, Loader, Question) are intentionally NOT used — ComposableScreen gives full design-system fidelity and removes hidden UI assumptions.
+This plugin authors **ComposableScreen** steps. Full design-system fidelity, one mental model, no hidden UI assumptions.
 
 ## Process
 
@@ -58,9 +58,18 @@ Always set:
 
 **Do NOT set `payload.root`. Do NOT set `payload.variables`. Those keys do not exist in the schema.** Variables flow at runtime from prior steps' `variableName` captures or from in-screen `Input` / `RadioGroup` / `CheckboxGroup` / `Button` `setVariable` actions — they are never declared in the payload.
 
-### 4. Use design-system tokens, not hex
+### 4. Apply the Design Profile, no exceptions
 
-Inside `payload.elements`, every color reference should be a theme token (e.g. `{{theme.colors.primary}}` if interpolated, or set via the UI SDK theme rather than hardcoded in JSON). For elements that accept color literals, prefer the brand color from probe; never invent generic blue.
+The probe output is a structured **Design Profile** (see `../onboarding-best-practices/references/inspect-target-app.md`). Inject it into every UIElement:
+
+- `Button.backgroundColor` ← `brand.primary`; `Button.color` ← `text.onBrand`; `Button.fontFamily` ← `fonts.heading`; `Button.borderRadius` ← `buttonBorderRadius`
+- `Text.fontFamily` ← `fonts.heading` for titles, `fonts.body` for body; `fontSize` from `typeScale`
+- `RadioGroup` / `CheckboxGroup` `item*` props — selected/unselected colors, border radius, font, padding all from Design Profile
+- Container `backgroundColor`, `borderRadius`, `borderColor` — never invented hex, always sourced
+- Spacing (`gap`, `padding*`) — snap to the app's spacing ladder
+- CTA label — pull verb from `voice.ctaVerbs[0]`
+
+If the Design Profile is empty (no app context), say so and use SDK defaults — but expect a regression vs. the host design system.
 
 ### 5. Hand off the UIElement tree
 
@@ -113,8 +122,8 @@ Variable: goal (string)
 
 ## Anti-patterns
 
-- Do NOT output `type: "Question" | "MediaContent" | "Picker" | "Commitment" | "Carousel" | "Loader" | "Ratings"`. Always ComposableScreen.
 - Do NOT write `payload.root` or `payload.variables` — neither exists in the schema. Only `payload.elements: UIElement[]`. Writing `payload.root` causes Studio to crash with `"els is not iterable"`.
+- Do NOT emit a container element (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `Carousel`) without a `children` array. Empty container → `"children": []`. Missing `children` crashes Studio with `"Cannot read properties of undefined (reading 'map')"`.
 - Do NOT use these wrong prop names — they will cause silent renderer drift:
   - `Text.text` → use `Text.content`
   - `Text.variant` → use `fontSize` / `fontWeight` / `fontFamily` directly

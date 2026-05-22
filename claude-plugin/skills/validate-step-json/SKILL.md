@@ -35,7 +35,8 @@ Run: `npx tsx scripts/_validate-composable.ts "$(cat step.json)"`
 4. If `tsx` unavailable, fall back to structural check:
    - `BaseStepTypeSchema` fields present (`id`, `name`, `displayProgressHeader`, `customPayload`, `nextStep`)
    - `payload` is exactly `{ "elements": UIElement[] }` — no `root`, no `variables` keys
-   - Every UIElement has `id` (string), `type` (string literal), `props` (object); `children` is array of UIElement only for container types (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `Carousel`)
+   - Every UIElement has `id` (string), `type` (string literal), `props` (object).
+   - Every container UIElement (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `Carousel`) has `children: UIElement[]` at element top-level — required, must exist even if empty (`"children": []`). Non-container types must NOT have `children`.
    - All `id`s unique within `payload.elements` tree
    - `Text.props.content` exists; if `{{var}}` interpolation, `Text.props.mode === "expression"`
    - `Image.props.url` is a string (NOT `source.uri` / `source.localPathId`)
@@ -50,6 +51,7 @@ Run: `npx tsx scripts/_validate-composable.ts "$(cat step.json)"`
 
 - `payload.root` set instead of `payload.elements` — **causes Studio crash "els is not iterable"**.
 - `payload.variables` set — this key doesn't exist in schema; remove it.
+- Container element (`YStack` / `XStack` / `ZStack` / `SafeAreaView` / `Carousel`) without `children` — **causes Studio crash "Cannot read properties of undefined (reading 'map')"**. Empty container must emit `"children": []`.
 - `displayProgressHeader` missing — required boolean.
 - UIElement missing `id`.
 - `Text.props.text` used instead of `Text.props.content` (no `text` field exists).

@@ -1,109 +1,94 @@
 ---
 name: customize-onboarding-components
-description: Replaces specific UI SDK components (QuestionAnswerButton, QuestionAnswersList, etc.) with custom implementations while keeping SDK data flow. Use when the user wants to override how a Question answer renders, swap the answer list, or asks "customize the answer button" / "use my own component for X".
+description: Customizes how Rocapine ComposableScreen UIElements render in the host app — via element props (primary path) and host-wired `custom` button actions (advanced path). Use when the user wants a different look for buttons / radio cards / inputs, wants the onboarding to share components with the rest of the app, or asks "customize the button", "use my own component for X", "wire a custom action".
 allowed-tools: Read, Write, Edit, Glob, Grep
 ---
 
-# Customize Onboarding Components
+# Customize ComposableScreen Components
 
-Replace UI SDK components via the `customComponents` prop on `OnboardingProvider`. Resolution: Custom List → Custom Button → Default.
+ComposableScreen UIElements are designed to match the host design system through props, not component replacement. There are two customization tiers.
 
 ## Always inspect target app first
 
-Run probe from `../onboarding-best-practices/references/inspect-target-app.md`. Identify:
+Run probe from `../onboarding-best-practices/references/inspect-target-app.md`. The Design Profile drives the prop values you'll inject. Existing button + input components show the look you should match.
 
-- Existing custom button / list component in the app's design system (likely already exists)
-- Border radius, padding, height conventions
-- Selected-state visual language (border vs fill vs glow)
-- Icon library + size conventions
-- Animation library (Reanimated / Moti) if used
+## Tier 1 — Match via props (default path)
 
-The custom component should look like it was always part of the app — not like a separate onboarding theme. Reuse the existing button when possible (e.g. wrap `<AppButton>` with onboarding-specific props).
+Every styled UIElement (`Button`, `RadioGroup`, `CheckboxGroup`, `Input`, `Text`, container stacks) accepts the full visual surface as props. Wire them all from the Design Profile and the result is indistinguishable from a native-host component.
 
-## Note on ComposableScreen
+`Button`:
+- `variant: "filled" | "outlined" | "ghost"`
+- `backgroundColor`, `color`, `fontFamily`, `fontWeight`, `fontSize`, `borderRadius`, `paddingVertical`, `paddingHorizontal`
+- `disabledWhen`, `disabledBackgroundColor`, `disabledColor`
 
-This plugin uses ComposableScreen exclusively — so the legacy `QuestionAnswerButton` / `QuestionAnswersList` slots only fire if the SDK still routes a `Question` step. In ComposableScreen-only flows, you'd customize at the UIElement renderer level instead. See `references/customize-uielement-renderer.md` (forthcoming) for that path, or open the UI mirror at `packages/onboarding-ui/src/UI/Pages/ComposableScreen/elements/*.tsx`.
+`RadioGroup` / `CheckboxGroup`:
+- `itemBackgroundColor`, `itemSelectedBackgroundColor`
+- `itemBorderColor`, `itemSelectedBorderColor`, `itemBorderRadius`, `itemBorderWidth`
+- `itemColor`, `itemSelectedColor`
+- `itemFontFamily`, `itemFontSize`, `itemFontWeight`, `itemFontStyle`
+- `itemPadding`, `itemPaddingVertical`, `itemPaddingHorizontal`
 
-## Currently customizable
+`Input`:
+- `backgroundColor`, `color`, `placeholderColor`, `borderRadius`
+- `fontFamily`, `fontSize`, `fontWeight`, `textAlign`
 
-- `QuestionAnswerButton`
-- `QuestionAnswersList`
+`Text`:
+- `fontFamily`, `fontSize`, `fontWeight`, `fontStyle`, `color`, `lineHeight`, `letterSpacing`, `textAlign`
 
-Both live behind `useCustomComponents()` (`src/infra/provider/CustomComponentsContext.tsx`).
+Containers (`YStack` / `XStack` / `ZStack` / `SafeAreaView`):
+- `backgroundColor`, `borderRadius`, `borderWidth`, `borderColor`
+- gradients via `background: GradientBackground`
 
-## Pattern: custom answer button
+This is the canonical path. 90% of customization needs are met by injecting Design Profile values into these props.
 
-```tsx
-import { OnboardingProvider, type QuestionAnswerButtonProps } from "@rocapine/react-native-onboarding";
-import { Pressable, Text } from "react-native";
-import { useTheme } from "@rocapine/react-native-onboarding-ui";
+## Tier 2 — Custom button actions (host-wired behavior)
 
-function MyAnswerButton({ answer, selected, onPress }: QuestionAnswerButtonProps) {
-  const { theme } = useTheme();
-  return (
-    <Pressable
-      onPress={onPress}
-      style={{
-        padding: 16,
-        borderRadius: 12,
-        borderWidth: 2,
-        borderColor: selected ? theme.colors.primary : theme.colors.neutral.lower,
-        backgroundColor: selected ? theme.colors.primary + "22" : theme.colors.surface.low,
-      }}
-    >
-      <Text style={{ color: theme.colors.text.primary }}>{answer.label}</Text>
-    </Pressable>
-  );
+When you need behavior the schema doesn't cover (auto-advance after N seconds, request a permission, log an analytics event, conditional setState), use a `custom` button action:
+
+```json
+{
+  "type": "Button",
+  "props": {
+    "label": "Continue",
+    "actions": [
+      { "type": "custom", "function": "trackOnboardingComplete", "variables": ["goal", "weight"] },
+      "continue"
+    ]
+  }
 }
-
-<OnboardingProvider customComponents={{ QuestionAnswerButton: MyAnswerButton }} /* ... */ />
 ```
 
-## Pattern: custom answers list
-
-When the default list layout (vertical stack) isn't enough — e.g. you want a grid of icon tiles:
+Wire the implementation in the host via `customActions` on `OnboardingProvider`:
 
 ```tsx
-import type { QuestionAnswersListProps } from "@rocapine/react-native-onboarding";
-
-function MyAnswersGrid({ answers, selectedValues, onToggle, multipleAnswer }: QuestionAnswersListProps) {
-  return (
-    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
-      {answers.map(a => (
-        <TileButton
-          key={a.value}
-          answer={a}
-          selected={selectedValues.includes(a.value)}
-          onPress={() => onToggle(a.value)}
-        />
-      ))}
-    </View>
-  );
-}
-
-<OnboardingProvider customComponents={{ QuestionAnswersList: MyAnswersGrid }} />
+<OnboardingProvider
+  customActions={{
+    trackOnboardingComplete: ({ variables }) => {
+      analytics.track("onboarding_complete", variables);
+    },
+    delayedContinue: async () => {
+      await new Promise(r => setTimeout(r, 2500));
+    },
+  }}
+/>
 ```
 
-If a custom list is provided, it completely owns rendering. The custom button is then ignored unless your list re-uses it via `useCustomComponents()`.
+Actions run sequentially; throwing aborts the chain; the literal string `"continue"` is terminal and advances the flow.
 
-## Adding a new customizable component (advanced)
+## Tier 3 — Replace a UIElement renderer (deep customization)
 
-If you need to override something the SDK doesn't yet expose:
+Edit the UI package mirror at `packages/onboarding-ui/src/UI/Pages/ComposableScreen/elements/<Element>Element.tsx`. Use cases:
 
-1. Open `packages/onboarding/src/infra/provider/CustomComponentsContext.tsx`.
-2. Add the slot to the `CustomComponents` interface.
-3. In the renderer (`packages/onboarding-ui/src/UI/Pages/<Page>/Renderer.tsx`):
-   ```ts
-   const customComponents = useCustomComponents();
-   const ButtonImpl = customComponents.MyNewSlot || DefaultButtonImpl;
-   ```
-4. Export the props interface from the headless package public API.
-5. Document in the consuming app's README.
+- Adding a new visual variant not expressible through existing props
+- Wiring a host-only library (e.g. Skia-based progress ring) to an element
+- Adding accessibility props the schema doesn't expose
 
-Bump SDK versions afterward via the `bump-version` skill (repo-internal).
+This is repo-level work, not consumer-app work. Bump SDK version via the `bump-version` skill after editing. Mind the Zod schema duplication noted in `CLAUDE.md` — keep headless `elements/*.ts` + UI mirror in sync.
 
 ## Anti-patterns
 
-- Don't reach into UI SDK internals — only override through `customComponents`.
-- Don't make custom components stateful for selection — selection lives in the SDK and is passed as props.
-- Don't bypass `useTheme()` — colors won't react to color-scheme changes.
+- Don't reach for component replacement when the prop surface covers it. Tier 1 first.
+- Don't bake brand colors as literals — pull from Design Profile so the onboarding tracks the rest of the app.
+- Don't use a `custom` action when `setVariable` + `continue` would do the same job declaratively.
+- Don't subclass or wrap an existing button component to inject onboarding-specific styles — author the styles on the `Button` UIElement directly.
+- Don't add the same custom-action implementation in multiple host modules — declare it once on `customActions`.

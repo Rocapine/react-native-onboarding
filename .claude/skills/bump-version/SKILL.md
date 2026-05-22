@@ -67,13 +67,14 @@ Call this `NEW_VERSION`.
 
 ---
 
-## Step 4 — Update package.json files
+## Step 4 — Update package.json + plugin.json files
 
-Edit **both** files — only the `"version"` field:
+Edit **all three** files — only the `"version"` field:
 - `packages/onboarding/package.json`
 - `packages/onboarding-ui/package.json`
+- `claude-plugin/.claude-plugin/plugin.json`
 
-Set `"version": "<NEW_VERSION>"` in each.
+Set `"version": "<NEW_VERSION>"` in each. The Claude Code plugin always tracks the SDK version it was tested against.
 
 ---
 

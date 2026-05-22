@@ -8,6 +8,26 @@ allowed-tools: Read, Write, Edit, Glob, Grep
 
 Extend the UI SDK theme by overlaying tokens on `lightTokens` / `darkTokens`. Never replace the whole object — deep-merge.
 
+## Always inspect target app first
+
+Run probe from `../onboarding-best-practices/references/inspect-target-app.md`. Pull:
+
+- Brand color, surface colors, text colors from existing design system
+- Font families loaded via `expo-font` / `useFonts`
+- Border radius + spacing conventions (used implicitly by ComposableScreen `BaseBoxProps`)
+- Existing token file location (`tokens.ts`, `theme.ts`, `tamagui.config.ts`, `tailwind.config.*`)
+
+Map directly — don't translate by eye. Import existing tokens into the override:
+
+```tsx
+import { brand } from "@/design-system/tokens";
+
+const brandLight = {
+  ...lightTokens,
+  colors: { ...lightTokens.colors, primary: brand.primary, secondary: brand.secondary },
+};
+```
+
 ## Token surface
 
 ```

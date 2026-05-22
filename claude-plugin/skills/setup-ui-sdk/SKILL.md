@@ -10,19 +10,20 @@ Install `@rocapine/react-native-onboarding-ui` and render steps with `Onboarding
 
 ## When invoked
 
-1. Confirm headless SDK is already set up. If not, run `setup-headless-sdk` skill first.
-2. Install:
+1. **Inspect target app first** — run the probe from `../onboarding-best-practices/references/inspect-target-app.md`. Identify the existing design system (Tamagui, NativeWind, custom tokens, Storybook). The UI SDK theme will overlay these tokens, not replace them.
+2. Confirm headless SDK is already set up. If not, run `setup-headless-sdk` skill first.
+3. Install:
    ```bash
    npm install @rocapine/react-native-onboarding-ui
    ```
-3. Detect which step types the user's flow needs (read step JSON or ask). Install optional peer deps accordingly:
-   - `Picker` step → `npm install @react-native-picker/picker`
-   - Skia visuals → `npm install @shopify/react-native-skia`
-   - `Ratings` step → `npm install expo-store-review`
+4. This plugin authors ComposableScreen exclusively. Install peer deps based on the UIElements the flow uses (probe step JSON if present, else install the common set):
    - Lottie elements → `npm install lottie-react-native`
    - Rive elements → `npm install rive-react-native`
    - Video elements → `npm install expo-video`
+   - Skia visuals → `npm install @shopify/react-native-skia`
    - Linear gradients → `npm install expo-linear-gradient`
+   - DatePicker → `npm install @react-native-community/datetimepicker`
+   - Inputs (always recommended) → already included in RN core
 4. Wire `OnboardingPage` inside the screen that consumes `useOnboardingQuestions`:
 
 ```tsx
@@ -48,7 +49,13 @@ export default function OnboardingScreen() {
 }
 ```
 
-5. Apply theme via `OnboardingProvider` (headless package re-exports `ThemeProvider`):
+5. Apply theme via `OnboardingProvider` — **map from the app's existing design system**, not from scratch:
+   - If app uses Tamagui: pull `themes.light.primary`, fonts etc. into `lightTheme`.
+   - If app uses NativeWind / Tailwind: read `tailwind.config.*` colors / fonts.
+   - If app has a `tokens.ts` or `theme.ts`: import those tokens directly.
+   - If nothing exists: use `lightTokens`/`darkTokens` defaults and flag the gap.
+
+   Example:
 
 ```tsx
 import { lightTokens, darkTokens } from "@rocapine/react-native-onboarding-ui";

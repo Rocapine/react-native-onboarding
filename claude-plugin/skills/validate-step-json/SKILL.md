@@ -1,72 +1,82 @@
 ---
 name: validate-step-json
-description: Validates a Rocapine Onboarding Studio step JSON payload against the headless SDK Zod schemas. Use when the user pastes step JSON and asks "is this valid", "check this onboarding step", "validate this payload", or after creating step JSON.
+description: Validates a Rocapine ComposableScreen step JSON against the headless SDK Zod schemas. Use when the user pastes step JSON and asks "is this valid", "check this onboarding step", "validate this payload", or after creating step JSON.
 allowed-tools: Read, Write, Bash, Glob, Grep
 argument-hint: [path-to-json-file or inline JSON]
 ---
 
 # Validate Step JSON
 
-Run real Zod validation against the headless SDK schemas. Don't eyeball.
+This plugin emits ComposableScreen only. This skill validates against `ComposableScreenStepTypeSchema`.
 
 ## When invoked
 
-1. Locate the step JSON: inline in user message, file path, or clipboard. If unclear, ask.
-2. Identify the `type` field — pick the matching schema:
-   - `Ratings` → `RatingsStepTypeSchema`
-   - `MediaContent` → `MediaContentStepTypeSchema`
-   - `Picker` → `PickerStepTypeSchema`
-   - `Commitment` → `CommitmentStepTypeSchema`
-   - `Carousel` → `CarouselStepTypeSchema`
-   - `Loader` → `LoaderStepTypeSchema`
-   - `Question` → `QuestionStepTypeSchema`
-   - `ComposableScreen` → `ComposableScreenStepTypeSchema`
-3. Write a temporary validation script and run it:
+1. Locate the step JSON: inline, file path, or clipboard. If unclear, ask.
+2. Confirm `type === "ComposableScreen"`. If not, reject:
+   ```
+   ✗ type
+     Expected "ComposableScreen" — this plugin uses ComposableScreen exclusively.
+     Fix: regenerate via create-step-json skill.
+   ```
+3. Run real Zod validation:
 
 ```ts
-// scripts/_validate-step.ts
-import { RatingsStepTypeSchema /* ...others */ } from "@rocapine/react-native-onboarding";
-
-const schemas: Record<string, any> = {
-  Ratings: RatingsStepTypeSchema,
-  // ...
-};
+// scripts/_validate-composable.ts
+import { ComposableScreenStepTypeSchema } from "@rocapine/react-native-onboarding";
 
 const input = JSON.parse(process.argv[2]);
-const schema = schemas[input.type];
-if (!schema) { console.error(`Unknown type: ${input.type}`); process.exit(1); }
-const result = schema.safeParse(input);
-if (result.success) { console.log("OK"); }
+const result = ComposableScreenStepTypeSchema.safeParse(input);
+if (result.success) console.log("OK");
 else { console.error(JSON.stringify(result.error.format(), null, 2)); process.exit(1); }
 ```
 
-Run: `npx tsx scripts/_validate-step.ts "$(cat step.json)"`
+Run: `npx tsx scripts/_validate-composable.ts "$(cat step.json)"`
 
-4. If `tsx` not available, fall back to manual structural check using `references/schema-checklist.md`.
+4. If `tsx` unavailable, fall back to structural check:
+   - `BaseStepTypeSchema` fields present (`id`, `name`, `displayProgressHeader`, `customPayload`, `nextStep`)
+   - `payload` is exactly `{ "elements": UIElement[] }` — no `root`, no `variables` keys
+   - Every UIElement has `id` (string), `type` (string literal), `props` (object); `children` is array of UIElement only for container types (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `Carousel`)
+   - All `id`s unique within `payload.elements` tree
+   - `Text.props.content` exists; if `{{var}}` interpolation, `Text.props.mode === "expression"`
+   - `Image.props.url` is a string (NOT `source.uri` / `source.localPathId`)
+   - `Lottie.props.source` is a string; `Rive.props.url` is a string
+   - `RadioGroup.props.items` / `CheckboxGroup.props.items` is `[{label, value}]` (NOT `options`)
+   - `Button.props.actions` is an array; entries are `"continue"` or `{type:"custom",function,variables?}` or `{type:"setVariable",name,value,valueMode?}` (note: setVariable may not be in headless schema yet — check)
+   - `Button.props.disabledWhen` (NOT `disabled`) is a valid `LeafCondition` or `ConditionGroup`
+   - `SafeAreaView.props.edges` is an array of `"top"|"right"|"bottom"|"left"` OR an object with edge mode `"off"|"additive"|"maximum"` — NEVER `"always"`
 5. Report ALL errors at once with path + reason. Don't stop on first.
-6. For each error, suggest a fix referencing the schema field.
 
 ## Common failure modes
 
-- `displayProgressHeader` missing — required boolean on every step.
-- `MediaContent.mediaSource` missing `type` discriminator.
-- `Question.answers[].value` duplicated — must be unique for variable capture.
-- `Loader.steps` empty — schema allows but UI breaks; warn.
-- `Carousel.screens` < 2 — defeats the purpose; warn.
-- `nextStep.branches[].condition` malformed — must be leaf `{variable,operator,value}` or group `{logic,conditions}`.
-- `customPayload` set to `{}` instead of `null` — both validate, prefer `null`.
-- Variable references like `{{name}}` in text fields without matching `variableName` upstream.
+- `payload.root` set instead of `payload.elements` — **causes Studio crash "els is not iterable"**.
+- `payload.variables` set — this key doesn't exist in schema; remove it.
+- `displayProgressHeader` missing — required boolean.
+- UIElement missing `id`.
+- `Text.props.text` used instead of `Text.props.content` (no `text` field exists).
+- `Text.props.variant` used (no such field; use `fontSize` / `fontWeight`).
+- `{{var}}` in `Text.content` without `Text.props.mode === "expression"` — silently doesn't interpolate.
+- `Image.props.source` used instead of `Image.props.url`.
+- `RadioGroup.props.options` instead of `items` (also `CheckboxGroup`).
+- `Button.props.action` (singular) used instead of `actions: [...]` (array).
+- `Button.props.disabled` instead of `disabledWhen`.
+- `SafeAreaView.props.edges: { top: "always" }` — invalid edge mode. Use `["top","bottom"]` or `"off" | "additive" | "maximum"`.
+- `Lottie.source: { localPathId }` instead of string URL.
+- `RadioGroup` / `CheckboxGroup` / `Input` / `DatePicker` without `variableName` — element renders but variable never captured.
+- Nested `SafeAreaView`.
+- `nextStep.defaultTargetStepId` referencing nonexistent step ID.
+- `customPayload: {}` instead of `null` (both validate; prefer `null`).
+- `Carousel` with empty `children`.
 
 ## Output
 
 ```
-✗ payload.title
+✗ payload.root.children[1].id
   Required (got undefined)
-  Fix: add "title": "..." inside payload.
+  Fix: add unique kebab-case id.
 
-✗ payload.answers[2].value
-  Duplicate value "yes" (also in payload.answers[0])
-  Fix: change to unique slug.
+✗ payload.variables
+  Variable "goal" referenced in payload.root.children[0].children[2].props.text but not declared.
+  Fix: add "goal": { "value": "", "kind": "string" } to payload.variables.
 ```
 
 End with `valid: true|false` and a one-line summary.

@@ -11,8 +11,9 @@ Install `@rocapine/react-native-onboarding` and wire `OnboardingProvider` + `use
 
 ## When invoked
 
-1. Verify target is an Expo/RN app: `package.json` contains `expo` or `react-native`.
-2. Check if SDK already installed. If yes, jump to wiring step.
+1. **Inspect target app first** — run the probe from `../onboarding-best-practices/references/inspect-target-app.md`. Capture entry point, existing theme system, font loading mechanism, env-var convention, error-boundary library in use. Tailor every step below to those findings.
+2. Verify target is an Expo/RN app: `package.json` contains `expo` or `react-native`.
+3. Check if SDK already installed. If yes, jump to wiring step.
 3. Install:
    ```bash
    npm install @rocapine/react-native-onboarding
@@ -73,5 +74,10 @@ After setup, suggest running the `sdk-integration-verifier` agent.
 
 - Don't catch errors inside `OnboardingDataGate` — they're meant to bubble.
 - Don't add a manual progress bar.
-- Don't hardcode `projectId` in source — use env.
+- Don't hardcode `projectId` in source — use env (match app's env-var convention from probe).
 - Don't call the API client directly unless you're building a custom data layer.
+- Don't skip the app probe — placement of `OnboardingProvider` and theme wiring depend on app conventions.
+
+## ComposableScreen note
+
+This plugin authors ComposableScreen steps only. After headless setup, install UI SDK via `setup-ui-sdk` skill — it covers the optional peer deps ComposableScreen needs (`@shopify/react-native-skia`, `lottie-react-native`, `rive-react-native`, `expo-video`, `expo-linear-gradient`).

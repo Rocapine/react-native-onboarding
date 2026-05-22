@@ -1,12 +1,32 @@
 ---
 name: compose-screen-builder
-description: Builds a Rocapine ComposableScreen UIElement tree. Use when the user wants a fully custom onboarding screen, asks "compose a screen", "build a ComposableScreen JSON", "make a layout with text + button + image", or needs branching/variables in a single screen.
+description: Builds the inner UIElement tree of a ComposableScreen step. Inspects the target app's design system before composing. Use when authoring a ComposableScreen, asks "compose a screen", "build the UIElement tree", "design the layout", or needs branching/variables in a single screen.
 allowed-tools: Read, Write, Edit, Glob, Grep
 ---
 
 # Compose Screen Builder
 
-`ComposableScreen` is the escape hatch for screens not covered by the typed step variants. It renders a tree of `UIElement` nodes with `BaseBoxProps` for layout.
+This plugin uses **ComposableScreen exclusively**. This skill is the deep reference for UIElement trees.
+
+## Process
+
+### 1. Inspect target app first
+
+Run probe from `../onboarding-best-practices/references/inspect-target-app.md`. Capture:
+
+- Brand colors (primary, surface, text)
+- Font families (loaded via `expo-font`)
+- Border radius + padding conventions
+- Whether host uses Reanimated (motion-friendly)
+- Existing custom components / icon sets
+
+Inject probe output into every element. No generic hex. No invented font names.
+
+### 2. Pick archetype
+
+Start from an archetype in `../create-step-json/references/composable-archetypes.md`. Customize from there. Don't compose from scratch unless the screen is genuinely novel.
+
+### 3. Compose the tree
 
 ## Element types
 
@@ -25,17 +45,30 @@ allowed-tools: Read, Write, Edit, Glob, Grep
 | `DatePicker` | Date input bound to a variable |
 | `Carousel` | Inline horizontal pager |
 
-Read exact prop shapes from `packages/onboarding/src/steps/ComposableScreen/elements/*.ts`.
+Authoritative prop shapes: `packages/onboarding/src/steps/ComposableScreen/elements/*.ts`.
 
 ## BaseBoxProps (every element)
 
 `width`, `height`, `flex`, `padding{Top,Right,Bottom,Left,Horizontal,Vertical}`, `margin*`, `gap`, `alignItems`, `justifyContent`, `backgroundColor`, `borderRadius`, `borderWidth`, `borderColor`, `aspectRatio`, `background: GradientBackground`.
 
+**Match probe values**: use the app's button `borderRadius` for buttons and large media, half of that for chips/tags, etc.
+
 ## Variables
 
-`payload.variables` is a map: `{ [name]: { value: string, label?: string, kind?: "int" | "float" | "string" } }`.
+**There is no `payload.variables` map.** Variables live at runtime in the headless provider's variables store. They are populated by:
 
-Reference in any `Text` via `{{name}}`. Update via `Button` with `setVariable` action or via bound `Input` / `RadioGroup` / `CheckboxGroup`.
+- Prior steps' `variableName` (Picker, Question — legacy step types)
+- This screen's `Input` / `RadioGroup` / `CheckboxGroup` / `DatePicker` `variableName` prop
+- `Button.actions` containing a `setVariable` action: `{ "type": "setVariable", "name": "counter", "value": "{{counter}} + 1", "valueMode": "expression" }`
+
+Reference variables from `Text` ONLY when `Text.props.mode === "expression"`. Then `{{name}}` in `content` interpolates. Without `mode: "expression"`, `{{name}}` renders as literal text.
+
+`disabledWhen` on `Button` reads variables natively — no expression mode flag needed.
+
+## Naming conventions (match probe)
+
+- IDs: kebab-case unique within screen. If app uses camelCase elsewhere, switch to camelCase.
+- Variables: match host vocabulary (`goal` over `q1`, `userName` over `name` if app uses camelCase fields).
 
 ## Minimal example
 
@@ -43,74 +76,101 @@ Reference in any `Text` via `{{name}}`. Update via `Button` with `setVariable` a
 {
   "type": "ComposableScreen",
   "payload": {
-    "variables": {
-      "name": { "value": "", "kind": "string" }
-    },
-    "root": {
-      "id": "root",
-      "type": "SafeAreaView",
-      "props": { "flex": 1, "edges": { "top": "always", "bottom": "always" } },
-      "children": [
-        {
-          "id": "stack",
-          "type": "YStack",
-          "props": { "flex": 1, "padding": 24, "gap": 16, "justifyContent": "center" },
-          "children": [
-            { "id": "title", "type": "Text", "props": { "text": "Hi {{name}}", "variant": "heading1" } },
-            { "id": "name-input", "type": "Input", "props": { "variableName": "name", "placeholder": "Your name" } },
-            {
-              "id": "cta",
-              "type": "Button",
-              "props": {
-                "label": "Continue",
-                "action": { "type": "continue" }
-              }
-            }
-          ]
-        }
-      ]
-    }
+    "elements": [
+      {
+        "id": "safe",
+        "type": "SafeAreaView",
+        "props": { "flex": 1, "edges": ["top", "bottom"] },
+        "children": [
+          {
+            "id": "stack",
+            "type": "YStack",
+            "props": { "flex": 1, "padding": 24, "gap": 16, "justifyContent": "center" },
+            "children": [
+              { "id": "title", "type": "Text", "props": { "content": "Hi {{name}}", "mode": "expression", "fontSize": 28, "fontWeight": "700" } },
+              { "id": "name-input", "type": "Input", "props": { "variableName": "name", "placeholder": "Your name" } },
+              { "id": "cta", "type": "Button", "props": { "label": "Continue", "actions": ["continue"] } }
+            ]
+          }
+        ]
+      }
+    ]
   }
 }
 ```
 
 ## Button actions
 
-- `{ "type": "continue" }` — advance to next step
-- `{ "type": "setVariable", "variableName": "...", "value": "..." }` — write a variable then advance
-- `{ "type": "custom", "name": "...", "payload": {...} }` — emit to host
+`actions: ButtonAction[]` (ordered, sequential). Each action is either the string `"continue"` or an object:
 
-For expression-style `setVariable` (math/concat), use string with placeholders:
-`{ "type": "setVariable", "variableName": "counter", "value": "{{counter}} + 1" }`
-The `kind: "int"` tag drives numeric coercion.
+- `"continue"` — advance to next step. Terminal.
+- `{ "type": "custom", "function": "name", "variables": ["a","b"] }` — emit to host. Host wires the implementation.
+- `{ "type": "setVariable", "name": "counter", "value": "{{counter}} + 1", "valueMode": "expression" }` — write a variable. `valueMode: "expression"` triggers interpolation + numeric coercion based on the variable's runtime `kind`.
+
+Note: the headless Zod schema currently only enumerates `"continue" | CustomButtonAction`. The UI mirror re-declares the schema and supports `setVariable`. If Studio validates strictly against headless, prefer `custom` actions for non-continue behavior — see `packages/onboarding/src/onboarding-example.ts` for the patterns that ship.
 
 ## Disabling continue conditionally
 
-`Button.props.disabled` accepts a boolean OR a condition referencing variables:
+`Button.props.disabledWhen` accepts a `LeafCondition` or `ConditionGroup`:
 
 ```json
-"disabled": { "variable": "name", "operator": "eq", "value": "" }
+"disabledWhen": { "variable": "name", "operator": "eq", "value": "" }
 ```
+
+Group form:
+
+```json
+"disabledWhen": {
+  "logic": "and",
+  "conditions": [
+    { "variable": "name", "operator": "neq", "value": "" },
+    { "variable": "age", "operator": "gte", "value": 18 }
+  ]
+}
+```
+
+(Note: `disabled` and `disabled-with-condition` are NOT prop names — only `disabledWhen`.)
 
 ## Authoring workflow
 
-1. Sketch the layout in plain language (heading, image, list, CTA).
-2. Pick root container (`SafeAreaView` → `YStack` is the common pattern).
-3. Declare all variables you'll reference.
-4. Add elements top-to-bottom with explicit `id`s (kebab-case, unique within screen).
-5. Set `flex: 1` on the root and one spacer child to push CTA down (`{ "type": "YStack", "props": { "flex": 1 } }`).
-6. Always validate via `validate-step-json` after writing.
+1. Run app probe.
+2. Pick archetype skeleton.
+3. Replace tokens/copy with probe values.
+4. Declare every variable referenced.
+5. Add elements top-to-bottom with kebab-case IDs.
+6. Put `{ "type": "YStack", "props": { "flex": 1 } }` spacer above CTA when CTA should pin to bottom.
+7. Validate via `validate-step-json`.
 
 ## Schema source of truth
 
-`packages/onboarding/src/steps/ComposableScreen/types.ts` — the `UIElement` discriminated union lives here (not in `elements/`) to avoid circular deps.
+- Union: `packages/onboarding/src/steps/ComposableScreen/types.ts`
+- Per-element Zod: `packages/onboarding/src/steps/ComposableScreen/elements/*.ts`
+- UI mirror to watch for drift: `packages/onboarding-ui/src/UI/Pages/ComposableScreen/elements/ButtonElement.tsx`
 
-`packages/onboarding-ui/src/UI/Pages/ComposableScreen/elements/ButtonElement.tsx` — re-declares its own Zod schema in lockstep. Watch for drift if updating Button props.
+## Element prop canonical names (drift-prone — verify here)
+
+| Element | Right | Wrong |
+|---------|-------|-------|
+| Payload | `payload.elements: UIElement[]` | `payload.root`, `payload.variables` |
+| `Text` | `content`, `mode: "expression"` for interp, `fontSize`/`fontWeight` | `text`, `variant` |
+| `Image` | `url: string` | `source: { uri }`, `source: { localPathId }` |
+| `Lottie` | `source: string` | `source: { localPathId }` |
+| `Rive` | `url: string` | `source` |
+| `RadioGroup` / `CheckboxGroup` | `items: [{label,value}]` | `options` |
+| `Button` | `actions: [...]`, `disabledWhen` | `action`, `disabled` |
+| `SafeAreaView` | `edges: ["top","bottom"]` or `{ top: "additive" }` | `{ top: "always" }` |
+| `Input` | `textAlign`, `keyboardType`, `autoCapitalize`, `maxLength` | `suffix`, `autoFocus`, `alignment` |
+| Stacks / Carousel | `children` at element top-level | `children` inside `props` |
 
 ## Anti-patterns
 
-- Don't omit `id` on any element — diff/animation depends on stable IDs.
-- Don't reference an undeclared variable — `{{foo}}` renders empty silently.
+- Don't write `payload.root` or `payload.variables` — they don't exist and crash Studio (`els is not iterable` when reading `payload.elements`).
+- Don't omit `id` on any element.
+- Don't use `{{var}}` in `Text.content` without `mode: "expression"` — interpolation silently disabled otherwise.
+- Don't use `Text.variant` — it doesn't exist. Set `fontSize` / `fontWeight` / `fontFamily` directly.
+- Don't use `SafeAreaView` edge mode `"always"` — only `"off" | "additive" | "maximum"`.
 - Don't nest `SafeAreaView` inside another `SafeAreaView`.
-- Don't set fixed `height` on container that should grow; use `flex: 1`.
-- Don't put `Carousel` inside a vertical-scrolling container without explicit height.
+- Don't set fixed `height` on a container that should grow; use `flex: 1`.
+- Don't put `Carousel` inside vertical-scrolling container without explicit `height`.
+- Don't invent brand colors when probe data exists.
+- Don't reach for hex when a theme token applies.

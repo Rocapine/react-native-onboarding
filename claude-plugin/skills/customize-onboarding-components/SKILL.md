@@ -8,6 +8,22 @@ allowed-tools: Read, Write, Edit, Glob, Grep
 
 Replace UI SDK components via the `customComponents` prop on `OnboardingProvider`. Resolution: Custom List → Custom Button → Default.
 
+## Always inspect target app first
+
+Run probe from `../onboarding-best-practices/references/inspect-target-app.md`. Identify:
+
+- Existing custom button / list component in the app's design system (likely already exists)
+- Border radius, padding, height conventions
+- Selected-state visual language (border vs fill vs glow)
+- Icon library + size conventions
+- Animation library (Reanimated / Moti) if used
+
+The custom component should look like it was always part of the app — not like a separate onboarding theme. Reuse the existing button when possible (e.g. wrap `<AppButton>` with onboarding-specific props).
+
+## Note on ComposableScreen
+
+This plugin uses ComposableScreen exclusively — so the legacy `QuestionAnswerButton` / `QuestionAnswersList` slots only fire if the SDK still routes a `Question` step. In ComposableScreen-only flows, you'd customize at the UIElement renderer level instead. See `references/customize-uielement-renderer.md` (forthcoming) for that path, or open the UI mirror at `packages/onboarding-ui/src/UI/Pages/ComposableScreen/elements/*.tsx`.
+
 ## Currently customizable
 
 - `QuestionAnswerButton`

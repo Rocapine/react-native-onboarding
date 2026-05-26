@@ -49,3 +49,18 @@ const flatVars = useMemo(
 ```
 
 Skip the flatten and your condition reads the entry object, not its value — every `eq`/`neq` silently mis-evaluates.
+
+## `renderWhen` gating
+
+Every UIElement variant accepts optional `renderWhen?: LeafCondition | ConditionGroup`. Single gating point at top of `elements/renderElement.tsx`: flatten `ctx.variables`, call `evaluateCondition`, return `null` if false. Covers all 15 variants — container subtrees skip naturally because the bail-out runs before `renderChildren`.
+
+## Element-default overlay (Renderer.tsx)
+
+`Renderer.tsx` builds `effectiveVariables = { ...collectElementDefaults(elements), ...composableVariables }` so `renderWhen` + `{{var}}` interpolation see element-declared defaults (`Carousel.defaultIndex`, `RadioGroup.defaultValue`, etc.) on first render. `composableVariables` wins over defaults — never invert the spread. Per-element seeding effects still own persistence (full label entries).
+
+## Adding a new defaulted element
+
+When introducing a new element type with a `defaultValue` / `defaultIndex`:
+
+1. Add a case in `elements/collectDefaults.ts` returning `{value, label?}`.
+2. If the element clamps/coerces the raw default at runtime (like `CarouselElementComponent.clampIndex`), mirror the same logic in `collectDefaults.ts` — otherwise the overlaid value disagrees with the rendered index.

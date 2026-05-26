@@ -17,7 +17,13 @@ export function collectElementDefaults(
       case "Carousel": {
         const name = el.props.variableName;
         if (name && el.props.defaultIndex != null) {
-          out[name] = { value: String(el.props.defaultIndex) };
+          // Mirror CarouselElementComponent's clampIndex so the overlaid default
+          // matches the index the carousel actually mounts at.
+          const raw = Number(el.props.defaultIndex);
+          const safe = Number.isFinite(raw) ? raw : 0;
+          const maxIdx = Math.max(0, el.children.length - 1);
+          const clamped = Math.max(0, Math.min(safe, maxIdx));
+          out[name] = { value: String(clamped) };
         }
         el.children.forEach(visit);
         break;

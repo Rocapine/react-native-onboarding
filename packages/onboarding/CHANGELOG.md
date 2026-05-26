@@ -8,6 +8,29 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.23.0] - 2026-05-26
+
+### Added
+
+- **`renderWhen` on every UIElement variant** — optional
+  `renderWhen?: LeafCondition | ConditionGroup` field on every entry of the
+  `UIElement` discriminated union (Stack, Text, Image, Lottie, Rive, Icon,
+  Video, Input, Button, RadioGroup, CheckboxGroup, DatePicker, Carousel,
+  ZStack, SafeAreaView). Reuses the existing `LeafConditionSchema` /
+  `ConditionGroupSchema` from `common.types` — no new condition types. When
+  the condition evaluates falsy against current ComposableScreen variables,
+  the runtime skips rendering the element and its entire subtree. Companion
+  to `Button.disabledWhen` (visual disabled state) and `Branch.condition`
+  (flow-level next-step selection); use `renderWhen` for in-screen
+  conditional visibility (validation errors, variable-gated sections, etc.).
+
+> **Backend note:** `onboarding-studio` should mirror the optional
+> `renderWhen` field on every UIElement variant and surface a "Render when"
+> condition picker in the element properties panel, reusing the Branch
+> condition builder. JSON serialization passes through unchanged.
+
+---
+
 ## [1.22.0] - 2026-05-11
 
 ### Added

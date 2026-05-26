@@ -411,6 +411,7 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 - Text color defaults to `theme.colors.text.primary`
 - Lottie, Rive, Video, and DatePicker as optional peer deps — graceful fallback if not installed
 - **Variable context** — `Input`, `RadioGroup`, `CheckboxGroup`, and `DatePicker` elements write into shared state; `Text` elements interpolate those values with `{{variableName}}` expressions
+- **Conditional rendering** — every UIElement accepts `renderWhen?: LeafCondition | ConditionGroup`; the renderer skips the element and its subtree when the condition is false
 
 **Element types:**
 
@@ -809,6 +810,67 @@ export default function RootLayout() {
 ```
 
 Without the provider the context falls back to its default (empty variables, no-op setter) — Input values will not be saved and expression Text will render blank for any `{{variable}}`.
+:::
+
+**Conditional rendering (`renderWhen`)**
+
+Every UIElement variant accepts an optional `renderWhen` field — a
+`LeafCondition` or `ConditionGroup` evaluated against the live variable
+map. When the condition is **false** the element (and its entire subtree
+for containers) is skipped — no node mounts, no layout cost, no
+side-effects from Lottie / Video / Input.
+
+Same condition schema as `Button.disabledWhen` and `nextStep.branches[].condition`:
+
+```jsonc
+{
+  "id": "lifetime-badge",
+  "renderWhen": {
+    "variable": "plan",
+    "operator": "eq",
+    "value": "lifetime"
+  },
+  "type": "Text",
+  "props": {
+    "content": "🎉 Best value — lifetime access!",
+    "fontSize": 14,
+    "fontWeight": "600",
+    "textAlign": "center"
+  }
+}
+```
+
+Use `ConditionGroup` for AND / OR composition:
+
+```jsonc
+{
+  "id": "yearly-or-lifetime-note",
+  "renderWhen": {
+    "logic": "or",
+    "conditions": [
+      { "variable": "plan", "operator": "eq", "value": "yearly" },
+      { "variable": "plan", "operator": "eq", "value": "lifetime" }
+    ]
+  },
+  "type": "Text",
+  "props": { "content": "Best long-term value" }
+}
+```
+
+Element-level defaults (`Carousel.defaultIndex`, `RadioGroup.defaultValue`,
+`CheckboxGroup.defaultValues`, `Input.defaultValue`,
+`DatePicker.defaultValue`) are overlaid onto the variable map
+synchronously on first render — so `renderWhen` and `{{var}}`
+interpolation see defaults from the very first frame, before any user
+interaction.
+
+:::tip `renderWhen` vs `Branch.condition`
+- `renderWhen` — hides a single element *inside* a screen.
+- `Branch.condition` (`step.nextStep.branches[].condition`) — picks the
+  *next step* in the flow when continue is pressed.
+
+Pick `renderWhen` for in-screen toggles (validation text, plan-specific
+copy, optional sections). Pick `Branch.condition` to skip whole steps.
 :::
 
 **Icon props:**

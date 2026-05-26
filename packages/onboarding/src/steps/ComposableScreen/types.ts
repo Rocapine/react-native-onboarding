@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { BaseStepTypeSchema } from "../common.types";
+import {
+  BaseStepTypeSchema,
+  type LeafCondition,
+  type ConditionGroup,
+  LeafConditionSchema,
+  ConditionGroupSchema,
+} from "../common.types";
 import { type StackElementProps, StackElementPropsSchema } from "./elements/StackElement";
 import { type TextElementProps, TextElementPropsSchema } from "./elements/TextElement";
 import { type ImageElementProps, ImageElementPropsSchema } from "./elements/ImageElement";
@@ -58,6 +64,7 @@ type UIElement =
   | {
       id: string;
       name?: string;
+      renderWhen?: LeafCondition | ConditionGroup;
       type: "YStack" | "XStack";
       props: StackElementProps;
       children: UIElement[];
@@ -65,72 +72,84 @@ type UIElement =
   | {
       id: string;
       name?: string;
+      renderWhen?: LeafCondition | ConditionGroup;
       type: "Text";
       props: TextElementProps;
     }
   | {
       id: string;
       name?: string;
+      renderWhen?: LeafCondition | ConditionGroup;
       type: "Image";
       props: ImageElementProps;
     }
   | {
       id: string;
       name?: string;
+      renderWhen?: LeafCondition | ConditionGroup;
       type: "Lottie";
       props: LottieElementProps;
     }
   | {
       id: string;
       name?: string;
+      renderWhen?: LeafCondition | ConditionGroup;
       type: "Rive";
       props: RiveElementProps;
     }
   | {
       id: string;
       name?: string;
+      renderWhen?: LeafCondition | ConditionGroup;
       type: "Icon";
       props: IconElementProps;
     }
   | {
       id: string;
       name?: string;
+      renderWhen?: LeafCondition | ConditionGroup;
       type: "Video";
       props: VideoElementProps;
     }
   | {
       id: string;
       name?: string;
+      renderWhen?: LeafCondition | ConditionGroup;
       type: "Input";
       props: InputElementProps;
     }
   | {
       id: string;
       name?: string;
+      renderWhen?: LeafCondition | ConditionGroup;
       type: "Button";
       props: ButtonElementProps;
     }
   | {
       id: string;
       name?: string;
+      renderWhen?: LeafCondition | ConditionGroup;
       type: "RadioGroup";
       props: RadioGroupElementProps;
     }
   | {
       id: string;
       name?: string;
+      renderWhen?: LeafCondition | ConditionGroup;
       type: "CheckboxGroup";
       props: CheckboxGroupElementProps;
     }
   | {
       id: string;
       name?: string;
+      renderWhen?: LeafCondition | ConditionGroup;
       type: "DatePicker";
       props: DatePickerElementProps;
     }
   | {
       id: string;
       name?: string;
+      renderWhen?: LeafCondition | ConditionGroup;
       type: "Carousel";
       props: CarouselElementProps;
       children: UIElement[];
@@ -138,6 +157,7 @@ type UIElement =
   | {
       id: string;
       name?: string;
+      renderWhen?: LeafCondition | ConditionGroup;
       type: "ZStack";
       props: ZStackElementProps;
       children: UIElement[];
@@ -145,6 +165,7 @@ type UIElement =
   | {
       id: string;
       name?: string;
+      renderWhen?: LeafCondition | ConditionGroup;
       type: "SafeAreaView";
       props: SafeAreaViewElementProps;
       children: UIElement[];
@@ -155,6 +176,7 @@ const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
     z.object({
       id: z.string(),
       name: z.string().optional(),
+      renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
       type: z.union([z.literal("YStack"), z.literal("XStack")]),
       props: StackElementPropsSchema,
       children: z.array(UIElementSchema),
@@ -162,72 +184,84 @@ const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
     z.object({
       id: z.string(),
       name: z.string().optional(),
+      renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
       type: z.literal("Text"),
       props: TextElementPropsSchema,
     }),
     z.object({
       id: z.string(),
       name: z.string().optional(),
+      renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
       type: z.literal("Image"),
       props: ImageElementPropsSchema,
     }),
     z.object({
       id: z.string(),
       name: z.string().optional(),
+      renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
       type: z.literal("Lottie"),
       props: LottieElementPropsSchema,
     }),
     z.object({
       id: z.string(),
       name: z.string().optional(),
+      renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
       type: z.literal("Rive"),
       props: RiveElementPropsSchema,
     }),
     z.object({
       id: z.string(),
       name: z.string().optional(),
+      renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
       type: z.literal("Icon"),
       props: IconElementPropsSchema,
     }),
     z.object({
       id: z.string(),
       name: z.string().optional(),
+      renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
       type: z.literal("Video"),
       props: VideoElementPropsSchema,
     }),
     z.object({
       id: z.string(),
       name: z.string().optional(),
+      renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
       type: z.literal("Input"),
       props: InputElementPropsSchema,
     }),
     z.object({
       id: z.string(),
       name: z.string().optional(),
+      renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
       type: z.literal("Button"),
       props: ButtonElementPropsSchema,
     }),
     z.object({
       id: z.string(),
       name: z.string().optional(),
+      renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
       type: z.literal("RadioGroup"),
       props: RadioGroupElementPropsSchema,
     }),
     z.object({
       id: z.string(),
       name: z.string().optional(),
+      renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
       type: z.literal("CheckboxGroup"),
       props: CheckboxGroupElementPropsSchema,
     }),
     z.object({
       id: z.string(),
       name: z.string().optional(),
+      renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
       type: z.literal("DatePicker"),
       props: DatePickerElementPropsSchema,
     }),
     z.object({
       id: z.string(),
       name: z.string().optional(),
+      renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
       type: z.literal("Carousel"),
       props: CarouselElementPropsSchema,
       children: z.array(UIElementSchema),
@@ -235,6 +269,7 @@ const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
     z.object({
       id: z.string(),
       name: z.string().optional(),
+      renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
       type: z.literal("ZStack"),
       props: ZStackElementPropsSchema,
       children: z.array(UIElementSchema),
@@ -242,6 +277,7 @@ const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
     z.object({
       id: z.string(),
       name: z.string().optional(),
+      renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
       type: z.literal("SafeAreaView"),
       props: SafeAreaViewElementPropsSchema,
       children: z.array(UIElementSchema),

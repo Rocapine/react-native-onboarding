@@ -551,6 +551,23 @@ export default function ComposableScreenExample() {
                 },
               },
             },
+            // renderWhen demo — text only renders once consent is given
+            {
+              id: 'consent-confirmation',
+              renderWhen: {
+                variable: 'consent_given',
+                operator: 'eq' as const,
+                value: 'yes',
+              },
+              type: 'Text' as const,
+              props: {
+                content: '✅ Consent recorded — you may continue',
+                fontSize: 14,
+                fontWeight: '600' as const,
+                textAlign: 'center' as const,
+                marginVertical: 4,
+              },
+            },
             // Gradient horizontal band
             {
               id: 'gradient-band',

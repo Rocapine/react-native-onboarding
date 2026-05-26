@@ -8,6 +8,7 @@ import { OnboardingProgressContext, ComposableVariableEntry } from "../../Provid
 import { useTheme } from "../../Theme/useTheme";
 import { RenderContext } from "./elements/shared";
 import { renderElement } from "./elements/renderElement";
+import { collectElementDefaults } from "./elements/collectDefaults";
 
 type ContentProps = {
   step: ComposableScreenStepType;
@@ -29,12 +30,22 @@ const ComposableScreenRendererBase = ({ step, onContinue }: ContentProps) => {
     [setComposableVariable, setHeadlessVariable]
   );
 
+  // Defaults declared inline on UIElements (Carousel.defaultIndex, RadioGroup.defaultValue, etc.)
+  // are overlaid onto ctx.variables so renderWhen / expressions see them on first render —
+  // before per-element seeding effects (which persist into composableVariables) run.
+  // composableVariables wins over defaults so user-driven updates aren't clobbered.
+  const elementDefaults = useMemo(() => collectElementDefaults(elements), [elements]);
+  const effectiveVariables = useMemo(
+    () => ({ ...elementDefaults, ...composableVariables }),
+    [elementDefaults, composableVariables]
+  );
+
   const renderChildren = (children: UIElement[], parentType: "XStack" | "YStack" | "ZStack") =>
     children.map((child) => renderElement(child, ctx, parentType));
 
   const ctx: RenderContext = {
     theme,
-    variables: composableVariables,
+    variables: effectiveVariables,
     setVariable: setVariableAndSync,
     onContinue,
     customActions,

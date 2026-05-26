@@ -82,6 +82,15 @@ export function CarouselElementComponent({ element, ctx }: Props): React.ReactEl
     ref.current?.scrollTo({ count: target - progress.value, animated: true });
   }, [variableName, variableValue, childrenCount]);
 
+  // Persist the initial index into ctx.variables when no value exists yet, so the
+  // default reaches downstream renderWhen / interpolation across renders.
+  useEffect(() => {
+    if (!variableName) return;
+    if (variableValue !== undefined) return;
+    if (props.defaultIndex == null) return;
+    ctx.setVariable(variableName, { value: String(clampIndex(props.defaultIndex)) });
+  }, [variableName, variableValue, props.defaultIndex, childrenCount]);
+
   const onLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
     if (!size || size.width !== width || size.height !== height) {

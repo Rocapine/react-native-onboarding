@@ -19,7 +19,9 @@ Every styled UIElement (`Button`, `RadioGroup`, `CheckboxGroup`, `Input`, `Text`
 `Button`:
 - `variant: "filled" | "outlined" | "ghost"`
 - `backgroundColor`, `color`, `fontFamily`, `fontWeight`, `fontSize`, `borderRadius`, `paddingVertical`, `paddingHorizontal`
-- `disabledWhen`, `disabledBackgroundColor`, `disabledColor`
+- `shadowColor`, `shadowOffset: {width,height}`, `shadowOpacity`, `shadowRadius`, `elevation`
+- `pressedStyle`, `disabledStyle` (Partial overrides merged per state), `transitionDurationMs`
+- `disabledWhen`; `disabledBackgroundColor` / `disabledColor` (deprecated — prefer `disabledStyle`)
 
 `RadioGroup` / `CheckboxGroup`:
 - `itemBackgroundColor`, `itemSelectedBackgroundColor`

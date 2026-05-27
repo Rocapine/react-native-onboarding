@@ -546,6 +546,67 @@ export const onboardingExample = {
                 },
               },
               {
+                id: "states-heading",
+                type: "Text",
+                props: {
+                  content: "Button states & shadow",
+                  fontSize: 13,
+                  fontWeight: "700",
+                  marginVertical: 4,
+                  opacity: 0.5,
+                },
+              },
+              {
+                id: "btn-shadow",
+                type: "Button",
+                props: {
+                  label: "Elevated (shadow)",
+                  variant: "filled",
+                  marginVertical: 4,
+                  backgroundColor: "#6C63FF",
+                  shadowColor: "#6C63FF",
+                  shadowOffset: { width: 0, height: 6 },
+                  shadowOpacity: 0.4,
+                  shadowRadius: 12,
+                  elevation: 8,
+                },
+              },
+              {
+                id: "btn-pressed",
+                type: "Button",
+                props: {
+                  label: "Press me (hold)",
+                  variant: "filled",
+                  marginVertical: 4,
+                  backgroundColor: "#10b981",
+                  transitionDurationMs: 300,
+                  pressedStyle: {
+                    opacity: 0.6,
+                    backgroundColor: "#065f46",
+                  },
+                },
+              },
+              {
+                id: "btn-disabled",
+                type: "Button",
+                props: {
+                  label: "Always disabled",
+                  variant: "filled",
+                  marginVertical: 4,
+                  actions: ["continue"],
+                  disabledWhen: {
+                    variable: "never_enabled",
+                    operator: "neq",
+                    value: "yes",
+                  },
+                  disabledStyle: {
+                    backgroundColor: "#fee2e2",
+                    color: "#b91c1c",
+                    borderRadius: 12,
+                  },
+                },
+              },
+              {
                 id: "consent-toggle",
                 type: "Button",
                 props: {

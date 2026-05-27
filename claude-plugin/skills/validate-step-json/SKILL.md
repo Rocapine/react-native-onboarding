@@ -44,6 +44,8 @@ Run: `npx tsx scripts/_validate-composable.ts "$(cat step.json)"`
    - `RadioGroup.props.items` / `CheckboxGroup.props.items` is `[{label, value}]` (NOT `options`)
    - `Button.props.actions` is an array; entries are `"continue"` or `{type:"custom",function,variables?}` or `{type:"setVariable",name,value,valueMode?}` (note: setVariable may not be in headless schema yet — check)
    - `Button.props.disabledWhen` (NOT `disabled`) is a valid `LeafCondition` or `ConditionGroup`
+   - `Button.props.pressedStyle` / `disabledStyle` (if present) are objects — `Partial` of overridable Button props; must NOT nest `pressedStyle`/`disabledStyle`. `transitionDurationMs` is a non-negative number.
+   - Shadow fields (any element): `shadowColor` string; `shadowOffset` is `{width, height}` (NOT a number); `shadowOpacity` 0–1; `shadowRadius`/`elevation` non-negative numbers
    - `SafeAreaView.props.edges` is an array of `"top"|"right"|"bottom"|"left"` OR an object with edge mode `"off"|"additive"|"maximum"` — NEVER `"always"`
 5. Report ALL errors at once with path + reason. Don't stop on first.
 
@@ -61,6 +63,8 @@ Run: `npx tsx scripts/_validate-composable.ts "$(cat step.json)"`
 - `RadioGroup.props.options` instead of `items` (also `CheckboxGroup`).
 - `Button.props.action` (singular) used instead of `actions: [...]` (array).
 - `Button.props.disabled` instead of `disabledWhen`.
+- `shadowOffset` given as a number instead of `{ width, height }`.
+- `pressedStyle` / `disabledStyle` nesting another `pressedStyle`/`disabledStyle` (stripped — not overridable).
 - `SafeAreaView.props.edges: { top: "always" }` — invalid edge mode. Use `["top","bottom"]` or `"off" | "additive" | "maximum"`.
 - `Lottie.source: { localPathId }` instead of string URL.
 - `RadioGroup` / `CheckboxGroup` / `Input` / `DatePicker` without `variableName` — element renders but variable never captured.

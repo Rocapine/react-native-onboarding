@@ -47,6 +47,13 @@ Run: `npx tsx scripts/_validate-composable.ts "$(cat step.json)"`
    - `Button.props.pressedStyle` / `disabledStyle` (if present) are objects — `Partial` of overridable Button props; must NOT nest `pressedStyle`/`disabledStyle`. `transitionDurationMs` is a non-negative number.
    - Shadow fields (any element): `shadowColor` string; `shadowOffset` is `{width, height}` (NOT a number); `shadowOpacity` 0–1; `shadowRadius`/`elevation` non-negative numbers
    - `SafeAreaView.props.edges` is an array of `"top"|"right"|"bottom"|"left"` OR an object with edge mode `"off"|"additive"|"maximum"` — NEVER `"always"`
+   - **Flow-level chain integrity (when input is an array of steps)**:
+     - Every non-terminal step has `nextStep: { defaultTargetStepId, branches }`. Terminal step has `nextStep: null`. Flag steps that rely on `null` linear fallback in the middle of a flow as a warning ("implicit linear link — prefer explicit defaultTargetStepId").
+     - `nextStep.defaultTargetStepId` is a string and references a real step `id` in the flow.
+     - Every `branches[].targetStepId` is a string and references a real step `id` in the flow.
+     - Every `branches[].condition` is `null` (unconditional catch-all) OR a valid `LeafCondition` / `ConditionGroup`.
+     - Every variable referenced in a `branches[].condition` is captured upstream (by an Input / RadioGroup / CheckboxGroup / DatePicker `variableName` or a `setVariable` action) — warn if not.
+     - For multi-step flows, every step except the terminal one must define an explicit `defaultTargetStepId` (auto-link convention).
 5. Report ALL errors at once with path + reason. Don't stop on first.
 
 ## Common failure modes
@@ -70,6 +77,10 @@ Run: `npx tsx scripts/_validate-composable.ts "$(cat step.json)"`
 - `RadioGroup` / `CheckboxGroup` / `Input` / `DatePicker` without `variableName` — element renders but variable never captured.
 - Nested `SafeAreaView`.
 - `nextStep.defaultTargetStepId` referencing nonexistent step ID.
+- `nextStep: null` on a non-terminal step in a multi-step flow (relies on implicit array-order linking; prefer explicit `defaultTargetStepId`).
+- `branches[].targetStepId` referencing nonexistent step ID.
+- `branches[].condition` referencing a variable never captured upstream.
+- Branch with non-null condition that lists an unknown `operator` (must be `eq|neq|gt|lt|gte|lte|contains|in|not_in`).
 - `customPayload: {}` instead of `null` (both validate; prefer `null`).
 - `Carousel` with empty `children`.
 

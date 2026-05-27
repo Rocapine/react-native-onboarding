@@ -51,6 +51,8 @@ Authoritative prop shapes: `packages/onboarding/src/steps/ComposableScreen/eleme
 
 `width`, `height`, `flex`, `padding{Top,Right,Bottom,Left,Horizontal,Vertical}`, `margin*`, `gap`, `alignItems`, `justifyContent`, `backgroundColor`, `borderRadius`, `borderWidth`, `borderColor`, `aspectRatio`, `background: GradientBackground`.
 
+**Shadow (all elements):** `shadowColor`, `shadowOffset: { width, height }`, `shadowOpacity` (0–1), `shadowRadius`, `elevation` (Android). Currently only the `Button` renderer applies these; schema accepts them on every element.
+
 **Match probe values**: use the app's button `borderRadius` for buttons and large media, half of that for chips/tags, etc.
 
 ## Variables
@@ -130,6 +132,32 @@ Group form:
 ```
 
 (Note: `disabled` and `disabled-with-condition` are NOT prop names — only `disabledWhen`.)
+
+## Per-state Button styling
+
+`Button` accepts state-style overrides merged on top of base props:
+
+- `pressedStyle` — applied while the button is held down.
+- `disabledStyle` — applied while `disabledWhen` is truthy. Wins over the deprecated `disabledBackgroundColor` / `disabledColor` (kept only as fallback when `disabledStyle` is absent).
+- `transitionDurationMs` — opacity animation duration between rest/pressed/disabled (default `150`).
+
+Each override is a `Partial` of the overridable Button props: `BaseBoxProps` (incl. shadow), plus `variant`, `backgroundColor`, `color`, `fontSize`, `fontWeight`, `fontFamily`, `fontStyle`, `textAlign`. It does NOT nest `pressedStyle` / `disabledStyle`.
+
+```json
+{
+  "type": "Button",
+  "props": {
+    "label": "Continue",
+    "actions": ["continue"],
+    "backgroundColor": "<DP.brand.primary>",
+    "shadowColor": "#000", "shadowOffset": { "width": 0, "height": 4 },
+    "shadowOpacity": 0.18, "shadowRadius": 8, "elevation": 4,
+    "transitionDurationMs": 180,
+    "pressedStyle": { "opacity": 0.7, "backgroundColor": "<DP.brand.primaryPressed>" },
+    "disabledStyle": { "backgroundColor": "<DP.surface.raised>", "color": "<DP.text.muted>", "shadowOpacity": 0, "elevation": 0 }
+  }
+}
+```
 
 ## Authoring workflow
 

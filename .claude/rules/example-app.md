@@ -21,6 +21,10 @@ npm run android
 
 `@rocapine/react-native-onboarding` resolves to `dist/index.d.ts` via workspace symlink + `package.json#types`. New exported symbols in `packages/onboarding/src/` are invisible to `packages/onboarding-ui/` and `example/` `tsc` runs until headless package built (or `npm run watch:headless` running). **Build before typechecking after adding exports.**
 
+## Worktree gotcha
+
+Fresh worktree has no `example/node_modules` — `tsc` resolves `@rocapine/*` via the **main** repo's symlink (main packages, not worktree), giving stale/false type errors. Fix: `npm install --workspaces --include-workspace-root` from worktree root before `type:check`.
+
 ## Layout
 
 - `app/example/` — individual page-type demos (registered in `app/example/index.tsx`)

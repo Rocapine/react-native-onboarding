@@ -523,6 +523,73 @@ export default function ComposableScreenExample() {
                 },
               },
             },
+            // Button states & shadow showcase (OS-161)
+            {
+              id: 'states-heading',
+              type: 'Text' as const,
+              props: {
+                content: 'Button states & shadow',
+                fontSize: 13,
+                fontWeight: '700',
+                marginVertical: 4,
+                opacity: 0.5,
+              },
+            },
+            // Shadow + elevation only (press to feel the default opacity transition).
+            {
+              id: 'btn-shadow',
+              type: 'Button' as const,
+              props: {
+                label: 'Elevated (shadow)',
+                variant: 'filled' as const,
+                marginVertical: 4,
+                actions: [{ type: 'custom' as const, function: 'celebrate' }],
+                backgroundColor: '#6C63FF',
+                shadowColor: '#6C63FF',
+                shadowOffset: { width: 0, height: 6 },
+                shadowOpacity: 0.4,
+                shadowRadius: 12,
+                elevation: 8,
+              },
+            },
+            // pressedStyle — recolors + dims while held, slow 300ms transition.
+            {
+              id: 'btn-pressed',
+              type: 'Button' as const,
+              props: {
+                label: 'Press me (hold)',
+                variant: 'filled' as const,
+                marginVertical: 4,
+                actions: [{ type: 'custom' as const, function: 'celebrate' }],
+                backgroundColor: '#10b981',
+                transitionDurationMs: 300,
+                pressedStyle: {
+                  opacity: 0.6,
+                  backgroundColor: '#065f46',
+                },
+              },
+            },
+            // disabledStyle — always disabled to show the disabled visual override.
+            {
+              id: 'btn-disabled',
+              type: 'Button' as const,
+              props: {
+                label: 'Always disabled',
+                variant: 'filled' as const,
+                marginVertical: 4,
+                actions: ['continue' as const],
+                disabledWhen: {
+                  variable: 'never_enabled',
+                  operator: 'neq' as const,
+                  value: 'yes',
+                },
+                disabledStyle: {
+                  backgroundColor: '#fee2e2',
+                  color: '#b91c1c',
+                  borderRadius: 12,
+                },
+              },
+            },
             // Disable-on-condition demo: gated continue + a setVariable companion.
             {
               id: 'consent-toggle',
@@ -548,6 +615,22 @@ export default function ComposableScreenExample() {
                   variable: 'consent_given',
                   operator: 'neq' as const,
                   value: 'yes',
+                },
+                transitionDurationMs: 180,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.18,
+                shadowRadius: 8,
+                elevation: 4,
+                pressedStyle: {
+                  opacity: 0.7,
+                  backgroundColor: '#4f46e5',
+                },
+                disabledStyle: {
+                  backgroundColor: '#d1d5db',
+                  color: '#6b7280',
+                  shadowOpacity: 0,
+                  elevation: 0,
                 },
               },
             },

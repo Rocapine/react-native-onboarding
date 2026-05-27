@@ -521,7 +521,7 @@ Signature-style: title + 3 commitment checkboxes (forced-tap) + big CTA.
 | `Lottie` | `source` (string URL) | |
 | `Rive` | `url` (string URL) | |
 | `Input` | — | `variableName`, `keyboardType`, `autoCapitalize`, `maxLength`, `textAlign`. No `suffix`/`autoFocus`. |
-| `Button` | `label` | `actions: ButtonAction[]`; `disabledWhen` (LeafCondition/Group); explicit `backgroundColor`/`color`/`fontFamily`/`borderRadius` from Design Profile |
+| `Button` | `label` | `actions: ButtonAction[]`; `disabledWhen` (LeafCondition/Group); `pressedStyle`/`disabledStyle` (Partial overrides) + `transitionDurationMs`; shadow (`shadowColor`/`shadowOffset`/`shadowOpacity`/`shadowRadius`/`elevation`); explicit `backgroundColor`/`color`/`fontFamily`/`borderRadius` from Design Profile. `disabledStyle` supersedes deprecated `disabledBackgroundColor`/`disabledColor` |
 | `RadioGroup` / `CheckboxGroup` | `items: [{label,value}]` | Wire `itemBackgroundColor`, `itemSelectedBackgroundColor`, `itemBorderColor`, `itemBorderRadius`, `itemFontFamily`, etc., from Design Profile |
 | `DatePicker` | — | `variableName`; see `DatePickerElement.ts` |
 | `Carousel` | — | slides in `children` at element top-level |

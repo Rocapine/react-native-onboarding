@@ -1,6 +1,6 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
-import { Text, TouchableOpacity } from "react-native";
+import { Animated, Pressable, Text } from "react-native";
 import {
   useResolvedFontStyle,
   evaluateCondition,
@@ -67,12 +67,21 @@ export const ButtonActionSchema = z.union([
   SetVariableButtonActionSchema,
 ]);
 
+type ButtonOverridableProps = BaseBoxProps & {
+  variant?: "filled" | "outlined" | "ghost";
+  backgroundColor?: string;
+  color?: string;
+  fontSize?: number;
+  fontWeight?: string;
+  fontFamily?: string | "inherit";
+  fontStyle?: "normal" | "italic";
+  textAlign?: "left" | "center" | "right";
+};
+
+export type ButtonStyleOverride = Partial<ButtonOverridableProps>;
+
 export type ButtonElementProps = BaseBoxProps & {
   label: string;
-  /**
-   * Ordered list of actions to run on press. Sequential, await async handlers,
-   * abort on error, `"continue"` is terminal.
-   */
   actions?: ButtonAction[];
   /** @deprecated Use `actions` instead. */
   action?: "continue";
@@ -85,9 +94,25 @@ export type ButtonElementProps = BaseBoxProps & {
   fontStyle?: "normal" | "italic";
   textAlign?: "left" | "center" | "right";
   disabledWhen?: LeafCondition | ConditionGroup;
+  /** @deprecated Use `disabledStyle.backgroundColor`. */
   disabledBackgroundColor?: string;
+  /** @deprecated Use `disabledStyle.color`. */
   disabledColor?: string;
+  pressedStyle?: ButtonStyleOverride;
+  disabledStyle?: ButtonStyleOverride;
+  transitionDurationMs?: number;
 };
+
+export const ButtonStyleOverrideSchema = BaseBoxPropsSchema.extend({
+  variant: z.enum(["filled", "outlined", "ghost"]).optional(),
+  backgroundColor: z.string().optional(),
+  color: z.string().optional(),
+  fontSize: z.number().optional(),
+  fontWeight: z.string().optional(),
+  fontFamily: z.string().optional(),
+  fontStyle: z.enum(["normal", "italic"]).optional(),
+  textAlign: z.enum(["left", "center", "right"]).optional(),
+}).partial();
 
 export const ButtonElementPropsSchema = BaseBoxPropsSchema.extend({
   label: z.string().min(1, "label must not be empty"),
@@ -104,6 +129,9 @@ export const ButtonElementPropsSchema = BaseBoxPropsSchema.extend({
   disabledWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
   disabledBackgroundColor: z.string().optional(),
   disabledColor: z.string().optional(),
+  pressedStyle: ButtonStyleOverrideSchema.optional(),
+  disabledStyle: ButtonStyleOverrideSchema.optional(),
+  transitionDurationMs: z.number().min(0).optional(),
 });
 
 type ButtonUIElement = Extract<UIElement, { type: "Button" }>;
@@ -112,6 +140,14 @@ type Props = {
   element: ButtonUIElement;
   ctx: RenderContext;
 };
+
+const buildShadowStyle = (p: Pick<BaseBoxProps, "shadowColor" | "shadowOffset" | "shadowOpacity" | "shadowRadius" | "elevation">) => ({
+  shadowColor: p.shadowColor,
+  shadowOffset: p.shadowOffset,
+  shadowOpacity: p.shadowOpacity,
+  shadowRadius: p.shadowRadius,
+  elevation: p.elevation,
+});
 
 export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElement => {
   const { theme, onContinue, customActions, variables, setVariable } = ctx;
@@ -125,6 +161,8 @@ export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElem
   const isDisabled = element.props.disabledWhen
     ? evaluateCondition(element.props.disabledWhen, flatVariables)
     : false;
+  const [isPressed, setIsPressed] = useState(false);
+
   const handlePress = async () => {
     if (isDisabled) return;
     const { actions, action } = element.props;
@@ -171,119 +209,181 @@ export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElem
       }
     }
   };
-  const variant = element.props.variant ?? "filled";
+
+  // State overrides are merged over base props. disabledStyle wins over the
+  // deprecated `disabledBackgroundColor`/`disabledColor` fields; falls back to
+  // those when only the legacy fields are set.
+  const stateOverride: ButtonStyleOverride = isDisabled
+    ? (element.props.disabledStyle ?? {})
+    : isPressed
+      ? (element.props.pressedStyle ?? {})
+      : {};
+  const eff = { ...element.props, ...stateOverride };
+
+  const variant = eff.variant ?? "filled";
   const isFilled = variant === "filled";
   const isOutlined = variant === "outlined";
-  const disabledBg =
-    element.props.disabledBackgroundColor ?? theme.colors.disable;
-  const disabledText =
-    element.props.disabledColor ?? theme.colors.text.disable;
+
+  const legacyDisabledBg =
+    isDisabled && !element.props.disabledStyle
+      ? (element.props.disabledBackgroundColor ?? theme.colors.disable)
+      : undefined;
+  const legacyDisabledText =
+    isDisabled && !element.props.disabledStyle
+      ? (element.props.disabledColor ?? theme.colors.text.disable)
+      : undefined;
+
   const bgColor = isDisabled
     ? isFilled
-      ? disabledBg
+      ? (eff.backgroundColor ?? legacyDisabledBg ?? theme.colors.disable)
       : "transparent"
     : isFilled
-      ? (element.props.backgroundColor ?? theme.colors.primary)
+      ? (eff.backgroundColor ?? theme.colors.primary)
       : "transparent";
   const textColor = isDisabled
-    ? disabledText
+    ? (eff.color ?? legacyDisabledText ?? theme.colors.text.disable)
     : isFilled
-      ? (element.props.color ?? theme.colors.text.opposite)
-      : (element.props.color ?? theme.colors.primary);
+      ? (eff.color ?? theme.colors.text.opposite)
+      : (eff.color ?? theme.colors.primary);
   const outlinedBorderColor = isDisabled
-    ? disabledBg
-    : (element.props.borderColor ?? theme.colors.primary);
+    ? (eff.borderColor ?? legacyDisabledBg ?? theme.colors.disable)
+    : (eff.borderColor ?? theme.colors.primary);
 
-  const hasGradient = isFilled && !isDisabled && !!element.props.backgroundGradient;
-  const borderRadius = element.props.borderRadius ?? 90;
+  const hasGradient = isFilled && !isDisabled && !!eff.backgroundGradient;
+  const borderRadius = eff.borderRadius ?? 90;
   const inheritedFontFamily = resolveInheritedFontFamily(
-    element.props.fontFamily,
+    eff.fontFamily,
     theme.typography.defaultFontFamily
   );
   const resolvedFont = useResolvedFontStyle(
     inheritedFontFamily,
-    element.props.fontWeight
+    eff.fontWeight
   );
+
+  // Animate opacity between rest/pressed/disabled. Uses native driver — color
+  // and shadow* changes apply instantly on state transition (acceptable for
+  // tap-feedback timescales). transitionDurationMs gates animation length.
+  const opacityAnim = useRef(new Animated.Value(eff.opacity ?? 1)).current;
+  const duration = element.props.transitionDurationMs ?? 150;
+  const restOpacity = element.props.opacity ?? 1;
+  const pressedOpacity = element.props.pressedStyle?.opacity ?? 0.8;
+  const disabledOpacity =
+    element.props.disabledStyle?.opacity ?? element.props.opacity ?? 1;
+  const targetOpacity = isDisabled
+    ? disabledOpacity
+    : isPressed
+      ? pressedOpacity
+      : restOpacity;
+
+  useEffect(() => {
+    Animated.timing(opacityAnim, {
+      toValue: targetOpacity,
+      duration,
+      useNativeDriver: true,
+    }).start();
+  }, [targetOpacity, duration, opacityAnim]);
+
+  const shadowStyle = buildShadowStyle(eff);
 
   const labelNode = (
     <Text
       style={{
         color: textColor,
-        fontSize: element.props.fontSize ?? theme.typography.textStyles.button.fontSize,
+        fontSize: eff.fontSize ?? theme.typography.textStyles.button.fontSize,
         fontWeight: resolvedFont.resolvedToVariant
           ? undefined
           : ((resolvedFont.fontWeight as any) ?? theme.typography.textStyles.button.fontWeight),
         fontFamily: resolvedFont.fontFamily,
-        fontStyle: element.props.fontStyle,
-        textAlign: element.props.textAlign ?? "center",
+        fontStyle: eff.fontStyle,
+        textAlign: eff.textAlign ?? "center",
       }}
     >
       {element.props.label}
     </Text>
   );
 
+  const onPressIn = () => setIsPressed(true);
+  const onPressOut = () => setIsPressed(false);
+
   if (hasGradient) {
     return (
-      <GradientBox
-        gradient={element.props.backgroundGradient}
+      <Animated.View
         style={{
+          ...shadowStyle,
+          opacity: opacityAnim,
+          width: dim(eff.width),
+          height: dim(eff.height),
+          margin: eff.margin,
+          marginHorizontal: eff.marginHorizontal,
+          marginVertical: eff.marginVertical,
+          alignSelf: eff.alignSelf ?? (eff.width ? undefined : "stretch"),
           borderRadius,
-          borderWidth: isOutlined ? (element.props.borderWidth ?? 1) : (element.props.borderWidth ?? 0),
-          borderColor: isOutlined ? outlinedBorderColor : element.props.borderColor,
-          width: dim(element.props.width),
-          height: dim(element.props.height),
-          margin: element.props.margin,
-          marginHorizontal: element.props.marginHorizontal,
-          marginVertical: element.props.marginVertical,
-          opacity: element.props.opacity,
-          alignSelf: element.props.alignSelf ?? (element.props.width ? undefined : "stretch"),
-          overflow: "hidden",
         }}
       >
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={handlePress}
-          disabled={isDisabled}
+        <GradientBox
+          gradient={eff.backgroundGradient}
           style={{
+            borderRadius,
+            borderWidth: isOutlined ? (eff.borderWidth ?? 1) : (eff.borderWidth ?? 0),
+            borderColor: isOutlined ? outlinedBorderColor : eff.borderColor,
+            overflow: "hidden",
             flex: 1,
-            padding: element.props.padding,
-            paddingVertical: element.props.paddingVertical ?? 14,
-            paddingHorizontal: element.props.paddingHorizontal ?? 24,
-            alignItems: "center",
-            justifyContent: "center",
           }}
         >
-          {labelNode}
-        </TouchableOpacity>
-      </GradientBox>
+          <Pressable
+            onPress={handlePress}
+            onPressIn={onPressIn}
+            onPressOut={onPressOut}
+            disabled={isDisabled}
+            style={{
+              flex: 1,
+              padding: eff.padding,
+              paddingVertical: eff.paddingVertical ?? 14,
+              paddingHorizontal: eff.paddingHorizontal ?? 24,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            {labelNode}
+          </Pressable>
+        </GradientBox>
+      </Animated.View>
     );
   }
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.8}
-      onPress={handlePress}
-      disabled={isDisabled}
+    <Animated.View
       style={{
+        ...shadowStyle,
+        opacity: opacityAnim,
         backgroundColor: bgColor,
         borderRadius,
-        borderWidth: isOutlined ? (element.props.borderWidth ?? 1) : (element.props.borderWidth ?? 0),
-        borderColor: isOutlined ? outlinedBorderColor : element.props.borderColor,
-        padding: element.props.padding,
-        paddingVertical: element.props.paddingVertical ?? 14,
-        paddingHorizontal: element.props.paddingHorizontal ?? 24,
-        width: dim(element.props.width),
-        height: dim(element.props.height),
-        margin: element.props.margin,
-        marginHorizontal: element.props.marginHorizontal,
-        marginVertical: element.props.marginVertical,
-        opacity: element.props.opacity,
-        alignSelf: element.props.alignSelf ?? (element.props.width ? undefined : "stretch"),
-        alignItems: "center",
-        justifyContent: "center",
+        borderWidth: isOutlined ? (eff.borderWidth ?? 1) : (eff.borderWidth ?? 0),
+        borderColor: isOutlined ? outlinedBorderColor : eff.borderColor,
+        width: dim(eff.width),
+        height: dim(eff.height),
+        margin: eff.margin,
+        marginHorizontal: eff.marginHorizontal,
+        marginVertical: eff.marginVertical,
+        alignSelf: eff.alignSelf ?? (eff.width ? undefined : "stretch"),
       }}
     >
-      {labelNode}
-    </TouchableOpacity>
+      <Pressable
+        onPress={handlePress}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+        disabled={isDisabled}
+        style={{
+          padding: eff.padding,
+          paddingVertical: eff.paddingVertical ?? 14,
+          paddingHorizontal: eff.paddingHorizontal ?? 24,
+          alignItems: "center",
+          justifyContent: "center",
+          borderRadius,
+        }}
+      >
+        {labelNode}
+      </Pressable>
+    </Animated.View>
   );
 };

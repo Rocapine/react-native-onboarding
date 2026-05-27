@@ -549,6 +549,22 @@ export default function ComposableScreenExample() {
                   operator: 'neq' as const,
                   value: 'yes',
                 },
+                transitionDurationMs: 180,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.18,
+                shadowRadius: 8,
+                elevation: 4,
+                pressedStyle: {
+                  opacity: 0.7,
+                  backgroundColor: '#4f46e5',
+                },
+                disabledStyle: {
+                  backgroundColor: '#d1d5db',
+                  color: '#6b7280',
+                  shadowOpacity: 0,
+                  elevation: 0,
+                },
               },
             },
             // renderWhen demo — text only renders once consent is given

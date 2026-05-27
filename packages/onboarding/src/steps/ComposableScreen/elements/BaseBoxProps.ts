@@ -40,6 +40,16 @@ export const GradientBackgroundSchema = z.discriminatedUnion("type", [
   }),
 ]);
 
+export type ShadowOffset = {
+  width: number;
+  height: number;
+};
+
+export const ShadowOffsetSchema = z.object({
+  width: z.number(),
+  height: z.number(),
+});
+
 export type BaseBoxProps = {
   width?: number | string;
   height?: number | string;
@@ -64,6 +74,11 @@ export type BaseBoxProps = {
   borderWidth?: number;
   borderRadius?: number;
   borderColor?: string;
+  shadowColor?: string;
+  shadowOffset?: ShadowOffset;
+  shadowOpacity?: number;
+  shadowRadius?: number;
+  elevation?: number;
 };
 
 export const BaseBoxPropsSchema = z.object({
@@ -90,4 +105,9 @@ export const BaseBoxPropsSchema = z.object({
   borderWidth: z.number().min(0).optional(),
   borderRadius: z.number().min(0).optional(),
   borderColor: z.string().optional(),
+  shadowColor: z.string().optional(),
+  shadowOffset: ShadowOffsetSchema.optional(),
+  shadowOpacity: z.number().min(0).max(1).optional(),
+  shadowRadius: z.number().min(0).optional(),
+  elevation: z.number().min(0).optional(),
 });

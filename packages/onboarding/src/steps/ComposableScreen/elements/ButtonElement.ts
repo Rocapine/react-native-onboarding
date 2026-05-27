@@ -26,6 +26,20 @@ export const ButtonActionSchema = z.union([
   CustomButtonActionSchema,
 ]);
 
+type ButtonOverridableProps = BaseBoxProps & {
+  variant?: "filled" | "outlined" | "ghost";
+  backgroundColor?: string;
+  color?: string;
+  fontSize?: number;
+  fontWeight?: string;
+  fontFamily?: string | "inherit";
+  fontStyle?: "normal" | "italic";
+  textAlign?: "left" | "center" | "right";
+};
+
+/** Subset of ButtonElementProps that can be overridden per-state. */
+export type ButtonStyleOverride = Partial<ButtonOverridableProps>;
+
 export type ButtonElementProps = BaseBoxProps & {
   label: string;
   /**
@@ -56,11 +70,28 @@ export type ButtonElementProps = BaseBoxProps & {
    * the same condition schema as `Branch.condition`.
    */
   disabledWhen?: LeafCondition | ConditionGroup;
-  /** Override background color in the disabled state (filled variant). Defaults to `theme.colors.disable`. */
+  /** @deprecated Use `disabledStyle.backgroundColor`. Falls back when `disabledStyle` omitted. */
   disabledBackgroundColor?: string;
-  /** Override text color in the disabled state. Defaults to `theme.colors.text.disable`. */
+  /** @deprecated Use `disabledStyle.color`. Falls back when `disabledStyle` omitted. */
   disabledColor?: string;
+  /** Style overrides merged on top of base props while pressed. */
+  pressedStyle?: ButtonStyleOverride;
+  /** Style overrides merged on top of base props while disabled. Wins over deprecated `disabled*` fields. */
+  disabledStyle?: ButtonStyleOverride;
+  /** Animation duration (ms) between rest/pressed/disabled. Default 150. */
+  transitionDurationMs?: number;
 };
+
+export const ButtonStyleOverrideSchema = BaseBoxPropsSchema.extend({
+  variant: z.enum(["filled", "outlined", "ghost"]).optional(),
+  backgroundColor: z.string().optional(),
+  color: z.string().optional(),
+  fontSize: z.number().optional(),
+  fontWeight: z.string().optional(),
+  fontFamily: z.string().optional(),
+  fontStyle: z.enum(["normal", "italic"]).optional(),
+  textAlign: z.enum(["left", "center", "right"]).optional(),
+}).partial();
 
 export const ButtonElementPropsSchema = BaseBoxPropsSchema.extend({
   label: z.string().min(1, "label must not be empty"),
@@ -77,4 +108,7 @@ export const ButtonElementPropsSchema = BaseBoxPropsSchema.extend({
   disabledWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
   disabledBackgroundColor: z.string().optional(),
   disabledColor: z.string().optional(),
+  pressedStyle: ButtonStyleOverrideSchema.optional(),
+  disabledStyle: ButtonStyleOverrideSchema.optional(),
+  transitionDurationMs: z.number().min(0).optional(),
 });

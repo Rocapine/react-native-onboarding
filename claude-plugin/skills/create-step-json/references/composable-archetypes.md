@@ -2,6 +2,8 @@
 
 > **Schema reminder.** `payload = { elements: UIElement[] }`. No `payload.root`, no `payload.variables`. Variables flow at runtime from in-screen `Input` / `RadioGroup` / `CheckboxGroup` / `DatePicker` `variableName` props (or prior steps' captures).
 
+> **Element ids.** The readable `"id"` values below (`safe`, `root`, `title`, …) are illustrative for readability. In real output, every element `id` must be a fresh UUID v4 — never reuse or content-derive.
+
 > **Design fidelity rule.** Every value below in `<DP.xxx>` placeholders comes from the Design Profile produced by `inspect-target-app.md`. Replace, don't ship with placeholders. Generic skeletons are a regression.
 
 Outer shape (always):

@@ -69,7 +69,7 @@ Reference variables from `Text` ONLY when `Text.props.mode === "expression"`. Th
 
 ## Naming conventions (match probe)
 
-- IDs: kebab-case unique within screen. If app uses camelCase elsewhere, switch to camelCase.
+- Element `id`: generate a fresh UUID v4 (e.g. `crypto.randomUUID()`) for **every** UIElement — never reuse, never derive from content. Studio keys elements by UUID; human-readable ids collide on duplicate screens. (Examples below use readable ids for documentation only — real output must use UUIDs.) This is the element id inside `payload.elements`, distinct from the step `id`.
 - Variables: match host vocabulary (`goal` over `q1`, `userName` over `name` if app uses camelCase fields).
 
 ## Minimal example
@@ -193,8 +193,9 @@ Each override is a `Partial` of the overridable Button props: `BaseBoxProps` (in
 ## Anti-patterns
 
 - Don't write `payload.root` or `payload.variables` — they don't exist and crash Studio (`els is not iterable` when reading `payload.elements`).
-- **Every container element (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `Carousel`) MUST have a `children` field. Use `"children": []` for empty containers (spacers, blank panels).** Studio renderer does `el.children.map(...)` unconditionally — missing `children` crashes with `Cannot read properties of undefined (reading 'map')`. The headless Zod schema also requires it (`children: z.array(UIElementSchema)`).
-- Don't omit `id` on any element.
+- **Every container element (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `ScrollView`, `KeyboardAvoidingView`, `Carousel`) MUST have a `children` field. Use `"children": []` for empty containers (spacers, blank panels).** Studio renderer does `el.children.map(...)` unconditionally — missing `children` crashes with `Cannot read properties of undefined (reading 'map')`. The headless Zod schema also requires it (`children: z.array(UIElementSchema)`).
+- Don't omit `id` on any element, and don't reuse or content-derive it — generate a fresh UUID v4 per element.
+- Don't nest a `KeyboardAvoidingView` inside another `KeyboardAvoidingView` — the headless schema rejects it.
 - Don't use `{{var}}` in `Text.content` without `mode: "expression"` — interpolation silently disabled otherwise.
 - Don't use `Text.variant` — it doesn't exist. Set `fontSize` / `fontWeight` / `fontFamily` directly.
 - Don't use `SafeAreaView` edge mode `"always"` — only `"off" | "additive" | "maximum"`.

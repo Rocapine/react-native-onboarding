@@ -165,6 +165,7 @@ export type UIElement =
   | {
       id: string;
       name?: string;
+      renderWhen?: LeafCondition | ConditionGroup;
       type: "ScrollView";
       props: ScrollViewElementProps;
       children: UIElement[];
@@ -172,6 +173,7 @@ export type UIElement =
   | {
       id: string;
       name?: string;
+      renderWhen?: LeafCondition | ConditionGroup;
       type: "KeyboardAvoidingView";
       props: KeyboardAvoidingViewElementProps;
       children: UIElement[];
@@ -291,6 +293,7 @@ export const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
     z.object({
       id: z.string(),
       name: z.string().optional(),
+      renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
       type: z.literal("ScrollView"),
       props: ScrollViewElementPropsSchema,
       children: z.array(UIElementSchema),
@@ -298,6 +301,7 @@ export const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
     z.object({
       id: z.string(),
       name: z.string().optional(),
+      renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
       type: z.literal("KeyboardAvoidingView"),
       props: KeyboardAvoidingViewElementPropsSchema,
       children: z.array(UIElementSchema),

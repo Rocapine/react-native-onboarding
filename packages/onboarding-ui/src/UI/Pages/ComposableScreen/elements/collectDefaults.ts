@@ -67,6 +67,8 @@ export function collectElementDefaults(
       case "XStack":
       case "ZStack":
       case "SafeAreaView":
+      case "ScrollView":
+      case "KeyboardAvoidingView":
         el.children.forEach(visit);
         break;
     }

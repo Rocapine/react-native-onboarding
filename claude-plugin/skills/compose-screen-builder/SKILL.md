@@ -165,7 +165,7 @@ Each override is a `Partial` of the overridable Button props: `BaseBoxProps` (in
 2. Pick archetype skeleton.
 3. Replace tokens/copy with probe values.
 4. Declare every variable referenced.
-5. Add elements top-to-bottom with kebab-case IDs.
+5. Add elements top-to-bottom, each with a fresh UUID v4 `id` (e.g. `crypto.randomUUID()`) — the element id inside `payload.elements`, distinct from the step `id`; never reuse or content-derive. Readable ids in this doc are illustrative only.
 6. Put `{ "type": "YStack", "props": { "flex": 1 }, "children": [] }` spacer above CTA when CTA should pin to bottom. The empty `children: []` is required — Studio renderer crashes without it.
 7. Validate via `validate-step-json`.
 

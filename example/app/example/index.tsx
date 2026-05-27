@@ -24,6 +24,8 @@ const examples: Example[] = [
       { name: "Carousel", route: "/example/composable-screen-carousel" },
       { name: "Button", route: "/example/composable-screen-button" },
       { name: "ZStack", route: "/example/composable-screen-zstack" },
+      { name: "ScrollView", route: "/example/composable-screen-scrollview" },
+      { name: "Keyboard", route: "/example/composable-screen-keyboard" },
       { name: "Runtime Fonts", route: "/example/composable-screen-fonts" },
       { name: "All", route: "/example/composable-screen" },
     ],

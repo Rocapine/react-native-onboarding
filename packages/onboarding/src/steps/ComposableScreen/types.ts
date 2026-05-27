@@ -21,6 +21,11 @@ import { type DatePickerElementProps, DatePickerElementPropsSchema } from "./ele
 import { type CarouselElementProps, CarouselElementPropsSchema } from "./elements/CarouselElement";
 import { type ZStackElementProps, ZStackElementPropsSchema } from "./elements/ZStackElement";
 import { type SafeAreaViewElementProps, SafeAreaViewElementPropsSchema } from "./elements/SafeAreaViewElement";
+import { type ScrollViewElementProps, ScrollViewElementPropsSchema } from "./elements/ScrollViewElement";
+import {
+  type KeyboardAvoidingViewElementProps,
+  KeyboardAvoidingViewElementPropsSchema,
+} from "./elements/KeyboardAvoidingViewElement";
 
 export type { BaseBoxProps, GradientBackground, GradientEdge, GradientStop, LinearGradientConfig } from "./elements/BaseBoxProps";
 export { BaseBoxPropsSchema, GradientBackgroundSchema } from "./elements/BaseBoxProps";
@@ -40,6 +45,11 @@ export type { DatePickerElementProps } from "./elements/DatePickerElement";
 export type { CarouselElementProps } from "./elements/CarouselElement";
 export type { ZStackElementProps } from "./elements/ZStackElement";
 export type { SafeAreaViewElementProps, SafeAreaEdge, SafeAreaEdgeMode } from "./elements/SafeAreaViewElement";
+export type { ScrollViewElementProps, ScrollViewContentInset } from "./elements/ScrollViewElement";
+export type {
+  KeyboardAvoidingViewElementProps,
+  KeyboardAvoidingBehavior,
+} from "./elements/KeyboardAvoidingViewElement";
 
 /**
  * Type tag for a ComposableScreen variable. Drives expression-mode coercion
@@ -169,6 +179,22 @@ type UIElement =
       type: "SafeAreaView";
       props: SafeAreaViewElementProps;
       children: UIElement[];
+    }
+  | {
+      id: string;
+      name?: string;
+      renderWhen?: LeafCondition | ConditionGroup;
+      type: "ScrollView";
+      props: ScrollViewElementProps;
+      children: UIElement[];
+    }
+  | {
+      id: string;
+      name?: string;
+      renderWhen?: LeafCondition | ConditionGroup;
+      type: "KeyboardAvoidingView";
+      props: KeyboardAvoidingViewElementProps;
+      children: UIElement[];
     };
 
 const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
@@ -282,12 +308,67 @@ const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
       props: SafeAreaViewElementPropsSchema,
       children: z.array(UIElementSchema),
     }),
+    z.object({
+      id: z.string(),
+      name: z.string().optional(),
+      renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
+      type: z.literal("ScrollView"),
+      props: ScrollViewElementPropsSchema,
+      children: z.array(UIElementSchema),
+    }),
+    z.object({
+      id: z.string(),
+      name: z.string().optional(),
+      renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
+      type: z.literal("KeyboardAvoidingView"),
+      props: KeyboardAvoidingViewElementPropsSchema,
+      children: z.array(UIElementSchema),
+    }),
   ])
 );
 
-export const ComposableScreenStepPayloadSchema = z.object({
-  elements: z.array(UIElementSchema),
-});
+// Walk a UIElement tree; flag any KeyboardAvoidingView descendant of another KeyboardAvoidingView.
+// RN behavior is undefined when a KAV nests another; KAV adjusts the layout of the host view, and
+// stacking adjusters produces drift and clip artifacts on iOS + double height insets on Android.
+const collectNestedKeyboardAvoidingViews = (
+  nodes: UIElement[],
+  insideKav: boolean,
+  out: string[]
+): void => {
+  for (const node of nodes) {
+    if (node.type === "KeyboardAvoidingView") {
+      if (insideKav) out.push(node.id);
+      collectNestedKeyboardAvoidingViews(node.children, true, out);
+      continue;
+    }
+    if (
+      node.type === "YStack" ||
+      node.type === "XStack" ||
+      node.type === "ZStack" ||
+      node.type === "SafeAreaView" ||
+      node.type === "ScrollView" ||
+      node.type === "Carousel"
+    ) {
+      collectNestedKeyboardAvoidingViews(node.children, insideKav, out);
+    }
+  }
+};
+
+export const ComposableScreenStepPayloadSchema = z
+  .object({
+    elements: z.array(UIElementSchema),
+  })
+  .superRefine((payload, ctx) => {
+    const offenders: string[] = [];
+    collectNestedKeyboardAvoidingViews(payload.elements, false, offenders);
+    for (const id of offenders) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["elements"],
+        message: `KeyboardAvoidingView (id="${id}") cannot be nested inside another KeyboardAvoidingView.`,
+      });
+    }
+  });
 
 export const ComposableScreenStepTypeSchema = BaseStepTypeSchema.extend({
   type: z.literal("ComposableScreen"),

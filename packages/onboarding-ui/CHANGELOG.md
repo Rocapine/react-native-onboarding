@@ -9,6 +9,30 @@ here.
 
 ---
 
+## [1.25.0] - 2026-05-27
+
+### Added
+
+- **`ScrollView` element renderer** — renders a React Native `ScrollView`.
+  Applies `BaseBoxProps` to the outer container (gradient-aware), maps
+  `bounces` / indicators / `contentInset` / `keyboardShouldPersistTaps`, and
+  exposes a `contentContainerPadding` shortcut on `contentContainerStyle`
+  (which also keeps `flexGrow: 1`). `horizontal` renders children in row order.
+- **`KeyboardAvoidingView` element renderer** — renders a React Native
+  `KeyboardAvoidingView` with `behavior` defaulting to iOS `padding` /
+  Android `height`, plus `keyboardVerticalOffset` and `enabled`.
+
+### Changed
+
+- **ComposableScreen page wraps content in `KeyboardAvoidingView`** — the page
+  Renderer now nests its scroll view inside a `KeyboardAvoidingView`
+  (`flex: 1`, iOS `padding` / Android `height`), so text inputs avoid the
+  keyboard. A `KeyboardAvoidingView` placed *inside* the page scroll view is
+  inert by design (it cannot measure its frame); keyboard avoidance is handled
+  at the page level.
+
+---
+
 ## [1.24.0] - 2026-05-27
 
 ### Added

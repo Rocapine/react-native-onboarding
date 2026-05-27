@@ -48,13 +48,13 @@ Each archetype is a ready ComposableScreen tree using only `BaseStepTypeSchema` 
 Always set:
 
 - `type: "ComposableScreen"`
-- `id` — kebab-case, matches target app convention (camelCase / kebab — match probe).
+- `id` — the **step** id: kebab-case, matches target app convention (camelCase / kebab — match probe). Referenced by `nextStep` links, so keep it stable/readable. (Distinct from **element** ids inside `payload.elements`, which must be UUID v4 — see `payload` below.)
 - `name` — human-readable.
 - `displayProgressHeader` — `false` for hook/loader/commitment, `true` otherwise.
 - `customPayload: null`
 - `continueButtonLabel` — pick verb from app's voice (probe). Note: in ComposableScreen this is usually unused since the CTA is its own `Button` element inside `payload.elements`.
 - `nextStep` — **always emit as an explicit multi-path link** when generating a flow of > 1 step. Default-link each step to the next via `{ defaultTargetStepId: "<next-step-id>", branches: [] }`. Only the terminal step (or a true single-step generation) gets `nextStep: null`. If a branching condition applies, add `branches: [{ condition, targetStepId }]` — first match wins, `defaultTargetStepId` is the fallback. **Do not rely on the null + array-order linear fallback for multi-step flows.** Explicit links survive reordering and make adding branches trivial. (`null` still resolves linearly at runtime — see `resolveNextStepNumber.test.ts` — but explicit multi-path is the convention.)
-- `payload` — must be exactly `{ "elements": [ /* UIElement[] */ ] }`.
+- `payload` — must be exactly `{ "elements": [ /* UIElement[] */ ] }`. Every UIElement's `id` must be a fresh UUID v4 (e.g. `crypto.randomUUID()`) — never reuse, never derive from content. Studio keys elements by UUID; the readable ids in the examples/archetypes below are illustrative only, real output uses UUIDs.
 
 ### Auto-linking rule (when generating > 1 step)
 

@@ -18,6 +18,10 @@ Every UIElement renderer that wraps content builds `containerStyle` from `BaseBo
 3. Render library only after first measurement (`size.width > 0 && size.height > 0`)
 4. Pass measured numeric `size.width/height` to library
 
+## Keyboard avoidance is page-level
+
+The ComposableScreen page Renderer wraps its outer `ScrollView` in a `KeyboardAvoidingView` (`flex:1`, iOS `padding`/Android `height`) — that's what makes inputs avoid the keyboard. A `KeyboardAvoidingView` *element* placed inside the payload sits inside that page ScrollView and is **inert** (can't measure its frame). Don't expect the element alone to avoid the keyboard.
+
 ## Overflow gotcha
 
 Default `overflow: hidden`. Carousel `left-align` carouselType needs `visible` for peek effect. Same for shadows/badges spilling outside bounds. Don't blanket-set `hidden` in refactors.

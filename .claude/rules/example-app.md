@@ -23,7 +23,7 @@ npm run android
 
 ## Worktree gotcha
 
-Fresh worktree has no `example/node_modules` — `tsc` resolves `@rocapine/*` via the **main** repo's symlink (main packages, not worktree), giving stale/false type errors. Fix: `npm install --workspaces --include-workspace-root` from worktree root before `type:check`.
+Fresh worktree has no `example/node_modules` — `tsc` resolves `@rocapine/*` via the **main** repo's symlink (main packages' stale `dist`, not the worktree), giving false type errors. Two fixes: `npm install --workspaces --include-workspace-root` from worktree root, or symlink directly — `mkdir -p node_modules/@rocapine && ln -sfn ../../packages/onboarding node_modules/@rocapine/react-native-onboarding && ln -sfn ../../packages/onboarding-ui node_modules/@rocapine/react-native-onboarding-ui` — then `build:headless` + `build:ui` before `type:check`.
 
 ## Layout
 

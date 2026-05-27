@@ -86,8 +86,12 @@ Emit one array of ComposableScreen steps. Each step:
 - `displayProgressHeader` — `false` on hook/loader/commitment, `true` otherwise
 - `customPayload: null`
 - `continueButtonLabel` — verb from app voice (note: usually unused — the actual CTA lives as a `Button` element inside `payload.elements`)
-- `nextStep` — `null` linear, or `{ defaultTargetStepId, branches }`
+- `nextStep` — **always emit as an explicit multi-path link**. For step `i` of `N`-length flow: `{ "defaultTargetStepId": "<id of step i+1>", "branches": [...] }`. Terminal step (`i === N-1`) gets `nextStep: null`. Each `branches[]` entry is `{ condition: LeafCondition | ConditionGroup | null, targetStepId }` — first matching branch wins; `defaultTargetStepId` is the catch-all. Every `targetStepId` must reference a real step `id` in the array. **Never rely on null + array-order linear fallback for multi-step flows** — explicit links survive reordering and make branching trivial to layer in.
 - `payload` — exactly `{ "elements": UIElement[] }`. **No `root` key. No `variables` key.** Variables flow at runtime via element `variableName` bindings. Writing `payload.root` causes Studio to crash with `els is not iterable`.
+
+### Auto-link the chain
+
+After Step 3 (variables) and before emitting JSON, walk the arc top-to-bottom and assign `nextStep.defaultTargetStepId` to the next step's `id`. Where a branch is needed (e.g. gender → male-track vs female-track), set `branches: [{ condition, targetStepId }]` on the deciding step; `defaultTargetStepId` stays as the common path. List branch points explicitly in the "Branching" section of the recap. Terminal step is the only `nextStep: null`.
 
 Use archetype skeletons from `../skills/create-step-json/references/composable-archetypes.md` as the basis of `payload.elements`.
 

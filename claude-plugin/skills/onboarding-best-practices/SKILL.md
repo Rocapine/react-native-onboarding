@@ -81,6 +81,24 @@ Total: 8–12 screens. > 15 = measurable drop-off.
 - 3–5 slides max. More than 5 = swipe fatigue.
 - Show progress dots.
 
+## Step linking (auto-link via multi-path)
+
+Every step in a multi-step flow uses the explicit multi-path link form:
+
+```jsonc
+"nextStep": {
+  "defaultTargetStepId": "<next step id>",
+  "branches": []          // empty when linear; populated when conditional routing applies
+}
+```
+
+- **Linear by default**: each step's `defaultTargetStepId` points at the next step's `id`. Terminal step is the only `nextStep: null`.
+- **Branching where needed**: when routing depends on a captured variable, add `branches: [{ condition, targetStepId }]`. First matching branch wins; `defaultTargetStepId` is the catch-all.
+- **Why explicit, not `null` linear fallback**: `nextStep: null` resolves to "next in array" at runtime (`resolveNextStepNumber.test.ts`) but that couples flow order to array index — reordering silently re-routes the flow. Explicit links survive reordering and make branching trivial to layer in.
+- Branch `condition` is a `LeafCondition` (`{ variable, operator, value }`) or `ConditionGroup` (`{ logic: "and" | "or", conditions: [...] }`). Operators: `eq`, `neq`, `gt`, `lt`, `gte`, `lte`, `contains`, `in`, `not_in`.
+- Variables referenced in conditions MUST be captured upstream (`Input` / `RadioGroup` / `CheckboxGroup` / `DatePicker` `variableName`, or a `setVariable` action).
+- Every `targetStepId` (branch + default) MUST exist in the flow.
+
 ## Branching
 
 - Branch on highest-cardinality variable first (gender, goal).

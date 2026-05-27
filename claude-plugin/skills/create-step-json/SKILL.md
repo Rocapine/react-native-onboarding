@@ -53,8 +53,24 @@ Always set:
 - `displayProgressHeader` — `false` for hook/loader/commitment, `true` otherwise.
 - `customPayload: null`
 - `continueButtonLabel` — pick verb from app's voice (probe). Note: in ComposableScreen this is usually unused since the CTA is its own `Button` element inside `payload.elements`.
-- `nextStep` — `null` for linear, or `{ defaultTargetStepId, branches }`.
+- `nextStep` — **always emit as an explicit multi-path link** when generating a flow of > 1 step. Default-link each step to the next via `{ defaultTargetStepId: "<next-step-id>", branches: [] }`. Only the terminal step (or a true single-step generation) gets `nextStep: null`. If a branching condition applies, add `branches: [{ condition, targetStepId }]` — first match wins, `defaultTargetStepId` is the fallback. **Do not rely on the null + array-order linear fallback for multi-step flows.** Explicit links survive reordering and make adding branches trivial. (`null` still resolves linearly at runtime — see `resolveNextStepNumber.test.ts` — but explicit multi-path is the convention.)
 - `payload` — must be exactly `{ "elements": [ /* UIElement[] */ ] }`.
+
+### Auto-linking rule (when generating > 1 step)
+
+Walk the flow in order. For each step `i` of an `N`-length flow:
+
+```jsonc
+// step 0..N-2
+"nextStep": {
+  "defaultTargetStepId": "<id of step i+1>",
+  "branches": [ /* optional condition routes */ ]
+}
+// step N-1 (terminal)
+"nextStep": null
+```
+
+Branch resolution: first matching `branches[].condition` wins; otherwise `defaultTargetStepId`. Every `targetStepId` (branch or default) MUST reference a real `id` present in the flow.
 
 **Do NOT set `payload.root`. Do NOT set `payload.variables`. Those keys do not exist in the schema.** Variables flow at runtime from prior steps' `variableName` captures or from in-screen `Input` / `RadioGroup` / `CheckboxGroup` / `Button` `setVariable` actions — they are never declared in the payload.
 
@@ -91,7 +107,7 @@ Single fenced JSON block, no prose unless explanation requested.
   "displayProgressHeader": true,
   "customPayload": null,
   "continueButtonLabel": "Continue",
-  "nextStep": null,
+  "nextStep": { "defaultTargetStepId": "experience", "branches": [] },
   "payload": {
     "elements": [
       {

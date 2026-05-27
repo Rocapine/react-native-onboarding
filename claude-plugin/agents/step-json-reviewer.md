@@ -69,6 +69,12 @@ For each step:
 - All `Button.actions` entries are `"continue"` or `{type:"custom", function, variables?}` or `{type:"setVariable", name, value, valueMode?}`.
 - All `disabledWhen` conditions are valid `LeafCondition` / `ConditionGroup` referencing variables that any step actually captures (`variableName` on Input/RadioGroup/CheckboxGroup/DatePicker, or via setVariable action).
 - `nextStep.defaultTargetStepId` points at a real step ID in the array.
+- **Step chain (auto-link via multi-path)** — when reviewing a flow array:
+  - Every non-terminal step has `nextStep: { defaultTargetStepId, branches }`. Terminal step has `nextStep: null`. Non-terminal `nextStep: null` = REWORK (relies on implicit array-order linking instead of the explicit multi-path convention).
+  - Every `branches[].targetStepId` references a real step `id`.
+  - Every `branches[].condition` is `null` (unconditional catch-all) OR a valid `LeafCondition` / `ConditionGroup`. Operators must be `eq|neq|gt|lt|gte|lte|contains|in|not_in`.
+  - Variables in `branches[].condition` are captured upstream of the deciding step.
+  - Flag orphan steps (`id` never referenced as `defaultTargetStepId` or `targetStepId` AND not the entry step).
 
 ### Step 2: Design system
 
@@ -104,6 +110,8 @@ Group findings into four buckets. Each: one line, location, what's wrong, fix.
 - step "goal" / payload — uses `payload.root`; must be `payload.elements: UIElement[]`. Causes Studio "els is not iterable" crash.
 - step "goal" / payload.elements[0].children[1].id — missing. Required on every UIElement.
 - step "reflection" / payload.elements[0].children[0].props — uses `text`; must be `content` with `mode: "expression"` for `{{firstName}}` interpolation.
+- step "goal" / nextStep — `null` on a non-terminal step. Set `{ defaultTargetStepId: "experience", branches: [] }` (auto-link convention).
+- step "experience" / nextStep.branches[0].targetStepId — references "beginner-reflection" but no step with that id exists in the flow.
 
 ## Design system
 - step "hero" / payload.elements[0].children[2].props.color — uses "#FF6B35" but app brand is #27ae60 (src/design-system/tokens.ts).

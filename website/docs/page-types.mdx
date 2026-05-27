@@ -637,6 +637,35 @@ As of 1.15.0, `OnboardingTemplate` does not apply safe-area insets. Built-in pag
 | `padding` / `paddingHorizontal` / `paddingVertical` | `number` | |
 | `borderWidth` / `borderRadius` / `borderColor` | `number \| string` | |
 | `opacity` | `number` | |
+| `shadowColor` / `shadowOffset` / `shadowOpacity` / `shadowRadius` / `elevation` | `string` / `{ width, height }` / `number` / `number` / `number` | iOS shadow + Android `elevation`. From `BaseBoxProps` — accepted on every element, applied by the `Button` renderer |
+| `disabledWhen` | `LeafCondition \| ConditionGroup` | When truthy against current variables, blocks press actions and renders the disabled style |
+| `disabledBackgroundColor` / `disabledColor` | `string` | **Deprecated** — use `disabledStyle`. Fallback only when `disabledStyle` is absent |
+| `pressedStyle` | `Partial<ButtonProps>` | Style overrides merged while the button is held. Cannot nest `pressedStyle`/`disabledStyle` |
+| `disabledStyle` | `Partial<ButtonProps>` | Style overrides merged while disabled. Supersedes `disabledBackgroundColor`/`disabledColor` |
+| `transitionDurationMs` | `number` | Opacity animation duration (ms) between rest/pressed/disabled. Default `150` |
+
+**Per-state styling**
+
+`pressedStyle` and `disabledStyle` are partial overrides merged on top of the base props for their state. Each accepts the overridable visual props (`BaseBoxProps` including shadow, plus `variant`, `backgroundColor`, `color`, `fontSize`, `fontWeight`, `fontFamily`, `fontStyle`, `textAlign`). The renderer animates `opacity` between states over `transitionDurationMs`; non-opacity props (color, shadow) switch instantly.
+
+```jsonc
+{
+  "type": "Button",
+  "props": {
+    "label": "Continue",
+    "actions": ["continue"],
+    "backgroundColor": "#6C63FF",
+    "shadowColor": "#000",
+    "shadowOffset": { "width": 0, "height": 4 },
+    "shadowOpacity": 0.18,
+    "shadowRadius": 8,
+    "elevation": 4,
+    "transitionDurationMs": 180,
+    "pressedStyle": { "opacity": 0.7, "backgroundColor": "#4f46e5" },
+    "disabledStyle": { "backgroundColor": "#d1d5db", "color": "#6b7280", "shadowOpacity": 0, "elevation": 0 }
+  }
+}
+```
 
 **Button actions**
 

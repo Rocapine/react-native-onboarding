@@ -9,6 +9,29 @@ here.
 
 ---
 
+## [1.24.0] - 2026-05-27
+
+### Added
+
+- **Button per-state styling + shadow** — `ButtonElement` renderer now merges
+  `pressedStyle` (while held) and `disabledStyle` (while `disabledWhen` is
+  truthy) on top of base props, and applies `BaseBoxProps` shadow fields
+  (`shadowColor`, `shadowOffset`, `shadowOpacity`, `shadowRadius`, `elevation`)
+  to the outermost wrapper. Opacity transitions between rest/pressed/disabled
+  animate over `transitionDurationMs` (default `150`, native driver); color and
+  shadow changes switch instantly.
+
+### Changed
+
+- **`ButtonElement` uses `Pressable` + `Animated.View`** instead of
+  `TouchableOpacity`, enabling explicit press-state tracking and the animated
+  state transitions. Press feedback defaults to `opacity 0.8` when no
+  `pressedStyle.opacity` is set, preserving prior tap feel.
+- **`disabledBackgroundColor` / `disabledColor` deprecated** in favor of
+  `disabledStyle`; kept as fallback when `disabledStyle` is omitted.
+
+---
+
 ## [1.23.0] - 2026-05-26
 
 ### Added

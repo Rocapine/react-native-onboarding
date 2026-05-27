@@ -8,6 +8,35 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.24.0] - 2026-05-27
+
+### Added
+
+- **Button per-state style overrides** — `ButtonElementProps` gains
+  `pressedStyle?: ButtonStyleOverride` and `disabledStyle?: ButtonStyleOverride`,
+  each a `Partial` of the overridable Button props (`BaseBoxProps` plus
+  `variant`, `backgroundColor`, `color`, `fontSize`, `fontWeight`,
+  `fontFamily`, `fontStyle`, `textAlign`). Nested `pressedStyle`/`disabledStyle`
+  are not overridable. New `transitionDurationMs?: number` controls the
+  rest/pressed/disabled animation length (default `150`).
+- **Shadow fields on `BaseBoxProps`** — `shadowColor`, `shadowOffset`
+  (`{ width, height }`), `shadowOpacity` (0–1), `shadowRadius`, and `elevation`
+  (Android) on every UIElement variant. Currently applied by the `Button`
+  renderer in the UI package; schema accepts them on all elements.
+
+### Changed
+
+- **`disabledBackgroundColor` / `disabledColor` deprecated** — superseded by
+  `disabledStyle.backgroundColor` / `disabledStyle.color`. Still honored as a
+  fallback when `disabledStyle` is absent, so existing payloads are unaffected.
+
+> **Backend note:** `onboarding-studio` should mirror the new `pressedStyle`,
+> `disabledStyle`, and `transitionDurationMs` Button fields plus the shadow
+> fields on `BaseBoxProps`, and surface per-state style editors. JSON
+> serialization passes through unchanged.
+
+---
+
 ## [1.23.0] - 2026-05-26
 
 ### Added

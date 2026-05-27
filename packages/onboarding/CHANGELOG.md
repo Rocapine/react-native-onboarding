@@ -8,6 +8,33 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.25.0] - 2026-05-27
+
+### Added
+
+- **`ScrollView` ComposableScreen UIElement** — new container element wrapping
+  children in a scrollable view. Props (`ScrollViewElementProps`, extends
+  `BaseBoxProps`): `horizontal`, `bounces`, `showsVerticalScrollIndicator`,
+  `showsHorizontalScrollIndicator`, `alwaysBounceVertical`,
+  `alwaysBounceHorizontal`, `contentInset` (`ScrollViewContentInset`:
+  `{ top, right, bottom, left }`, iOS-only), `contentContainerPadding`,
+  `keyboardShouldPersistTaps`.
+- **`KeyboardAvoidingView` ComposableScreen UIElement** — new container element.
+  Props (`KeyboardAvoidingViewElementProps`, extends `BaseBoxProps`):
+  `behavior` (`KeyboardAvoidingBehavior`: `"padding" | "height" | "position"`,
+  defaults to iOS `padding` / Android `height`), `keyboardVerticalOffset`,
+  `enabled`.
+- **Schema guard: no nested KeyboardAvoidingView** — `ComposableScreenStepPayloadSchema`
+  now `superRefine`s the element tree and rejects any `KeyboardAvoidingView`
+  nested inside another, reporting the offending element `id`.
+
+> **Backend note:** `onboarding-studio` should mirror both new UIElement types
+> (union + Zod schema + editor picker) and the nested-KAV validation rule, and
+> default the `picker` archetype template to wrap its picker in a
+> `KeyboardAvoidingView`.
+
+---
+
 ## [1.24.0] - 2026-05-27
 
 ### Added

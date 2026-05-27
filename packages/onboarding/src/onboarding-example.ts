@@ -275,6 +275,22 @@ export const onboardingExample = {
                 },
               },
               {
+                id: "lifetime-badge",
+                renderWhen: {
+                  variable: "plan",
+                  operator: "eq",
+                  value: "lifetime",
+                },
+                type: "Text",
+                props: {
+                  content: "🎉 Best value — lifetime access!",
+                  fontSize: 14,
+                  fontWeight: "600",
+                  textAlign: "center",
+                  marginVertical: 4,
+                },
+              },
+              {
                 id: "hero-checkbox",
                 type: "CheckboxGroup",
                 props: {

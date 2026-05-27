@@ -9,7 +9,10 @@ import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import { OnboardingProgressProvider } from "@rocapine/react-native-onboarding-ui";
 import { Dimensions } from "react-native";
+import { configureReanimatedLogger, ReanimatedLogLevel } from "react-native-reanimated";
 import { LocaleProvider, useLocale } from "../contexts/locale-context";
+
+configureReanimatedLogger({ level: ReanimatedLogLevel.warn, strict: false });
 
 // Keep splash screen visible while fonts load
 SplashScreen.preventAutoHideAsync();

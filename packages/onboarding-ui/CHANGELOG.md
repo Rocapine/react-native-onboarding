@@ -9,6 +9,41 @@ here.
 
 ---
 
+## [1.23.0] - 2026-05-26
+
+### Added
+
+- **`renderWhen` runtime gating in ComposableScreen** — `renderElement`
+  evaluates the new optional `renderWhen` field on every UIElement against
+  flattened `ctx.variables` and returns `null` (skipping the element and
+  its subtree) when the condition is false. Single gating point covers all
+  15 element types; container subtrees are skipped naturally because the
+  bail-out runs before `renderChildren` is invoked.
+
+### Changed
+
+- **Element defaults overlaid into `ctx.variables`** — `Renderer.tsx` now
+  computes element-declared defaults (`Carousel.defaultIndex`,
+  `RadioGroup.defaultValue`, `CheckboxGroup.defaultValues`,
+  `Input.defaultValue`, `DatePicker.defaultValue`) via a tree walk and
+  overlays them onto `RenderContext.variables` synchronously on first
+  render. `composableVariables` keeps precedence so user-driven updates
+  aren't clobbered. Makes `renderWhen` and `{{var}}` interpolation see
+  defaults from the very first frame, before per-element seeding effects
+  persist them into the variable store.
+- **`CarouselElement` persists default index** — when `variableName` is set
+  and the variable has no value yet, the carousel writes its clamped
+  `defaultIndex` into `composableVariables` on mount, matching the seeding
+  pattern used by RadioGroup / Input / DatePicker.
+
+### Internal
+
+- New `elements/collectDefaults.ts` module — pure recursive walk over the
+  UIElement tree returning `Record<variableName, ComposableVariableEntry>`
+  for defaulted variables. Consumed by `Renderer.tsx`.
+
+---
+
 ## [1.22.0] - 2026-05-11
 
 ### Added

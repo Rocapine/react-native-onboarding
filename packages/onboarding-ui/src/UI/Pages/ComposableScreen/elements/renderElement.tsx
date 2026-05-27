@@ -1,4 +1,5 @@
 import React from "react";
+import { evaluateCondition } from "@rocapine/react-native-onboarding";
 import { UIElement } from "../types";
 import { RenderContext } from "./shared";
 import { StackElementComponent } from "./StackElement";
@@ -22,6 +23,13 @@ export const renderElement = (
   ctx: RenderContext,
   parentType?: "XStack" | "YStack" | "ZStack"
 ): React.ReactNode => {
+  if (element.renderWhen) {
+    const flatVars = Object.fromEntries(
+      Object.entries(ctx.variables).map(([k, v]) => [k, v?.value])
+    );
+    if (!evaluateCondition(element.renderWhen, flatVars)) return null;
+  }
+
   if (element.type === "YStack" || element.type === "XStack") {
     return <StackElementComponent key={element.id} element={element} ctx={ctx} parentType={parentType} />;
   }

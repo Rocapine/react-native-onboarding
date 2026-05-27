@@ -1,0 +1,81 @@
+import React from "react";
+import { KeyboardAvoidingView, Platform } from "react-native";
+import { z } from "zod";
+import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
+import { GradientBox } from "./GradientBox";
+import { UIElement } from "../types";
+import { RenderContext, dim } from "./shared";
+
+export type KeyboardAvoidingBehavior = "padding" | "height" | "position";
+
+export type KeyboardAvoidingViewElementProps = BaseBoxProps & {
+  behavior?: KeyboardAvoidingBehavior;
+  keyboardVerticalOffset?: number;
+  enabled?: boolean;
+};
+
+export const KeyboardAvoidingViewElementPropsSchema = BaseBoxPropsSchema.extend({
+  behavior: z.enum(["padding", "height", "position"]).optional(),
+  keyboardVerticalOffset: z.number().optional(),
+  enabled: z.boolean().optional(),
+});
+
+type KAVUIElement = Extract<UIElement, { type: "KeyboardAvoidingView" }>;
+
+type Props = {
+  element: KAVUIElement;
+  ctx: RenderContext;
+};
+
+const defaultBehavior = (): KeyboardAvoidingBehavior => (Platform.OS === "ios" ? "padding" : "height");
+
+export const KeyboardAvoidingViewElementComponent = ({ element, ctx }: Props): React.ReactElement => {
+  const p = element.props;
+  const hasGradient = !!p.backgroundGradient;
+
+  const containerStyle = {
+    flex: p.flex,
+    flexShrink: p.flexShrink,
+    flexGrow: p.flexGrow,
+    alignSelf: p.alignSelf,
+    width: dim(p.width),
+    height: dim(p.height),
+    minWidth: p.minWidth,
+    maxWidth: p.maxWidth,
+    minHeight: p.minHeight,
+    maxHeight: p.maxHeight,
+    margin: p.margin,
+    marginHorizontal: p.marginHorizontal,
+    marginVertical: p.marginVertical,
+    padding: p.padding,
+    paddingHorizontal: p.paddingHorizontal,
+    paddingVertical: p.paddingVertical,
+    backgroundColor: hasGradient ? undefined : p.backgroundColor,
+    borderWidth: p.borderWidth,
+    borderRadius: p.borderRadius,
+    borderColor: p.borderColor,
+    overflow: hasGradient ? ("hidden" as const) : p.overflow,
+    opacity: p.opacity,
+  };
+
+  const kav = (
+    <KeyboardAvoidingView
+      behavior={p.behavior ?? defaultBehavior()}
+      keyboardVerticalOffset={p.keyboardVerticalOffset ?? 0}
+      enabled={p.enabled ?? true}
+      style={hasGradient ? { flex: 1 } : containerStyle}
+    >
+      {ctx.renderChildren(element.children, "YStack")}
+    </KeyboardAvoidingView>
+  );
+
+  if (hasGradient) {
+    return (
+      <GradientBox gradient={p.backgroundGradient} style={containerStyle}>
+        {kav}
+      </GradientBox>
+    );
+  }
+
+  return kav;
+};

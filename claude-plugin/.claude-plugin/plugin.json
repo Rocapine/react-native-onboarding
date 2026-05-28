@@ -1,6 +1,6 @@
 {
   "name": "rocapine-onboarding-sdk",
-  "version": "1.25.0",
+  "version": "1.25.1",
   "description": "End-to-end workflow for building and updating Rocapine Onboarding Studio flows: author step JSON, integrate the headless + UI SDKs, customize theme/components, and review onboarding quality.",
   "author": {
     "name": "Rocapine",

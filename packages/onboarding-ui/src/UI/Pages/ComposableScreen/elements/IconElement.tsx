@@ -10,6 +10,8 @@ export type IconElementProps = BaseBoxProps & {
   size?: number;
   color?: string;
   strokeWidth?: number;
+  fill?: string;
+  fillOpacity?: number;
   backgroundColor?: string;
 };
 
@@ -18,6 +20,8 @@ export const IconElementPropsSchema = BaseBoxPropsSchema.extend({
   size: z.number().nonnegative().optional(),
   color: z.string().optional(),
   strokeWidth: z.number().nonnegative().optional(),
+  fill: z.string().optional(),
+  fillOpacity: z.number().min(0).max(1).optional(),
   backgroundColor: z.string().optional(),
 });
 
@@ -35,6 +39,8 @@ export const IconElementComponent = ({ element, ctx }: Props): React.ReactElemen
     size?: number;
     color?: string;
     strokeWidth?: number;
+    fill?: string;
+    fillOpacity?: number;
   }> | undefined;
 
   return (
@@ -70,6 +76,8 @@ export const IconElementComponent = ({ element, ctx }: Props): React.ReactElemen
           size={element.props.size ?? 24}
           color={element.props.color ?? theme.colors.text.primary}
           strokeWidth={element.props.strokeWidth ?? 2}
+          fill={element.props.fill}
+          fillOpacity={element.props.fillOpacity}
         />
       ) : null}
     </GradientBox>

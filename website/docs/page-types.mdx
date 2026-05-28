@@ -908,8 +908,10 @@ copy, optional sections). Pick `Branch.condition` to skip whole steps.
 |------|------|-------|
 | `name` | `string` | **Required** — Lucide icon name e.g. `"Star"`, `"Heart"`, `"CheckCircle"` |
 | `size` | `number` | Icon width & height in dp; defaults to `24` |
-| `color` | `string` | Defaults to `theme.colors.text.primary` |
+| `color` | `string` | Stroke color; defaults to `theme.colors.text.primary` |
 | `strokeWidth` | `number` | Line stroke weight; defaults to `2` |
+| `fill` | `string` | Fill color (any CSS color). Omit ⇒ Lucide default `"none"` (outlined). Set to the same value as `color` for a fully filled icon, or to a tinted color for a soft look. Works best with closed-path icons (`Star`, `Heart`, `Bookmark`, `Circle`, `CheckCircle2`). |
+| `fillOpacity` | `number` | 0–1. Lower values tint the fill against the stroke. Defaults to `1`. |
 | `width` / `height` | `number` | Wrapper `View` dimensions |
 | `margin` / `marginHorizontal` / `marginVertical` | `number` | |
 | `padding` / `paddingHorizontal` / `paddingVertical` | `number` | |

@@ -22,6 +22,11 @@ export default function ComposableScreenExample() {
           props: { flex: 1, edges: ['top', 'bottom'] as ('top' | 'right' | 'bottom' | 'left')[] },
           children: [
         {
+          id: 'scroll-root',
+          type: 'ScrollView' as const,
+          props: { flex: 1, showsVerticalScrollIndicator: false },
+          children: [
+        {
           id: 'root',
           type: 'YStack',
           props: { gap: 24, padding: 24 },
@@ -60,14 +65,16 @@ export default function ComposableScreenExample() {
                 borderRadius: 16,
               },
             },
-            // Icon element
+            // Icon element (filled — fill + fillOpacity)
             {
               id: 'hero-icon',
               type: 'Icon',
               props: {
-                name: 'Circle',
+                name: 'Star',
                 size: 48,
                 color: '#007AFF',
+                fill: '#007AFF',
+                fillOpacity: 0.25,
                 marginVertical: 8,
               },
             },
@@ -761,6 +768,8 @@ export default function ComposableScreenExample() {
               },
               children: [],
             },
+          ],
+        },
           ],
         },
           ],

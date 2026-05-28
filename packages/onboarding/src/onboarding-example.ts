@@ -111,6 +111,11 @@ export const onboardingExample = {
             props: { flex: 1, edges: ["top", "bottom"] },
             children: [
           {
+            id: "scroll-root",
+            type: "ScrollView",
+            props: { flex: 1, showsVerticalScrollIndicator: false },
+            children: [
+          {
             id: "root",
             type: "YStack",
             props: { gap: 24, padding: 24 },
@@ -153,6 +158,8 @@ export const onboardingExample = {
                   name: "Star",
                   size: 48,
                   color: "#007AFF",
+                  fill: "#007AFF",
+                  fillOpacity: 0.2,
                   marginVertical: 8,
                 },
               },
@@ -737,6 +744,8 @@ export const onboardingExample = {
                 },
               },
             ],
+          },
+          ],
           },
             ],
           },

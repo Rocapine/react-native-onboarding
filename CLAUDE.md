@@ -170,3 +170,9 @@ npm run publish:all
 cd packages/onboarding && npm run patch    # bump + build + publish
 cd packages/onboarding-ui && npm run patch # bump + build + publish
 ```
+
+## Debugging ComposableScreen schema parse errors
+
+- Fetch a project's draft payload directly: `curl "$EXPO_PUBLIC_ONBOARDING_BASE_URL/get-onboarding-steps?projectId=$PID&platform=ios&appVersion=1.0.0&draft=true&locale=en"`.
+- Validate against the schema in Node using the **headless** dist only (`require('./packages/onboarding/dist/steps/ComposableScreen/types.js')`) — the UI dist imports `react-native` and won't load under Node.
+- Zod v4 `invalid_union` paths are cumulative across nested variant errors; walk the issue tree and concatenate `prefix + it.path` recursively to surface the real failing path.

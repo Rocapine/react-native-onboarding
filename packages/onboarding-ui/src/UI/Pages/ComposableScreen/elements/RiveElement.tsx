@@ -63,7 +63,7 @@ export const RiveElementRenderer = ({ element, ctx }: Props): React.ReactElement
     flexGrow: p.flexGrow,
     alignSelf: p.alignSelf,
     width: dim(p.width) ?? ("100%" as `${number}%`),
-    height: dim(p.height ?? 200),
+    height: dim(p.height),
     minWidth: p.minWidth,
     maxWidth: p.maxWidth,
     minHeight: p.minHeight,

@@ -1,5 +1,5 @@
 import { useCallback, useContext, useMemo } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from "react-native";
+import { KeyboardAvoidingView, Platform, StyleSheet, View } from "react-native";
 import { OnboardingProgressContext as HeadlessProgressContext } from "@rocapine/react-native-onboarding";
 import { ComposableScreenStepType, ComposableScreenStepTypeSchema, UIElement } from "./types";
 import { withErrorBoundary } from "../../ErrorBoundary";
@@ -63,14 +63,9 @@ const ComposableScreenRendererBase = ({ step, onContinue }: ContentProps) => {
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          alwaysBounceVertical={false}
-          keyboardShouldPersistTaps="handled"
-        >
+        <View style={styles.flex}>
           {elements.map((element) => renderElement(element, ctx))}
-        </ScrollView>
+        </View>
       </KeyboardAvoidingView>
     </OnboardingTemplate>
   );
@@ -79,9 +74,6 @@ const ComposableScreenRendererBase = ({ step, onContinue }: ContentProps) => {
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
   },
 });
 

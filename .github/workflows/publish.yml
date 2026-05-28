@@ -1,0 +1,90 @@
+name: Publish
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - dir: packages/onboarding
+            name: "@rocapine/react-native-onboarding"
+            build: build:headless
+          - dir: packages/onboarding-ui
+            name: "@rocapine/react-native-onboarding-ui"
+            build: build:ui
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check version vs npm registry
+        id: check
+        run: |
+          LOCAL=$(node -p "require('./${{ matrix.dir }}/package.json').version")
+          PUBLISHED=$(npm view ${{ matrix.name }} version 2>/dev/null || echo "0.0.0")
+          echo "local=$LOCAL" >> "$GITHUB_OUTPUT"
+          echo "published=$PUBLISHED" >> "$GITHUB_OUTPUT"
+          if [ "$LOCAL" != "$PUBLISHED" ]; then
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::${{ matrix.name }} $LOCAL will be published (registry has $PUBLISHED)"
+          else
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::${{ matrix.name }} $LOCAL already on registry, skipping"
+          fi
+
+      - name: Build package
+        if: steps.check.outputs.should_publish == 'true'
+        run: npm run ${{ matrix.build }}
+
+      - name: Publish to npm (OIDC trusted publisher)
+        if: steps.check.outputs.should_publish == 'true'
+        working-directory: ${{ matrix.dir }}
+        run: npm publish --access public
+
+      - name: Tag + GitHub Release
+        if: steps.check.outputs.should_publish == 'true' && matrix.dir == 'packages/onboarding'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.check.outputs.local }}
+        run: |
+          TAG="v$VERSION"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists, skipping"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "$TAG"
+          git push origin "$TAG"
+          NOTES=$(awk "/^## \\[?$VERSION\\]?/{flag=1;next}/^## /{flag=0}flag" packages/onboarding/CHANGELOG.md || true)
+          if [ -z "$NOTES" ]; then
+            gh release create "$TAG" --generate-notes --title "$TAG"
+          else
+            printf '%s' "$NOTES" | gh release create "$TAG" --title "$TAG" --notes-file -
+          fi

@@ -141,13 +141,19 @@ type Props = {
   ctx: RenderContext;
 };
 
-const buildShadowStyle = (p: Pick<BaseBoxProps, "shadowColor" | "shadowOffset" | "shadowOpacity" | "shadowRadius" | "elevation">) => ({
-  shadowColor: p.shadowColor,
-  shadowOffset: p.shadowOffset,
-  shadowOpacity: p.shadowOpacity,
-  shadowRadius: p.shadowRadius,
-  elevation: p.elevation,
-});
+const buildShadowStyle = (p: Pick<BaseBoxProps, "shadowColor" | "shadowOffset" | "shadowOpacity" | "shadowRadius" | "elevation">) => {
+  // iOS defaults shadowOpacity to 0 (invisible). When shadowColor is set we
+  // assume the author wants a visible shadow and fill in sensible defaults
+  // for opacity/radius. Android uses `elevation` independently.
+  const hasShadow = p.shadowColor != null;
+  return {
+    shadowColor: p.shadowColor,
+    shadowOffset: p.shadowOffset,
+    shadowOpacity: p.shadowOpacity ?? (hasShadow ? 1 : undefined),
+    shadowRadius: p.shadowRadius ?? (hasShadow ? 4 : undefined),
+    elevation: p.elevation,
+  };
+};
 
 export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElement => {
   const { theme, onContinue, customActions, variables, setVariable } = ctx;

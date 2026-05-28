@@ -340,7 +340,6 @@ export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElem
               padding: eff.padding,
               paddingVertical: eff.paddingVertical ?? 14,
               paddingHorizontal: eff.paddingHorizontal ?? 24,
-              alignItems: "center",
               justifyContent: "center",
             }}
           >
@@ -377,7 +376,6 @@ export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElem
           padding: eff.padding,
           paddingVertical: eff.paddingVertical ?? (eff.padding != null ? undefined : 14),
           paddingHorizontal: eff.paddingHorizontal ?? (eff.padding != null ? undefined : 24),
-          alignItems: "center",
           justifyContent: "center",
           borderRadius,
         }}

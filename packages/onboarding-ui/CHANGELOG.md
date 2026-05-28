@@ -9,6 +9,13 @@ here.
 
 ---
 
+## [1.26.0] - 2026-05-28
+
+### Added
+- **`IconElement` filled / tinted rendering** — `IconElement.tsx` now mirrors headless `fill` + `fillOpacity` schema fields and passes them through to the underlying `lucide-react-native` SVG (extends `react-native-svg`'s `SvgProps`). Authors can render filled lucide icons or tinted overlays directly from CMS payload, e.g. `{ "fill": "#007AFF", "fillOpacity": 0.25 }`. Default behaviour unchanged — omit `fill` and icons render outlined as before.
+
+---
+
 ## [1.25.1] - 2026-05-28
 
 ### Added

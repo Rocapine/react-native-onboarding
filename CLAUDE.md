@@ -138,7 +138,7 @@ When adding/changing a `UIElement` type in either ComposableScreen `types.ts`, *
 
 1. **Update `packages/onboarding/src/onboarding-example.ts`** — add/update example step exercising the new/changed element type so default onboarding stays in sync with schema.
 2. **Update `example/app/example/composable-screen.tsx`** — add/update element in rendered example payload.
-3. **Watch for schema duplication in UI renderers.** Some UI element renderers (notably `Pages/ComposableScreen/elements/ButtonElement.tsx`) re-declare their Zod schemas + `*Props` type in lockstep with the headless source. When changing headless `elements/*.ts`, search the UI mirror file for the same field and update it too — TS won't catch the drift because the UI re-declares its own type.
+3. **Watch for schema duplication in UI renderers.** Several UI element renderers re-declare their Zod schemas + `*Props` type in lockstep with the headless source (known mirrors: `Pages/ComposableScreen/elements/ButtonElement.tsx`, `IconElement.tsx` — grep for `IconElementPropsSchema`-style re-exports to find others). When changing headless `elements/*.ts`, update the UI mirror's field set too — TS won't catch the drift because the UI re-declares its own type.
 4. **Mirror schema docs in-repo** — update `claude-plugin/skills/{compose-screen-builder,validate-step-json,customize-onboarding-components}/SKILL.md` + `create-step-json/references/composable-archetypes.md`, and `website/docs/page-types.mdx` (Button/element prop tables). Grep these for the changed field name.
 5. **Display this prompt for `onboarding-studio` repo** (CMS backend that must mirror schema changes):
 

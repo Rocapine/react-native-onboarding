@@ -8,6 +8,16 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.26.0] - 2026-05-28
+
+### Added
+- **`Icon` UIElement: `fill` + `fillOpacity` props** — `IconElementPropsSchema` extends with optional `fill: string` (any CSS color; omit ⇒ Lucide default `"none"` outlined) and `fillOpacity: number` (0–1, clamped). Enables filled / tinted Lucide icons (`Star`, `Heart`, `Bookmark`, `Circle`, `CheckCircle2`, …) from CMS payload.
+
+### Changed
+- **`onboarding-example.ts` ComposableScreen demo** — wrapped `root` YStack in a `ScrollView` UIElement so the payload scrolls (page renderer is intentionally a plain `View flex:1`, see `composable-screen-runtime.md`). Hero `Star` icon also showcases `fill` + `fillOpacity: 0.2` tint.
+
+---
+
 ## [1.25.1] - 2026-05-28
 
 ### Added

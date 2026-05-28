@@ -275,7 +275,7 @@ Personalized mirror of prior answers. Card-styled body wrapping a `YStack`.
 ```json
 [
   { "id": "spacer-top", "type": "YStack", "props": { "flex": 1 }, "children": [] },
-  { "id": "avatar", "type": "Icon", "props": { "name": "sparkles", "size": 48, "color": "<DP.brand.primary>" } },
+  { "id": "avatar", "type": "Icon", "props": { "name": "sparkles", "size": 48, "color": "<DP.brand.primary>", "fill": "<DP.brand.primary>", "fillOpacity": 0.2 } },
   { "id": "title", "type": "Text", "props": { "content": "{{name}}, here's your plan.", "mode": "expression", "fontFamily": "<DP.fonts.heading>", "fontSize": "<DP.typeScale.h1>", "fontWeight": "<DP.fontWeights.bold>", "color": "<DP.text.primary>", "textAlign": "center" } },
   {
     "id": "card",

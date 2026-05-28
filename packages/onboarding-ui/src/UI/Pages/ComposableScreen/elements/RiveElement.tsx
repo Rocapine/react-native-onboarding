@@ -57,11 +57,22 @@ type Props = {
 export const RiveElementRenderer = ({ element, ctx }: Props): React.ReactElement => {
   const { theme } = ctx;
   const p = element.props;
+  // rive-react-native doesn't report artboard intrinsic to JS, so a Rive view
+  // with no height/flex/aspectRatio reports its native artboard pixel size as
+  // intrinsic — which fills the screen. Fall back to aspectRatio:1 (square)
+  // so width:100% bounds the box deterministically when the author hasn't
+  // sized it.
+  const hasExplicitSize =
+    p.height != null ||
+    p.flex != null ||
+    p.aspectRatio != null ||
+    p.minHeight != null ||
+    p.maxHeight != null;
   const wrapperStyle = {
     flex: p.flex,
     flexShrink: p.flexShrink,
     flexGrow: p.flexGrow,
-    aspectRatio: p.aspectRatio,
+    aspectRatio: p.aspectRatio ?? (hasExplicitSize ? undefined : 1),
     alignSelf: p.alignSelf,
     width: dim(p.width) ?? ("100%" as `${number}%`),
     height: dim(p.height),

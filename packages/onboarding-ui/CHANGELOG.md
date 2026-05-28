@@ -25,6 +25,13 @@ here.
   with its intrinsic content and pushed siblings off-screen. Payloads
   needing scroll should use the `ScrollView` UIElement (added in 1.25.0).
   `KeyboardAvoidingView` still wraps the page root.
+
+  **Migration:** if your existing payload relied on the implicit page
+  scroll (content taller than the viewport with no `ScrollView`
+  UIElement), wrap your top-level container in a `ScrollView` element to
+  restore the previous behavior. Layouts where the root container is
+  `flex: 1` (the common case) are unaffected — and now render
+  correctly when the inner tree uses `flex` to share space.
 - **Rive default size** — wrapper height defaults to undefined (was
   `200`); when neither `height` / `flex` / `aspectRatio` / `min-height` /
   `max-height` is set, falls back to `aspectRatio: 1` so the artboard

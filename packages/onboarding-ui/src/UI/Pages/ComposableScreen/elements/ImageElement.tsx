@@ -3,7 +3,7 @@ import { z } from "zod";
 import { Image, View } from "react-native";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
-import { RenderContext, dim } from "./shared";
+import { RenderContext, buildShadowStyle, dim } from "./shared";
 import { GradientBox } from "./GradientBox";
 
 export type ImageElementProps = BaseBoxProps & {
@@ -30,16 +30,8 @@ export const ImageElementComponent = ({ element }: Props): React.ReactElement =>
   const hasShadow = p.shadowColor != null || p.elevation != null;
   // iOS clips shadows when overflow:hidden, so a shadow-bearing Image needs a
   // wrapper View carrying the shadow (no overflow clip) and the Image inside
-  // with the rounded clip. Mirrors ButtonElement shadow defaults.
-  const shadowStyle = hasShadow
-    ? {
-        shadowColor: p.shadowColor,
-        shadowOffset: p.shadowOffset,
-        shadowOpacity: p.shadowOpacity ?? (p.shadowColor != null ? 1 : undefined),
-        shadowRadius: p.shadowRadius ?? (p.shadowColor != null ? 4 : undefined),
-        elevation: p.elevation,
-      }
-    : null;
+  // with the rounded clip.
+  const shadowStyle = hasShadow ? buildShadowStyle(p) : null;
 
   if (p.backgroundGradient || hasShadow) {
     const wrapperStyle = {

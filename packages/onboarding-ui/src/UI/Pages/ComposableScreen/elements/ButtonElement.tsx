@@ -12,7 +12,7 @@ import {
 } from "@rocapine/react-native-onboarding";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
-import { RenderContext, dim, resolveInheritedFontFamily } from "./shared";
+import { RenderContext, buildShadowStyle, dim, resolveInheritedFontFamily } from "./shared";
 import { GradientBox } from "./GradientBox";
 import { ComposableVariableEntry } from "../../../Provider/OnboardingProgressProvider";
 import { evaluateSetVariableExpression } from "./expression";
@@ -139,20 +139,6 @@ type ButtonUIElement = Extract<UIElement, { type: "Button" }>;
 type Props = {
   element: ButtonUIElement;
   ctx: RenderContext;
-};
-
-const buildShadowStyle = (p: Pick<BaseBoxProps, "shadowColor" | "shadowOffset" | "shadowOpacity" | "shadowRadius" | "elevation">) => {
-  // iOS defaults shadowOpacity to 0 (invisible). When shadowColor is set we
-  // assume the author wants a visible shadow and fill in sensible defaults
-  // for opacity/radius. Android uses `elevation` independently.
-  const hasShadow = p.shadowColor != null;
-  return {
-    shadowColor: p.shadowColor,
-    shadowOffset: p.shadowOffset,
-    shadowOpacity: p.shadowOpacity ?? (hasShadow ? 1 : undefined),
-    shadowRadius: p.shadowRadius ?? (hasShadow ? 4 : undefined),
-    elevation: p.elevation,
-  };
 };
 
 export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElement => {
@@ -344,8 +330,8 @@ export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElem
             style={{
               flex: 1,
               padding: eff.padding,
-              paddingVertical: eff.paddingVertical ?? 14,
-              paddingHorizontal: eff.paddingHorizontal ?? 24,
+              paddingVertical: eff.paddingVertical ?? (eff.padding != null ? undefined : 14),
+              paddingHorizontal: eff.paddingHorizontal ?? (eff.padding != null ? undefined : 24),
               justifyContent: "center",
             }}
           >

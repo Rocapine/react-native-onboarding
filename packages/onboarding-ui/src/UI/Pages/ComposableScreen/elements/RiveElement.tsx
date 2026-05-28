@@ -61,6 +61,7 @@ export const RiveElementRenderer = ({ element, ctx }: Props): React.ReactElement
     flex: p.flex,
     flexShrink: p.flexShrink,
     flexGrow: p.flexGrow,
+    aspectRatio: p.aspectRatio,
     alignSelf: p.alignSelf,
     width: dim(p.width) ?? ("100%" as `${number}%`),
     height: dim(p.height),

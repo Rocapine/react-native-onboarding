@@ -9,6 +9,56 @@ here.
 
 ---
 
+## [1.25.1] - 2026-05-28
+
+### Added
+
+- **`aspectRatio` on every UIElement (via `BaseBoxProps`)** — wired into
+  the Rive renderer's wrapper; other element renderers can opt-in by
+  reading `p.aspectRatio`.
+
+### Changed
+
+- **ComposableScreen page no longer wraps content in a `ScrollView`** —
+  the wrapper container's `flexGrow: 1` left inner `flex: 1` children
+  unbounded vertically, so a `Carousel` (or any `flex: 1` element) grew
+  with its intrinsic content and pushed siblings off-screen. Payloads
+  needing scroll should use the `ScrollView` UIElement (added in 1.25.0).
+  `KeyboardAvoidingView` still wraps the page root.
+
+  **Migration:** if your existing payload relied on the implicit page
+  scroll (content taller than the viewport with no `ScrollView`
+  UIElement), wrap your top-level container in a `ScrollView` element to
+  restore the previous behavior. Layouts where the root container is
+  `flex: 1` (the common case) are unaffected — and now render
+  correctly when the inner tree uses `flex` to share space.
+- **Rive default size** — wrapper height defaults to undefined (was
+  `200`); when neither `height` / `flex` / `aspectRatio` / `min-height` /
+  `max-height` is set, falls back to `aspectRatio: 1` so the artboard
+  doesn't fill the screen via its native intrinsic.
+
+### Fixed
+
+- **`Button` honors explicit `padding: 0`** — sub-axis defaults
+  (`paddingHorizontal: 24`, `paddingVertical: 14`) used to apply even
+  when `padding` was set to 0, because RN treats the shorthand and
+  axis props independently. Axis defaults now apply only when `padding`
+  itself is unset.
+- **`Button` honors `textAlign`** — Pressable's `alignItems: "center"`
+  constrained the label `Text` to its intrinsic width, neutralizing
+  `textAlign`. Removed the constraint so the label stretches and
+  `left | center | right` applies (default still centered).
+- **`Button` shadow visible from `shadowColor` alone** — iOS defaults
+  `shadowOpacity` to 0; the renderer now fills in `shadowOpacity: 1`
+  and `shadowRadius: 4` when only `shadowColor` is set.
+- **`Image` shadow renders** — iOS clipped image shadows because the
+  `Image` host had `overflow: hidden`. When `shadowColor` / `elevation`
+  is set, the renderer now wraps the image in a shadow-carrying `View`
+  (or `GradientBox`) and lets the inner `Image` clip its own rounded
+  corners.
+
+---
+
 ## [1.25.0] - 2026-05-27
 
 ### Added

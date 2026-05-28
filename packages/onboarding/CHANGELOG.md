@@ -8,6 +8,17 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.25.1] - 2026-05-28
+
+### Added
+
+- **`aspectRatio` on `BaseBoxProps`** — every UIElement now accepts an
+  optional positive `aspectRatio` number, mirroring the React Native
+  style prop. Pair with `width` / `height` to derive the other dimension
+  instead of hard-coding both.
+
+---
+
 ## [1.25.0] - 2026-05-27
 
 ### Added

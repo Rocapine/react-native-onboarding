@@ -37,15 +37,16 @@ export default function ComposableScreenExample() {
                 loop: true,
               },
             },
-            // Rive animation
+            // Rive animation — width:100% + aspectRatio scales to artboard
             {
               id: 'hero-rive',
               type: 'Rive',
               props: {
                 url: 'https://cdn.rive.app/animations/vehicles.riv',
-                height: 180,
+                width: '100%',
+                aspectRatio: 16 / 9,
                 autoPlay: true,
-                fit: 'Contain',
+                fit: 'FitWidth',
               },
             },
             // Hero image

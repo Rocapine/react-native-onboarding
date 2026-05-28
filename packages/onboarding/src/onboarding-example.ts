@@ -130,9 +130,10 @@ export const onboardingExample = {
                 type: "Rive",
                 props: {
                   url: "https://cdn.rive.app/animations/vehicles.riv",
-                  height: 180,
+                  width: "100%",
+                  aspectRatio: 16 / 9,
                   autoPlay: true,
-                  fit: "Contain",
+                  fit: "FitWidth",
                 },
               },
               {

@@ -951,7 +951,8 @@ If `lottie-react-native` is not installed, the element renders a placeholder vie
 |------|------|-------|
 | `url` | `string` | **Required** — remote `.riv` URL |
 | `width` | `number` | Defaults to `"100%"` |
-| `height` | `number` | Defaults to `200` |
+| `height` | `number` | Optional. When omitted, `aspectRatio` sizes the box |
+| `aspectRatio` | `number` | Used when `height` is absent; falls back to `1` if neither `height` / `flex` / `aspectRatio` / `minHeight` / `maxHeight` is set, because `rive-react-native` doesn't expose the artboard's intrinsic ratio to JS |
 | `autoplay` | `boolean` | Defaults to `true` |
 | `fit` | `"Contain" \| "Cover" \| "Fill" \| "FitWidth" \| "FitHeight" \| "None" \| "ScaleDown" \| "Layout"` | |
 | `alignment` | `"TopLeft" \| "TopCenter" \| "TopRight" \| "CenterLeft" \| "Center" \| "CenterRight" \| "BottomLeft" \| "BottomCenter" \| "BottomRight"` | |

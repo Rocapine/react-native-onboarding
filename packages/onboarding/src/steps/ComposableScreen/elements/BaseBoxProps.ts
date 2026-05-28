@@ -60,6 +60,7 @@ export type BaseBoxProps = {
   flex?: number;
   flexShrink?: number;
   flexGrow?: number;
+  aspectRatio?: number;
   alignSelf?: "auto" | "flex-start" | "flex-end" | "center" | "stretch" | "baseline";
   opacity?: number;
   backgroundColor?: string;
@@ -91,6 +92,7 @@ export const BaseBoxPropsSchema = z.object({
   flex: z.number().min(0).optional(),
   flexShrink: z.number().min(0).optional(),
   flexGrow: z.number().min(0).optional(),
+  aspectRatio: z.number().positive().optional(),
   alignSelf: z.enum(["auto", "flex-start", "flex-end", "center", "stretch", "baseline"]).optional(),
   opacity: z.number().min(0).max(1).optional(),
   backgroundColor: z.string().optional(),

@@ -12,7 +12,7 @@ import {
 } from "@rocapine/react-native-onboarding";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
-import { RenderContext, dim, resolveInheritedFontFamily } from "./shared";
+import { RenderContext, buildShadowStyle, dim, resolveInheritedFontFamily } from "./shared";
 import { GradientBox } from "./GradientBox";
 import { ComposableVariableEntry } from "../../../Provider/OnboardingProgressProvider";
 import { evaluateSetVariableExpression } from "./expression";
@@ -140,14 +140,6 @@ type Props = {
   element: ButtonUIElement;
   ctx: RenderContext;
 };
-
-const buildShadowStyle = (p: Pick<BaseBoxProps, "shadowColor" | "shadowOffset" | "shadowOpacity" | "shadowRadius" | "elevation">) => ({
-  shadowColor: p.shadowColor,
-  shadowOffset: p.shadowOffset,
-  shadowOpacity: p.shadowOpacity,
-  shadowRadius: p.shadowRadius,
-  elevation: p.elevation,
-});
 
 export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElement => {
   const { theme, onContinue, customActions, variables, setVariable } = ctx;
@@ -338,9 +330,8 @@ export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElem
             style={{
               flex: 1,
               padding: eff.padding,
-              paddingVertical: eff.paddingVertical ?? 14,
-              paddingHorizontal: eff.paddingHorizontal ?? 24,
-              alignItems: "center",
+              paddingVertical: eff.paddingVertical ?? (eff.padding != null ? undefined : 14),
+              paddingHorizontal: eff.paddingHorizontal ?? (eff.padding != null ? undefined : 24),
               justifyContent: "center",
             }}
           >
@@ -375,9 +366,8 @@ export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElem
         disabled={isDisabled}
         style={{
           padding: eff.padding,
-          paddingVertical: eff.paddingVertical ?? 14,
-          paddingHorizontal: eff.paddingHorizontal ?? 24,
-          alignItems: "center",
+          paddingVertical: eff.paddingVertical ?? (eff.padding != null ? undefined : 14),
+          paddingHorizontal: eff.paddingHorizontal ?? (eff.padding != null ? undefined : 24),
           justifyContent: "center",
           borderRadius,
         }}

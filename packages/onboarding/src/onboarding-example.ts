@@ -468,7 +468,7 @@ export const onboardingExample = {
                   defaultValue: "1990-01-01T00:00:00.000Z",
                   mode: "date",
                   display: "spinner",
-                  maximumDate: new Date().toISOString(), // static at module load time — suitable for demo; use a runtime value in production
+                  maximumDate: "now", // resolves to current date at render time
                   marginVertical: 8,
                 },
               },

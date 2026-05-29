@@ -19,11 +19,37 @@ export const CustomButtonActionSchema = z.object({
   variables: z.array(z.string()).optional(),
 });
 
-export type ButtonAction = "continue" | CustomButtonAction;
+export type SetVariableButtonAction = {
+  type: "setVariable";
+  name: string;
+  value: string;
+  label?: string;
+  /**
+   * When `"expression"`, `value` is parsed as an arithmetic expression with
+   * `{{var}}` references, numeric literals, and `+ - * /` (parens supported).
+   * On parse failure, falls back to plain interpolation (string).
+   * Defaults to `"literal"` — `value` stored verbatim.
+   */
+  valueMode?: "literal" | "expression";
+  /** Tags the stored variable's underlying type. */
+  kind?: "int" | "float" | "string";
+};
+
+export const SetVariableButtonActionSchema = z.object({
+  type: z.literal("setVariable"),
+  name: z.string().min(1, "name must not be empty"),
+  value: z.string(),
+  label: z.string().optional(),
+  valueMode: z.enum(["literal", "expression"]).optional(),
+  kind: z.enum(["int", "float", "string"]).optional(),
+});
+
+export type ButtonAction = "continue" | CustomButtonAction | SetVariableButtonAction;
 
 export const ButtonActionSchema = z.union([
   z.literal("continue"),
   CustomButtonActionSchema,
+  SetVariableButtonActionSchema,
 ]);
 
 type ButtonOverridableProps = BaseBoxProps & {

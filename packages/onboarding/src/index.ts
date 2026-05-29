@@ -6,6 +6,7 @@ export * from "./onboarding-example";
 export type {
   ButtonAction,
   CustomButtonAction,
+  SetVariableButtonAction,
   ComposableVariableEntry,
   ComposableVariableKind,
   WheelPickerElementProps,
@@ -17,6 +18,7 @@ export type {
 export {
   ButtonActionSchema,
   CustomButtonActionSchema,
+  SetVariableButtonActionSchema,
   WheelPickerElementPropsSchema,
   generateWheelPickerRangeItems,
   resolveWheelPickerItems,

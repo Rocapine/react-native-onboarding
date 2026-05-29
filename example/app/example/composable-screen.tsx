@@ -415,7 +415,7 @@ export default function ComposableScreenExample() {
                 defaultValue: '1990-01-01T00:00:00.000Z',
                 mode: 'date' as const,
                 display: 'spinner' as const,
-                maximumDate: new Date().toISOString(),
+                maximumDate: 'now',
                 marginVertical: 8,
               },
             },

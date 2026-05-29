@@ -7,6 +7,16 @@ import type { UIElement } from "../types";
 import { dim, type RenderContext } from "./shared";
 import { GradientBox } from "./GradientBox";
 
+// The literal "now" resolves to the current date/time at render time.
+// Use it for defaultValue/minimumDate/maximumDate when a static ISO string
+// would go stale (e.g. a max date that should always be today).
+const isDateStringOrNow = (s: string) => s === "now" || !isNaN(Date.parse(s));
+
+// Resolve a DatePicker date prop (ISO string or the "now" sentinel) to a Date,
+// or undefined if not set.
+const resolveDate = (s?: string): Date | undefined =>
+  s === undefined ? undefined : s === "now" ? new Date() : new Date(s);
+
 export type DatePickerElementProps = BaseBoxProps & {
   variableName?: string;
   defaultValue?: string;
@@ -21,9 +31,9 @@ export type DatePickerElementProps = BaseBoxProps & {
 
 export const DatePickerElementPropsSchema = BaseBoxPropsSchema.extend({
   variableName: z.string().min(1).optional(),
-  defaultValue: z.string().refine((s) => !isNaN(Date.parse(s)), { message: "Invalid date string" }).optional(),
-  minimumDate: z.string().refine((s) => !isNaN(Date.parse(s)), { message: "Invalid date string" }).optional(),
-  maximumDate: z.string().refine((s) => !isNaN(Date.parse(s)), { message: "Invalid date string" }).optional(),
+  defaultValue: z.string().refine(isDateStringOrNow, { message: "Invalid date string" }).optional(),
+  minimumDate: z.string().refine(isDateStringOrNow, { message: "Invalid date string" }).optional(),
+  maximumDate: z.string().refine(isDateStringOrNow, { message: "Invalid date string" }).optional(),
   mode: z.enum(["date", "time", "datetime"]).optional().default("date"),
   display: z.enum(["default", "spinner", "calendar", "clock", "compact", "inline"]).optional(),
   textColor: z.string().optional(),
@@ -55,9 +65,7 @@ export const DatePickerElementComponent = ({ element, ctx }: Props): React.React
   const persistedValue = props.variableName ? variables[props.variableName]?.value : undefined;
   const initialDate = persistedValue
     ? new Date(persistedValue)
-    : props.defaultValue
-    ? new Date(props.defaultValue)
-    : new Date();
+    : resolveDate(props.defaultValue) ?? new Date();
 
   const [date, setDate] = useState<Date>(initialDate);
   const [isPickerVisible, setPickerVisible] = useState(false);
@@ -114,8 +122,8 @@ export const DatePickerElementComponent = ({ element, ctx }: Props): React.React
     value: date,
     mode,
     onChange: handleChange,
-    minimumDate: props.minimumDate ? new Date(props.minimumDate) : undefined,
-    maximumDate: props.maximumDate ? new Date(props.maximumDate) : undefined,
+    minimumDate: resolveDate(props.minimumDate),
+    maximumDate: resolveDate(props.maximumDate),
     // Fall back to theme tokens when CMS props are not provided.
     textColor: props.textColor ?? theme.colors.text.primary,
     accentColor: props.accentColor ?? theme.colors.primary,

@@ -1,3 +1,4 @@
+import { resolveWheelPickerItems } from "@rocapine/react-native-onboarding";
 import { UIElement } from "../types";
 import { ComposableVariableEntry } from "../../../Provider/OnboardingProgressProvider";
 
@@ -60,6 +61,15 @@ export function collectElementDefaults(
         if (name && el.props.defaultValue !== undefined) {
           const d = new Date(el.props.defaultValue);
           if (!isNaN(d.getTime())) out[name] = { value: d.toISOString() };
+        }
+        break;
+      }
+      case "WheelPicker": {
+        const name = el.props.variableName;
+        const dv = el.props.defaultValue;
+        if (name && dv !== undefined) {
+          const item = resolveWheelPickerItems(el.props).find((i) => i.value === dv);
+          if (item) out[name] = { value: item.value, label: item.label };
         }
         break;
       }

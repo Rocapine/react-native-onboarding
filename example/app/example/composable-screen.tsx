@@ -113,6 +113,21 @@ export default function ComposableScreenExample() {
                 },
               ],
             },
+            // Only shown once `name` has a non-empty value — demonstrates the
+            // unary `is_not_empty` condition operator.
+            {
+              id: 'name-greeting',
+              type: 'Text' as const,
+              renderWhen: { variable: 'name', operator: 'is_not_empty' as const },
+              props: {
+                content: 'Nice to meet you, {{name}}!',
+                mode: 'expression' as const,
+                fontSize: 14,
+                textAlign: 'center' as const,
+                opacity: 0.7,
+                marginVertical: 4,
+              },
+            },
             // Horizontal ScrollView demo — swipeable row of cards.
             {
               id: 'scroll-demo',
@@ -376,6 +391,31 @@ export default function ComposableScreenExample() {
               type: 'Text' as const,
               props: {
                 content: 'Birth date: {{birthdate}}',
+                mode: 'expression' as const,
+                fontSize: 14,
+                textAlign: 'center' as const,
+                opacity: 0.7,
+                marginVertical: 4,
+              },
+            },
+            // Wheel picker element — numeric range
+            {
+              id: 'hero-weight-wheel',
+              type: 'WheelPicker' as const,
+              props: {
+                variableName: 'weight',
+                defaultValue: '70',
+                range: { min: 40, max: 200, step: 1, unit: 'kg' },
+                height: 180,
+                marginVertical: 8,
+              },
+            },
+            // Expression text — shows selected weight
+            {
+              id: 'weight-display',
+              type: 'Text' as const,
+              props: {
+                content: 'Weight: {{weight}}',
                 mode: 'expression' as const,
                 fontSize: 14,
                 textAlign: 'center' as const,

@@ -54,6 +54,10 @@ const flatVars = useMemo(
 
 Skip the flatten and your condition reads the entry object, not its value — every `eq`/`neq` silently mis-evaluates.
 
+## Multi-select variables are JSON-encoded strings
+
+`CheckboxGroup` stores its value as `JSON.stringify(string[])` to fit the string-based variable system — an empty selection is the literal `"[]"`, not `""`. `evaluateCondition` decodes any value that parses to an array before testing, so `is_empty` / `is_not_empty` / `contains` / `in` see the real collection. Anything else reading these vars (new operators, `{{interpolation}}`) must decode too — a raw `"[]"` is a non-empty 2-char string and reads as "not empty".
+
 ## `renderWhen` gating
 
 Every UIElement variant accepts optional `renderWhen?: LeafCondition | ConditionGroup`. Single gating point at top of `elements/renderElement.tsx`: flatten `ctx.variables`, call `evaluateCondition`, return `null` if false. Covers all 15 variants — container subtrees skip naturally because the bail-out runs before `renderChildren`.

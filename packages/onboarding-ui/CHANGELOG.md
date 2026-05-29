@@ -9,6 +9,13 @@ here.
 
 ---
 
+## [1.28.0] - 2026-05-29
+
+### Added
+- **`RadioGroupElement` / `CheckboxGroupElement`: `showTick` support** — both renderers mirror the headless `showTick` field and gate the indicator on `showTick !== false`. With `showTick: false` the radio circle / checkbox `✓` box is not rendered, leaving label + selected background/border to convey state; default (`true` / omitted) is unchanged. `composable-screen.tsx` + `onboarding-example.ts` demos exercise both states (radio shows the tick, checkbox hides it).
+
+---
+
 ## [1.27.0] - 2026-05-29
 
 ### Added

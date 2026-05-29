@@ -14,7 +14,7 @@ Run probe from `../onboarding-best-practices/references/inspect-target-app.md`. 
 
 ## Tier 1 — Match via props (default path)
 
-Every styled UIElement (`Button`, `RadioGroup`, `CheckboxGroup`, `Input`, `Text`, container stacks) accepts the full visual surface as props. Wire them all from the Design Profile and the result is indistinguishable from a native-host component.
+Every styled UIElement (`Button`, `RadioGroup`, `CheckboxGroup`, `Input`, `WheelPicker`, `Text`, container stacks) accepts the full visual surface as props. Wire them all from the Design Profile and the result is indistinguishable from a native-host component.
 
 `Button`:
 - `variant: "filled" | "outlined" | "ghost"`
@@ -33,6 +33,10 @@ Every styled UIElement (`Button`, `RadioGroup`, `CheckboxGroup`, `Input`, `Text`
 `Input`:
 - `backgroundColor`, `color`, `placeholderColor`, `borderRadius`
 - `fontFamily`, `fontSize`, `fontWeight`, `textAlign`
+
+`WheelPicker` (needs `@react-native-picker/picker`; provide exactly one of `items` or `range`):
+- `itemColor` (defaults to `theme.colors.text.primary`)
+- `itemFontSize`, `itemFontFamily` (iOS `itemStyle`)
 
 `Text`:
 - `fontFamily`, `fontSize`, `fontWeight`, `fontStyle`, `color`, `lineHeight`, `letterSpacing`, `textAlign`

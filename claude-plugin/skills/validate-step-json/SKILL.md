@@ -42,6 +42,7 @@ Run: `npx tsx scripts/_validate-composable.ts "$(cat step.json)"`
    - `Image.props.url` is a string (NOT `source.uri` / `source.localPathId`)
    - `Lottie.props.source` is a string; `Rive.props.url` is a string
    - `RadioGroup.props.items` / `CheckboxGroup.props.items` is `[{label, value}]` (NOT `options`)
+   - `WheelPicker.props` provides exactly one of `items: [{label, value}]` (unique values) or `range: {min, max, step?, unit?}` — both or neither is a schema error; `defaultValue` (if present) must match an available item value
    - `Button.props.actions` is an array; entries are `"continue"` or `{type:"custom",function,variables?}` or `{type:"setVariable",name,value,valueMode?}` (note: setVariable may not be in headless schema yet — check)
    - `Button.props.disabledWhen` (NOT `disabled`) is a valid `LeafCondition` or `ConditionGroup`
    - `Button.props.pressedStyle` / `disabledStyle` (if present) are objects — `Partial` of overridable Button props; must NOT nest `pressedStyle`/`disabledStyle`. `transitionDurationMs` is a non-negative number.
@@ -52,7 +53,7 @@ Run: `npx tsx scripts/_validate-composable.ts "$(cat step.json)"`
      - `nextStep.defaultTargetStepId` is a string and references a real step `id` in the flow.
      - Every `branches[].targetStepId` is a string and references a real step `id` in the flow.
      - Every `branches[].condition` is `null` (unconditional catch-all) OR a valid `LeafCondition` / `ConditionGroup`.
-     - Every variable referenced in a `branches[].condition` is captured upstream (by an Input / RadioGroup / CheckboxGroup / DatePicker `variableName` or a `setVariable` action) — warn if not.
+     - Every variable referenced in a `branches[].condition` is captured upstream (by an Input / RadioGroup / CheckboxGroup / DatePicker / WheelPicker `variableName` or a `setVariable` action) — warn if not.
      - For multi-step flows, every step except the terminal one must define an explicit `defaultTargetStepId` (auto-link convention).
 5. Report ALL errors at once with path + reason. Don't stop on first.
 
@@ -68,13 +69,14 @@ Run: `npx tsx scripts/_validate-composable.ts "$(cat step.json)"`
 - `{{var}}` in `Text.content` without `Text.props.mode === "expression"` — silently doesn't interpolate.
 - `Image.props.source` used instead of `Image.props.url`.
 - `RadioGroup.props.options` instead of `items` (also `CheckboxGroup`).
+- `WheelPicker.props` with both `items` and `range`, or neither — exactly one is required. Also: non-unique `items` values, or a `defaultValue` that matches no available value.
 - `Button.props.action` (singular) used instead of `actions: [...]` (array).
 - `Button.props.disabled` instead of `disabledWhen`.
 - `shadowOffset` given as a number instead of `{ width, height }`.
 - `pressedStyle` / `disabledStyle` nesting another `pressedStyle`/`disabledStyle` (stripped — not overridable).
 - `SafeAreaView.props.edges: { top: "always" }` — invalid edge mode. Use `["top","bottom"]` or `"off" | "additive" | "maximum"`.
 - `Lottie.source: { localPathId }` instead of string URL.
-- `RadioGroup` / `CheckboxGroup` / `Input` / `DatePicker` without `variableName` — element renders but variable never captured.
+- `RadioGroup` / `CheckboxGroup` / `Input` / `DatePicker` / `WheelPicker` without `variableName` — element renders but variable never captured.
 - Nested `SafeAreaView`.
 - `nextStep.defaultTargetStepId` referencing nonexistent step ID.
 - `nextStep: null` on a non-terminal step in a multi-step flow (relies on implicit array-order linking; prefer explicit `defaultTargetStepId`).

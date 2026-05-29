@@ -8,10 +8,16 @@ export type {
   CustomButtonAction,
   ComposableVariableEntry,
   ComposableVariableKind,
+  WheelPickerElementProps,
+  WheelPickerItem,
+  WheelPickerRange,
 } from "./steps/ComposableScreen/types";
 export {
   ButtonActionSchema,
   CustomButtonActionSchema,
+  WheelPickerElementPropsSchema,
+  generateWheelPickerRangeItems,
+  resolveWheelPickerItems,
 } from "./steps/ComposableScreen/types";
 // Hooks and providers
 export * from "./infra";

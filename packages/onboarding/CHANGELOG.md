@@ -6,6 +6,9 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ## [Unreleased]
 
+### Added
+- **`WheelPicker` UIElement** — scrolling wheel selector for the ComposableScreen system. Binds a variable via `variableName` / `defaultValue`. Options come from either an explicit `items: Array<{label, value}>` or an auto-generated numeric `range: {min, max, step?, unit?}` (exactly one required; `unit` formats labels as `"<value> <unit>"`). Styling via `itemColor` / `itemFontSize` / `itemFontFamily` plus standard `BaseBoxProps`. Exports `WheelPickerElementProps`, `WheelPickerItem`, `WheelPickerRange`, `WheelPickerElementPropsSchema`, and helpers `resolveWheelPickerItems` / `generateWheelPickerRangeItems` (shared with the UI renderer + default collection). Rendered via the optional `@react-native-picker/picker` peer dep (same as the `Picker` step).
+
 ---
 
 ## [1.26.0] - 2026-05-28

@@ -43,6 +43,7 @@ Start from an archetype in `../create-step-json/references/composable-archetypes
 | `Button` | Triggers a `ButtonAction` (continue, setVariable, custom) |
 | `RadioGroup` / `CheckboxGroup` | Bound to a variable |
 | `DatePicker` | Date input bound to a variable |
+| `WheelPicker` | Scrolling wheel selector bound to a variable (needs `@react-native-picker/picker`) |
 | `Carousel` | Inline horizontal pager |
 
 Authoritative prop shapes: `packages/onboarding/src/steps/ComposableScreen/elements/*.ts`.
@@ -59,7 +60,7 @@ Authoritative prop shapes: `packages/onboarding/src/steps/ComposableScreen/eleme
 
 **There is no `payload.variables` map.** Variables live at runtime in the headless provider's variables store. They are populated by:
 
-- This screen's `Input` / `RadioGroup` / `CheckboxGroup` / `DatePicker` `variableName` prop
+- This screen's `Input` / `RadioGroup` / `CheckboxGroup` / `DatePicker` / `WheelPicker` `variableName` prop
 - Prior ComposableScreen steps' bound element captures
 - `Button.actions` containing a `setVariable` action: `{ "type": "setVariable", "name": "counter", "value": "{{counter}} + 1", "valueMode": "expression" }`
 
@@ -185,6 +186,7 @@ Each override is a `Partial` of the overridable Button props: `BaseBoxProps` (in
 | `Lottie` | `source: string` | `source: { localPathId }` |
 | `Rive` | `url: string` | `source` |
 | `RadioGroup` / `CheckboxGroup` | `items: [{label,value}]` | `options` |
+| `WheelPicker` | exactly one of `items: [{label,value}]` or `range: {min,max,step?,unit?}` | both `items` + `range`, or neither |
 | `Button` | `actions: [...]`, `disabledWhen` | `action`, `disabled` |
 | `SafeAreaView` | `edges: ["top","bottom"]` or `{ top: "additive" }` | `{ top: "always" }` |
 | `Input` | `textAlign`, `keyboardType`, `autoCapitalize`, `maxLength` | `suffix`, `autoFocus`, `alignment` |

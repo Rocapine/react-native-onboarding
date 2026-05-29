@@ -437,6 +437,29 @@ export const onboardingExample = {
                 },
               },
               {
+                id: "hero-weight-wheel",
+                type: "WheelPicker",
+                props: {
+                  variableName: "weight",
+                  defaultValue: "70",
+                  range: { min: 40, max: 200, step: 1, unit: "kg" },
+                  height: 180,
+                  marginVertical: 8,
+                },
+              },
+              {
+                id: "weight-display",
+                type: "Text",
+                props: {
+                  content: "Weight: {{weight}}",
+                  mode: "expression",
+                  fontSize: 14,
+                  textAlign: "center",
+                  opacity: 0.6,
+                  marginVertical: 4,
+                },
+              },
+              {
                 id: "hero-carousel",
                 type: "Carousel",
                 props: {

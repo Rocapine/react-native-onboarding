@@ -2,8 +2,10 @@ import { z } from "zod";
 import {
   type LeafCondition,
   type ConditionGroup,
+  type WheelPickerElementProps,
   LeafConditionSchema,
   ConditionGroupSchema,
+  WheelPickerElementPropsSchema,
 } from "@rocapine/react-native-onboarding";
 import { CustomPayloadSchema } from "../types";
 import { type StackElementProps, StackElementPropsSchema } from "./elements/StackElement";
@@ -41,6 +43,7 @@ export type { ButtonElementProps } from "./elements/ButtonElement";
 export type { RadioGroupElementProps } from "./elements/RadioGroupElement";
 export type { CheckboxGroupElementProps } from "./elements/CheckboxGroupElement";
 export type { DatePickerElementProps } from "./elements/DatePickerElement";
+export type { WheelPickerElementProps } from "@rocapine/react-native-onboarding";
 export type { CarouselElementProps } from "./elements/CarouselElement";
 export type { ZStackElementProps } from "./elements/ZStackElement";
 export type { SafeAreaViewElementProps, SafeAreaEdge, SafeAreaEdgeMode } from "./elements/SafeAreaViewElement";
@@ -137,6 +140,13 @@ export type UIElement =
       renderWhen?: LeafCondition | ConditionGroup;
       type: "DatePicker";
       props: DatePickerElementProps;
+    }
+  | {
+      id: string;
+      name?: string;
+      renderWhen?: LeafCondition | ConditionGroup;
+      type: "WheelPicker";
+      props: WheelPickerElementProps;
     }
   | {
       id: string;
@@ -265,6 +275,13 @@ export const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
       renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
       type: z.literal("DatePicker"),
       props: DatePickerElementPropsSchema,
+    }),
+    z.object({
+      id: z.string(),
+      name: z.string().optional(),
+      renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
+      type: z.literal("WheelPicker"),
+      props: WheelPickerElementPropsSchema,
     }),
     z.object({
       id: z.string(),

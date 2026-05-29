@@ -25,6 +25,7 @@ Install `@rocapine/react-native-onboarding-ui` and render steps with `Onboarding
    - Skia visuals → `npm install @shopify/react-native-skia`
    - Linear gradients → `npm install expo-linear-gradient`
    - DatePicker → `npm install @react-native-community/datetimepicker`
+   - WheelPicker → `npm install @react-native-picker/picker`
    - Inputs (always recommended) → already included in RN core
 4. Wire `OnboardingPage` inside the screen that consumes `useOnboardingQuestions`:
 

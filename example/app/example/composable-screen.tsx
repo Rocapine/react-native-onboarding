@@ -383,6 +383,31 @@ export default function ComposableScreenExample() {
                 marginVertical: 4,
               },
             },
+            // Wheel picker element — numeric range
+            {
+              id: 'hero-weight-wheel',
+              type: 'WheelPicker' as const,
+              props: {
+                variableName: 'weight',
+                defaultValue: '70',
+                range: { min: 40, max: 200, step: 1, unit: 'kg' },
+                height: 180,
+                marginVertical: 8,
+              },
+            },
+            // Expression text — shows selected weight
+            {
+              id: 'weight-display',
+              type: 'Text' as const,
+              props: {
+                content: 'Weight: {{weight}}',
+                mode: 'expression' as const,
+                fontSize: 14,
+                textAlign: 'center' as const,
+                opacity: 0.7,
+                marginVertical: 4,
+              },
+            },
             // Carousel element
             {
               id: 'hero-carousel',

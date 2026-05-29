@@ -1,6 +1,6 @@
 # ComposableScreen Archetypes
 
-> **Schema reminder.** `payload = { elements: UIElement[] }`. No `payload.root`, no `payload.variables`. Variables flow at runtime from in-screen `Input` / `RadioGroup` / `CheckboxGroup` / `DatePicker` `variableName` props (or prior steps' captures).
+> **Schema reminder.** `payload = { elements: UIElement[] }`. No `payload.root`, no `payload.variables`. Variables flow at runtime from in-screen `Input` / `RadioGroup` / `CheckboxGroup` / `DatePicker` / `WheelPicker` `variableName` props (or prior steps' captures).
 
 > **Element ids.** The readable `"id"` values below (`safe`, `root`, `title`, …) are illustrative for readability. In real output, every element `id` must be a fresh UUID v4 — never reuse or content-derive.
 
@@ -526,6 +526,7 @@ Signature-style: title + 3 commitment checkboxes (forced-tap) + big CTA.
 | `Button` | `label` | `actions: ButtonAction[]`; `disabledWhen` (LeafCondition/Group); `pressedStyle`/`disabledStyle` (Partial overrides) + `transitionDurationMs`; shadow (`shadowColor`/`shadowOffset`/`shadowOpacity`/`shadowRadius`/`elevation`); explicit `backgroundColor`/`color`/`fontFamily`/`borderRadius` from Design Profile. `disabledStyle` supersedes deprecated `disabledBackgroundColor`/`disabledColor` |
 | `RadioGroup` / `CheckboxGroup` | `items: [{label,value}]` | Wire `itemBackgroundColor`, `itemSelectedBackgroundColor`, `itemBorderColor`, `itemBorderRadius`, `itemFontFamily`, etc., from Design Profile |
 | `DatePicker` | — | `variableName`; see `DatePickerElement.ts` |
+| `WheelPicker` | exactly one of `items: [{label,value}]` or `range: {min,max,step?,unit?}` | `variableName`; `defaultValue` must match an available value; `range.unit` appends to labels (`"70 kg"`); wire `itemColor`/`itemFontSize`/`itemFontFamily` from Design Profile; needs `@react-native-picker/picker`; see `WheelPickerElement.ts` |
 | `Carousel` | — | slides in `children` at element top-level |
 
 ## Composition principles

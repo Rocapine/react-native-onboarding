@@ -14,6 +14,7 @@ import { RadioGroupComponent } from "./RadioGroupElement";
 import { CheckboxGroupComponent } from "./CheckboxGroupElement";
 import { ButtonElementComponent } from "./ButtonElement";
 import { DatePickerElementComponent } from "./DatePickerElement";
+import { WheelPickerElementComponent } from "./WheelPickerElement";
 import { CarouselElementComponent } from "./CarouselElement";
 import { ZStackElementComponent } from "./ZStackElement";
 import { SafeAreaViewElementComponent } from "./SafeAreaViewElement";
@@ -78,6 +79,10 @@ export const renderElement = (
 
   if (element.type === "DatePicker") {
     return <DatePickerElementComponent key={element.id} element={element} ctx={ctx} />;
+  }
+
+  if (element.type === "WheelPicker") {
+    return <WheelPickerElementComponent key={element.id} element={element} ctx={ctx} />;
   }
 
   if (element.type === "Carousel") {

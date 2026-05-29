@@ -7,6 +7,9 @@ here.
 
 ## [Unreleased]
 
+### Added
+- **`WheelPicker` element renderer** — renders the new `WheelPicker` UIElement using the optional `@react-native-picker/picker` peer dep (native iOS wheel / Android dropdown). Seeds + writes its bound variable like `RadioGroup` (full `{value, label}` entry), resolves `items` / `range` via the shared headless `resolveWheelPickerItems` helper, and contributes to `collectElementDefaults` so `defaultValue` is visible to `renderWhen` / `{{var}}` on first render. Falls back to a clear placeholder when the peer dep is absent.
+
 ---
 
 ## [1.26.0] - 2026-05-28

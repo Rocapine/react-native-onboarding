@@ -6,6 +6,7 @@ export type RadioGroupElementProps = BaseBoxProps & {
   defaultValue?: string;
   gap?: number;
   direction?: "vertical" | "horizontal";
+  showTick?: boolean;
   items: Array<{ label: string; value: string }>;
   itemBackgroundColor?: string;
   itemSelectedBackgroundColor?: string;
@@ -29,6 +30,7 @@ export const RadioGroupElementPropsSchema = BaseBoxPropsSchema.extend({
   defaultValue: z.string().optional(),
   gap: z.number().optional(),
   direction: z.enum(["vertical", "horizontal"]).optional(),
+  showTick: z.boolean().optional(),
   items: z.array(z.object({ label: z.string().trim().min(1, "item label must not be empty"), value: z.string().trim().min(1, "item value must not be empty") })).min(1, "items must not be empty"),
   itemBackgroundColor: z.string().optional(),
   itemSelectedBackgroundColor: z.string().optional(),

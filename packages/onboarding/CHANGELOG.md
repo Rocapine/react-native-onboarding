@@ -8,6 +8,13 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.28.0] - 2026-05-29
+
+### Added
+- **`RadioGroup` / `CheckboxGroup`: `showTick` prop** — both schemas extend with optional `showTick: boolean` (default `true`). When `false`, the per-item indicator (radio circle / checkbox box) is omitted; the item label and selected background / border styling still render. Lets authors build pill / card-style single- and multi-select groups without the tick glyph.
+
+---
+
 ## [1.27.0] - 2026-05-29
 
 ### Added

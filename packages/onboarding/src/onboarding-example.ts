@@ -362,6 +362,7 @@ export const onboardingExample = {
                 props: {
                   variableName: "plan",
                   defaultValue: "monthly",
+                  showTick: true,
                   gap: 8,
                   marginVertical: 8,
                   items: [
@@ -405,6 +406,7 @@ export const onboardingExample = {
                 props: {
                   variableName: "goals",
                   defaultValues: ["health", "fitness"],
+                  showTick: false,
                   gap: 8,
                   marginVertical: 8,
                   items: [

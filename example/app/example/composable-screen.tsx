@@ -320,6 +320,7 @@ export default function ComposableScreenExample() {
               props: {
                 variableName: 'plan',
                 defaultValue: 'monthly',
+                showTick: true,
                 gap: 8,
                 marginVertical: 8,
                 items: [
@@ -349,6 +350,7 @@ export default function ComposableScreenExample() {
               props: {
                 variableName: 'goals',
                 defaultValues: ['health', 'fitness'],
+                showTick: false,
                 gap: 8,
                 marginVertical: 8,
                 items: [

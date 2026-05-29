@@ -25,6 +25,8 @@ npm run android
 
 Fresh worktree has no `example/node_modules` — `tsc` **and `npm run build:ui`** resolve `@rocapine/*` via the **main** repo's symlink (main packages' stale `dist`, not the worktree), giving false type errors / building against the wrong source. Two fixes: `npm install --workspaces --include-workspace-root` from worktree root, or symlink directly — `mkdir -p node_modules/@rocapine && ln -sfn ../../packages/onboarding node_modules/@rocapine/react-native-onboarding && ln -sfn ../../packages/onboarding-ui node_modules/@rocapine/react-native-onboarding-ui` — then `build:headless` + `build:ui` before `type:check`.
 
+Local `main` ref is **stale** in a worktree (branched from `origin/main`, which is usually ahead). For release/scope diffs (`/bump-version`, `git diff main...HEAD`) use `origin/main` as the base, else already-merged commits leak in and the version-bump scope is wrong. A worktree `npm install` also rewrites `package-lock.json`'s version field — don't bundle that into a feature commit (causes rebase conflicts; resolve with `git checkout --ours package-lock.json`).
+
 ## Native module autolinking (peer-dep elements)
 
 A UIElement that renders an optional peer dep (e.g. `@react-native-picker/picker` for `Picker` / `WheelPicker`) needs that dep in **`example/package.json`** — workspace hoisting satisfies JS resolution but autolinking only sees declared example deps, so the native module is missing at runtime (`Unimplemented component: RNCPicker`). After adding, rebuild the dev client (`npx expo run:ios`) — reloading Metro is not enough.

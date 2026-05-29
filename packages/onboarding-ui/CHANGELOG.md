@@ -9,6 +9,13 @@ here.
 
 ---
 
+## [1.30.0] - 2026-05-29
+
+### Added
+- **`ProgressIndicatorElement` renderer** — renders the `ProgressIndicator` UIElement in both variants. Linear uses an animated track-fill `View`; circular uses an animated `react-native-svg` ring (both driven by `react-native-reanimated` — no new peer deps; same stack as `CircularProgress`). `easing` names map to CSS cubic-bezier curves (`linear`, `ease-in` `(0.42,0,1,1)`, `ease-out` `(0,0,0.58,1)`, `ease-in-out` `(0.42,0,0.58,1)`). `autoplay` animates `initialValue → 100` (optionally `loop`ing) and writes the rounded value to `variableName` each frame; without `autoplay` the indicator animates toward the bound variable / static `value`. Optional `showLabel` renders the live percentage. `composable-screen.tsx` + `onboarding-example.ts` demos exercise a linear autoplay-loop and a circular autoplay-once indicator.
+
+---
+
 ## [1.29.0] - 2026-05-29
 
 ### Added

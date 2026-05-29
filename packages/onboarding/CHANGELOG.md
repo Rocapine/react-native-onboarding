@@ -8,6 +8,13 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.30.0] - 2026-05-29
+
+### Added
+- **`ProgressIndicator` UIElement** — new ComposableScreen element rendering a linear or circular progress display bound to an int variable (0–100). Schema (`ProgressIndicatorElementPropsSchema`) and type (`ProgressIndicatorElementProps`, `ProgressEasing`) exported from the headless package and added to the `UIElement` union. Props (all optional, plus `BaseBoxProps`): `variant` (`"linear"` | `"circular"`), `variableName` (bound int variable — written each frame during autoplay, read otherwise), `value` (static 0–100), `autoplay`, `loop`, `initialValue` (0–100), `duration` (ms), `easing` (`"linear"` | `"ease-in"` | `"ease-out"` | `"ease-in-out"`), `color`, `trackColor`, `thickness`, `size`, `showLabel`, `labelColor`.
+
+---
+
 ## [1.29.0] - 2026-05-29
 
 ### Added

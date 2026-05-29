@@ -12,6 +12,10 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ### Added
 - **`DatePicker`: `"now"` sentinel for date bounds** — `defaultValue`, `minimumDate`, and `maximumDate` now accept the literal string `"now"` in addition to ISO 8601 date strings. `"now"` resolves to the current date/time at render, so a max date that should always be "today" no longer goes stale at module-load time. Schema validation accepts a value when it is `"now"` or parses via `Date.parse`.
+- **`SetVariableButtonActionSchema` / `SetVariableButtonAction`** — exported from the headless package and added to the `ButtonActionSchema` union (`{ type: "setVariable", name, value, label?, valueMode?, kind? }`).
+
+### Fixed
+- **`ButtonActionSchema` rejected `setVariable` actions** — the headless union only accepted `"continue"` and `{ type: "custom" }`, while the UI package and runtime already supported `setVariable`. Any ComposableScreen payload using a `setVariable` button action failed parsing with `invalid_union`. Headless now mirrors the UI variant, fixing the schema drift.
 
 ---
 

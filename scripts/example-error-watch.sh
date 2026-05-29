@@ -48,10 +48,17 @@ mode_metro() {
       *) echo "metro: unknown arg $1" >&2; exit 2 ;;
     esac
   done
+  # Absolutize LOG before we cd — otherwise a relative path resolves against
+  # EXAMPLE_DIR after the cd and the tee writes to a different file than callers expect.
+  case "$LOG" in /*) ;; *) LOG="$PWD/$LOG" ;; esac
   : > "$LOG"
   echo "▶ Metro starting — port $PORT, log → $LOG"
   cd "$EXAMPLE_DIR" || exit 2
-  exec env CI=1 EXPO_NO_TELEMETRY=1 npx expo start --port "$PORT" 2>&1 | tee -a "$LOG"
+  # No CI=1: it disables Metro's file watcher (reloads off), which would stop new
+  # edits from being recompiled — defeating live error detection. A background
+  # launch has non-TTY stdin, so Expo's interactive menu is disabled anyway.
+  # </dev/null guarantees non-interactive even if run from a terminal.
+  exec env EXPO_NO_TELEMETRY=1 npx expo start --port "$PORT" </dev/null 2>&1 | tee -a "$LOG"
 }
 
 # ─────────────────────────────── mode: until ────────────────────────────────
@@ -78,13 +85,17 @@ mode_until() {
     if printf '%s' "$line" | grep -qiE "$ERR_PAT" \
        && ! printf '%s' "$line" | grep -qiE "$IGNORE_PAT"; then
       local ts; ts="$(date '+%Y-%m-%d %H:%M:%S')"
+      local ESC; ESC=$'\x1b'
+      local STRIP="s/${ESC}\\[[0-9;]*m//g"           # drop ANSI color codes
+      # stack-frame noise that buries the real message:
+      local NOISE='^[[:space:]]*at .*node_modules|^[[:space:]]*at .*<anonymous>|^[[:space:]]*at \[nodejs|stopHiding - secret'
       {
         echo "═══ Metro error detected — $ts ═══"
         echo "TRIGGER LINE:"
-        echo "  $line"
+        printf '%s\n' "$line" | sed "$STRIP" | sed 's/^/  /'
         echo
-        echo "CONTEXT (last 40 log lines):"
-        tail -n 40 "$LOG" | sed 's/^/  /'
+        echo "CONTEXT (cleaned — ANSI + node_modules stack frames stripped):"
+        sed "$STRIP" "$LOG" | grep -vE "$NOISE" | tail -n 30 | sed 's/^/  /'
         echo "RESULT: ERRORS_DETECTED"
       } | tee "${REPORT:-/dev/stdout}"
       exit 1
@@ -121,7 +132,7 @@ mode_oneshot() {
     if metro_running; then echo "↺ Reusing Metro on port $PORT"; return 0; fi
     if [[ "$DO_BUILD" == "1" ]]; then echo "▶ Building SDK packages…"; ( cd "$REPO_ROOT" && npm run build >/dev/null 2>&1 ); fi
     echo "▶ Starting Metro (port $PORT)…"
-    ( cd "$EXAMPLE_DIR" && CI=1 EXPO_NO_TELEMETRY=1 npx expo start --port "$PORT" >"$METRO_LOG" 2>&1 ) &
+    ( cd "$EXAMPLE_DIR" && EXPO_NO_TELEMETRY=1 npx expo start --port "$PORT" </dev/null >"$METRO_LOG" 2>&1 ) &
     METRO_PID=$!; STARTED_METRO=1
     for _ in $(seq 1 90); do
       metro_running && { echo "✔ Metro ready"; return 0; }

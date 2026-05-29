@@ -8,6 +8,13 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.29.0] - 2026-05-29
+
+### Added
+- **`DatePicker`: `"now"` sentinel for date bounds** — `defaultValue`, `minimumDate`, and `maximumDate` now accept the literal string `"now"` in addition to ISO 8601 date strings. `"now"` resolves to the current date/time at render, so a max date that should always be "today" no longer goes stale at module-load time. Schema validation accepts a value when it is `"now"` or parses via `Date.parse`.
+
+---
+
 ## [1.28.0] - 2026-05-29
 
 ### Added

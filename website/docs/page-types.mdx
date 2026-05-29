@@ -729,9 +729,9 @@ See [Custom Actions](./customization/custom-actions.mdx) for the full handler si
 | Prop | Type | Notes |
 |------|------|-------|
 | `variableName` | `string` | Context key — selected date stored as ISO 8601 string (`value`) and locale-formatted string (`label`, e.g. `"Apr 23, 2026"`) |
-| `defaultValue` | `string` | ISO date string; used as initial value if no persisted value exists |
-| `minimumDate` | `string` | ISO date string — earliest selectable date |
-| `maximumDate` | `string` | ISO date string — latest selectable date |
+| `defaultValue` | `string` | ISO date string, or `"now"` for the current date/time at render; used as initial value if no persisted value exists |
+| `minimumDate` | `string` | ISO date string, or `"now"` for the current date/time at render — earliest selectable date |
+| `maximumDate` | `string` | ISO date string, or `"now"` for the current date/time at render — latest selectable date |
 | `mode` | `"date" \| "time" \| "datetime"` | Defaults to `"date"` |
 | `display` | `"default" \| "spinner" \| "calendar" \| "clock" \| "compact" \| "inline"` | Platform-specific display style; iOS defaults to `"spinner"`, Android defaults to `"default"` |
 | `textColor` | `string` | Picker text color; defaults to `theme.colors.text.primary` |

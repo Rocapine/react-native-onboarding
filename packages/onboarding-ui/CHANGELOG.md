@@ -9,6 +9,13 @@ here.
 
 ---
 
+## [1.29.0] - 2026-05-29
+
+### Added
+- **`DatePickerElement`: `"now"` sentinel support** — renderer mirrors the headless schema and resolves `defaultValue` / `minimumDate` / `maximumDate` via a `resolveDate` helper that maps the literal `"now"` to `new Date()` at render time (ISO strings still parse as before). Initial value, `minimumDate`, and `maximumDate` passed to the native picker all honor `"now"`. `composable-screen.tsx` + `onboarding-example.ts` demos now use `maximumDate: "now"`.
+
+---
+
 ## [1.28.0] - 2026-05-29
 
 ### Added

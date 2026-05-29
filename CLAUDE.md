@@ -139,7 +139,7 @@ When adding/changing a `UIElement` type in either ComposableScreen `types.ts`, *
 
 1. **Update `packages/onboarding/src/onboarding-example.ts`** — add/update example step exercising the new/changed element type so default onboarding stays in sync with schema.
 2. **Update `example/app/example/composable-screen.tsx`** — add/update element in rendered example payload.
-3. **Watch for schema duplication in UI renderers.** Several UI element renderers re-declare their Zod schemas + `*Props` type in lockstep with the headless source (known mirrors: `Pages/ComposableScreen/elements/ButtonElement.tsx`, `IconElement.tsx` — grep for `IconElementPropsSchema`-style re-exports to find others). When changing headless `elements/*.ts`, update the UI mirror's field set too — TS won't catch the drift because the UI re-declares its own type.
+3. **Watch for schema duplication in UI renderers.** Several UI element renderers re-declare their Zod schemas + `*Props` type in lockstep with the headless source (known mirrors: `Pages/ComposableScreen/elements/ButtonElement.tsx`, `IconElement.tsx` — grep for `IconElementPropsSchema`-style re-exports to find others). When changing headless `elements/*.ts`, update the UI mirror's field set too — TS won't catch the drift because the UI re-declares its own type. **Drift runs both ways**: a variant added only to the UI mirror (e.g. `setVariable` `ButtonAction`) still fails parsing — the headless schema validates the payload, so a UI-only variant throws `invalid_union` even though the renderer handles it.
 4. **Mirror schema docs in-repo** — update `claude-plugin/skills/{compose-screen-builder,validate-step-json,customize-onboarding-components}/SKILL.md` + `create-step-json/references/composable-archetypes.md`, and `website/docs/page-types.mdx` (Button/element prop tables). Grep these for the changed field name.
 5. **Display this prompt for `onboarding-studio` repo** (CMS backend that must mirror schema changes):
 
@@ -175,5 +175,8 @@ cd packages/onboarding-ui && npm run patch # bump + build + publish
 ## Debugging ComposableScreen schema parse errors
 
 - Fetch a project's draft payload directly: `curl "$EXPO_PUBLIC_ONBOARDING_BASE_URL/get-onboarding-steps?projectId=$PID&platform=ios&appVersion=1.0.0&draft=true&locale=en"`.
+- Env values live in `example/.env` + `example/.env.local` (`.env.local` overrides → local Supabase `localhost:64321`); a fresh **worktree** has empty/missing env, so read the values from the **main repo's** `example/.env*`.
 - Validate against the schema in Node using the **headless** dist only (`require('./packages/onboarding/dist/steps/ComposableScreen/types.js')`) — the UI dist imports `react-native` and won't load under Node.
+- The parse entry point is the exported `ComposableScreenStepTypeSchema` (`.safeParse(step)`).
 - Zod v4 `invalid_union` paths are cumulative across nested variant errors; walk the issue tree and concatenate `prefix + it.path` recursively to surface the real failing path.
+- Triage data-vs-schema: many parse failures are CMS **data** bugs, not SDK bugs (e.g. `variant:"clear"` — only `filled/outlined/ghost`; `shadowOpacity:12` — RN bounds `0..1`). Fix in studio, not the schema.

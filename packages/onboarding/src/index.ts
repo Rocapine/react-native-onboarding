@@ -11,6 +11,8 @@ export type {
   WheelPickerElementProps,
   WheelPickerItem,
   WheelPickerRange,
+  ProgressIndicatorElementProps,
+  ProgressEasing,
 } from "./steps/ComposableScreen/types";
 export {
   ButtonActionSchema,

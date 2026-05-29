@@ -527,6 +527,7 @@ Signature-style: title + 3 commitment checkboxes (forced-tap) + big CTA.
 | `RadioGroup` / `CheckboxGroup` | `items: [{label,value}]` | Wire `itemBackgroundColor`, `itemSelectedBackgroundColor`, `itemBorderColor`, `itemBorderRadius`, `itemFontFamily`, etc., from Design Profile; `showTick` (boolean, default `true`) hides the radio circle / checkbox box indicator when `false` |
 | `DatePicker` | — | `variableName`; see `DatePickerElement.ts` |
 | `WheelPicker` | exactly one of `items: [{label,value}]` or `range: {min,max,step?,unit?}` | `variableName`; `defaultValue` must match an available value; `range.unit` appends to labels (`"70 kg"`); wire `itemColor`/`itemFontSize`/`itemFontFamily` from Design Profile; needs `@react-native-picker/picker`; see `WheelPickerElement.ts` |
+| `ProgressIndicator` | — | `variant: "linear"\|"circular"` (default `"linear"`); value from static `value` (0–100), bound `variableName`, or `autoplay`/`loop`/`initialValue`/`duration`/`easing` animation; wire `color`/`trackColor`/`thickness`/`size`/`showLabel`/`labelColor` from Design Profile; see `ProgressIndicatorElement.ts` |
 | `Carousel` | — | slides in `children` at element top-level |
 
 ## Composition principles

@@ -28,6 +28,10 @@ import {
   type KeyboardAvoidingViewElementProps,
   KeyboardAvoidingViewElementPropsSchema,
 } from "./elements/KeyboardAvoidingViewElement";
+import {
+  type ProgressIndicatorElementProps,
+  ProgressIndicatorElementPropsSchema,
+} from "./elements/ProgressIndicatorElement";
 
 export type { BaseBoxProps } from "./elements/BaseBoxProps";
 export { BaseBoxPropsSchema } from "./elements/BaseBoxProps";
@@ -52,6 +56,7 @@ export type {
   KeyboardAvoidingViewElementProps,
   KeyboardAvoidingBehavior,
 } from "./elements/KeyboardAvoidingViewElement";
+export type { ProgressIndicatorElementProps, ProgressEasing } from "./elements/ProgressIndicatorElement";
 
 // UIElement union — must live here (not in elements/) to avoid circular deps
 // because the Stack variant's children: UIElement[] references itself.
@@ -187,6 +192,13 @@ export type UIElement =
       type: "KeyboardAvoidingView";
       props: KeyboardAvoidingViewElementProps;
       children: UIElement[];
+    }
+  | {
+      id: string;
+      name?: string;
+      renderWhen?: LeafCondition | ConditionGroup;
+      type: "ProgressIndicator";
+      props: ProgressIndicatorElementProps;
     };
 
 export const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
@@ -322,6 +334,13 @@ export const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
       type: z.literal("KeyboardAvoidingView"),
       props: KeyboardAvoidingViewElementPropsSchema,
       children: z.array(UIElementSchema),
+    }),
+    z.object({
+      id: z.string(),
+      name: z.string().optional(),
+      renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
+      type: z.literal("ProgressIndicator"),
+      props: ProgressIndicatorElementPropsSchema,
     }),
   ])
 );

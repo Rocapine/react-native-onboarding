@@ -27,6 +27,7 @@ import {
   type KeyboardAvoidingViewElementProps,
   KeyboardAvoidingViewElementPropsSchema,
 } from "./elements/KeyboardAvoidingViewElement";
+import { type ProgressIndicatorElementProps, ProgressIndicatorElementPropsSchema } from "./elements/ProgressIndicatorElement";
 
 export type { BaseBoxProps, GradientBackground, GradientEdge, GradientStop, LinearGradientConfig } from "./elements/BaseBoxProps";
 export { BaseBoxPropsSchema, GradientBackgroundSchema } from "./elements/BaseBoxProps";
@@ -53,6 +54,7 @@ export type {
   KeyboardAvoidingViewElementProps,
   KeyboardAvoidingBehavior,
 } from "./elements/KeyboardAvoidingViewElement";
+export type { ProgressIndicatorElementProps, ProgressEasing } from "./elements/ProgressIndicatorElement";
 
 /**
  * Type tag for a ComposableScreen variable. Drives expression-mode coercion
@@ -205,6 +207,13 @@ type UIElement =
       type: "KeyboardAvoidingView";
       props: KeyboardAvoidingViewElementProps;
       children: UIElement[];
+    }
+  | {
+      id: string;
+      name?: string;
+      renderWhen?: LeafCondition | ConditionGroup;
+      type: "ProgressIndicator";
+      props: ProgressIndicatorElementProps;
     };
 
 const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
@@ -340,6 +349,13 @@ const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
       type: z.literal("KeyboardAvoidingView"),
       props: KeyboardAvoidingViewElementPropsSchema,
       children: z.array(UIElementSchema),
+    }),
+    z.object({
+      id: z.string(),
+      name: z.string().optional(),
+      renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
+      type: z.literal("ProgressIndicator"),
+      props: ProgressIndicatorElementPropsSchema,
     }),
   ])
 );

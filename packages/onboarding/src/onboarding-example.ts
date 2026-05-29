@@ -164,6 +164,37 @@ export const onboardingExample = {
                 },
               },
               {
+                id: "progress-linear",
+                type: "ProgressIndicator",
+                props: {
+                  variant: "linear",
+                  autoplay: true,
+                  loop: true,
+                  initialValue: 0,
+                  duration: 2500,
+                  easing: "ease-in-out",
+                  thickness: 10,
+                  showLabel: true,
+                  marginVertical: 8,
+                },
+              },
+              {
+                id: "progress-circular",
+                type: "ProgressIndicator",
+                props: {
+                  variant: "circular",
+                  autoplay: true,
+                  loop: false,
+                  initialValue: 0,
+                  duration: 1800,
+                  easing: "ease-out",
+                  size: 120,
+                  thickness: 12,
+                  showLabel: true,
+                  alignSelf: "center",
+                },
+              },
+              {
                 id: "hero-video",
                 type: "Video",
                 props: {

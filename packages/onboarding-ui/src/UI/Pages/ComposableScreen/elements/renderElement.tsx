@@ -20,6 +20,7 @@ import { ZStackElementComponent } from "./ZStackElement";
 import { SafeAreaViewElementComponent } from "./SafeAreaViewElement";
 import { ScrollViewElementComponent } from "./ScrollViewElement";
 import { KeyboardAvoidingViewElementComponent } from "./KeyboardAvoidingViewElement";
+import { ProgressIndicatorElementComponent } from "./ProgressIndicatorElement";
 
 export const renderElement = (
   element: UIElement,
@@ -103,6 +104,10 @@ export const renderElement = (
 
   if (element.type === "KeyboardAvoidingView") {
     return <KeyboardAvoidingViewElementComponent key={element.id} element={element} ctx={ctx} />;
+  }
+
+  if (element.type === "ProgressIndicator") {
+    return <ProgressIndicatorElementComponent key={element.id} element={element} ctx={ctx} />;
   }
 
   return null;

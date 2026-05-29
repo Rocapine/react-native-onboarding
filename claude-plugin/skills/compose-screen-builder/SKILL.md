@@ -45,6 +45,7 @@ Start from an archetype in `../create-step-json/references/composable-archetypes
 | `DatePicker` | Date input bound to a variable |
 | `WheelPicker` | Scrolling wheel selector bound to a variable (needs `@react-native-picker/picker`) |
 | `Carousel` | Inline horizontal pager |
+| `ProgressIndicator` | Linear / circular progress bar; static `value`, bound `variableName`, or `autoplay` animation |
 
 Authoritative prop shapes: `packages/onboarding/src/steps/ComposableScreen/elements/*.ts`.
 
@@ -196,6 +197,7 @@ Each override is a `Partial` of the overridable Button props: `BaseBoxProps` (in
 | `Button` | `actions: [...]`, `disabledWhen` | `action`, `disabled` |
 | `SafeAreaView` | `edges: ["top","bottom"]` or `{ top: "additive" }` | `{ top: "always" }` |
 | `Input` | `textAlign`, `keyboardType`, `autoCapitalize`, `maxLength` | `suffix`, `autoFocus`, `alignment` |
+| `ProgressIndicator` | `variant: "linear"\|"circular"`, `value` (0–100), `variableName`, `autoplay`, `duration`, `easing` | `progress`, `percent`, `type` |
 | Stacks / Carousel | `children` at element top-level | `children` inside `props` |
 
 ## Anti-patterns

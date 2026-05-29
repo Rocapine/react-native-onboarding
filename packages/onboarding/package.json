@@ -51,7 +51,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/rocapine/react-native-onboarding-studio.git",
+    "url": "https://github.com/Rocapine/react-native-onboarding.git",
     "directory": "packages/onboarding"
   }
 }

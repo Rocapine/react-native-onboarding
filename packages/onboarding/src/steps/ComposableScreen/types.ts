@@ -18,6 +18,7 @@ import { type ButtonElementProps, ButtonElementPropsSchema } from "./elements/Bu
 import { type RadioGroupElementProps, RadioGroupElementPropsSchema } from "./elements/RadioGroupElement";
 import { type CheckboxGroupElementProps, CheckboxGroupElementPropsSchema } from "./elements/CheckboxGroupElement";
 import { type DatePickerElementProps, DatePickerElementPropsSchema } from "./elements/DatePickerElement";
+import { type WheelPickerElementProps, WheelPickerElementPropsSchema } from "./elements/WheelPickerElement";
 import { type CarouselElementProps, CarouselElementPropsSchema } from "./elements/CarouselElement";
 import { type ZStackElementProps, ZStackElementPropsSchema } from "./elements/ZStackElement";
 import { type SafeAreaViewElementProps, SafeAreaViewElementPropsSchema } from "./elements/SafeAreaViewElement";
@@ -42,6 +43,8 @@ export { ButtonActionSchema, CustomButtonActionSchema } from "./elements/ButtonE
 export type { RadioGroupElementProps } from "./elements/RadioGroupElement";
 export type { CheckboxGroupElementProps } from "./elements/CheckboxGroupElement";
 export type { DatePickerElementProps } from "./elements/DatePickerElement";
+export type { WheelPickerElementProps, WheelPickerItem, WheelPickerRange } from "./elements/WheelPickerElement";
+export { WheelPickerElementPropsSchema, generateWheelPickerRangeItems, resolveWheelPickerItems } from "./elements/WheelPickerElement";
 export type { CarouselElementProps } from "./elements/CarouselElement";
 export type { ZStackElementProps } from "./elements/ZStackElement";
 export type { SafeAreaViewElementProps, SafeAreaEdge, SafeAreaEdgeMode } from "./elements/SafeAreaViewElement";
@@ -155,6 +158,13 @@ type UIElement =
       renderWhen?: LeafCondition | ConditionGroup;
       type: "DatePicker";
       props: DatePickerElementProps;
+    }
+  | {
+      id: string;
+      name?: string;
+      renderWhen?: LeafCondition | ConditionGroup;
+      type: "WheelPicker";
+      props: WheelPickerElementProps;
     }
   | {
       id: string;
@@ -283,6 +293,13 @@ const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
       renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
       type: z.literal("DatePicker"),
       props: DatePickerElementPropsSchema,
+    }),
+    z.object({
+      id: z.string(),
+      name: z.string().optional(),
+      renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
+      type: z.literal("WheelPicker"),
+      props: WheelPickerElementPropsSchema,
     }),
     z.object({
       id: z.string(),

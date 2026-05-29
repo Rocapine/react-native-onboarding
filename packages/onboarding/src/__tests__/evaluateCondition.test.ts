@@ -76,6 +76,41 @@ describe("evaluateLeaf — unknown operator", () => {
   it("returns false for unknown operator", () => expect(evaluateLeaf({ variable: "x", operator: "xor" as any, value: "y" }, { x: "y" })).toBe(false));
 });
 
+describe("evaluateLeaf — unary is_empty / is_not_empty", () => {
+  it("empty string is empty", () => expect(evaluateLeaf({ variable: "x", operator: "is_empty" }, { x: "" })).toBe(true));
+  it("whitespace string is empty", () => expect(evaluateLeaf({ variable: "x", operator: "is_empty" }, { x: "   " })).toBe(true));
+  it("unset variable is empty", () => expect(evaluateLeaf({ variable: "x", operator: "is_empty" }, {})).toBe(true));
+  it("empty array is empty", () => expect(evaluateLeaf({ variable: "x", operator: "is_empty" }, { x: [] })).toBe(true));
+  it("non-empty string is not empty", () => expect(evaluateLeaf({ variable: "x", operator: "is_not_empty" }, { x: "Paul" })).toBe(true));
+  it("zero-string is not empty (0 is a value)", () => expect(evaluateLeaf({ variable: "x", operator: "is_not_empty" }, { x: "0" })).toBe(true));
+  it("populated array is not empty", () => expect(evaluateLeaf({ variable: "x", operator: "is_not_empty" }, { x: ["a"] })).toBe(true));
+  it("is_not_empty is the negation of is_empty", () => expect(evaluateLeaf({ variable: "x", operator: "is_not_empty" }, { x: "" })).toBe(false));
+});
+
+describe("evaluateLeaf — unary is_null / is_not_null", () => {
+  it("unset variable is null", () => expect(evaluateLeaf({ variable: "x", operator: "is_null" }, {})).toBe(true));
+  it("explicit null is null", () => expect(evaluateLeaf({ variable: "x", operator: "is_null" }, { x: null })).toBe(true));
+  it("set-but-empty string is NOT null", () => expect(evaluateLeaf({ variable: "x", operator: "is_not_null" }, { x: "" })).toBe(true));
+  it("set value is not null", () => expect(evaluateLeaf({ variable: "x", operator: "is_not_null" }, { x: "Paul" })).toBe(true));
+  it("unset variable is_not_null is false", () => expect(evaluateLeaf({ variable: "x", operator: "is_not_null" }, {})).toBe(false));
+});
+
+describe("evaluateLeaf — JSON-array-encoded variable values (CheckboxGroup)", () => {
+  // Multi-select stores its value as a JSON string; "[]" is an empty selection.
+  it('empty "[]" reads as empty', () => expect(evaluateLeaf({ variable: "tags", operator: "is_empty" }, { tags: "[]" })).toBe(true));
+  it('empty "[]" is_not_empty is false (gated element falls back on deselect)', () =>
+    expect(evaluateLeaf({ variable: "tags", operator: "is_not_empty" }, { tags: "[]" })).toBe(false));
+  it('non-empty "[\\"a\\"]" is not empty', () => expect(evaluateLeaf({ variable: "tags", operator: "is_not_empty" }, { tags: '["a"]' })).toBe(true));
+  it("contains uses real array membership on encoded value", () =>
+    expect(evaluateLeaf({ variable: "tags", operator: "contains", value: "sport" }, { tags: '["health","sport"]' })).toBe(true));
+  it("contains is false when element absent from encoded array", () =>
+    expect(evaluateLeaf({ variable: "tags", operator: "contains", value: "music" }, { tags: '["health","sport"]' })).toBe(false));
+  it("a plain string that is not a JSON array is left untouched", () =>
+    expect(evaluateLeaf({ variable: "x", operator: "is_not_empty" }, { x: "[oops" })).toBe(true));
+  it("a numeric-looking string is not coerced to empty", () =>
+    expect(evaluateLeaf({ variable: "x", operator: "is_not_empty" }, { x: "5" })).toBe(true));
+});
+
 // ---------------------------------------------------------------------------
 // evaluateCondition — logic groups
 // ---------------------------------------------------------------------------

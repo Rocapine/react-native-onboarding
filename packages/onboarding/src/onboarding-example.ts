@@ -195,6 +195,21 @@ export const onboardingExample = {
                 ],
               },
               {
+                // Only shown once `name` has a non-empty value — demonstrates
+                // the unary `is_not_empty` condition operator.
+                id: "name-greeting",
+                type: "Text",
+                renderWhen: { variable: "name", operator: "is_not_empty" },
+                props: {
+                  content: "Nice to meet you, {{name}}!",
+                  mode: "expression",
+                  fontSize: 14,
+                  textAlign: "center",
+                  opacity: 0.6,
+                  marginVertical: 4,
+                },
+              },
+              {
                 id: "scroll-demo",
                 type: "ScrollView",
                 props: {
@@ -429,6 +444,29 @@ export const onboardingExample = {
                 type: "Text",
                 props: {
                   content: "Birth date: {{birthdate}}",
+                  mode: "expression",
+                  fontSize: 14,
+                  textAlign: "center",
+                  opacity: 0.6,
+                  marginVertical: 4,
+                },
+              },
+              {
+                id: "hero-weight-wheel",
+                type: "WheelPicker",
+                props: {
+                  variableName: "weight",
+                  defaultValue: "70",
+                  range: { min: 40, max: 200, step: 1, unit: "kg" },
+                  height: 180,
+                  marginVertical: 8,
+                },
+              },
+              {
+                id: "weight-display",
+                type: "Text",
+                props: {
+                  content: "Weight: {{weight}}",
                   mode: "expression",
                   fontSize: 14,
                   textAlign: "center",

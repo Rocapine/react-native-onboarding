@@ -41,8 +41,31 @@ export const ConditionOperatorSchema = z.enum([
   "contains",
   "in",
   "not_in",
+  // Unary presence operators — no `value` required. `empty` is type-aware
+  // (empty string / empty array / null|undefined); `null` is strictly
+  // null|undefined (a set-but-empty value is "not null" yet "is empty").
+  "is_empty",
+  "is_not_empty",
+  "is_null",
+  "is_not_null",
 ]);
 export type ConditionOperator = z.infer<typeof ConditionOperatorSchema>;
+
+/**
+ * Operators that test the variable alone and ignore `value`. A LeafCondition
+ * using one of these may omit `value`; all other operators require it.
+ */
+export const UNARY_CONDITION_OPERATORS = [
+  "is_empty",
+  "is_not_empty",
+  "is_null",
+  "is_not_null",
+] as const satisfies readonly ConditionOperator[];
+
+const UNARY_OPERATOR_SET = new Set<ConditionOperator>(UNARY_CONDITION_OPERATORS);
+
+export const isUnaryConditionOperator = (operator: ConditionOperator): boolean =>
+  UNARY_OPERATOR_SET.has(operator);
 
 export const ConditionValueSchema = z.union([
   z.string(),
@@ -52,11 +75,21 @@ export const ConditionValueSchema = z.union([
 ]);
 export type ConditionValue = z.infer<typeof ConditionValueSchema>;
 
-export const LeafConditionSchema = z.object({
-  variable: z.string().min(1),
-  operator: ConditionOperatorSchema,
-  value: ConditionValueSchema,
-});
+export const LeafConditionSchema = z
+  .object({
+    variable: z.string().min(1),
+    operator: ConditionOperatorSchema,
+    value: ConditionValueSchema.optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (!isUnaryConditionOperator(data.operator) && data.value === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `operator "${data.operator}" requires a value`,
+        path: ["value"],
+      });
+    }
+  });
 export type LeafCondition = z.infer<typeof LeafConditionSchema>;
 
 export type ConditionGroup = {

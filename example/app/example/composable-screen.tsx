@@ -113,6 +113,21 @@ export default function ComposableScreenExample() {
                 },
               ],
             },
+            // Only shown once `name` has a non-empty value — demonstrates the
+            // unary `is_not_empty` condition operator.
+            {
+              id: 'name-greeting',
+              type: 'Text' as const,
+              renderWhen: { variable: 'name', operator: 'is_not_empty' as const },
+              props: {
+                content: 'Nice to meet you, {{name}}!',
+                mode: 'expression' as const,
+                fontSize: 14,
+                textAlign: 'center' as const,
+                opacity: 0.7,
+                marginVertical: 4,
+              },
+            },
             // Horizontal ScrollView demo — swipeable row of cards.
             {
               id: 'scroll-demo',

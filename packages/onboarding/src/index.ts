@@ -41,4 +41,6 @@ export {
   NextStepSchema,
   ConditionOperatorSchema,
   ConditionValueSchema,
+  UNARY_CONDITION_OPERATORS,
+  isUnaryConditionOperator,
 } from "./steps/common.types";

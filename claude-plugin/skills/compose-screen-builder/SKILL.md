@@ -117,7 +117,7 @@ Note: the headless Zod schema currently only enumerates `"continue" | CustomButt
 `Button.props.disabledWhen` accepts a `LeafCondition` or `ConditionGroup`:
 
 ```json
-"disabledWhen": { "variable": "name", "operator": "eq", "value": "" }
+"disabledWhen": { "variable": "name", "operator": "is_empty" }
 ```
 
 Group form:
@@ -126,13 +126,19 @@ Group form:
 "disabledWhen": {
   "logic": "and",
   "conditions": [
-    { "variable": "name", "operator": "neq", "value": "" },
+    { "variable": "name", "operator": "is_not_empty" },
     { "variable": "age", "operator": "gte", "value": 18 }
   ]
 }
 ```
 
 (Note: `disabled` and `disabled-with-condition` are NOT prop names — only `disabledWhen`.)
+
+### Condition operators
+
+Binary operators (require `value`): `eq`, `neq`, `gt`, `lt`, `gte`, `lte`, `contains`, `in`, `not_in`.
+
+Unary operators (omit `value`): `is_empty`, `is_not_empty`, `is_null`, `is_not_null`. `empty` is type-aware — true for an empty/whitespace string, an empty array, or an unset/null variable; `null` is stricter — true only for unset/null (a set-but-empty value like `""` is **not null** yet **is empty**). Same operators apply to `renderWhen`.
 
 ## Per-state Button styling
 

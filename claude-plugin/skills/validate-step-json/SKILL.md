@@ -82,7 +82,7 @@ Run: `npx tsx scripts/_validate-composable.ts "$(cat step.json)"`
 - `nextStep: null` on a non-terminal step in a multi-step flow (relies on implicit array-order linking; prefer explicit `defaultTargetStepId`).
 - `branches[].targetStepId` referencing nonexistent step ID.
 - `branches[].condition` referencing a variable never captured upstream.
-- Branch with non-null condition that lists an unknown `operator` (must be `eq|neq|gt|lt|gte|lte|contains|in|not_in`).
+- Branch with non-null condition that lists an unknown `operator` (binary, require `value`: `eq|neq|gt|lt|gte|lte|contains|in|not_in`; unary, omit `value`: `is_empty|is_not_empty|is_null|is_not_null`). A binary operator missing `value` is a schema error; a unary operator ignores any `value`.
 - `customPayload: {}` instead of `null` (both validate; prefer `null`).
 - `Carousel` with empty `children`.
 

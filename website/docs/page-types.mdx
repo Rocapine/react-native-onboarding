@@ -914,6 +914,25 @@ Use `ConditionGroup` for AND / OR composition:
 }
 ```
 
+**Operators.** Binary operators compare the variable to `value` (required):
+`eq`, `neq`, `gt`, `lt`, `gte`, `lte`, `contains`, `in`, `not_in`. Unary
+operators test the variable alone and take **no** `value`:
+
+| Operator | True when |
+|----------|-----------|
+| `is_empty` | value is an empty/whitespace string, an empty array, or unset/null |
+| `is_not_empty` | negation of `is_empty` |
+| `is_null` | value is unset or null only (a set-but-empty `""` is **not** null) |
+| `is_not_null` | negation of `is_null` |
+
+```jsonc
+{ "id": "greeting", "renderWhen": { "variable": "name", "operator": "is_not_empty" }, "type": "Text", "props": { "content": "Hi {{name}}!", "mode": "expression" } }
+```
+
+Prefer `is_not_empty` over `{ "operator": "neq", "value": "" }` — it is
+type-aware and reads clearly. A binary operator missing `value` is a schema
+error; a unary operator ignores any `value`.
+
 Element-level defaults (`Carousel.defaultIndex`, `RadioGroup.defaultValue`,
 `CheckboxGroup.defaultValues`, `Input.defaultValue`,
 `DatePicker.defaultValue`, `WheelPicker.defaultValue`) are overlaid onto the variable map

@@ -195,6 +195,21 @@ export const onboardingExample = {
                 ],
               },
               {
+                // Only shown once `name` has a non-empty value — demonstrates
+                // the unary `is_not_empty` condition operator.
+                id: "name-greeting",
+                type: "Text",
+                renderWhen: { variable: "name", operator: "is_not_empty" },
+                props: {
+                  content: "Nice to meet you, {{name}}!",
+                  mode: "expression",
+                  fontSize: 14,
+                  textAlign: "center",
+                  opacity: 0.6,
+                  marginVertical: 4,
+                },
+              },
+              {
                 id: "scroll-demo",
                 type: "ScrollView",
                 props: {

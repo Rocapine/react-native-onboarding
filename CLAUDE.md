@@ -28,6 +28,7 @@ npm run watch:headless     # Watch mode for headless
 npm run watch:ui           # Watch mode for UI
 npm run clean              # Remove all dist/ and node_modules/
 npm run publish:all        # Build + publish both packages to npm
+npm test --workspace=packages/onboarding  # vitest (evaluateCondition, resolveNextStepNumber)
 ```
 
 After modifying `packages/`, run `npm run build` (or relevant workspace build) before reloading the example app — it references local packages via `file:../packages/*`.

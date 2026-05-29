@@ -29,6 +29,7 @@ Every styled UIElement (`Button`, `RadioGroup`, `CheckboxGroup`, `Input`, `Wheel
 - `itemColor`, `itemSelectedColor`
 - `itemFontFamily`, `itemFontSize`, `itemFontWeight`, `itemFontStyle`
 - `itemPadding`, `itemPaddingVertical`, `itemPaddingHorizontal`
+- `showTick` — show/hide the radio circle (checkbox box) indicator. Default: `true`
 
 `Input`:
 - `backgroundColor`, `color`, `placeholderColor`, `borderRadius`

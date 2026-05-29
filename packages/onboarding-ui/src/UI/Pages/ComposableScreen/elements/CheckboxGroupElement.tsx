@@ -11,6 +11,7 @@ export type CheckboxGroupElementProps = BaseBoxProps & {
   defaultValues?: string[];
   gap?: number;
   direction?: "vertical" | "horizontal";
+  showTick?: boolean;
   items: Array<{ label: string; value: string }>;
   itemBackgroundColor?: string;
   itemSelectedBackgroundColor?: string;
@@ -34,6 +35,7 @@ export const CheckboxGroupElementPropsSchema = BaseBoxPropsSchema.extend({
   defaultValues: z.array(z.string()).optional(),
   gap: z.number().optional(),
   direction: z.enum(["vertical", "horizontal"]).optional(),
+  showTick: z.boolean().optional(),
   items: z.array(z.object({ label: z.string().trim().min(1, "item label must not be empty"), value: z.string().trim().min(1, "item value must not be empty") })).min(1, "items must not be empty"),
   itemBackgroundColor: z.string().optional(),
   itemSelectedBackgroundColor: z.string().optional(),
@@ -160,31 +162,33 @@ export const CheckboxGroupComponent = ({ element, ctx }: Props): React.ReactElem
               paddingVertical: element.props.itemPaddingVertical,
             }}
           >
-            <View
-              style={{
-                width: 20,
-                height: 20,
-                borderRadius: 4,
-                borderWidth: 2,
-                borderColor: isSelected ? theme.colors.primary : theme.colors.neutral.medium,
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: isSelected ? theme.colors.primary : "transparent",
-              }}
-            >
-              {isSelected && (
-                <Text
-                  style={{
-                    color: "#fff",
-                    fontSize: 12,
-                    fontWeight: "700",
-                    lineHeight: 14,
-                  }}
-                >
-                  ✓
-                </Text>
-              )}
-            </View>
+            {element.props.showTick !== false && (
+              <View
+                style={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: 4,
+                  borderWidth: 2,
+                  borderColor: isSelected ? theme.colors.primary : theme.colors.neutral.medium,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: isSelected ? theme.colors.primary : "transparent",
+                }}
+              >
+                {isSelected && (
+                  <Text
+                    style={{
+                      color: "#fff",
+                      fontSize: 12,
+                      fontWeight: "700",
+                      lineHeight: 14,
+                    }}
+                  >
+                    ✓
+                  </Text>
+                )}
+              </View>
+            )}
             <Text
               style={{
                 flexShrink: 1,

@@ -60,7 +60,13 @@ jobs:
 
       - name: Build package
         if: steps.check.outputs.should_publish == 'true'
-        run: npm run ${{ matrix.build }}
+        # UI package's tsc resolves @rocapine/react-native-onboarding types
+        # from the headless package's dist/, so build headless first.
+        run: |
+          npm run build:headless
+          if [ "${{ matrix.build }}" != "build:headless" ]; then
+            npm run ${{ matrix.build }}
+          fi
 
       - name: Publish to npm (OIDC trusted publisher)
         if: steps.check.outputs.should_publish == 'true'

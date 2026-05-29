@@ -6,6 +6,10 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ## [Unreleased]
 
+---
+
+## [1.27.0] - 2026-05-29
+
 ### Added
 - **Unary condition operators `is_empty` / `is_not_empty` / `is_null` / `is_not_null`** — usable in `renderWhen`, `Button.disabledWhen`, and `nextStep.branches[].condition`. They take no `value` (schema makes `value` optional for these and still required for binary operators). `empty` is type-aware (empty/whitespace string, empty array, or unset/null); `null` is unset/null only — a set-but-empty `""` is **not null** yet **is empty**. Exports `UNARY_CONDITION_OPERATORS` + `isUnaryConditionOperator`.
 - **`WheelPicker` UIElement** — scrolling wheel selector for the ComposableScreen system. Binds a variable via `variableName` / `defaultValue`. Options come from either an explicit `items: Array<{label, value}>` or an auto-generated numeric `range: {min, max, step?, unit?}` (exactly one required; `unit` formats labels as `"<value> <unit>"`). Styling via `itemColor` / `itemFontSize` / `itemFontFamily` plus standard `BaseBoxProps`. Exports `WheelPickerElementProps`, `WheelPickerItem`, `WheelPickerRange`, `WheelPickerElementPropsSchema`, and helpers `resolveWheelPickerItems` / `generateWheelPickerRangeItems` (shared with the UI renderer + default collection). Rendered via the optional `@react-native-picker/picker` peer dep (same as the `Picker` step).

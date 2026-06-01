@@ -187,6 +187,7 @@ export const onboardingExample = {
                   loop: false,
                   initialValue: 0,
                   duration: 1800,
+                  delay: 500,
                   easing: "ease-out",
                   size: 120,
                   thickness: 12,

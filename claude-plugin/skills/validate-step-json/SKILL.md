@@ -43,7 +43,7 @@ Run: `npx tsx scripts/_validate-composable.ts "$(cat step.json)"`
    - `Lottie.props.source` is a string; `Rive.props.url` is a string
    - `RadioGroup.props.items` / `CheckboxGroup.props.items` is `[{label, value}]` (NOT `options`)
    - `WheelPicker.props` provides exactly one of `items: [{label, value}]` (unique values) or `range: {min, max, step?, unit?}` — both or neither is a schema error; `defaultValue` (if present) must match an available item value
-   - `ProgressIndicator.props.variant` (if present) is `"linear"|"circular"`; `easing` (if present) is `"linear"|"ease-in"|"ease-out"|"ease-in-out"`; `value`/`initialValue` are 0–100; `duration`/`thickness`/`size` are non-negative numbers; `autoplay`/`loop`/`showLabel` are booleans. Not a container — must NOT have `children`
+   - `ProgressIndicator.props.variant` (if present) is `"linear"|"circular"`; `easing` (if present) is `"linear"|"ease-in"|"ease-out"|"ease-in-out"`; `value`/`initialValue` are 0–100; `duration`/`delay`/`thickness`/`size` are non-negative numbers; `autoplay`/`loop`/`showLabel` are booleans. Not a container — must NOT have `children`
    - `Button.props.actions` is an array; entries are `"continue"` or `{type:"custom",function,variables?}` or `{type:"setVariable",name,value,valueMode?}` (note: setVariable may not be in headless schema yet — check)
    - `Button.props.disabledWhen` (NOT `disabled`) is a valid `LeafCondition` or `ConditionGroup`
    - `Button.props.pressedStyle` / `disabledStyle` (if present) are objects — `Partial` of overridable Button props; must NOT nest `pressedStyle`/`disabledStyle`. `transitionDurationMs` is a non-negative number.

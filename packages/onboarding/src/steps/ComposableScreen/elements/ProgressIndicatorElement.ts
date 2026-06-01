@@ -27,6 +27,8 @@ export type ProgressIndicatorElementProps = BaseBoxProps & {
   initialValue?: number;
   /** Animation duration in milliseconds. Defaults to 1000. */
   duration?: number;
+  /** Delay in milliseconds before the animation starts. Defaults to 0. */
+  delay?: number;
   /** Easing curve for the animation. Defaults to "ease-in-out". */
   easing?: ProgressEasing;
   /** Progress fill color. Defaults to theme primary. */
@@ -53,6 +55,7 @@ export const ProgressIndicatorElementPropsSchema = BaseBoxPropsSchema.extend({
   loop: z.boolean().optional(),
   initialValue: z.number().min(0).max(100).optional(),
   duration: z.number().min(0).optional(),
+  delay: z.number().min(0).optional(),
   easing: ProgressEasingSchema.optional(),
   color: z.string().optional(),
   trackColor: z.string().optional(),

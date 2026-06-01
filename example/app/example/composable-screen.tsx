@@ -103,6 +103,7 @@ export default function ComposableScreenExample() {
                 loop: false,
                 initialValue: 0,
                 duration: 1800,
+                delay: 500,
                 easing: 'ease-out' as const,
                 size: 120,
                 thickness: 12,

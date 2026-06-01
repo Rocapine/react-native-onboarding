@@ -197,7 +197,7 @@ Each override is a `Partial` of the overridable Button props: `BaseBoxProps` (in
 | `Button` | `actions: [...]`, `disabledWhen` | `action`, `disabled` |
 | `SafeAreaView` | `edges: ["top","bottom"]` or `{ top: "additive" }` | `{ top: "always" }` |
 | `Input` | `textAlign`, `keyboardType`, `autoCapitalize`, `maxLength` | `suffix`, `autoFocus`, `alignment` |
-| `ProgressIndicator` | `variant: "linear"\|"circular"`, `value` (0–100), `variableName`, `autoplay`, `duration`, `easing` | `progress`, `percent`, `type` |
+| `ProgressIndicator` | `variant: "linear"\|"circular"`, `value` (0–100), `variableName`, `autoplay`, `duration`, `delay`, `easing` | `progress`, `percent`, `type` |
 | Stacks / Carousel | `children` at element top-level | `children` inside `props` |
 
 ## Anti-patterns

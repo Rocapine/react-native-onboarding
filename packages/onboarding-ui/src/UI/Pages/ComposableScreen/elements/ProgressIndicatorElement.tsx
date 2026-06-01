@@ -8,6 +8,7 @@ import Animated, {
   useAnimatedReaction,
   withTiming,
   withRepeat,
+  withDelay,
   runOnJS,
   Easing,
   cancelAnimation,
@@ -27,6 +28,7 @@ export type ProgressIndicatorElementProps = BaseBoxProps & {
   loop?: boolean;
   initialValue?: number;
   duration?: number;
+  delay?: number;
   easing?: ProgressEasing;
   color?: string;
   trackColor?: string;
@@ -46,6 +48,7 @@ export const ProgressIndicatorElementPropsSchema = BaseBoxPropsSchema.extend({
   loop: z.boolean().optional(),
   initialValue: z.number().min(0).max(100).optional(),
   duration: z.number().min(0).optional(),
+  delay: z.number().min(0).optional(),
   easing: ProgressEasingSchema.optional(),
   color: z.string().optional(),
   trackColor: z.string().optional(),
@@ -81,6 +84,7 @@ export const ProgressIndicatorElementComponent = ({ element, ctx }: Props): Reac
   const variant = props.variant ?? "linear";
   const initialValue = clamp(props.initialValue ?? 0);
   const duration = props.duration ?? 1000;
+  const delay = props.delay ?? 0;
   const easing = EASING_MAP[props.easing ?? "ease-in-out"];
   const autoplay = props.autoplay ?? false;
   const loop = props.loop ?? false;
@@ -112,21 +116,23 @@ export const ProgressIndicatorElementComponent = ({ element, ctx }: Props): Reac
     }
   );
 
-  // Autoplay: animate initialValue -> 100, optionally looping.
+  // Autoplay: animate initialValue -> 100, optionally looping, after `delay`.
   useEffect(() => {
     if (!autoplay) return;
     progress.value = initialValue;
     const anim = withTiming(100, { duration, easing });
-    progress.value = loop ? withRepeat(anim, -1, false) : anim;
+    const looped = loop ? withRepeat(anim, -1, false) : anim;
+    progress.value = delay > 0 ? withDelay(delay, looped) : looped;
     return () => cancelAnimation(progress);
-  }, [autoplay, loop, duration, initialValue]);
+  }, [autoplay, loop, duration, delay, initialValue]);
 
-  // Bound / static (non-autoplay): animate toward the current target.
+  // Bound / static (non-autoplay): animate toward the current target after `delay`.
   useEffect(() => {
     if (autoplay) return;
-    progress.value = withTiming(target, { duration, easing });
+    const anim = withTiming(target, { duration, easing });
+    progress.value = delay > 0 ? withDelay(delay, anim) : anim;
     return () => cancelAnimation(progress);
-  }, [autoplay, target, duration]);
+  }, [autoplay, target, duration, delay]);
 
   // Circular geometry (computed unconditionally so hooks below stay unconditional).
   const size = props.size ?? 120;

@@ -7,8 +7,36 @@ import { UIElement } from "../types";
 import { RenderContext, interpolate, dim, resolveInheritedFontFamily } from "./shared";
 import { GradientBox } from "./GradientBox";
 
+export type TextSpan = {
+  text: string;
+  fontWeight?: string;
+  fontStyle?: "normal" | "italic";
+  fontFamily?: string | "inherit";
+  fontSize?: number;
+  letterSpacing?: number;
+  color?: string;
+  textDecorationLine?:
+    | "none"
+    | "underline"
+    | "line-through"
+    | "underline line-through";
+};
+
+export const TextSpanSchema = z.object({
+  text: z.string(),
+  fontWeight: z.string().optional(),
+  fontStyle: z.enum(["normal", "italic"]).optional(),
+  fontFamily: z.string().optional(),
+  fontSize: z.number().optional(),
+  letterSpacing: z.number().optional(),
+  color: z.string().optional(),
+  textDecorationLine: z
+    .enum(["none", "underline", "line-through", "underline line-through"])
+    .optional(),
+});
+
 export type TextElementProps = BaseBoxProps & {
-  content: string;
+  content: string | TextSpan[];
   mode?: "plain" | "expression";
   fontSize?: number;
   fontWeight?: string;
@@ -21,7 +49,7 @@ export type TextElementProps = BaseBoxProps & {
 };
 
 export const TextElementPropsSchema = BaseBoxPropsSchema.extend({
-  content: z.string(),
+  content: z.union([z.string(), z.array(TextSpanSchema)]),
   mode: z.enum(["plain", "expression"]).optional(),
   fontSize: z.number().optional(),
   fontWeight: z.string().optional(),
@@ -32,6 +60,40 @@ export const TextElementPropsSchema = BaseBoxPropsSchema.extend({
   letterSpacing: z.number().optional(),
   lineHeight: z.number().optional(),
 });
+
+/**
+ * Renders one inline span. Isolated as its own component so the
+ * `useResolvedFontStyle` hook is called once per stable component instance —
+ * calling the hook in a `.map` loop inside the parent would break rules of
+ * hooks when the span count changes.
+ */
+const RichTextSpan = ({
+  span,
+  baseFontFamily,
+}: {
+  span: TextSpan;
+  baseFontFamily: string | undefined;
+}): React.ReactElement => {
+  const fontFamily = resolveInheritedFontFamily(span.fontFamily, baseFontFamily);
+  const resolved = useResolvedFontStyle(fontFamily, span.fontWeight);
+  return (
+    <Text
+      style={{
+        fontFamily: resolved.fontFamily,
+        fontWeight: resolved.resolvedToVariant
+          ? undefined
+          : (span.fontWeight as any),
+        fontStyle: span.fontStyle,
+        fontSize: span.fontSize,
+        letterSpacing: span.letterSpacing,
+        color: span.color,
+        textDecorationLine: span.textDecorationLine,
+      }}
+    >
+      {span.text}
+    </Text>
+  );
+};
 
 type TextUIElement = Extract<UIElement, { type: "Text" }>;
 
@@ -44,8 +106,12 @@ type Props = {
 export const TextElementComponent = ({ element, ctx, parentType }: Props): React.ReactElement => {
   const { theme, variables } = ctx;
   const p = element.props;
-  const content =
-    p.mode === "expression"
+  const isExpression = p.mode === "expression";
+  const content: string | TextSpan[] = Array.isArray(p.content)
+    ? isExpression
+      ? p.content.map((s) => ({ ...s, text: interpolate(s.text, variables) }))
+      : p.content
+    : isExpression
       ? interpolate(p.content, variables)
       : p.content;
   const inheritedFontFamily = resolveInheritedFontFamily(
@@ -88,7 +154,11 @@ export const TextElementComponent = ({ element, ctx, parentType }: Props): React
         opacity: p.backgroundGradient ? undefined : p.opacity,
       }}
     >
-      {content}
+      {typeof content === "string"
+        ? content
+        : content.map((s, i) => (
+            <RichTextSpan key={i} span={s} baseFontFamily={inheritedFontFamily} />
+          ))}
     </Text>
   );
 

@@ -27,6 +27,8 @@ Fresh worktree has no `example/node_modules` — `tsc` **and `npm run build:ui`*
 
 Local `main` ref is **stale** in a worktree (branched from `origin/main`, which is usually ahead). For release/scope diffs (`/bump-version`, `git diff main...HEAD`) use `origin/main` as the base, else already-merged commits leak in and the version-bump scope is wrong. A worktree `npm install` also rewrites `package-lock.json`'s version field — don't bundle that into a feature commit (causes rebase conflicts; resolve with `git checkout --ours package-lock.json`).
 
+Running metro from a worktree while another session runs metro in the main repo: port 8081 is taken, and `expo start` is **non-interactive** in a background shell — it prints "Use port 8083 instead?" then bails with "Skipping dev server". Pass an explicit free port: `npm start --prefix example -- --port 8083`.
+
 ## Native module autolinking (peer-dep elements)
 
 A UIElement that renders an optional peer dep (e.g. `@react-native-picker/picker` for `Picker` / `WheelPicker`) needs that dep in **`example/package.json`** — workspace hoisting satisfies JS resolution but autolinking only sees declared example deps, so the native module is missing at runtime (`Unimplemented component: RNCPicker`). After adding, rebuild the dev client (`npx expo run:ios`) — reloading Metro is not enough.

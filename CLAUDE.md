@@ -182,5 +182,6 @@ cd packages/onboarding-ui && npm run patch # bump + build + publish
 - Env values live in `example/.env` + `example/.env.local` (`.env.local` overrides → local Supabase `localhost:64321`); a fresh **worktree** has empty/missing env, so read the values from the **main repo's** `example/.env*`.
 - Validate against the schema in Node using the **headless** dist only (`require('./packages/onboarding/dist/steps/ComposableScreen/types.js')`) — the UI dist imports `react-native` and won't load under Node.
 - The parse entry point is the exported `ComposableScreenStepTypeSchema` (`.safeParse(step)`).
+- A minimal step for `.safeParse` needs top-level `id`, `name` (string), `type`, `displayProgressHeader` (boolean), and `payload.elements` — missing `name`/`displayProgressHeader` reads as element errors, not obviously a step-shape problem.
 - Zod v4 `invalid_union` paths are cumulative across nested variant errors; walk the issue tree and concatenate `prefix + it.path` recursively to surface the real failing path.
 - Triage data-vs-schema: many parse failures are CMS **data** bugs, not SDK bugs (e.g. `variant:"clear"` — only `filled/outlined/ghost`; `shadowOpacity:12` — RN bounds `0..1`). Fix in studio, not the schema.

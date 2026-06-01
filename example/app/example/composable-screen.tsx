@@ -161,6 +161,27 @@ export default function ComposableScreenExample() {
                 marginVertical: 4,
               },
             },
+            // Inline rich text — `content` as styled spans. Each span inherits
+            // the parent Text style and overrides only what it sets.
+            {
+              id: 'richtext-demo',
+              type: 'Text' as const,
+              props: {
+                content: [
+                  { text: 'Lose ' },
+                  { text: '5kg', fontWeight: '700', color: '#E11D48' },
+                  { text: ' in 30 days — ' },
+                  {
+                    text: 'guaranteed',
+                    fontStyle: 'italic' as const,
+                    textDecorationLine: 'underline' as const,
+                  },
+                ],
+                fontSize: 16,
+                textAlign: 'center' as const,
+                marginVertical: 4,
+              },
+            },
             // Horizontal ScrollView demo — swipeable row of cards.
             {
               id: 'scroll-demo',

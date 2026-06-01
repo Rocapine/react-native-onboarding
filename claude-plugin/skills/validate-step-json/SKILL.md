@@ -38,7 +38,7 @@ Run: `npx tsx scripts/_validate-composable.ts "$(cat step.json)"`
    - Every UIElement has `id` (string), `type` (string literal), `props` (object).
    - Every container UIElement (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `Carousel`) has `children: UIElement[]` at element top-level — required, must exist even if empty (`"children": []`). Non-container types must NOT have `children`.
    - All `id`s unique within `payload.elements` tree
-   - `Text.props.content` exists; if `{{var}}` interpolation, `Text.props.mode === "expression"`
+   - `Text.props.content` exists — a string, or an array of spans `[{text, fontWeight?, fontStyle?, fontFamily?, fontSize?, letterSpacing?, color?, textDecorationLine?}]` (each span requires `text`; `textDecorationLine` ∈ `none|underline|line-through|underline line-through`). If `{{var}}` interpolation, `Text.props.mode === "expression"`
    - `Image.props.url` is a string (NOT `source.uri` / `source.localPathId`)
    - `Lottie.props.source` is a string; `Rive.props.url` is a string
    - `RadioGroup.props.items` / `CheckboxGroup.props.items` is `[{label, value}]` (NOT `options`)

@@ -32,7 +32,8 @@ import { type ProgressIndicatorElementProps, ProgressIndicatorElementPropsSchema
 export type { BaseBoxProps, GradientBackground, GradientEdge, GradientStop, LinearGradientConfig } from "./elements/BaseBoxProps";
 export { BaseBoxPropsSchema, GradientBackgroundSchema } from "./elements/BaseBoxProps";
 export type { StackElementProps } from "./elements/StackElement";
-export type { TextElementProps } from "./elements/TextElement";
+export type { TextElementProps, TextSpan } from "./elements/TextElement";
+export { TextSpanSchema } from "./elements/TextElement";
 export type { ImageElementProps } from "./elements/ImageElement";
 export type { LottieElementProps } from "./elements/LottieElement";
 export type { RiveElementProps } from "./elements/RiveElement";

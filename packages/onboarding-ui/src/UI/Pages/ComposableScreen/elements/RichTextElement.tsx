@@ -64,6 +64,17 @@ const isFlowingText = (child: TextChild): boolean => {
     p.padding == null &&
     p.paddingHorizontal == null &&
     p.paddingVertical == null &&
+    // margin / explicit size would be applied to *every* word if split, so a
+    // child carrying any of them is treated as an atomic chip too.
+    p.margin == null &&
+    p.marginHorizontal == null &&
+    p.marginVertical == null &&
+    p.width == null &&
+    p.height == null &&
+    p.minWidth == null &&
+    p.maxWidth == null &&
+    p.minHeight == null &&
+    p.maxHeight == null &&
     p.animation == null &&
     p.transform == null
   );
@@ -113,11 +124,15 @@ export const RichTextElementComponent = ({ element, ctx, parentType }: Props): R
           ...child,
           id: `${child.id}-w${i}`,
           renderWhen: undefined,
-          props: { ...child.props, content: tok, mode: "plain" },
+          // mode dropped (undefined): content is already interpolated above, and
+          // undefined is truer to the schema than the non-enum "plain".
+          props: { ...child.props, content: tok, mode: undefined },
         });
       });
     } else {
-      expanded.push(child);
+      // Chip: renderWhen already passed above; null it so renderElement doesn't
+      // re-evaluate the same condition (symmetry with the word path).
+      expanded.push({ ...child, renderWhen: undefined });
     }
   }
 

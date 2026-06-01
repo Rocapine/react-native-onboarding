@@ -9,6 +9,13 @@ here.
 
 ---
 
+## [1.33.0] - 2026-06-01
+
+### Added
+- **`RichText` container renderer** — renders the new `RichText` UIElement as a wrapping flex row (`<View>` / `GradientBox`, `flexDirection:"row"`, `flexWrap` default `"wrap"`). Children (`Text` elements) render through `renderElement` as real flex children, so each honors its own box props (`padding`, `borderRadius`, `border`, `backgroundColor`, `margin`, `transform`) — enabling padded/rounded/rotated chip segments — plus `renderWhen` / `expression`. Supports `gap`, `alignItems` (incl. `"baseline"`), and `justifyContent`. Unlike inline `TextSpan`s, `RichText` children **may** use `animation` / `transform` (the `AnimatedBox` `View` wrapper is valid inside the row). The container's text-style props (`fontSize`, `color`, `textAlign`, …) are published via a new `RichTextStyleContext` and merged by `TextElementComponent` as inherited defaults (child props win) — so a title's base typography is declared once on the container. Plain-text children are expanded into one inline `Text` per word (spaces preserved) so the row wraps word-by-word; children with box styling or motion stay atomic chips. (Because spaces become real flex items, avoid `gap` when mixing words + chips — use chip `marginHorizontal`.)
+
+---
+
 ## [1.32.0] - 2026-06-01
 
 ### Added

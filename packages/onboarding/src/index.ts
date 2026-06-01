@@ -12,6 +12,7 @@ export type {
   WheelPickerElementProps,
   WheelPickerItem,
   WheelPickerRange,
+  RichTextElementProps,
   ProgressIndicatorElementProps,
   ProgressEasing,
   AnimationEasing,

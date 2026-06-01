@@ -5,6 +5,7 @@ import { BaseBoxProps } from "./BaseBoxProps";
 import { RenderContext } from "./shared";
 import { StackElementComponent } from "./StackElement";
 import { TextElementComponent } from "./TextElement";
+import { RichTextElementComponent } from "./RichTextElement";
 import { ImageElementComponent } from "./ImageElement";
 import { LottieElementComponent } from "./LottieElement";
 import { RiveElementRenderer } from "./RiveElement";
@@ -27,7 +28,7 @@ import { AnimatedBox } from "./AnimatedBox";
 export const renderElement = (
   element: UIElement,
   ctx: RenderContext,
-  parentType?: "XStack" | "YStack" | "ZStack"
+  parentType?: "XStack" | "YStack" | "ZStack" | "RichText"
 ): React.ReactNode => {
   if (element.renderWhen) {
     const flatVars = Object.fromEntries(
@@ -45,6 +46,10 @@ export const renderElement = (
 
   if (element.type === "Text") {
     return <TextElementComponent key={element.id} element={element} ctx={ctx} parentType={parentType} />;
+  }
+
+  if (element.type === "RichText") {
+    return <RichTextElementComponent key={element.id} element={element} ctx={ctx} parentType={parentType} />;
   }
 
   if (element.type === "Image") {

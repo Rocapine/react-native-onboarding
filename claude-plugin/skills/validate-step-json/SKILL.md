@@ -36,7 +36,7 @@ Run: `npx tsx scripts/_validate-composable.ts "$(cat step.json)"`
    - `BaseStepTypeSchema` fields present (`id`, `name`, `displayProgressHeader`, `customPayload`, `nextStep`)
    - `payload` is exactly `{ "elements": UIElement[] }` — no `root`, no `variables` keys
    - Every UIElement has `id` (string), `type` (string literal), `props` (object).
-   - Every container UIElement (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `Carousel`) has `children: UIElement[]` at element top-level — required, must exist even if empty (`"children": []`). Non-container types must NOT have `children`.
+   - Every container UIElement (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `Carousel`, `RichText`) has `children: UIElement[]` at element top-level — required, must exist even if empty (`"children": []`). Non-container types must NOT have `children`. `RichText.children` are restricted to `Text` elements only — any non-`Text` child fails parse.
    - All `id`s unique within `payload.elements` tree
    - `Text.props.content` exists — a string, or an array of spans `[{text, fontWeight?, fontStyle?, fontFamily?, fontSize?, letterSpacing?, color?, textDecorationLine?}]` (each span requires `text`; `textDecorationLine` ∈ `none|underline|line-through|underline line-through`). If `{{var}}` interpolation, `Text.props.mode === "expression"`
    - `Image.props.url` is a string (NOT `source.uri` / `source.localPathId`)
@@ -68,7 +68,8 @@ Run: `npx tsx scripts/_validate-composable.ts "$(cat step.json)"`
 
 - `payload.root` set instead of `payload.elements` — **causes Studio crash "els is not iterable"**.
 - `payload.variables` set — this key doesn't exist in schema; remove it.
-- Container element (`YStack` / `XStack` / `ZStack` / `SafeAreaView` / `Carousel`) without `children` — **causes Studio crash "Cannot read properties of undefined (reading 'map')"**. Empty container must emit `"children": []`.
+- Container element (`YStack` / `XStack` / `ZStack` / `SafeAreaView` / `Carousel` / `RichText`) without `children` — **causes Studio crash "Cannot read properties of undefined (reading 'map')"**. Empty container must emit `"children": []`.
+- `RichText` with a non-`Text` child (e.g. an `Image` or `XStack`) — its `children` are `Text`-only; anything else fails schema parse (`invalid_union`).
 - `displayProgressHeader` missing — required boolean.
 - UIElement missing `id`.
 - `Text.props.text` used instead of `Text.props.content` (no `text` field exists).

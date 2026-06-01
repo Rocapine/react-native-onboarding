@@ -57,6 +57,42 @@ Authoritative prop shapes: `packages/onboarding/src/steps/ComposableScreen/eleme
 
 **Match probe values**: use the app's button `borderRadius` for buttons and large media, half of that for chips/tags, etc.
 
+## Animations / transitions / effects (every element)
+
+Two optional `BaseBoxProps` surfaces apply to **every** element type. Both mirror `react-native-reanimated`. Unknown presets degrade to a no-op (never crash).
+
+**`transform`** (static, applied once):
+
+```
+{ translateX?, translateY?, scale?, scaleX?, scaleY?, rotate? }  // all numbers; rotate is in degrees
+```
+
+**`animation`** — `{ entering?, exiting?, layout?, effect? }`:
+
+- `entering` / `exiting`: `{ preset, duration?, delay?, easing?, spring? }`. `preset` is the **exact reanimated builder name**.
+  - Entering presets: `FadeIn`, `FadeInUp`, `FadeInDown`, `FadeInLeft`, `FadeInRight`, `SlideInUp`, `SlideInDown`, `SlideInLeft`, `SlideInRight`, `ZoomIn`, `ZoomInRotate`, `ZoomInUp`, `ZoomInDown`, `ZoomInLeft`, `ZoomInRight`, `ZoomInEasyUp`, `ZoomInEasyDown`, `BounceIn`, `BounceInUp`, `BounceInDown`, `BounceInLeft`, `BounceInRight`, `FlipInXUp`, `FlipInYLeft`, `FlipInXDown`, `FlipInYRight`, `FlipInEasyX`, `FlipInEasyY`, `StretchInX`, `StretchInY`, `RotateInDownLeft`, `RotateInDownRight`, `RotateInUpLeft`, `RotateInUpRight`, `RollInLeft`, `RollInRight`, `PinwheelIn`, `LightSpeedInLeft`, `LightSpeedInRight`.
+  - Exiting presets: the matching `...Out...` names — e.g. `FadeOut`, `SlideOutLeft`, `ZoomOut`, `BounceOut`, `FlipOutXUp`, `StretchOutX`, `RotateOutDownLeft`, `RollOutLeft`, `PinwheelOut`, `LightSpeedOutLeft`, etc.
+- `layout`: `{ preset, duration?, spring? }`. Presets: `LinearTransition`, `FadingTransition`, `SequencedTransition`, `JumpingTransition`, `CurvedTransition`, `EntryExitTransition`.
+- `effect` (continuous loop — **NOT** a reanimated builder name): `{ preset, duration?, delay?, easing?, loop?, minScale?, maxScale?, minOpacity?, degrees? }`. `preset` ∈ `"pulse" | "fade" | "rotate" | "shimmer" | "bounce"`. `minScale`/`maxScale` apply to `pulse`; `minOpacity` to `fade`; `degrees` to `rotate`.
+- `easing`: `"linear" | "ease-in" | "ease-out" | "ease-in-out"`. `spring`: `{ damping?, stiffness?, mass? }` — mirrors reanimated `.springify(config)`; **`spring` wins over `easing`** when both are present.
+
+Worked example (Image with static tilt, entrance/exit, and a continuous pulse):
+
+```json
+{
+  "id": "hero-badge", "type": "Image",
+  "props": {
+    "url": "https://cdn.example.com/badge.png", "width": 96,
+    "transform": { "rotate": -4 },
+    "animation": {
+      "entering": { "preset": "ZoomInDown", "duration": 600, "delay": 200, "spring": { "damping": 12, "stiffness": 180 } },
+      "exiting": { "preset": "FadeOut", "duration": 250 },
+      "effect": { "preset": "pulse", "duration": 1200, "minScale": 0.97, "maxScale": 1.06 }
+    }
+  }
+}
+```
+
 ## Variables
 
 **There is no `payload.variables` map.** Variables live at runtime in the headless provider's variables store. They are populated by:

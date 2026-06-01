@@ -49,6 +49,27 @@ CTA pattern (use every time — never bare `actions: ["continue"]` with no styli
 }
 ```
 
+### Adding motion to an element
+
+Every element accepts optional `transform` (static) and `animation` (`{ entering, exiting, layout, effect }`, mirroring `react-native-reanimated`) via `BaseBoxProps`. Drop them into any archetype element's `props` for entrance/exit/loop motion. `entering`/`exiting` presets are exact reanimated builder names (e.g. `FadeInUp`, `ZoomInDown`, `FadeOut`); `effect.preset` is a continuous loop — one of `"pulse"|"fade"|"rotate"|"shimmer"|"bounce"`. Full preset lists live in the `compose-screen-builder` skill. Unknown presets degrade to a no-op.
+
+```json
+{
+  "id": "hero-badge", "type": "Image",
+  "props": {
+    "url": "https://cdn.example.com/badge.png", "width": 96,
+    "transform": { "rotate": -4 },
+    "animation": {
+      "entering": { "preset": "ZoomInDown", "duration": 600, "delay": 200, "spring": { "damping": 12, "stiffness": 180 } },
+      "exiting": { "preset": "FadeOut", "duration": 250 },
+      "effect": { "preset": "pulse", "duration": 1200, "minScale": 0.97, "maxScale": 1.06 }
+    }
+  }
+}
+```
+
+Common touches: stagger a list of cards by bumping `entering.delay` per item (`100`, `200`, `300…`); give a hero a subtle living feel with `effect: { "preset": "pulse" }` or `{ "preset": "fade" }`; use `spring` (`{ damping?, stiffness?, mass? }`) instead of `easing` for bouncy entrances (`spring` wins when both are set).
+
 ---
 
 ## hero

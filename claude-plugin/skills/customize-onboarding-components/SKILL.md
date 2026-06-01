@@ -52,6 +52,10 @@ Containers (`YStack` / `XStack` / `ZStack` / `SafeAreaView`):
 - `backgroundColor`, `borderRadius`, `borderWidth`, `borderColor`
 - gradients via `background: GradientBackground`
 
+Motion (every element, via `BaseBoxProps`):
+- `transform` — static `{ translateX?, translateY?, scale?, scaleX?, scaleY?, rotate? }` (`rotate` in degrees)
+- `animation` — `{ entering?, exiting?, layout?, effect? }` mirroring `react-native-reanimated` (`entering`/`exiting` use builder-name presets; `effect` is a continuous loop `"pulse"|"fade"|"rotate"|"shimmer"|"bounce"`). See `compose-screen-builder` for the full preset lists and a worked example.
+
 This is the canonical path. 90% of customization needs are met by injecting Design Profile values into these props.
 
 ## Tier 2 — Custom button actions (host-wired behavior)

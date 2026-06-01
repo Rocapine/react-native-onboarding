@@ -10,13 +10,13 @@ import Animated, {
   withRepeat,
   withDelay,
   runOnJS,
-  Easing,
   cancelAnimation,
 } from "react-native-reanimated";
 import Svg, { Circle } from "react-native-svg";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
 import { RenderContext, dim } from "./shared";
+import { EASING_MAP } from "./buildAnimation";
 
 export type ProgressEasing = "linear" | "ease-in" | "ease-out" | "ease-in-out";
 
@@ -59,14 +59,6 @@ export const ProgressIndicatorElementPropsSchema = BaseBoxPropsSchema.extend({
 });
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-
-// CSS-style cubic-bezier curves matching the selectable easing names.
-const EASING_MAP: Record<ProgressEasing, ReturnType<typeof Easing.bezier> | typeof Easing.linear> = {
-  linear: Easing.linear,
-  "ease-in": Easing.bezier(0.42, 0, 1, 1),
-  "ease-out": Easing.bezier(0, 0, 0.58, 1),
-  "ease-in-out": Easing.bezier(0.42, 0, 0.58, 1),
-};
 
 const clamp = (n: number): number => Math.max(0, Math.min(100, n));
 

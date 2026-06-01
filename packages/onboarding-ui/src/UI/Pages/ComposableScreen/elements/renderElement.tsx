@@ -1,6 +1,7 @@
 import React from "react";
 import { evaluateCondition } from "@rocapine/react-native-onboarding";
 import { UIElement } from "../types";
+import { BaseBoxProps } from "./BaseBoxProps";
 import { RenderContext } from "./shared";
 import { StackElementComponent } from "./StackElement";
 import { TextElementComponent } from "./TextElement";
@@ -21,6 +22,7 @@ import { SafeAreaViewElementComponent } from "./SafeAreaViewElement";
 import { ScrollViewElementComponent } from "./ScrollViewElement";
 import { KeyboardAvoidingViewElementComponent } from "./KeyboardAvoidingViewElement";
 import { ProgressIndicatorElementComponent } from "./ProgressIndicatorElement";
+import { AnimatedBox } from "./AnimatedBox";
 
 export const renderElement = (
   element: UIElement,
@@ -34,6 +36,9 @@ export const renderElement = (
     if (!evaluateCondition(element.renderWhen, flatVars)) return null;
   }
 
+  // Dispatch to the concrete element renderer. Captured into `node` so a single
+  // AnimatedBox wrapper can apply animation/transform to any of the 15 types.
+  const node = ((): React.ReactNode => {
   if (element.type === "YStack" || element.type === "XStack") {
     return <StackElementComponent key={element.id} element={element} ctx={ctx} parentType={parentType} />;
   }
@@ -110,5 +115,27 @@ export const renderElement = (
     return <ProgressIndicatorElementComponent key={element.id} element={element} ctx={ctx} />;
   }
 
-  return null;
+    return null;
+  })();
+
+  // Wrap only when motion is requested — zero overhead (no extra view) otherwise.
+  // Cast to BaseBoxProps: not every element's props type extends it (e.g.
+  // WheelPicker), but the animation/transform/flex/alignSelf fields are all
+  // optional BaseBoxProps members and simply read as undefined when absent.
+  const p = element.props as BaseBoxProps;
+  if (node !== null && (p.animation || p.transform)) {
+    return (
+      <AnimatedBox
+        key={element.id}
+        animation={p.animation}
+        transform={p.transform}
+        flex={p.flex}
+        alignSelf={p.alignSelf}
+      >
+        {node}
+      </AnimatedBox>
+    );
+  }
+
+  return node;
 };

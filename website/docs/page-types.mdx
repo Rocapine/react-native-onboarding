@@ -436,6 +436,51 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 | `Rive` | `<Rive>` | — | `rive-react-native` |
 | `Video` | `<VideoView>` | — | `expo-video` |
 
+#### Animations, transitions & effects (every element)
+
+Every UIElement inherits an optional `transform` and `animation` from `BaseBoxProps`, so motion can be attached to any element type. The schema mirrors [react-native-reanimated](https://docs.swmansion.com/react-native-reanimated/) — `preset` values are the **exact reanimated builder names** and the modifier fields map to builder methods (`.duration().delay().springify().easing()`). `react-native-reanimated` `>=3` is a peer dependency (already required for `Carousel` / `ProgressIndicator`); no extra install.
+
+**`transform`** — static, also the surface `effect` animates:
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `translateX` / `translateY` | `number` | px offset |
+| `scale` / `scaleX` / `scaleY` | `number` | |
+| `rotate` | `number` | degrees |
+
+**`animation`** — `{ entering?, exiting?, layout?, effect? }`:
+
+| Sub-field | Shape | Notes |
+|-----------|-------|-------|
+| `entering` | `{ preset, duration?, delay?, easing?, spring? }` | Plays once on mount |
+| `exiting` | `{ preset, duration?, delay?, easing?, spring? }` | Plays on unmount (e.g. when `renderWhen` flips false) |
+| `layout` | `{ preset, duration?, spring? }` | Animates re-layout when siblings appear/disappear |
+| `effect` | `{ preset, duration?, delay?, easing?, loop?, … }` | Continuous loop (`withRepeat`) |
+
+- `easing`: `"linear" \| "ease-in" \| "ease-out" \| "ease-in-out"`. `spring` (`{ damping?, stiffness?, mass? }`) mirrors `.springify(config)` and **wins over** `easing` when both are set.
+- **Entering presets** (reanimated builder names): `FadeIn(Up/Down/Left/Right)`, `SlideIn(Up/Down/Left/Right)`, `ZoomIn(Rotate/Up/Down/Left/Right/EasyUp/EasyDown)`, `BounceIn(Up/Down/Left/Right)`, `FlipIn(XUp/YLeft/XDown/YRight/EasyX/EasyY)`, `StretchIn(X/Y)`, `RotateIn(DownLeft/DownRight/UpLeft/UpRight)`, `RollIn(Left/Right)`, `PinwheelIn`, `LightSpeedIn(Left/Right)`.
+- **Exiting presets**: the `…Out…` counterparts of the above.
+- **Layout presets**: `LinearTransition`, `FadingTransition`, `SequencedTransition`, `JumpingTransition`, `CurvedTransition`, `EntryExitTransition`.
+- **Effect presets** (looping, not reanimated-named): `pulse` (`minScale`/`maxScale`), `fade` (`minOpacity`), `rotate` (`degrees`), `shimmer`, `bounce`. `loop: false` runs the effect once.
+- Unknown presets degrade to no-op (forward-compatible across reanimated versions). On web some entering presets degrade gracefully (content still mounts).
+
+```json
+{
+  "id": "hero-badge",
+  "type": "Image",
+  "props": {
+    "url": "https://cdn.example.com/badge.png",
+    "width": 96,
+    "transform": { "rotate": -4 },
+    "animation": {
+      "entering": { "preset": "ZoomInDown", "duration": 600, "delay": 200, "spring": { "damping": 12, "stiffness": 180 } },
+      "exiting": { "preset": "FadeOut", "duration": 250 },
+      "effect": { "preset": "pulse", "duration": 1200, "minScale": 0.97, "maxScale": 1.06 }
+    }
+  }
+}
+```
+
 **Stack props (`YStack` / `XStack`):**
 
 | Prop | Type | Notes |

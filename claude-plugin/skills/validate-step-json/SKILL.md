@@ -48,6 +48,12 @@ Run: `npx tsx scripts/_validate-composable.ts "$(cat step.json)"`
    - `Button.props.disabledWhen` (NOT `disabled`) is a valid `LeafCondition` or `ConditionGroup`
    - `Button.props.pressedStyle` / `disabledStyle` (if present) are objects — `Partial` of overridable Button props; must NOT nest `pressedStyle`/`disabledStyle`. `transitionDurationMs` is a non-negative number.
    - Shadow fields (any element): `shadowColor` string; `shadowOffset` is `{width, height}` (NOT a number); `shadowOpacity` 0–1; `shadowRadius`/`elevation` non-negative numbers
+   - `transform` (any element, optional): object with any of `translateX`/`translateY`/`scale`/`scaleX`/`scaleY`/`rotate` — all numbers (`rotate` in degrees). No other keys.
+   - `animation` (any element, optional): object `{ entering?, exiting?, layout?, effect? }`.
+     - `entering`/`exiting`: `{ preset, duration?, delay?, easing?, spring? }`. `preset` is a string (exact reanimated builder name — entering: `FadeIn`/`FadeInUp`/`FadeInDown`/`FadeInLeft`/`FadeInRight`/`SlideInUp`/`SlideInDown`/`SlideInLeft`/`SlideInRight`/`ZoomIn`/`ZoomInRotate`/`ZoomInUp`/`ZoomInDown`/`ZoomInLeft`/`ZoomInRight`/`ZoomInEasyUp`/`ZoomInEasyDown`/`BounceIn`/`BounceInUp`/`BounceInDown`/`BounceInLeft`/`BounceInRight`/`FlipInXUp`/`FlipInYLeft`/`FlipInXDown`/`FlipInYRight`/`FlipInEasyX`/`FlipInEasyY`/`StretchInX`/`StretchInY`/`RotateInDownLeft`/`RotateInDownRight`/`RotateInUpLeft`/`RotateInUpRight`/`RollInLeft`/`RollInRight`/`PinwheelIn`/`LightSpeedInLeft`/`LightSpeedInRight`; exiting: matching `...Out...` names e.g. `FadeOut`/`SlideOutLeft`/`ZoomOut`/`BounceOut`/`FlipOutXUp`/`StretchOutX`/`RotateOutDownLeft`/`RollOutLeft`/`PinwheelOut`/`LightSpeedOutLeft`). Unknown presets degrade to no-op (not an error).
+     - `layout`: `{ preset, duration?, spring? }`. `preset` ∈ `LinearTransition`/`FadingTransition`/`SequencedTransition`/`JumpingTransition`/`CurvedTransition`/`EntryExitTransition`.
+     - `effect` (continuous loop, NOT a builder name): `{ preset, duration?, delay?, easing?, loop?, minScale?, maxScale?, minOpacity?, degrees? }`. `preset` ∈ `"pulse"|"fade"|"rotate"|"shimmer"|"bounce"`.
+     - `easing` (where present) ∈ `"linear"|"ease-in"|"ease-out"|"ease-in-out"`; `spring` is `{ damping?, stiffness?, mass? }` (numbers); `duration`/`delay` non-negative numbers. `spring` wins over `easing` when both present.
    - `SafeAreaView.props.edges` is an array of `"top"|"right"|"bottom"|"left"` OR an object with edge mode `"off"|"additive"|"maximum"` — NEVER `"always"`
    - **Flow-level chain integrity (when input is an array of steps)**:
      - Every non-terminal step has `nextStep: { defaultTargetStepId, branches }`. Terminal step has `nextStep: null`. Flag steps that rely on `null` linear fallback in the middle of a flow as a warning ("implicit linear link — prefer explicit defaultTargetStepId").
@@ -75,6 +81,9 @@ Run: `npx tsx scripts/_validate-composable.ts "$(cat step.json)"`
 - `Button.props.action` (singular) used instead of `actions: [...]` (array).
 - `Button.props.disabled` instead of `disabledWhen`.
 - `shadowOffset` given as a number instead of `{ width, height }`.
+- `transform.rotate` given as a string (e.g. `"-4deg"`) instead of a number (degrees).
+- `animation.effect.preset` set to a reanimated builder name (e.g. `FadeIn`) — `effect` presets are only `"pulse"|"fade"|"rotate"|"shimmer"|"bounce"`; builder names belong under `entering`/`exiting`/`layout`. (Unknown presets are not a hard error — they degrade to no-op — but flag as a likely mistake.)
+- `animation.easing` outside `"linear"|"ease-in"|"ease-out"|"ease-in-out"`.
 - `pressedStyle` / `disabledStyle` nesting another `pressedStyle`/`disabledStyle` (stripped — not overridable).
 - `SafeAreaView.props.edges: { top: "always" }` — invalid edge mode. Use `["top","bottom"]` or `"off" | "additive" | "maximum"`.
 - `Lottie.source: { localPathId }` instead of string URL.

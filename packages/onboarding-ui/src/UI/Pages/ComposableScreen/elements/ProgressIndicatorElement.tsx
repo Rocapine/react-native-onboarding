@@ -102,17 +102,23 @@ export const ProgressIndicatorElementComponent = ({ element, ctx }: Props): Reac
   const [percentage, setPercentage] = useState(Math.round(initialValue));
 
   // Mirror the animated value into a label + (autoplay) the bound variable.
+  // Reaction input is the *rounded* percent, so the JS callback fires only when
+  // the integer changes (≤100 hops/sweep) rather than every frame — avoids a
+  // per-frame context write storm (setVariable re-renders all variable consumers).
+  const showLabel = props.showLabel ?? false;
+  const variableName = props.variableName;
   const writeVariable = (v: number) => {
-    if (autoplay && props.variableName) {
-      setVariable(props.variableName, { value: String(v), kind: "int" });
+    if (autoplay && variableName) {
+      setVariable(variableName, { value: String(v), kind: "int" });
     }
   };
+  const writesVariable = autoplay && !!variableName;
   useAnimatedReaction(
-    () => progress.value,
-    (current) => {
-      const rounded = Math.round(current);
-      runOnJS(setPercentage)(rounded);
-      runOnJS(writeVariable)(rounded);
+    () => Math.round(progress.value),
+    (rounded, prev) => {
+      if (rounded === prev) return;
+      if (showLabel) runOnJS(setPercentage)(rounded);
+      if (writesVariable) runOnJS(writeVariable)(rounded);
     }
   );
 
@@ -124,7 +130,7 @@ export const ProgressIndicatorElementComponent = ({ element, ctx }: Props): Reac
     const looped = loop ? withRepeat(anim, -1, false) : anim;
     progress.value = delay > 0 ? withDelay(delay, looped) : looped;
     return () => cancelAnimation(progress);
-  }, [autoplay, loop, duration, delay, initialValue]);
+  }, [autoplay, loop, duration, delay, easing, initialValue]);
 
   // Bound / static (non-autoplay): animate toward the current target after `delay`.
   useEffect(() => {
@@ -132,7 +138,7 @@ export const ProgressIndicatorElementComponent = ({ element, ctx }: Props): Reac
     const anim = withTiming(target, { duration, easing });
     progress.value = delay > 0 ? withDelay(delay, anim) : anim;
     return () => cancelAnimation(progress);
-  }, [autoplay, target, duration, delay]);
+  }, [autoplay, target, duration, delay, easing]);
 
   // Circular geometry (computed unconditionally so hooks below stay unconditional).
   const size = props.size ?? 120;

@@ -8,6 +8,16 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.31.0] - 2026-06-01
+
+### Added
+- **Inline rich text for `Text`** — `TextElementProps.content` is now `string | TextSpan[]`. A span array renders styled fragments inline (nested `<Text>`) that wrap together on one baseline. New `TextSpan` type and `TextSpanSchema` exported from the headless package. Span fields (all optional except `text`): `text`, `fontWeight`, `fontStyle`, `fontFamily`, `fontSize`, `letterSpacing`, `color`, `textDecorationLine` (`"none"` | `"underline"` | `"line-through"` | `"underline line-through"`). Omitted span props inherit from the parent `Text`. In `mode: "expression"`, `{{variable}}` interpolation applies to each span's `text`.
+
+### Changed
+- **`TextElementPropsSchema.content`** widened from `z.string()` to `z.union([z.string(), z.array(TextSpanSchema)])`. Backward compatible — existing string payloads validate and render unchanged.
+
+---
+
 ## [1.30.0] - 2026-05-29
 
 ### Added

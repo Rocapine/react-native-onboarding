@@ -1,8 +1,51 @@
 import { z } from "zod";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 
+/**
+ * A styled inline run of text. Used to compose rich text inside a single
+ * `Text` element — spans render as nested `<Text>` and inherit any prop they
+ * omit from the parent `Text` (React Native nested-`<Text>` inheritance), so a
+ * span only declares the styling it overrides.
+ */
+export type TextSpan = {
+  text: string;
+  fontWeight?: string;
+  fontStyle?: "normal" | "italic";
+  /**
+   * Font family name. Omit or set to `"inherit"` to inherit the parent
+   * `Text` element's resolved font family.
+   */
+  fontFamily?: string | "inherit";
+  fontSize?: number;
+  letterSpacing?: number;
+  color?: string;
+  textDecorationLine?:
+    | "none"
+    | "underline"
+    | "line-through"
+    | "underline line-through";
+};
+
+export const TextSpanSchema = z.object({
+  text: z.string(),
+  fontWeight: z.string().optional(),
+  fontStyle: z.enum(["normal", "italic"]).optional(),
+  fontFamily: z.string().optional(),
+  fontSize: z.number().optional(),
+  letterSpacing: z.number().optional(),
+  color: z.string().optional(),
+  textDecorationLine: z
+    .enum(["none", "underline", "line-through", "underline line-through"])
+    .optional(),
+});
+
 export type TextElementProps = BaseBoxProps & {
-  content: string;
+  /**
+   * Plain string, or an array of styled spans for inline rich text. In
+   * `expression` mode `{{variable}}` interpolation applies to the string or to
+   * each span's `text`.
+   */
+  content: string | TextSpan[];
   mode?: "plain" | "expression";
   fontSize?: number;
   fontWeight?: string;
@@ -19,7 +62,7 @@ export type TextElementProps = BaseBoxProps & {
 };
 
 export const TextElementPropsSchema = BaseBoxPropsSchema.extend({
-  content: z.string(),
+  content: z.union([z.string(), z.array(TextSpanSchema)]),
   mode: z.enum(["plain", "expression"]).optional(),
   fontSize: z.number().optional(),
   fontWeight: z.string().optional(),

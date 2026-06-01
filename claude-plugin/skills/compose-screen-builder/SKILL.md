@@ -35,7 +35,7 @@ Start from an archetype in `../create-step-json/references/composable-archetypes
 | `YStack` / `XStack` | Vertical / horizontal flex container; has `children` |
 | `ZStack` | Layered stack (overlay) |
 | `SafeAreaView` | Safe-area wrapper with per-edge mode |
-| `Text` | Text node (supports `{{variableName}}` interpolation) |
+| `Text` | Text node (supports `{{variableName}}` interpolation; `content` may be a string or an array of styled spans for inline rich text) |
 | `Image` | Image with `source: { uri }` or `{ localPathId }` |
 | `Lottie` / `Rive` / `Video` | Animated media |
 | `Icon` | Vector icon |
@@ -188,7 +188,7 @@ Each override is a `Partial` of the overridable Button props: `BaseBoxProps` (in
 | Element | Right | Wrong |
 |---------|-------|-------|
 | Payload | `payload.elements: UIElement[]` | `payload.root`, `payload.variables` |
-| `Text` | `content`, `mode: "expression"` for interp, `fontSize`/`fontWeight` | `text`, `variant` |
+| `Text` | `content` (string **or** span array), `mode: "expression"` for interp, `fontSize`/`fontWeight` | `text`, `variant` |
 | `Image` | `url: string` | `source: { uri }`, `source: { localPathId }` |
 | `Lottie` | `source: string` | `source: { localPathId }` |
 | `Rive` | `url: string` | `source` |
@@ -208,6 +208,7 @@ Each override is a `Partial` of the overridable Button props: `BaseBoxProps` (in
 - Don't nest a `KeyboardAvoidingView` inside another `KeyboardAvoidingView` — the headless schema rejects it.
 - Don't use `{{var}}` in `Text.content` without `mode: "expression"` — interpolation silently disabled otherwise.
 - Don't use `Text.variant` — it doesn't exist. Set `fontSize` / `fontWeight` / `fontFamily` directly.
+- **Inline rich text:** set `Text.content` to an array of spans — `[{ "text": "Lose " }, { "text": "5kg", "fontWeight": "700", "color": "#E11D48" }]`. Each span needs a `text` and may override `fontWeight`, `fontStyle`, `fontFamily`, `fontSize`, `letterSpacing`, `color`, `textDecorationLine` (`"underline" | "line-through" | "underline line-through" | "none"`); omitted props inherit from the parent `Text`. In `mode: "expression"`, `{{var}}` interpolates inside each span's `text`. Use this instead of an `XStack` of `Text` elements when fragments must wrap on one baseline.
 - Don't use `SafeAreaView` edge mode `"always"` — only `"off" | "additive" | "maximum"`.
 - Don't nest `SafeAreaView` inside another `SafeAreaView`.
 - Don't set fixed `height` on a container that should grow; use `flex: 1`.

@@ -9,6 +9,16 @@ here.
 
 ---
 
+## [1.31.0] - 2026-06-01
+
+### Added
+- **Inline rich-text rendering in `TextElement`** — when `content` is a span array, the renderer maps each span to a nested `<Text>` (new internal `RichTextSpan` component) so fragments with different weight/style/color/decoration wrap together on one baseline. Each span resolves its own font via `useResolvedFontStyle` against the parent `Text`'s inherited family, so a span setting only `fontWeight` still picks the correct weighted font variant. Supports per-span `fontWeight`, `fontStyle`, `fontFamily`, `fontSize`, `letterSpacing`, `color`, `textDecorationLine`.
+
+### Changed
+- **`TextElementPropsSchema.content`** mirror widened to `string | TextSpan[]`; `TextSpan` / `TextSpanSchema` added to the UI element. Plain string `content` renders identically to before. Expression mode interpolates `{{variable}}` inside each span's `text`.
+
+---
+
 ## [1.30.0] - 2026-05-29
 
 ### Added

@@ -242,6 +242,28 @@ export const onboardingExample = {
                 },
               },
               {
+                // Inline rich text — `content` as an array of styled spans.
+                // Each span inherits the parent Text style and overrides only
+                // what it sets (here: weight, color, underline).
+                id: "richtext-demo",
+                type: "Text",
+                props: {
+                  content: [
+                    { text: "Lose " },
+                    { text: "5kg", fontWeight: "700", color: "#E11D48" },
+                    { text: " in 30 days — " },
+                    {
+                      text: "guaranteed",
+                      fontStyle: "italic",
+                      textDecorationLine: "underline",
+                    },
+                  ],
+                  fontSize: 16,
+                  textAlign: "center",
+                  marginVertical: 4,
+                },
+              },
+              {
                 id: "scroll-demo",
                 type: "ScrollView",
                 props: {

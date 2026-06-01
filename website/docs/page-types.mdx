@@ -521,8 +521,8 @@ As of 1.15.0, `OnboardingTemplate` does not apply safe-area insets. Built-in pag
 
 | Prop | Type | Notes |
 |------|------|-------|
-| `content` | `string` | **Required** |
-| `mode` | `"plain" \| "expression"` | `"plain"` (default) renders content as-is; `"expression"` interpolates `{{variableName}}` patterns from the variable context |
+| `content` | `string \| TextSpan[]` | **Required.** A string, or an array of styled spans for inline rich text (see below) |
+| `mode` | `"plain" \| "expression"` | `"plain"` (default) renders content as-is; `"expression"` interpolates `{{variableName}}` patterns from the variable context (in each span's `text` when `content` is a span array) |
 | `fontSize` / `fontWeight` / `letterSpacing` / `lineHeight` | `number \| string` | |
 | `fontFamily` | `string` | Font family name; must be loaded by the host app (e.g. via `expo-font`) |
 | `color` | `string` | Defaults to `theme.colors.text.primary` |
@@ -531,6 +531,36 @@ As of 1.15.0, `OnboardingTemplate` does not apply safe-area insets. Built-in pag
 | `padding` / `paddingHorizontal` / `paddingVertical` | `number` | |
 | `margin` / `marginHorizontal` / `marginVertical` | `number` | |
 | `borderWidth` / `borderRadius` / `opacity` | `number` | |
+
+**Inline rich text (`TextSpan`):**
+
+Set `content` to an array of spans to style fragments differently within a single line — they render as nested `<Text>` and wrap together on one baseline. Each span inherits any prop it omits from the parent `Text`, so a span only declares what it overrides.
+
+```json
+{
+  "type": "Text",
+  "props": {
+    "content": [
+      { "text": "Lose " },
+      { "text": "5kg", "fontWeight": "700", "color": "#E11D48" },
+      { "text": " in 30 days — " },
+      { "text": "guaranteed", "fontStyle": "italic", "textDecorationLine": "underline" }
+    ],
+    "fontSize": 16,
+    "textAlign": "center"
+  }
+}
+```
+
+| Span prop | Type | Notes |
+|------|------|-------|
+| `text` | `string` | **Required.** The span's text (interpolated in `mode: "expression"`) |
+| `fontWeight` | `string` | |
+| `fontStyle` | `"normal" \| "italic"` | |
+| `fontFamily` | `string \| "inherit"` | Defaults to the parent `Text`'s resolved family |
+| `fontSize` / `letterSpacing` | `number` | |
+| `color` | `string` | |
+| `textDecorationLine` | `"none" \| "underline" \| "line-through" \| "underline line-through"` | |
 
 **Input props:**
 

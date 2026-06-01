@@ -10,6 +10,7 @@ import {
 import { CustomPayloadSchema } from "../types";
 import { type StackElementProps, StackElementPropsSchema } from "./elements/StackElement";
 import { type TextElementProps, TextElementPropsSchema } from "./elements/TextElement";
+import { type RichTextElementProps, RichTextElementPropsSchema } from "./elements/RichTextElement";
 import { type ImageElementProps, ImageElementPropsSchema } from "./elements/ImageElement";
 import { type LottieElementProps, LottieElementPropsSchema } from "./elements/LottieElement";
 import { type RiveElementProps, RiveElementPropsSchema } from "./elements/RiveElement";
@@ -37,6 +38,7 @@ export type { BaseBoxProps } from "./elements/BaseBoxProps";
 export { BaseBoxPropsSchema } from "./elements/BaseBoxProps";
 export type { StackElementProps } from "./elements/StackElement";
 export type { TextElementProps } from "./elements/TextElement";
+export type { RichTextElementProps } from "./elements/RichTextElement";
 export type { ImageElementProps } from "./elements/ImageElement";
 export type { LottieElementProps } from "./elements/LottieElement";
 export type { RiveElementProps } from "./elements/RiveElement";
@@ -75,6 +77,14 @@ export type UIElement =
       renderWhen?: LeafCondition | ConditionGroup;
       type: "Text";
       props: TextElementProps;
+    }
+  | {
+      id: string;
+      name?: string;
+      renderWhen?: LeafCondition | ConditionGroup;
+      type: "RichText";
+      props: RichTextElementProps;
+      children: Array<Extract<UIElement, { type: "Text" }>>;
     }
   | {
       id: string;
@@ -201,6 +211,17 @@ export type UIElement =
       props: ProgressIndicatorElementProps;
     };
 
+// The `Text` variant, extracted so `RichText` can restrict its children to
+// Text-only (children: z.array(TextUIElementSchema)) while the union references
+// the same object.
+const TextUIElementSchema = z.object({
+  id: z.string(),
+  name: z.string().optional(),
+  renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
+  type: z.literal("Text"),
+  props: TextElementPropsSchema,
+});
+
 export const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
   z.union([
     z.object({
@@ -211,12 +232,14 @@ export const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
       props: StackElementPropsSchema,
       children: z.array(UIElementSchema),
     }),
+    TextUIElementSchema,
     z.object({
       id: z.string(),
       name: z.string().optional(),
       renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
-      type: z.literal("Text"),
-      props: TextElementPropsSchema,
+      type: z.literal("RichText"),
+      props: RichTextElementPropsSchema,
+      children: z.array(TextUIElementSchema),
     }),
     z.object({
       id: z.string(),

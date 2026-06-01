@@ -190,6 +190,47 @@ export default function ComposableScreenExample() {
                 marginVertical: 4,
               },
             },
+            // RichText container — wrapping flex row of Text elements. Children
+            // are real flex children, so box props work: the highlighted segment
+            // is a padded, rounded, rotated chip.
+            {
+              id: 'richtext-container-demo',
+              type: 'RichText' as const,
+              props: {
+                alignItems: 'center' as const,
+                justifyContent: 'center' as const,
+                marginVertical: 4,
+                // Base typography declared once — children inherit it.
+                fontSize: 22,
+                fontWeight: '600',
+              },
+              children: [
+                // Plain-text children split into words → wrap word-by-word.
+                { id: 'rt-1', type: 'Text' as const, props: { content: 'Boost your' } },
+                {
+                  id: 'rt-2',
+                  type: 'Text' as const,
+                  // Chip: box styling keeps it atomic; overrides inherited defaults.
+                  props: {
+                    content: 'energy',
+                    fontWeight: '700',
+                    color: '#FFFFFF',
+                    backgroundColor: '#E11D48',
+                    paddingHorizontal: 14,
+                    paddingVertical: 4,
+                    borderRadius: 200,
+                    marginHorizontal: 4,
+                    transform: { rotate: -3 },
+                  },
+                },
+                {
+                  id: 'rt-3',
+                  type: 'Text' as const,
+                  renderWhen: { variable: 'name', operator: 'is_not_empty' as const },
+                  props: { content: ', {{name}}!', mode: 'expression' as const },
+                },
+              ],
+            },
             // Horizontal ScrollView demo — swipeable row of cards.
             {
               id: 'scroll-demo',

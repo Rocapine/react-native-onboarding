@@ -11,8 +11,26 @@ export type RenderContext = {
   setVariable: (key: string, entry: ComposableVariableEntry) => void;
   onContinue: () => void;
   customActions: CustomActions;
-  renderChildren: (elements: UIElement[], parentType: "XStack" | "YStack" | "ZStack") => React.ReactNode;
+  renderChildren: (elements: UIElement[], parentType: "XStack" | "YStack" | "ZStack" | "RichText") => React.ReactNode;
 };
+
+// Text-style defaults a `RichText` container hands down to its child `Text`
+// elements. A `<View>` doesn't propagate text style to nested `<Text>`, so the
+// RichText renderer publishes these via context and `TextElementComponent`
+// merges them under its own props (child always wins). Empty default ({}) means
+// Text elements outside a RichText behave unchanged.
+export type InheritedTextStyle = {
+  fontSize?: number;
+  fontWeight?: string;
+  fontFamily?: string | "inherit";
+  fontStyle?: "normal" | "italic";
+  color?: string;
+  textAlign?: "left" | "center" | "right";
+  letterSpacing?: number;
+  lineHeight?: number;
+};
+
+export const RichTextStyleContext = React.createContext<InheritedTextStyle>({});
 
 export const interpolate = (template: string, variables: Record<string, ComposableVariableEntry>): string =>
   template.replace(/\{\{([^}]+?)\}\}/g, (_, key) => variables[key]?.label ?? variables[key]?.value ?? "");

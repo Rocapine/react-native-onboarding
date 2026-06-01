@@ -4,7 +4,7 @@ import { Text } from "react-native";
 import { useResolvedFontStyle } from "@rocapine/react-native-onboarding";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
-import { RenderContext, interpolate, dim, resolveInheritedFontFamily } from "./shared";
+import { RenderContext, interpolate, dim, resolveInheritedFontFamily, RichTextStyleContext } from "./shared";
 import { GradientBox } from "./GradientBox";
 
 export type TextSpan = {
@@ -118,12 +118,22 @@ type TextUIElement = Extract<UIElement, { type: "Text" }>;
 type Props = {
   element: TextUIElement;
   ctx: RenderContext;
-  parentType?: "XStack" | "YStack" | "ZStack";
+  parentType?: "XStack" | "YStack" | "ZStack" | "RichText";
 };
 
 export const TextElementComponent = ({ element, ctx, parentType }: Props): React.ReactElement => {
   const { theme, variables } = ctx;
   const p = element.props;
+  // Text-style defaults inherited from a parent `RichText` container (empty when
+  // this Text isn't inside one). Element props always win over inherited values.
+  const inherited = React.useContext(RichTextStyleContext);
+  const fontSize = p.fontSize ?? inherited.fontSize;
+  const fontWeight = p.fontWeight ?? inherited.fontWeight;
+  const fontStyle = p.fontStyle ?? inherited.fontStyle;
+  const color = p.color ?? inherited.color;
+  const textAlign = p.textAlign ?? inherited.textAlign;
+  const letterSpacing = p.letterSpacing ?? inherited.letterSpacing;
+  const lineHeight = p.lineHeight ?? inherited.lineHeight;
   const isExpression = p.mode === "expression";
   const content: string | TextSpan[] = Array.isArray(p.content)
     ? isExpression
@@ -133,10 +143,10 @@ export const TextElementComponent = ({ element, ctx, parentType }: Props): React
       ? interpolate(p.content, variables)
       : p.content;
   const inheritedFontFamily = resolveInheritedFontFamily(
-    p.fontFamily,
+    p.fontFamily ?? inherited.fontFamily,
     theme.typography.defaultFontFamily
   );
-  const resolvedFont = useResolvedFontStyle(inheritedFontFamily, p.fontWeight);
+  const resolvedFont = useResolvedFontStyle(inheritedFontFamily, fontWeight);
 
   const textNode = (
     <Text
@@ -151,14 +161,14 @@ export const TextElementComponent = ({ element, ctx, parentType }: Props): React
         maxWidth: p.backgroundGradient ? undefined : p.maxWidth,
         minHeight: p.backgroundGradient ? undefined : p.minHeight,
         maxHeight: p.backgroundGradient ? undefined : p.maxHeight,
-        fontSize: p.fontSize,
-        fontWeight: resolvedFont.resolvedToVariant ? undefined : (p.fontWeight as any),
+        fontSize,
+        fontWeight: resolvedFont.resolvedToVariant ? undefined : (fontWeight as any),
         fontFamily: resolvedFont.fontFamily,
-        fontStyle: p.fontStyle,
-        color: p.color ?? theme.colors.text.primary,
-        textAlign: p.textAlign,
-        letterSpacing: p.letterSpacing,
-        lineHeight: p.lineHeight,
+        fontStyle,
+        color: color ?? theme.colors.text.primary,
+        textAlign,
+        letterSpacing,
+        lineHeight,
         backgroundColor: p.backgroundGradient ? undefined : p.backgroundColor,
         padding: p.backgroundGradient ? undefined : p.padding,
         paddingHorizontal: p.backgroundGradient ? undefined : p.paddingHorizontal,

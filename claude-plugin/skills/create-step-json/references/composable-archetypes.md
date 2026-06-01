@@ -70,6 +70,27 @@ Every element accepts optional `transform` (static) and `animation` (`{ entering
 
 Common touches: stagger a list of cards by bumping `entering.delay` per item (`100`, `200`, `300…`); give a hero a subtle living feel with `effect: { "preset": "pulse" }` or `{ "preset": "fade" }`; use `spring` (`{ damping?, stiffness?, mass? }`) instead of `easing` for bouncy entrances (`spring` wins when both are set).
 
+### Mixed-style text & chip titles
+
+Two ways to mix styles across fragments:
+
+- **Inline spans** (simplest): set `Text.content` to an array of `{ text, fontWeight?, color?, … }` spans. Fragments wrap on one baseline; omitted props inherit from the parent `Text`. Spans are nested `<Text>` — text-style only (no box styling), no `renderWhen`, no per-span `expression`.
+- **`RichText` container**: a wrapping flex row of full `Text` children (Text-only). Plain-text children **auto-split into one item per word**, so text wraps word-by-word and chips flow inline with it (the classic "Boost your `[energy]`" marketing-title pattern). A child with box styling (`backgroundColor` / `borderRadius` / `border` / `padding`) or motion stays an atomic **chip** that honors those props — `padding`, `borderRadius`, `transform` for padded/rounded/rotated pills. Children keep `renderWhen` / `expression`. `RichText.props` are layout props (`alignItems` incl. `"baseline"`, `justifyContent`, `flexWrap` default `"wrap"`) + `BaseBoxProps` + inherited text-style defaults — set base typography (`fontSize`, `fontWeight`, `color`, …) **once** on the container, children inherit it. **Don't set `gap`** (split preserves spaces as items → double-spacing); give chips `marginHorizontal`.
+
+```json
+{
+  "id": "title", "type": "RichText",
+  "props": { "alignItems": "center", "justifyContent": "center", "fontSize": "<DP.fontSize.h1>", "fontWeight": "600" },
+  "children": [
+    { "id": "w1", "type": "Text", "props": { "content": "Boost your" } },
+    { "id": "w2", "type": "Text", "props": {
+      "content": "energy", "fontWeight": "700", "color": "<DP.text.onAccent>",
+      "backgroundColor": "<DP.accent>", "paddingHorizontal": 14, "paddingVertical": 4, "borderRadius": 200,
+      "marginHorizontal": 4, "transform": { "rotate": -3 } } }
+  ]
+}
+```
+
 ---
 
 ## hero

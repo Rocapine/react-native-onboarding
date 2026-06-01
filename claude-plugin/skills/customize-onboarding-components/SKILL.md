@@ -48,7 +48,7 @@ Every styled UIElement (`Button`, `RadioGroup`, `CheckboxGroup`, `Input`, `Wheel
 `Text`:
 - `fontFamily`, `fontSize`, `fontWeight`, `fontStyle`, `color`, `lineHeight`, `letterSpacing`, `textAlign`
 
-Containers (`YStack` / `XStack` / `ZStack` / `SafeAreaView`):
+Containers (`YStack` / `XStack` / `ZStack` / `SafeAreaView` / `RichText`):
 - `backgroundColor`, `borderRadius`, `borderWidth`, `borderColor`
 - gradients via `background: GradientBackground`
 

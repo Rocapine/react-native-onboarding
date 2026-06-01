@@ -8,6 +8,13 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.33.0] - 2026-06-01
+
+### Added
+- **`RichText` container UIElement** — a **wrapping flex row** of child `Text` elements (words + padded/rounded/rotated "chips" that wrap and align together, e.g. a "Boost your `[energy]`" marketing title). Because each child renders as a real flex child of a `<View>` (not a nested `<Text>` like inline `TextSpan`s), it honors its own box props — `padding`, `borderRadius`, `borderWidth`, `backgroundColor`, `margin`, `transform` — plus `renderWhen` and `expression` mode. Plain-text children are split into one item per word so the row wraps word-by-word like a paragraph (chips flow inline with the text); children with box styling or motion stay atomic. `children` are schema-restricted to `Text` only. `props` are layout props (`gap`, `alignItems` — incl. `"baseline"` — `justifyContent`, `flexWrap` defaulting to `"wrap"`) plus all `BaseBoxProps`, plus **inherited text-style defaults** (`fontSize`, `fontWeight`, `fontFamily`, `fontStyle`, `color`, `textAlign`, `letterSpacing`, `lineHeight`) — declare the title's base typography once on the container and each child `Text` inherits it (child overrides win). New exported type: `RichTextElementProps`. (Distinct from inline `TextSpan`, which stays a single text-style-only wrapping paragraph.)
+
+---
+
 ## [1.32.0] - 2026-06-01
 
 ### Added

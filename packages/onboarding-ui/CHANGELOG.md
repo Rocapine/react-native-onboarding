@@ -15,6 +15,7 @@ here.
 - **`AnimatedBox` wrapper + `buildAnimation` helper** — renders the new `transform` / `animation` surface (see headless `1.32.0`) for every ComposableScreen element. `renderElement` wraps the dispatched node in a single `Animated.View` (`AnimatedBox`) only when `animation` or `transform` is present (zero extra view otherwise), forwarding `flex`/`alignSelf` so the wrapper stays layout-transparent. `entering`/`exiting`/`layout` resolve to reanimated builders by name (`Reanimated[preset]`) with `.duration().delay().springify().easing()` modifiers; unknown presets degrade to no-op. Continuous `effect` (`pulse`/`fade`/`rotate`/`shimmer`/`bounce`) runs imperatively via `withRepeat`. No new peer deps — uses the existing `react-native-reanimated` stack.
 - Shared `EASING_MAP` extracted to `buildAnimation.ts`; `ProgressIndicatorElement` now imports it (removes the duplicated easing table).
 - New `composable-screen-animations` example screen (entering presets staggered by `delay`, spring vs easing, looping effects, static transforms, exiting + layout toggle, Replay button). `composable-screen.tsx` + `onboarding-example.ts` demos: hero image fades in (`FadeInDown`), star icon zooms in with a static tilt and a continuous `pulse`.
+- **`RichTextSpan` extended** — applies the new `TextSpan` fields (`backgroundColor`, `opacity`, `textTransform`, `textDecorationColor`, `textDecorationStyle`, `lineHeight`) to the nested inline `<Text>`.
 
 ---
 

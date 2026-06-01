@@ -18,6 +18,7 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
     - `layout`: `{ preset, duration?, spring? }` — `LinearTransition`, `FadingTransition`, `SequencedTransition`, `JumpingTransition`, `CurvedTransition`, `EntryExitTransition`.
     - `effect` (continuous loop, not a reanimated builder name): `{ preset: "pulse" | "fade" | "rotate" | "shimmer" | "bounce", duration?, delay?, easing?, loop?, minScale?/maxScale? (pulse), minOpacity? (fade), degrees? (rotate) }`.
   - `easing` (`"linear"` | `"ease-in"` | `"ease-out"` | `"ease-in-out"`) and `spring` (`{ damping?, stiffness?, mass? }`, mirrors `.springify(config)` and wins over `easing`). New exported types: `AnimationEasing`, `SpringConfig`, `EnteringPreset`, `ExitingPreset`, `LayoutPreset`, `EffectPreset`, `EnteringAnimation`, `ExitingAnimation`, `LayoutAnimation`, `ElementEffect`, `ElementAnimation`, `ElementTransform`.
+- **`TextSpan` extended** — inline rich-text spans gain `backgroundColor`, `opacity` (0–1), `textTransform` (`"none"` | `"uppercase"` | `"lowercase"` | `"capitalize"`), `textDecorationColor`, `textDecorationStyle` (`"solid"` | `"double"` | `"dotted"` | `"dashed"`), and `lineHeight`. All optional, inline-safe (animation/transform remain element-level only — spans are not UIElements).
 
 ---
 

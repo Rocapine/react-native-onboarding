@@ -54,7 +54,7 @@ export default function ComposableScreenExample() {
                 fit: 'FitWidth',
               },
             },
-            // Hero image
+            // Hero image — fade/slide in on mount (reanimated entering builder)
             {
               id: 'hero-image',
               type: 'Image',
@@ -63,9 +63,12 @@ export default function ComposableScreenExample() {
                 height: 180,
                 resizeMode: 'cover',
                 borderRadius: 16,
+                animation: {
+                  entering: { preset: 'FadeInDown' as const, duration: 500, delay: 100, easing: 'ease-out' as const },
+                },
               },
             },
-            // Icon element (filled — fill + fillOpacity)
+            // Icon element (filled) — static tilt + continuous breathing pulse
             {
               id: 'hero-icon',
               type: 'Icon',
@@ -76,6 +79,11 @@ export default function ComposableScreenExample() {
                 fill: '#007AFF',
                 fillOpacity: 0.25,
                 marginVertical: 8,
+                transform: { rotate: -8 },
+                animation: {
+                  entering: { preset: 'ZoomIn' as const, duration: 400, spring: { damping: 10, stiffness: 160 } },
+                  effect: { preset: 'pulse' as const, duration: 1200, minScale: 0.92, maxScale: 1.08 },
+                },
               },
             },
             // Progress indicators — linear (autoplay loop) + circular (autoplay once)

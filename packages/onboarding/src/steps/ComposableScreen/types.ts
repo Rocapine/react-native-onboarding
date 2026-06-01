@@ -30,6 +30,20 @@ import {
 import { type ProgressIndicatorElementProps, ProgressIndicatorElementPropsSchema } from "./elements/ProgressIndicatorElement";
 
 export type { BaseBoxProps, GradientBackground, GradientEdge, GradientStop, LinearGradientConfig } from "./elements/BaseBoxProps";
+export type {
+  AnimationEasing,
+  SpringConfig,
+  EnteringPreset,
+  ExitingPreset,
+  LayoutPreset,
+  EffectPreset,
+  EnteringAnimation,
+  ExitingAnimation,
+  LayoutAnimation,
+  ElementEffect,
+  ElementAnimation,
+  ElementTransform,
+} from "./elements/BaseBoxProps";
 export { BaseBoxPropsSchema, GradientBackgroundSchema } from "./elements/BaseBoxProps";
 export type { StackElementProps } from "./elements/StackElement";
 export type { TextElementProps, TextSpan } from "./elements/TextElement";

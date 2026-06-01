@@ -14,12 +14,18 @@ export type TextSpan = {
   fontFamily?: string | "inherit";
   fontSize?: number;
   letterSpacing?: number;
+  lineHeight?: number;
   color?: string;
+  backgroundColor?: string;
+  opacity?: number;
+  textTransform?: "none" | "uppercase" | "lowercase" | "capitalize";
   textDecorationLine?:
     | "none"
     | "underline"
     | "line-through"
     | "underline line-through";
+  textDecorationColor?: string;
+  textDecorationStyle?: "solid" | "double" | "dotted" | "dashed";
 };
 
 export const TextSpanSchema = z.object({
@@ -29,10 +35,16 @@ export const TextSpanSchema = z.object({
   fontFamily: z.string().optional(),
   fontSize: z.number().optional(),
   letterSpacing: z.number().optional(),
+  lineHeight: z.number().optional(),
   color: z.string().optional(),
+  backgroundColor: z.string().optional(),
+  opacity: z.number().min(0).max(1).optional(),
+  textTransform: z.enum(["none", "uppercase", "lowercase", "capitalize"]).optional(),
   textDecorationLine: z
     .enum(["none", "underline", "line-through", "underline line-through"])
     .optional(),
+  textDecorationColor: z.string().optional(),
+  textDecorationStyle: z.enum(["solid", "double", "dotted", "dashed"]).optional(),
 });
 
 export type TextElementProps = BaseBoxProps & {
@@ -86,8 +98,14 @@ const RichTextSpan = ({
         fontStyle: span.fontStyle,
         fontSize: span.fontSize,
         letterSpacing: span.letterSpacing,
+        lineHeight: span.lineHeight,
         color: span.color,
+        backgroundColor: span.backgroundColor,
+        opacity: span.opacity,
+        textTransform: span.textTransform,
         textDecorationLine: span.textDecorationLine,
+        textDecorationColor: span.textDecorationColor,
+        textDecorationStyle: span.textDecorationStyle,
       }}
     >
       {span.text}

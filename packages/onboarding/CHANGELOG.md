@@ -8,6 +8,20 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.32.0] - 2026-06-01
+
+### Added
+- **Animations / transitions / effects on every UIElement** — `BaseBoxProps` gains two optional fields, so any ComposableScreen element can declare motion. Schema mirrors `react-native-reanimated`: `preset` values are the **exact reanimated builder names** and modifier fields map to builder methods.
+  - **`transform`** (static): `{ translateX?, translateY?, scale?, scaleX?, scaleY?, rotate? (deg) }`.
+  - **`animation`**: `{ entering?, exiting?, layout?, effect? }`.
+    - `entering` / `exiting`: `{ preset, duration?, delay?, easing?, spring? }`. Entering presets: `FadeIn(Up/Down/Left/Right)`, `SlideIn(Up/Down/Left/Right)`, `ZoomIn(Rotate/Up/Down/Left/Right/EasyUp/EasyDown)`, `BounceIn(Up/Down/Left/Right)`, `FlipIn(XUp/YLeft/XDown/YRight/EasyX/EasyY)`, `StretchIn(X/Y)`, `RotateIn(DownLeft/DownRight/UpLeft/UpRight)`, `RollIn(Left/Right)`, `PinwheelIn`, `LightSpeedIn(Left/Right)`; exiting presets are the matching `…Out…` names.
+    - `layout`: `{ preset, duration?, spring? }` — `LinearTransition`, `FadingTransition`, `SequencedTransition`, `JumpingTransition`, `CurvedTransition`, `EntryExitTransition`.
+    - `effect` (continuous loop, not a reanimated builder name): `{ preset: "pulse" | "fade" | "rotate" | "shimmer" | "bounce", duration?, delay?, easing?, loop?, minScale?/maxScale? (pulse), minOpacity? (fade), degrees? (rotate) }`.
+  - `easing` (`"linear"` | `"ease-in"` | `"ease-out"` | `"ease-in-out"`) and `spring` (`{ damping?, stiffness?, mass? }`, mirrors `.springify(config)` and wins over `easing`). New exported types: `AnimationEasing`, `SpringConfig`, `EnteringPreset`, `ExitingPreset`, `LayoutPreset`, `EffectPreset`, `EnteringAnimation`, `ExitingAnimation`, `LayoutAnimation`, `ElementEffect`, `ElementAnimation`, `ElementTransform`.
+- **`TextSpan` extended** — inline rich-text spans gain `backgroundColor`, `opacity` (0–1), `textTransform` (`"none"` | `"uppercase"` | `"lowercase"` | `"capitalize"`), `textDecorationColor`, `textDecorationStyle` (`"solid"` | `"double"` | `"dotted"` | `"dashed"`), and `lineHeight`. All optional, inline-safe (animation/transform remain element-level only — spans are not UIElements).
+
+---
+
 ## [1.31.0] - 2026-06-01
 
 ### Added

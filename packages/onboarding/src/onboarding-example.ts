@@ -149,6 +149,10 @@ export const onboardingExample = {
                   height: 180,
                   resizeMode: "cover",
                   borderRadius: 16,
+                  // Slide + fade in on mount (reanimated builder name + modifiers).
+                  animation: {
+                    entering: { preset: "FadeInDown", duration: 500, delay: 100, easing: "ease-out" },
+                  },
                 },
               },
               {
@@ -161,6 +165,12 @@ export const onboardingExample = {
                   fill: "#007AFF",
                   fillOpacity: 0.2,
                   marginVertical: 8,
+                  // Static tilt + continuous breathing pulse.
+                  transform: { rotate: -8 },
+                  animation: {
+                    entering: { preset: "ZoomIn", duration: 400, spring: { damping: 10, stiffness: 160 } },
+                    effect: { preset: "pulse", duration: 1200, minScale: 0.92, maxScale: 1.08 },
+                  },
                 },
               },
               {

@@ -89,6 +89,14 @@ When introducing a new element type with a `defaultValue` / `defaultIndex`:
 1. Add a case in `elements/collectDefaults.ts` returning `{value, label?}`.
 2. If the element clamps/coerces the raw default at runtime (like `CarouselElementComponent.clampIndex`), mirror the same logic in `collectDefaults.ts` — otherwise the overlaid value disagrees with the rendered index.
 
+## Adding a container element (with `children`)
+
+Beyond the schema-mirror checklist in the root CLAUDE.md, a container needs its type added to the `parentType` union in **all 5** spots or tsc cascades (the `Renderer.tsx` `renderChildren` mismatch is the tell): `shared.ts` (`RenderContext.renderChildren`), `renderElement.tsx` (param + dispatch case), `StackElement.tsx` + `TextElement.tsx` (`Props.parentType`), and `Renderer.tsx` (the `renderChildren` impl). Children render via `ctx.renderChildren(children, "<Type>")`.
+
+**Restricting children to one element type** (e.g. `RichText` → Text-only): extract that variant's `z.object` into a named const (`TextUIElementSchema`) in **both** `types.ts` files, reference it in the union slot **and** `children: z.array(...)`; TS type is `children: Array<Extract<UIElement, { type: "X" }>>`. A non-matching child then fails parse with `invalid_union`.
+
+**Text-style inheritance from a `<View>` container** doesn't cascade in RN — publish the container's text props via a React context (`RichTextStyleContext` in `shared.ts`) and merge in `TextElementComponent` as `p.X ?? inherited.X` (child wins).
+
 ## iOS shadow needs no overflow clip
 
 A view with `overflow: hidden` (default for `Image`, gradient wrappers, many container styles) clips its own shadow on iOS, so the shadow renders invisible. For elements that want a shadow, build a wrapper View that carries `shadow*` + layout (no overflow clip) and let the inner content carry `borderRadius` + `overflow: hidden` for corner clipping. See `ImageElement.tsx` / `ButtonElement.tsx`. Also: when only `shadowColor` is set, default `shadowOpacity:1`, `shadowRadius:4` — iOS defaults opacity to 0 so a lone `shadowColor` does nothing.

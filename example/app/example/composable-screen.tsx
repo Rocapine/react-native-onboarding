@@ -78,6 +78,39 @@ export default function ComposableScreenExample() {
                 marginVertical: 8,
               },
             },
+            // Progress indicators — linear (autoplay loop) + circular (autoplay once)
+            {
+              id: 'progress-linear',
+              type: 'ProgressIndicator',
+              props: {
+                variant: 'linear' as const,
+                autoplay: true,
+                loop: true,
+                initialValue: 0,
+                duration: 2500,
+                easing: 'ease-in-out' as const,
+                thickness: 10,
+                showLabel: true,
+                marginVertical: 8,
+              },
+            },
+            {
+              id: 'progress-circular',
+              type: 'ProgressIndicator',
+              props: {
+                variant: 'circular' as const,
+                autoplay: true,
+                loop: false,
+                initialValue: 0,
+                duration: 1800,
+                delay: 500,
+                easing: 'ease-out' as const,
+                size: 120,
+                thickness: 12,
+                showLabel: true,
+                alignSelf: 'center' as const,
+              },
+            },
             // Video element
             {
               id: 'hero-video',

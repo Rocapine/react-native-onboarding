@@ -135,6 +135,10 @@ UI package optional peer deps (install only if using feature):
 
 ## Updating ComposableScreen UIElement Schema
 
+**Adding a prop to an existing element** is narrower than adding an element: edit only the headless element `*.ts` (type + Zod schema) and its UI mirror `*.tsx`. The `types.ts` UIElement union/schema is untouched — each variant references the element's props type, so new props flow through automatically.
+
+**Animated elements**: `react-native-reanimated` + `react-native-svg` are already available (precedent: `UI/Components/CircularProgress.tsx`) — don't add a peer dep for SVG/animation. Call reanimated hooks (`useAnimatedProps`/`useAnimatedStyle`) **unconditionally** — compute every variant's animated value before any `variant` branch, else rules-of-hooks breaks when the element switches shape.
+
 When adding/changing a `UIElement` type in either ComposableScreen `types.ts`, **always**:
 
 1. **Update `packages/onboarding/src/onboarding-example.ts`** — add/update example step exercising the new/changed element type so default onboarding stays in sync with schema.

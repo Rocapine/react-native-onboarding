@@ -39,6 +39,12 @@ Every styled UIElement (`Button`, `RadioGroup`, `CheckboxGroup`, `Input`, `Wheel
 - `itemColor` (defaults to `theme.colors.text.primary`)
 - `itemFontSize`, `itemFontFamily` (iOS `itemStyle`)
 
+`ProgressIndicator` (`variant: "linear" | "circular"`):
+- `color` (progress fill; defaults to `theme.colors.primary`), `trackColor` (defaults to `theme.colors.neutral.lower`)
+- `thickness` (bar height / ring stroke width), `size` (circular diameter px; default `120`)
+- `showLabel`, `labelColor` (defaults to `theme.colors.text.primary`)
+- value source: static `value` (0–100), bound `variableName`, or `autoplay`/`loop`/`initialValue`/`duration`/`easing` animation
+
 `Text`:
 - `fontFamily`, `fontSize`, `fontWeight`, `fontStyle`, `color`, `lineHeight`, `letterSpacing`, `textAlign`
 

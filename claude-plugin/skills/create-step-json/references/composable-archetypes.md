@@ -75,7 +75,7 @@ Common touches: stagger a list of cards by bumping `entering.delay` per item (`1
 Two ways to mix styles across fragments:
 
 - **Inline spans** (simplest): set `Text.content` to an array of `{ text, fontWeight?, color?, … }` spans. Fragments wrap on one baseline; omitted props inherit from the parent `Text`. Spans are nested `<Text>` — text-style only (no box styling), no `renderWhen`, no per-span `expression`.
-- **`RichText` container**: a wrapping flex row of full `Text` children (Text-only). Plain-text children **auto-split into one item per word**, so text wraps word-by-word and chips flow inline with it (the classic "Boost your `[energy]`" marketing-title pattern). A child with box styling (`backgroundColor` / `borderRadius` / `border` / `padding`) or motion stays an atomic **chip** that honors those props — `padding`, `borderRadius`, `transform` for padded/rounded/rotated pills. Children keep `renderWhen` / `expression`. `RichText.props` are layout props (`alignItems` incl. `"baseline"`, `justifyContent`, `flexWrap` default `"wrap"`) + `BaseBoxProps` + inherited text-style defaults — set base typography (`fontSize`, `fontWeight`, `color`, …) **once** on the container, children inherit it. **Don't set `gap`** (split preserves spaces as items → double-spacing); give chips `marginHorizontal`.
+- **`RichText` container**: a wrapping flex row of full `Text` children (Text-only). Plain-text children **auto-split into one item per word**, so text wraps word-by-word and chips flow inline with it (the classic "Boost your `[energy]`" marketing-title pattern). A child with box styling (`backgroundColor` / `borderRadius` / `border` / `padding`) or motion stays an atomic **chip** that honors those props — `padding`, `borderRadius`, `transform` for padded/rounded/rotated pills. Children keep `renderWhen` / `expression`. `RichText.props` are layout props (`alignItems` incl. `"baseline"`, `justifyContent`, `flexWrap` default `"wrap"`) + `BaseBoxProps` + inherited text-style defaults — set base typography (`fontSize`, `fontWeight`, `color`, …) **once** on the container, children inherit it. `textAlign` (`left`/`center`/`right`) is inherited by children **and** aligns the wrapping row itself (maps to the row's `justifyContent` when `justifyContent` isn't set explicitly), so a centered title needs only `textAlign: "center"`. **Don't set `gap`** (split preserves spaces as items → double-spacing); give chips `marginHorizontal`.
 
 ```json
 {
@@ -561,7 +561,7 @@ Signature-style: title + 3 commitment checkboxes (forced-tap) + big CTA.
 | `SafeAreaView` | — | `edges: ["top","bottom"]` or modes; never `"always"` |
 | `YStack` / `XStack` / `ZStack` | — | `children` at element top-level |
 | `Text` | `content` | `mode: "expression"` to interpolate `{{var}}`; set `fontFamily`, `fontSize`, `fontWeight`, `color` from Design Profile |
-| `Image` | `url` (string) | NOT `source.uri` |
+| `Image` | `url` (string) | NOT `source.uri`. WebP/AVIF decode via `expo-image` when installed (falls back to RN `Image`); `.svg` URLs auto-render via `react-native-svg` (`resizeMode`→`preserveAspectRatio`) — no schema change |
 | `Lottie` | `source` (string URL) | |
 | `Rive` | `url` (string URL) | |
 | `Input` | — | `variableName`, `keyboardType`, `autoCapitalize`, `maxLength`, `textAlign`. No `suffix`/`autoFocus`. |

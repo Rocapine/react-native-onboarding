@@ -18,6 +18,8 @@ export type ScrollViewElementProps = BaseBoxProps & {
   contentInset?: ScrollViewContentInset;
   contentContainerPadding?: number;
   keyboardShouldPersistTaps?: "always" | "never" | "handled";
+  alignItems?: "flex-start" | "center" | "flex-end" | "stretch" | "baseline";
+  justifyContent?: "flex-start" | "center" | "flex-end" | "space-between" | "space-around";
 };
 
 const ContentInsetSchema = z.object({
@@ -37,4 +39,6 @@ export const ScrollViewElementPropsSchema = BaseBoxPropsSchema.extend({
   contentInset: ContentInsetSchema.optional(),
   contentContainerPadding: z.number().min(0).optional(),
   keyboardShouldPersistTaps: z.enum(["always", "never", "handled"]).optional(),
+  alignItems: z.enum(["flex-start", "center", "flex-end", "stretch", "baseline"]).optional(),
+  justifyContent: z.enum(["flex-start", "center", "flex-end", "space-between", "space-around"]).optional(),
 });

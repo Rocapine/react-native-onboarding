@@ -1,10 +1,21 @@
 import React from "react";
 import { z } from "zod";
-import { Image, View } from "react-native";
+import { Image as RNImage, View } from "react-native";
+import { SvgUri } from "react-native-svg";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
 import { RenderContext, buildShadowStyle, dim } from "./shared";
 import { GradientBox } from "./GradientBox";
+
+// expo-image decodes webp/avif reliably across platforms (RN's built-in Image is
+// flaky for webp on iOS). Optional peer dep — fall back to RN Image when absent,
+// mirroring GradientBox's expo-linear-gradient handling.
+let ExpoImage: React.ComponentType<any> | null = null;
+try {
+  ExpoImage = require("expo-image").Image;
+} catch {
+  // expo-image not installed — RN Image fallback below
+}
 
 export type ImageElementProps = BaseBoxProps & {
   url: string;
@@ -18,6 +29,39 @@ export const ImageElementPropsSchema = BaseBoxPropsSchema.extend({
   resizeMode: z.enum(["cover", "contain", "stretch", "center"]).optional(),
 });
 
+type ResizeMode = "cover" | "contain" | "stretch" | "center";
+
+// RN resizeMode → expo-image contentFit.
+const CONTENT_FIT: Record<ResizeMode, "cover" | "contain" | "fill" | "none"> = {
+  cover: "cover",
+  contain: "contain",
+  stretch: "fill",
+  center: "none",
+};
+
+// RN resizeMode → SVG preserveAspectRatio (SvgUri has no resizeMode).
+const SVG_ASPECT: Record<ResizeMode, string> = {
+  cover: "xMidYMid slice",
+  contain: "xMidYMid meet",
+  center: "xMidYMid meet",
+  stretch: "none",
+};
+
+// SVGs need react-native-svg's SvgUri — RN/expo Image can't decode SVG XML. Auto
+// -detected by file extension (query-string / hash tolerant) so existing payloads
+// with `.svg` URLs just work, no schema change.
+const isSvgUrl = (url: string): boolean =>
+  url.split(/[?#]/)[0].toLowerCase().endsWith(".svg");
+
+// Pick expo-image when installed (better webp/avif), else RN Image. resizeMode
+// passes through unchanged on RN; maps to contentFit on expo-image.
+const renderRaster = (url: string, resizeMode: ResizeMode | undefined, style: any): React.ReactElement =>
+  ExpoImage ? (
+    <ExpoImage source={url} contentFit={CONTENT_FIT[resizeMode ?? "cover"]} style={style} />
+  ) : (
+    <RNImage source={{ uri: url }} resizeMode={resizeMode} style={style} />
+  );
+
 type ImageUIElement = Extract<UIElement, { type: "Image" }>;
 
 type Props = {
@@ -27,6 +71,7 @@ type Props = {
 
 export const ImageElementComponent = ({ element }: Props): React.ReactElement => {
   const p = element.props;
+  const isSvg = isSvgUrl(p.url);
   const hasShadow = p.shadowColor != null || p.elevation != null;
   // iOS clips shadows when overflow:hidden, so a shadow-bearing Image needs a
   // wrapper View carrying the shadow (no overflow clip) and the Image inside
@@ -58,17 +103,21 @@ export const ImageElementComponent = ({ element }: Props): React.ReactElement =>
       paddingVertical: p.paddingVertical,
       ...(shadowStyle ?? {}),
     };
-    const innerImage = (
-      <Image
-        source={{ uri: p.url }}
-        resizeMode={p.resizeMode}
-        style={{
-          width: "100%",
-          height: "100%",
-          borderRadius: p.borderRadius,
-          overflow: (p.overflow ?? "hidden") as any,
-        }}
+    // Inner content fills the wrapper (which carries layout + corner clip).
+    const innerImage = isSvg ? (
+      <SvgUri
+        uri={p.url}
+        width="100%"
+        height="100%"
+        preserveAspectRatio={SVG_ASPECT[p.resizeMode ?? "contain"]}
       />
+    ) : (
+      renderRaster(p.url, p.resizeMode, {
+        width: "100%",
+        height: "100%",
+        borderRadius: p.borderRadius,
+        overflow: (p.overflow ?? "hidden") as any,
+      })
     );
     if (p.backgroundGradient) {
       return (
@@ -80,35 +129,46 @@ export const ImageElementComponent = ({ element }: Props): React.ReactElement =>
     return <View style={wrapperStyle as any}>{innerImage}</View>;
   }
 
-  return (
-    <Image
-      source={{ uri: p.url }}
-      resizeMode={p.resizeMode}
-      style={({
-        flex: p.flex,
-        flexShrink: p.flexShrink,
-        flexGrow: p.flexGrow,
-        alignSelf: p.alignSelf,
-        aspectRatio: p.aspectRatio,
-        width: dim(p.width),
-        height: dim(p.height),
-        minWidth: p.minWidth,
-        maxWidth: p.maxWidth,
-        minHeight: p.minHeight,
-        maxHeight: p.maxHeight,
-        backgroundColor: p.backgroundColor,
-        overflow: p.overflow,
-        borderRadius: p.borderRadius,
-        borderWidth: p.borderWidth,
-        borderColor: p.borderColor,
-        opacity: p.opacity,
-        margin: p.margin,
-        marginHorizontal: p.marginHorizontal,
-        marginVertical: p.marginVertical,
-        padding: p.padding,
-        paddingHorizontal: p.paddingHorizontal,
-        paddingVertical: p.paddingVertical,
-      }) as any}
-    />
-  );
+  const simpleStyle = {
+    flex: p.flex,
+    flexShrink: p.flexShrink,
+    flexGrow: p.flexGrow,
+    alignSelf: p.alignSelf,
+    aspectRatio: p.aspectRatio,
+    width: dim(p.width),
+    height: dim(p.height),
+    minWidth: p.minWidth,
+    maxWidth: p.maxWidth,
+    minHeight: p.minHeight,
+    maxHeight: p.maxHeight,
+    backgroundColor: p.backgroundColor,
+    overflow: p.overflow,
+    borderRadius: p.borderRadius,
+    borderWidth: p.borderWidth,
+    borderColor: p.borderColor,
+    opacity: p.opacity,
+    margin: p.margin,
+    marginHorizontal: p.marginHorizontal,
+    marginVertical: p.marginVertical,
+    padding: p.padding,
+    paddingHorizontal: p.paddingHorizontal,
+    paddingVertical: p.paddingVertical,
+  } as any;
+
+  // SvgUri can't carry the full RN layout style itself, so wrap it in a View that
+  // does, and let the SVG fill it.
+  if (isSvg) {
+    return (
+      <View style={simpleStyle}>
+        <SvgUri
+          uri={p.url}
+          width="100%"
+          height="100%"
+          preserveAspectRatio={SVG_ASPECT[p.resizeMode ?? "contain"]}
+        />
+      </View>
+    );
+  }
+
+  return renderRaster(p.url, p.resizeMode, simpleStyle);
 };

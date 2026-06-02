@@ -9,6 +9,19 @@ here.
 
 ---
 
+## [1.34.0] - 2026-06-02
+
+### Added
+- **WebP / AVIF image support** — the `Image` element now renders via `expo-image` when installed (new **optional** peer dep), falling back to React Native's `Image` when absent (same try/require pattern as `GradientBox` / `expo-linear-gradient`). RN's built-in `Image` is unreliable for WebP on iOS; `expo-image` decodes WebP/AVIF reliably cross-platform. `resizeMode` maps to expo-image `contentFit` (`cover`/`contain` pass through, `stretch`→`fill`, `center`→`none`).
+- **SVG image support** — the `Image` element auto-detects URLs whose path ends in `.svg` (query-string / hash tolerant) and renders them with `react-native-svg`'s `SvgUri` (already a dependency). No schema change — existing payloads with `.svg` URLs just work. `resizeMode` maps to SVG `preserveAspectRatio` (`cover`→`xMidYMid slice`, `contain`/`center`→`xMidYMid meet`, `stretch`→`none`).
+- **`ScrollView` element `alignItems` / `justifyContent`** — renders the new optional `ScrollView` props (see headless `1.34.0`) on the scroll content container for cross-axis alignment + distribution along the scroll axis.
+
+### Fixed
+- **Horizontal `ScrollView` no longer "stuck" / unscrollable** — children of a horizontal `ScrollView` were rendered with `parentType` `"XStack"`, which applied a `flexShrink: 1` default, so fixed-width cards shrank to fit the viewport instead of overflowing (the row couldn't scroll). Horizontal scroll content now renders with a dedicated `"XScroll"` `parentType` (row layout, **no** `flexShrink` default) and drops `flexGrow: 1` from its content container, so children keep their intrinsic width and the row scrolls. (Vertical `ScrollView` keeps `flexGrow: 1` so a short payload still fills the viewport.)
+- **`RichText` `textAlign` now aligns the wrapping row** — `textAlign` was published to child `Text` elements via `RichTextStyleContext` but had no visible effect on the row itself (each word is a shrink-wrapped flex item, so `textAlign` is a no-op there); the row's horizontal distribution is governed by `justifyContent`, which defaulted to `"center"`. `textAlign` now maps onto the row's `justifyContent` when `justifyContent` isn't set explicitly (`left`→`flex-start`, `center`→`center`, `right`→`flex-end`).
+
+---
+
 ## [1.33.0] - 2026-06-01
 
 ### Added

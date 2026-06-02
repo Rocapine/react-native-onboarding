@@ -68,6 +68,29 @@ export default function ComposableScreenExample() {
                 },
               },
             },
+            // SVG image — rendered via react-native-svg SvgUri (URL ends in .svg)
+            {
+              id: 'svg-demo',
+              type: 'Image' as const,
+              props: {
+                url: 'https://upload.wikimedia.org/wikipedia/commons/0/02/SVG_logo.svg',
+                width: 80,
+                height: 80,
+                resizeMode: 'contain' as const,
+              },
+            },
+            // WebP image — rendered via expo-image
+            {
+              id: 'webp-demo',
+              type: 'Image' as const,
+              props: {
+                url: 'https://www.gstatic.com/webp/gallery/1.webp',
+                width: '100%',
+                aspectRatio: 1.5,
+                resizeMode: 'cover' as const,
+                borderRadius: 12,
+              },
+            },
             // Icon element (filled) — static tilt + continuous breathing pulse
             {
               id: 'hero-icon',
@@ -231,6 +254,20 @@ export default function ComposableScreenExample() {
                 },
               ],
             },
+            // Left-aligned RichText — demonstrates the textAlign fix.
+            {
+              id: 'richtext-left-demo',
+              type: 'RichText' as const,
+              props: {
+                textAlign: 'left' as const,
+                fontSize: 18,
+                marginVertical: 4,
+              },
+              children: [
+                { id: 'rt-left-1', type: 'Text' as const, props: { content: 'Left aligned' } },
+                { id: 'rt-left-2', type: 'Text' as const, props: { content: 'rich text' } },
+              ],
+            },
             // Horizontal ScrollView demo — swipeable row of cards.
             {
               id: 'scroll-demo',
@@ -239,6 +276,7 @@ export default function ComposableScreenExample() {
                 horizontal: true,
                 showsHorizontalScrollIndicator: false,
                 contentContainerPadding: 4,
+                alignItems: 'center' as const,
               },
               children: [
                 {

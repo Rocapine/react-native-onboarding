@@ -24,7 +24,7 @@ type StackUIElement = Extract<UIElement, { type: "YStack" | "XStack" }>;
 type Props = {
   element: StackUIElement;
   ctx: RenderContext;
-  parentType?: "XStack" | "YStack" | "ZStack" | "RichText";
+  parentType?: "XStack" | "YStack" | "ZStack" | "RichText" | "XScroll";
 };
 
 export const StackElementComponent = ({ element, ctx, parentType }: Props): React.ReactElement => {

@@ -118,7 +118,7 @@ type TextUIElement = Extract<UIElement, { type: "Text" }>;
 type Props = {
   element: TextUIElement;
   ctx: RenderContext;
-  parentType?: "XStack" | "YStack" | "ZStack" | "RichText";
+  parentType?: "XStack" | "YStack" | "ZStack" | "RichText" | "XScroll";
 };
 
 export const TextElementComponent = ({ element, ctx, parentType }: Props): React.ReactElement => {

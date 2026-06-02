@@ -28,7 +28,7 @@ import { AnimatedBox } from "./AnimatedBox";
 export const renderElement = (
   element: UIElement,
   ctx: RenderContext,
-  parentType?: "XStack" | "YStack" | "ZStack" | "RichText"
+  parentType?: "XStack" | "YStack" | "ZStack" | "RichText" | "XScroll"
 ): React.ReactNode => {
   if (element.renderWhen) {
     const flatVars = Object.fromEntries(

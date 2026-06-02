@@ -97,8 +97,8 @@ export const CheckboxGroupComponent = ({ element, ctx }: Props): React.ReactElem
   }, [element.props.variableName, element.props.defaultValues, element.props.items, selectedValues]);
 
   const handleToggle = (value: string, label: string) => {
-    triggerHaptic(element.props.haptic);
     if (!element.props.variableName) return;
+    triggerHaptic(element.props.haptic);
     const current: string[] = selectedValues ?? [];
     const next = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
     const nextLabels = next.map((v) => element.props.items.find((i) => i.value === v)?.label ?? v);

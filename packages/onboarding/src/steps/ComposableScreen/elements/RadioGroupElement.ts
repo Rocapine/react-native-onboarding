@@ -5,7 +5,7 @@ import { type HapticStyle, HapticStyleSchema } from "../../common.types";
 export type RadioGroupElementProps = BaseBoxProps & {
   variableName?: string;
   defaultValue?: string;
-  /** Tactile feedback fired on selection. Maps to expo-haptics ImpactFeedbackStyle. Opt-in; no-op without expo-haptics. */
+  /** Tactile feedback fired on press, before the selection commits. Maps to expo-haptics ImpactFeedbackStyle. Opt-in; no-op without expo-haptics. */
   haptic?: HapticStyle;
   gap?: number;
   direction?: "vertical" | "horizontal";

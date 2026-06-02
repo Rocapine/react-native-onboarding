@@ -5,7 +5,7 @@ import { type HapticStyle, HapticStyleSchema } from "../../common.types";
 export type CheckboxGroupElementProps = BaseBoxProps & {
   variableName?: string;
   defaultValues?: string[];
-  /** Tactile feedback fired on toggle. Maps to expo-haptics ImpactFeedbackStyle. Opt-in; no-op without expo-haptics. */
+  /** Tactile feedback fired on press, before the toggle commits. Maps to expo-haptics ImpactFeedbackStyle. Opt-in; no-op without expo-haptics. */
   haptic?: HapticStyle;
   gap?: number;
   direction?: "vertical" | "horizontal";

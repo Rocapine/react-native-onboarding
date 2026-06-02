@@ -85,8 +85,8 @@ export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement
   }, [element.props.variableName, element.props.defaultValue, element.props.items, selectedValue]);
 
   const handleSelect = (value: string, label: string) => {
-    triggerHaptic(element.props.haptic);
     if (element.props.variableName) {
+      triggerHaptic(element.props.haptic);
       setVariable(element.props.variableName, { value, label });
     }
   };

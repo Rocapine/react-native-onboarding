@@ -9,6 +9,14 @@ paths:
 
 Every UIElement renderer that wraps content builds `containerStyle` from `BaseBoxProps`: `alignSelf`, `flex`, `flexShrink/Grow`, `width` (via `dim()`), `height` (via `dim()`), `min/maxWidth/Height`, `margin*`, `padding*`, `borderRadius/Width/Color`, `backgroundColor` (only when no `backgroundGradient`), `opacity`, `overflow`. Apply to outermost wrapper (`GradientBox` or `View`). Missing fields = user can't control that aspect from CMS payload.
 
+## `parentType` flexShrink + `XScroll`
+
+`parentType` controls the `flexShrink: 1` default applied to children of a row (`XStack`) in `StackElement`/`TextElement`/`RichTextElement`. Horizontal `ScrollView` passes `"XScroll"` instead (row layout, **no** flexShrink default) + drops `flexGrow:1` from its content container, so scroll children keep intrinsic width and overflow — else fixed-width cards shrink to the viewport and the row can't scroll. parentType union is now `XStack|YStack|ZStack|RichText|XScroll` (6 spots — see container rule below).
+
+## ImageElement: webp + svg
+
+`ImageElement` renders `.svg` URLs (path-extension auto-detect, query/hash tolerant) via `react-native-svg` `SvgUri`, and rasters via `expo-image` (optional peer dep) when installed — falls back to RN `Image`. `resizeMode` maps to `contentFit` (expo-image) / `preserveAspectRatio` (svg). No schema change for either.
+
 ## Motion: animation / transform (BaseBoxProps)
 
 `animation` (`entering`/`exiting`/`layout`/`effect`) + `transform` live on `BaseBoxProps`, so every element inherits them. A single `AnimatedBox` wrapper injected in `renderElement` (only when `animation`/`transform` present) applies them for all 15 types — **don't** convert individual element roots to `Animated.View`. It forwards `flex`/`alignSelf` so the wrapper stays layout-transparent.
@@ -22,6 +30,8 @@ Rich-text `TextSpan` (Text element's `content[]`) renders as inline nested `<Tex
 The **element-level** alternative is the `RichText` container (`RichTextElement.tsx`): a **wrapping flex row `<View>`** (`flexDirection:"row"`, `flexWrap` default `"wrap"`) whose `children` (Text-only) render via `renderElement`. Because each child `Text` is a real flex child of a `<View>` — **not** a nested `<Text>` — it honors its own box props (`padding`, `borderRadius`, `borderWidth`, `backgroundColor`, `margin`, `transform`), so words + padded/rounded/rotated chips wrap and align together (mirrors the Tamagui `XStack flexWrap="wrap"` of `<Text>`/chip pattern in host apps). Children keep `renderWhen` / `expression`, and — unlike inline spans — **may** use `animation`/`transform` (the `AnimatedBox` `View` wrapper is valid inside the row). Children are Text-only at the schema level (`children: z.array(TextUIElementSchema)`). This is distinct from inline `TextSpan` (one wrapping paragraph, text-style only).
 
 **Inherited text style:** a `<View>` doesn't propagate text style to nested `<Text>`, so RichText's text-style props (`fontSize`/`color`/`textAlign`/etc.) are published via `RichTextStyleContext` (in `shared.ts`); `TextElementComponent` reads it with `useContext` and merges each field as `p.X ?? inherited.X` (child wins). Empty default `{}` → Text outside a RichText is unchanged. So container typography is declared once and children inherit — don't expect View-level text style to cascade on its own.
+
+**`textAlign` also sets row alignment:** since each word becomes its own shrink-wrapped flex item, `textAlign` is a no-op on the row itself — so RichText maps `textAlign` onto the row's `justifyContent` when `justifyContent` is unset (`left→flex-start`, `center→center`, `right→flex-end`).
 
 **Word-splitting (why a multi-word child wraps):** a flex row wraps between *items*, not inside them — so a single multi-word `Text` child would drop to its own line as one block (chip stranded above). RichText fixes this by expanding each **flowing-text** child (`isFlowingText`: plain string content, no box styling / motion) into one inline `<Text>` per `split(/(\s+)/)` token (words **and** spaces preserved), so text wraps word-by-word like `parseTitleWithChips` in host apps. **Chips** (children with `backgroundColor`/`borderRadius`/`border`/`padding`/`margin`/explicit size/`animation`/`transform`) stay atomic — anything that would be wrongly applied per-word forces atomic. Consequences: don't set `gap` when relying on split spacing (it double-spaces — spaces are real items); give chips `marginHorizontal` for breathing room; `renderWhen` is evaluated once per source child before splitting (words then render unconditionally), and `expression` is interpolated before the split.
 

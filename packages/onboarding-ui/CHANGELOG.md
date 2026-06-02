@@ -19,6 +19,13 @@ here.
 
 ---
 
+## [1.34.1] - 2026-06-02
+
+### Fixed
+- **`ProgressIndicator` resetting after it finishes** — `useAnimatedReaction` was created without a dependency array, so reanimated 4 tore down and rebuilt the mapper on every render. A looping `showLabel` indicator re-renders ~40×/s indefinitely (one `setPercentage` per frame), churning `startMapper`/`stopMapper` on the UI-thread scheduler and destabilizing other running animations on the same screen — the "autoplay once" indicator would occasionally snap back to its initial value after completing. The reaction is now keyed on `[showLabel, writesVariable, variableName]` so the mapper stays stable across renders (this also keeps `prev` alive, restoring the `rounded === prev` over-fire guard).
+
+---
+
 ## [1.34.0] - 2026-06-02
 
 ### Added

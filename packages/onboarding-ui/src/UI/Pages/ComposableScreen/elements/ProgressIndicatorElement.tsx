@@ -105,13 +105,24 @@ export const ProgressIndicatorElementComponent = ({ element, ctx }: Props): Reac
     }
   };
   const writesVariable = autoplay && !!variableName;
+  // The dependency array is REQUIRED. Without it reanimated tears down and
+  // rebuilds this mapper on EVERY render. A looping `showLabel` indicator
+  // re-renders ~40×/s forever (one setPercentage per frame), so its mapper would
+  // be start/stopped ~40×/s indefinitely — perpetual churn on the UI-thread mapper
+  // scheduler that destabilizes *other* running animations on the same screen
+  // (they visibly reset mid/after a sweep — "finishes then resets for no reason").
+  // Recreating also resets `prev` to undefined, defeating the `rounded === prev`
+  // guard so the JS callbacks over-fire. Keying on the values the worklet branches
+  // on keeps the mapper stable; the JS fns it calls (setPercentage, setVariable via
+  // writeVariable) are already stable across renders.
   useAnimatedReaction(
     () => Math.round(progress.value),
     (rounded, prev) => {
       if (rounded === prev) return;
       if (showLabel) runOnJS(setPercentage)(rounded);
       if (writesVariable) runOnJS(writeVariable)(rounded);
-    }
+    },
+    [showLabel, writesVariable, variableName]
   );
 
   // Autoplay: animate initialValue -> 100, optionally looping, after `delay`.

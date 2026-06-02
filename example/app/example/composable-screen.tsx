@@ -91,6 +91,19 @@ export default function ComposableScreenExample() {
                 borderRadius: 12,
               },
             },
+            // Second WebP image (landscape) — also via expo-image
+            {
+              id: 'webp-demo-2',
+              type: 'Image' as const,
+              props: {
+                url: 'https://www.gstatic.com/webp/gallery/4.webp',
+                width: '100%',
+                aspectRatio: 16 / 9,
+                resizeMode: 'cover' as const,
+                borderRadius: 12,
+                marginVertical: 8,
+              },
+            },
             // Icon element (filled) — static tilt + continuous breathing pulse
             {
               id: 'hero-icon',

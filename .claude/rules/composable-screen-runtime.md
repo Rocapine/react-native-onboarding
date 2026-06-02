@@ -23,6 +23,10 @@ Every UIElement renderer that wraps content builds `containerStyle` from `BaseBo
 
 `buildAnimation.ts` resolves reanimated builders **by name** (`Reanimated[preset]`) — the schema `preset` string IS the exact reanimated builder name; unknown preset → no-op (forward-compat). Shared `EASING_MAP` lives here (imported by `ProgressIndicatorElement`) — don't re-declare it.
 
+## `useAnimatedReaction` needs an explicit deps array
+
+Reanimated 4 rebuilds the mapper on **every render** when `useAnimatedReaction` is called with no 3rd-arg deps. An element that re-renders continuously (e.g. `ProgressIndicator` with `showLabel`+`loop` firing `setPercentage` per frame) then start/stops its mapper ~40×/s forever — churn on the UI-thread mapper scheduler that destabilizes *other* running animations on the screen (they visibly reset mid/after a sweep). Always pass an explicit deps array of the JS values the reaction branches on. Recreating also resets the `prev` arg to `undefined`, defeating any `rounded === prev` over-fire guard.
+
 ## TextSpan is not a UIElement
 
 Rich-text `TextSpan` (Text element's `content[]`) renders as inline nested `<Text>` (`RichTextSpan`), bypassing `renderElement` — so **no `animation`/`transform`/`effect` on spans** (and RN ignores `transform` on inline nested Text regardless). Animated/rotating text = a standalone `Text` element. Spans take only inline text-style props (font*, color, backgroundColor, opacity, textTransform, textDecoration*, letterSpacing, lineHeight).

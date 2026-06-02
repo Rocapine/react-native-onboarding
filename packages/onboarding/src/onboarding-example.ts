@@ -177,6 +177,18 @@ export const onboardingExample = {
                 },
               },
               {
+                id: "webp-demo-2",
+                type: "Image",
+                props: {
+                  url: "https://www.gstatic.com/webp/gallery/4.webp",
+                  width: "100%",
+                  aspectRatio: 16 / 9,
+                  resizeMode: "cover",
+                  borderRadius: 12,
+                  marginVertical: 8,
+                },
+              },
+              {
                 id: "hero-icon",
                 type: "Icon",
                 props: {

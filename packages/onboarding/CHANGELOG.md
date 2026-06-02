@@ -8,6 +8,13 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.34.1] - 2026-06-02
+
+### Changed
+- **Example onboarding** — added a second WebP image (landscape, 16:9) to the default onboarding's first composable screen, alongside the existing portrait WebP. No schema or API change.
+
+---
+
 ## [1.34.0] - 2026-06-02
 
 ### Added

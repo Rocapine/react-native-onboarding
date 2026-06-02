@@ -8,6 +8,13 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.35.0] - 2026-06-02
+
+### Added
+- **`haptic` prop on `Button`, `RadioGroup`, `CheckboxGroup` ComposableScreen elements** — optional enum `"none" | "light" | "medium" | "heavy" | "soft" | "rigid"` mapping to expo-haptics `ImpactFeedbackStyle`. Opt-in: absent or `"none"` = no feedback, so existing onboardings are unchanged. Backed by the shared `HapticStyle` type + `HapticStyleSchema` enum in `steps/common.types.ts`.
+
+---
+
 ## [1.34.0] - 2026-06-02
 
 ### Added

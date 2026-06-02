@@ -47,6 +47,7 @@ Run: `npx tsx scripts/_validate-composable.ts "$(cat step.json)"`
    - `Button.props.actions` is an array; entries are `"continue"` or `{type:"custom",function,variables?}` or `{type:"setVariable",name,value,valueMode?}` (note: setVariable may not be in headless schema yet — check)
    - `Button.props.disabledWhen` (NOT `disabled`) is a valid `LeafCondition` or `ConditionGroup`
    - `Button.props.pressedStyle` / `disabledStyle` (if present) are objects — `Partial` of overridable Button props; must NOT nest `pressedStyle`/`disabledStyle`. `transitionDurationMs` is a non-negative number.
+   - `haptic` on `Button` / `RadioGroup` / `CheckboxGroup` (if present) is one of `"none"|"light"|"medium"|"heavy"|"soft"|"rigid"` — any other value is a schema error. Optional + opt-in; needs the optional `expo-haptics` peer dep at runtime (no-op without it)
    - Shadow fields (any element): `shadowColor` string; `shadowOffset` is `{width, height}` (NOT a number); `shadowOpacity` 0–1; `shadowRadius`/`elevation` non-negative numbers
    - `transform` (any element, optional): object with any of `translateX`/`translateY`/`scale`/`scaleX`/`scaleY`/`rotate` — all numbers (`rotate` in degrees). No other keys.
    - `animation` (any element, optional): object `{ entering?, exiting?, layout?, effect? }`.

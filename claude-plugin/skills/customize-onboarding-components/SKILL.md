@@ -22,6 +22,7 @@ Every styled UIElement (`Button`, `RadioGroup`, `CheckboxGroup`, `Input`, `Wheel
 - `shadowColor`, `shadowOffset: {width,height}`, `shadowOpacity`, `shadowRadius`, `elevation`
 - `pressedStyle`, `disabledStyle` (Partial overrides merged per state), `transitionDurationMs`
 - `disabledWhen`; `disabledBackgroundColor` / `disabledColor` (deprecated — prefer `disabledStyle`)
+- `haptic: "none" | "light" | "medium" | "heavy" | "soft" | "rigid"` — tactile feedback on press (opt-in; needs optional `expo-haptics`)
 
 `RadioGroup` / `CheckboxGroup`:
 - `itemBackgroundColor`, `itemSelectedBackgroundColor`
@@ -30,6 +31,7 @@ Every styled UIElement (`Button`, `RadioGroup`, `CheckboxGroup`, `Input`, `Wheel
 - `itemFontFamily`, `itemFontSize`, `itemFontWeight`, `itemFontStyle`
 - `itemPadding`, `itemPaddingVertical`, `itemPaddingHorizontal`
 - `showTick` — show/hide the radio circle (checkbox box) indicator. Default: `true`
+- `haptic: "none" | "light" | "medium" | "heavy" | "soft" | "rigid"` — tactile feedback on select/toggle (opt-in; needs optional `expo-haptics`)
 
 `Input`:
 - `backgroundColor`, `color`, `placeholderColor`, `borderRadius`

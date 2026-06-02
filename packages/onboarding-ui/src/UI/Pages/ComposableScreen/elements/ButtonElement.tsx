@@ -16,6 +16,7 @@ import { RenderContext, buildShadowStyle, dim, resolveInheritedFontFamily } from
 import { GradientBox } from "./GradientBox";
 import { ComposableVariableEntry } from "../../../Provider/OnboardingProgressProvider";
 import { evaluateSetVariableExpression } from "./expression";
+import { triggerHaptic, type HapticStyle } from "./haptics";
 
 export type CustomButtonAction = {
   type: "custom";
@@ -101,6 +102,7 @@ export type ButtonElementProps = BaseBoxProps & {
   pressedStyle?: ButtonStyleOverride;
   disabledStyle?: ButtonStyleOverride;
   transitionDurationMs?: number;
+  haptic?: HapticStyle;
 };
 
 export const ButtonStyleOverrideSchema = BaseBoxPropsSchema.extend({
@@ -132,6 +134,7 @@ export const ButtonElementPropsSchema = BaseBoxPropsSchema.extend({
   pressedStyle: ButtonStyleOverrideSchema.optional(),
   disabledStyle: ButtonStyleOverrideSchema.optional(),
   transitionDurationMs: z.number().min(0).optional(),
+  haptic: z.enum(["none", "light", "medium", "heavy", "soft", "rigid"]).optional(),
 });
 
 type ButtonUIElement = Extract<UIElement, { type: "Button" }>;
@@ -157,6 +160,7 @@ export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElem
 
   const handlePress = async () => {
     if (isDisabled) return;
+    triggerHaptic(element.props.haptic);
     const { actions, action } = element.props;
     const effective: ButtonAction[] =
       actions ?? (action === "continue" ? ["continue"] : []);

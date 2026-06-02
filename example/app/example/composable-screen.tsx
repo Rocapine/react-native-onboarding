@@ -461,6 +461,7 @@ export default function ComposableScreenExample() {
               props: {
                 variableName: 'plan',
                 defaultValue: 'monthly',
+                haptic: 'light' as const,
                 showTick: true,
                 gap: 8,
                 marginVertical: 8,
@@ -491,6 +492,7 @@ export default function ComposableScreenExample() {
               props: {
                 variableName: 'goals',
                 defaultValues: ['health', 'fitness'],
+                haptic: 'light' as const,
                 showTick: false,
                 gap: 8,
                 marginVertical: 8,
@@ -662,6 +664,7 @@ export default function ComposableScreenExample() {
                 label: 'Get Started',
                 variant: 'filled' as const,
                 marginVertical: 8,
+                haptic: 'medium' as const,
                 actions: [
                   { type: 'custom' as const, function: 'trackCta', variables: ['name', 'plan', 'goals'] },
                   'continue' as const,

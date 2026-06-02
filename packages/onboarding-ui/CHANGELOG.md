@@ -9,6 +9,16 @@ here.
 
 ---
 
+## [1.35.0] - 2026-06-02
+
+### Added
+- **Haptic feedback on clickable ComposableScreen elements** — `Button`, `RadioGroup`, and `CheckboxGroup` renderers fire tactile feedback on press / select / toggle when their new `haptic` prop is set (`"light" | "medium" | "heavy" | "soft" | "rigid"`; `"none"` or omitted = silent). Powered by a shared `triggerHaptic` helper (`elements/haptics.ts`) that dynamically requires the new optional `expo-haptics` peer dependency — silently no-ops when the dep isn't installed, mirroring the `expo-store-review` / `expo-linear-gradient` pattern.
+
+### Changed
+- **`expo-haptics` added as an optional peer dependency** — install only if you opt into the `haptic` prop.
+
+---
+
 ## [1.34.0] - 2026-06-02
 
 ### Added

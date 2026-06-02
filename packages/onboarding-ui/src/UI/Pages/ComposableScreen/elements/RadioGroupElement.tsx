@@ -5,10 +5,12 @@ import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
 import { RenderContext, dim } from "./shared";
 import { GradientBox } from "./GradientBox";
+import { triggerHaptic, type HapticStyle } from "./haptics";
 
 export type RadioGroupElementProps = BaseBoxProps & {
   variableName?: string;
   defaultValue?: string;
+  haptic?: HapticStyle;
   gap?: number;
   direction?: "vertical" | "horizontal";
   showTick?: boolean;
@@ -33,6 +35,7 @@ export type RadioGroupElementProps = BaseBoxProps & {
 export const RadioGroupElementPropsSchema = BaseBoxPropsSchema.extend({
   variableName: z.string().optional(),
   defaultValue: z.string().optional(),
+  haptic: z.enum(["none", "light", "medium", "heavy", "soft", "rigid"]).optional(),
   gap: z.number().optional(),
   direction: z.enum(["vertical", "horizontal"]).optional(),
   showTick: z.boolean().optional(),
@@ -82,6 +85,7 @@ export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement
   }, [element.props.variableName, element.props.defaultValue, element.props.items, selectedValue]);
 
   const handleSelect = (value: string, label: string) => {
+    triggerHaptic(element.props.haptic);
     if (element.props.variableName) {
       setVariable(element.props.variableName, { value, label });
     }

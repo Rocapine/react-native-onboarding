@@ -3,8 +3,10 @@ import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import {
   type LeafCondition,
   type ConditionGroup,
+  type HapticStyle,
   LeafConditionSchema,
   ConditionGroupSchema,
+  HapticStyleSchema,
 } from "../../common.types";
 
 export type CustomButtonAction = {
@@ -106,6 +108,12 @@ export type ButtonElementProps = BaseBoxProps & {
   disabledStyle?: ButtonStyleOverride;
   /** Animation duration (ms) between rest/pressed/disabled. Default 150. */
   transitionDurationMs?: number;
+  /**
+   * Tactile feedback fired on press (before actions run). Maps to expo-haptics
+   * ImpactFeedbackStyle. Opt-in — omit or set `"none"` for no feedback.
+   * No-op if the optional `expo-haptics` peer dep isn't installed.
+   */
+  haptic?: HapticStyle;
 };
 
 export const ButtonStyleOverrideSchema = BaseBoxPropsSchema.extend({
@@ -137,4 +145,5 @@ export const ButtonElementPropsSchema = BaseBoxPropsSchema.extend({
   pressedStyle: ButtonStyleOverrideSchema.optional(),
   disabledStyle: ButtonStyleOverrideSchema.optional(),
   transitionDurationMs: z.number().min(0).optional(),
+  haptic: HapticStyleSchema.optional(),
 });

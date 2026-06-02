@@ -1,9 +1,12 @@
 import { z } from "zod";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
+import { type HapticStyle, HapticStyleSchema } from "../../common.types";
 
 export type RadioGroupElementProps = BaseBoxProps & {
   variableName?: string;
   defaultValue?: string;
+  /** Tactile feedback fired on selection. Maps to expo-haptics ImpactFeedbackStyle. Opt-in; no-op without expo-haptics. */
+  haptic?: HapticStyle;
   gap?: number;
   direction?: "vertical" | "horizontal";
   showTick?: boolean;
@@ -28,6 +31,7 @@ export type RadioGroupElementProps = BaseBoxProps & {
 export const RadioGroupElementPropsSchema = BaseBoxPropsSchema.extend({
   variableName: z.string().optional(),
   defaultValue: z.string().optional(),
+  haptic: HapticStyleSchema.optional(),
   gap: z.number().optional(),
   direction: z.enum(["vertical", "horizontal"]).optional(),
   showTick: z.boolean().optional(),

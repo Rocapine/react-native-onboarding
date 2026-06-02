@@ -703,6 +703,7 @@ Plain-text children are automatically split into **one item per word** so the ro
 | `itemColor` | `string` | Unselected label color; defaults to `theme.colors.text.primary` |
 | `itemSelectedColor` | `string` | Selected label color; defaults to `theme.colors.primary` |
 | `showTick` | `boolean` | Show/hide the radio circle indicator. When `false`, the label and selected background/border still render. Defaults to `true` |
+| `haptic` | `"none" \| "light" \| "medium" \| "heavy" \| "soft" \| "rigid"` | Tactile feedback fired on selection. Maps to expo-haptics `ImpactFeedbackStyle`. Opt-in — omit or `"none"` for no feedback. Requires the optional `expo-haptics` peer dep (no-op if not installed) |
 | `itemFontSize` | `number` | |
 | `itemFontWeight` | `string` | |
 | `itemFontFamily` | `string` | |
@@ -733,6 +734,7 @@ Plain-text children are automatically split into **one item per word** so the ro
 | `itemColor` | `string` | Unselected label color; defaults to `theme.colors.text.primary` |
 | `itemSelectedColor` | `string` | Selected label color; defaults to `theme.colors.primary` |
 | `showTick` | `boolean` | Show/hide the checkbox box indicator. When `false`, the label and selected background/border still render. Defaults to `true` |
+| `haptic` | `"none" \| "light" \| "medium" \| "heavy" \| "soft" \| "rigid"` | Tactile feedback fired on toggle. Maps to expo-haptics `ImpactFeedbackStyle`. Opt-in — omit or `"none"` for no feedback. Requires the optional `expo-haptics` peer dep (no-op if not installed) |
 | `itemFontSize` | `number` | |
 | `itemFontWeight` | `string` | |
 | `itemFontFamily` | `string` | |
@@ -771,6 +773,7 @@ Plain-text children are automatically split into **one item per word** so the ro
 | `pressedStyle` | `Partial<ButtonProps>` | Style overrides merged while the button is held. Cannot nest `pressedStyle`/`disabledStyle` |
 | `disabledStyle` | `Partial<ButtonProps>` | Style overrides merged while disabled. Supersedes `disabledBackgroundColor`/`disabledColor` |
 | `transitionDurationMs` | `number` | Opacity animation duration (ms) between rest/pressed/disabled. Default `150` |
+| `haptic` | `"none" \| "light" \| "medium" \| "heavy" \| "soft" \| "rigid"` | Tactile feedback fired on press (before actions run). Maps to expo-haptics `ImpactFeedbackStyle`. Opt-in — omit or `"none"` for no feedback. Requires the optional `expo-haptics` peer dep (no-op if not installed) |
 
 **Per-state styling**
 
@@ -1316,7 +1319,7 @@ If `expo-video` is not installed, the element renders a placeholder view with an
 }
 ```
 
-**Dependencies:** None for `YStack`, `XStack`, `ZStack`, `Text`, `Image`, `Icon`, `Input`, `RadioGroup`, `CheckboxGroup`, `Button`, `ProgressIndicator`. `SafeAreaView` requires `react-native-safe-area-context` (already a peer dep of `@rocapine/react-native-onboarding-ui`). See the Carousel, Lottie, Rive, Video, DatePicker, and WheelPicker sections above for elements with peer deps.
+**Dependencies:** None for `YStack`, `XStack`, `ZStack`, `Text`, `Image`, `Icon`, `Input`, `RadioGroup`, `CheckboxGroup`, `Button`, `ProgressIndicator`. The optional `haptic` prop on `Button` / `RadioGroup` / `CheckboxGroup` uses `expo-haptics` (optional peer dep) — it silently no-ops if not installed, so no dependency is required unless you opt into haptics. `SafeAreaView` requires `react-native-safe-area-context` (already a peer dep of `@rocapine/react-native-onboarding-ui`). See the Carousel, Lottie, Rive, Video, DatePicker, and WheelPicker sections above for elements with peer deps.
 
 ---
 

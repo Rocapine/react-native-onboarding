@@ -185,6 +185,7 @@ Unary operators (omit `value`): `is_empty`, `is_not_empty`, `is_null`, `is_not_n
 - `pressedStyle` — applied while the button is held down.
 - `disabledStyle` — applied while `disabledWhen` is truthy. Wins over the deprecated `disabledBackgroundColor` / `disabledColor` (kept only as fallback when `disabledStyle` is absent).
 - `transitionDurationMs` — opacity animation duration between rest/pressed/disabled (default `150`).
+- `haptic` — tactile feedback on press: `"none" | "light" | "medium" | "heavy" | "soft" | "rigid"`. Maps to expo-haptics `ImpactFeedbackStyle`. Opt-in (omit or `"none"` = silent). Also available on `RadioGroup` / `CheckboxGroup` (fires on select/toggle). Requires the optional `expo-haptics` peer dep — no-op if not installed.
 
 Each override is a `Partial` of the overridable Button props: `BaseBoxProps` (incl. shadow), plus `variant`, `backgroundColor`, `color`, `fontSize`, `fontWeight`, `fontFamily`, `fontStyle`, `textAlign`. It does NOT nest `pressedStyle` / `disabledStyle`.
 

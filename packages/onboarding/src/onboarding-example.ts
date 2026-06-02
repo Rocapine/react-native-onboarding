@@ -516,6 +516,7 @@ export const onboardingExample = {
                 props: {
                   variableName: "plan",
                   defaultValue: "monthly",
+                  haptic: "light",
                   showTick: true,
                   gap: 8,
                   marginVertical: 8,
@@ -560,6 +561,7 @@ export const onboardingExample = {
                 props: {
                   variableName: "goals",
                   defaultValues: ["health", "fitness"],
+                  haptic: "light",
                   showTick: false,
                   gap: 8,
                   marginVertical: 8,
@@ -777,6 +779,7 @@ export const onboardingExample = {
                   label: "Get Started",
                   variant: "filled",
                   marginVertical: 8,
+                  haptic: "medium",
                   actions: [
                     { type: "custom", function: "trackCta", variables: ["name", "plan", "goals"] },
                     "continue",

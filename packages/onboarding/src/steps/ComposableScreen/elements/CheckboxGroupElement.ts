@@ -1,9 +1,12 @@
 import { z } from "zod";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
+import { type HapticStyle, HapticStyleSchema } from "../../common.types";
 
 export type CheckboxGroupElementProps = BaseBoxProps & {
   variableName?: string;
   defaultValues?: string[];
+  /** Tactile feedback fired on press, before the toggle commits. Maps to expo-haptics ImpactFeedbackStyle. Opt-in; no-op without expo-haptics. */
+  haptic?: HapticStyle;
   gap?: number;
   direction?: "vertical" | "horizontal";
   showTick?: boolean;
@@ -28,6 +31,7 @@ export type CheckboxGroupElementProps = BaseBoxProps & {
 export const CheckboxGroupElementPropsSchema = BaseBoxPropsSchema.extend({
   variableName: z.string().optional(),
   defaultValues: z.array(z.string()).optional(),
+  haptic: HapticStyleSchema.optional(),
   gap: z.number().optional(),
   direction: z.enum(["vertical", "horizontal"]).optional(),
   showTick: z.boolean().optional(),

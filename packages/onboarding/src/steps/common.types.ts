@@ -29,6 +29,20 @@ export const ButtonSectionSchema = z.object({
   icon: z.string().nullish(),
 });
 
+// ── Haptics ───────────────────────────────────────────────────────────────────
+// Tactile feedback style for clickable elements. Mirrors expo-haptics
+// ImpactFeedbackStyle (Light/Medium/Heavy/Soft/Rigid); "none" disables feedback.
+// Opt-in: absent prop or "none" → no haptic. Requires optional peer dep expo-haptics.
+export const HapticStyleSchema = z.enum([
+  "none",
+  "light",
+  "medium",
+  "heavy",
+  "soft",
+  "rigid",
+]);
+export type HapticStyle = z.infer<typeof HapticStyleSchema>;
+
 // ── Branching / nextStep schemas ─────────────────────────────────────────────
 
 export const ConditionOperatorSchema = z.enum([

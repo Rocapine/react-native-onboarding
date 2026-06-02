@@ -5,10 +5,12 @@ import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import type { UIElement } from "../types";
 import { dim, type RenderContext } from "./shared";
 import { GradientBox } from "./GradientBox";
+import { triggerHaptic, type HapticStyle } from "./haptics";
 
 export type CheckboxGroupElementProps = BaseBoxProps & {
   variableName?: string;
   defaultValues?: string[];
+  haptic?: HapticStyle;
   gap?: number;
   direction?: "vertical" | "horizontal";
   showTick?: boolean;
@@ -33,6 +35,7 @@ export type CheckboxGroupElementProps = BaseBoxProps & {
 export const CheckboxGroupElementPropsSchema = BaseBoxPropsSchema.extend({
   variableName: z.string().optional(),
   defaultValues: z.array(z.string()).optional(),
+  haptic: z.enum(["none", "light", "medium", "heavy", "soft", "rigid"]).optional(),
   gap: z.number().optional(),
   direction: z.enum(["vertical", "horizontal"]).optional(),
   showTick: z.boolean().optional(),
@@ -95,6 +98,7 @@ export const CheckboxGroupComponent = ({ element, ctx }: Props): React.ReactElem
 
   const handleToggle = (value: string, label: string) => {
     if (!element.props.variableName) return;
+    triggerHaptic(element.props.haptic);
     const current: string[] = selectedValues ?? [];
     const next = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
     const nextLabels = next.map((v) => element.props.items.find((i) => i.value === v)?.label ?? v);

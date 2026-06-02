@@ -132,10 +132,15 @@ UI package optional peer deps (install only if using feature):
 - `@react-native-picker/picker` — Picker step type
 - `@shopify/react-native-skia` — specific visual components
 - `expo-store-review` — Ratings step type
+- `expo-haptics` — `haptic` prop on Button/RadioGroup/CheckboxGroup
+
+Optional dep for a press-time **side-effect** (not a visual element): wrap in a `try { require() } catch` helper that no-ops when absent (precedent: `Pages/ComposableScreen/elements/haptics.ts` — `triggerHaptic`). Don't throw; the feature is opt-in and silent without the dep.
 
 ## Updating ComposableScreen UIElement Schema
 
 **Adding a prop to an existing element** is narrower than adding an element: edit only the headless element `*.ts` (type + Zod schema) and its UI mirror `*.tsx`. The `types.ts` UIElement union/schema is untouched — each variant references the element's props type, so new props flow through automatically.
+
+**A prop type/enum shared across several elements** (e.g. `HapticStyle` on Button/RadioGroup/CheckboxGroup) lives in `packages/onboarding/src/steps/common.types.ts` (export type + Zod schema). Headless elements import it; UI mirrors re-declare the enum inline (mirrors stay self-contained — they don't import headless internals).
 
 **Animated elements**: `react-native-reanimated` + `react-native-svg` are already available (precedent: `UI/Components/CircularProgress.tsx`) — don't add a peer dep for SVG/animation. Call reanimated hooks (`useAnimatedProps`/`useAnimatedStyle`) **unconditionally** — compute every variant's animated value before any `variant` branch, else rules-of-hooks breaks when the element switches shape.
 

@@ -45,8 +45,18 @@ type TextChild = Extract<UIElement, { type: "Text" }>;
 type Props = {
   element: RichTextUIElement;
   ctx: RenderContext;
-  parentType?: "XStack" | "YStack" | "ZStack" | "RichText";
+  parentType?: "XStack" | "YStack" | "ZStack" | "RichText" | "XScroll";
 };
+
+// `textAlign` aligns text *inside* a Text box, but RichText splits each word into
+// its own shrink-wrapped flex item, so textAlign is a no-op on the row. The row's
+// horizontal distribution is governed by `justifyContent` — map textAlign onto it
+// (explicit `justifyContent` still wins) so authors get the alignment they expect.
+const ALIGN_TO_JUSTIFY = {
+  left: "flex-start",
+  center: "center",
+  right: "flex-end",
+} as const;
 
 // A plain-text child (no box styling, no motion) is split into one flex item per
 // word so the row wraps word-by-word like real text — the chip pattern from
@@ -144,7 +154,8 @@ export const RichTextElementComponent = ({ element, ctx, parentType }: Props): R
         flexWrap: p.flexWrap ?? "wrap",
         gap: p.gap,
         alignItems: p.alignItems ?? "center",
-        justifyContent: p.justifyContent ?? "center",
+        justifyContent:
+          p.justifyContent ?? (p.textAlign ? ALIGN_TO_JUSTIFY[p.textAlign] : "center"),
         flex: p.flex,
         flexShrink: p.flexShrink ?? (parentType === "XStack" ? 1 : undefined),
         flexGrow: p.flexGrow,

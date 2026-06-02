@@ -556,12 +556,17 @@ As of 1.15.0, `OnboardingTemplate` does not apply safe-area insets. Built-in pag
 | `width` | `number` | Defaults to `"100%"` |
 | `height` | `number` | When omitted, `aspectRatio` is used to size the image |
 | `aspectRatio` | `number` | Used when `height` is absent; defaults to `16/9` |
-| `resizeMode` | `"cover" \| "contain" \| "stretch" \| "center"` | Defaults to `"cover"` |
+| `resizeMode` | `"cover" \| "contain" \| "stretch" \| "center"` | Defaults to `"cover"`. For SVG sources it maps to `preserveAspectRatio` |
 | `borderRadius` / `borderWidth` | `number` | |
 | `borderColor` | `string` | |
 | `opacity` | `number` | |
 | `margin` / `marginHorizontal` / `marginVertical` | `number` | |
 | `padding` / `paddingHorizontal` / `paddingVertical` | `number` | |
+
+:::note Image format support
+- **WebP / AVIF:** when the optional peer dep `expo-image` is installed, `Image` renders through it for reliable WebP/AVIF decoding (React Native's built-in `Image` is unreliable for WebP on iOS). Without `expo-image`, it falls back to React Native's `Image`.
+- **SVG:** a `url` whose path ends in `.svg` (query string / hash tolerant) is auto-detected and rendered with `react-native-svg`'s `SvgUri` — no schema change, existing `.svg` URLs just work. `resizeMode` maps to the SVG `preserveAspectRatio`.
+:::
 
 **Text props:**
 
@@ -623,7 +628,8 @@ Plain-text children are automatically split into **one item per word** so the ro
 | `gap` | `number` | Space between children |
 | `alignItems` | `"flex-start" \| "center" \| "flex-end" \| "baseline" \| "stretch"` | `"baseline"` aligns text baselines across differently-sized segments |
 | `justifyContent` | `"flex-start" \| "center" \| "flex-end" \| "space-between" \| "space-around"` | |
-| `fontSize` / `fontWeight` / `fontFamily` / `fontStyle` / `color` / `textAlign` / `letterSpacing` / `lineHeight` | same as `Text` | Inherited default for every child `Text` (child overrides win) |
+| `fontSize` / `fontWeight` / `fontFamily` / `fontStyle` / `color` / `letterSpacing` / `lineHeight` | same as `Text` | Inherited default for every child `Text` (child overrides win) |
+| `textAlign` | `"left" \| "center" \| "right"` | Inherited default for every child `Text`, **and** aligns the wrapping row itself: maps to the row's `justifyContent` (`left`→`flex-start`, `center`→`center`, `right`→`flex-end`) when `justifyContent` is not set explicitly |
 
 ```json
 {

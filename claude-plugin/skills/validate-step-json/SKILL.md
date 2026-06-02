@@ -39,7 +39,7 @@ Run: `npx tsx scripts/_validate-composable.ts "$(cat step.json)"`
    - Every container UIElement (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `Carousel`, `RichText`) has `children: UIElement[]` at element top-level — required, must exist even if empty (`"children": []`). Non-container types must NOT have `children`. `RichText.children` are restricted to `Text` elements only — any non-`Text` child fails parse.
    - All `id`s unique within `payload.elements` tree
    - `Text.props.content` exists — a string, or an array of spans `[{text, fontWeight?, fontStyle?, fontFamily?, fontSize?, letterSpacing?, color?, textDecorationLine?}]` (each span requires `text`; `textDecorationLine` ∈ `none|underline|line-through|underline line-through`). If `{{var}}` interpolation, `Text.props.mode === "expression"`
-   - `Image.props.url` is a string (NOT `source.uri` / `source.localPathId`)
+   - `Image.props.url` is a string (NOT `source.uri` / `source.localPathId`). A `.svg` URL is valid and auto-renders via `react-native-svg`; WebP/AVIF decode via `expo-image` when installed — no schema change, don't flag these
    - `Lottie.props.source` is a string; `Rive.props.url` is a string
    - `RadioGroup.props.items` / `CheckboxGroup.props.items` is `[{label, value}]` (NOT `options`)
    - `WheelPicker.props` provides exactly one of `items: [{label, value}]` (unique values) or `range: {min, max, step?, unit?}` — both or neither is a schema error; `defaultValue` (if present) must match an available item value

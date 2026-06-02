@@ -156,6 +156,27 @@ export const onboardingExample = {
                 },
               },
               {
+                id: "svg-demo",
+                type: "Image",
+                props: {
+                  url: "https://upload.wikimedia.org/wikipedia/commons/0/02/SVG_logo.svg",
+                  width: 80,
+                  height: 80,
+                  resizeMode: "contain",
+                },
+              },
+              {
+                id: "webp-demo",
+                type: "Image",
+                props: {
+                  url: "https://www.gstatic.com/webp/gallery/1.webp",
+                  width: "100%",
+                  aspectRatio: 1.5,
+                  resizeMode: "cover",
+                  borderRadius: 12,
+                },
+              },
+              {
                 id: "hero-icon",
                 type: "Icon",
                 props: {
@@ -316,12 +337,27 @@ export const onboardingExample = {
                 ],
               },
               {
+                // Left-aligned RichText — demonstrates the textAlign fix.
+                id: "richtext-left-demo",
+                type: "RichText",
+                props: {
+                  textAlign: "left",
+                  fontSize: 18,
+                  marginVertical: 4,
+                },
+                children: [
+                  { id: "rt-left-1", type: "Text", props: { content: "Left aligned" } },
+                  { id: "rt-left-2", type: "Text", props: { content: "rich text" } },
+                ],
+              },
+              {
                 id: "scroll-demo",
                 type: "ScrollView",
                 props: {
                   horizontal: true,
                   showsHorizontalScrollIndicator: false,
                   contentContainerPadding: 4,
+                  alignItems: "center",
                 },
                 children: [
                   {

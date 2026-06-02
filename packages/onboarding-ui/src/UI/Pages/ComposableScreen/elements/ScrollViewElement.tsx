@@ -23,6 +23,8 @@ export type ScrollViewElementProps = BaseBoxProps & {
   contentInset?: ScrollViewContentInset;
   contentContainerPadding?: number;
   keyboardShouldPersistTaps?: "always" | "never" | "handled";
+  alignItems?: "flex-start" | "center" | "flex-end" | "stretch" | "baseline";
+  justifyContent?: "flex-start" | "center" | "flex-end" | "space-between" | "space-around";
 };
 
 const ContentInsetSchema = z.object({
@@ -42,6 +44,8 @@ export const ScrollViewElementPropsSchema = BaseBoxPropsSchema.extend({
   contentInset: ContentInsetSchema.optional(),
   contentContainerPadding: z.number().min(0).optional(),
   keyboardShouldPersistTaps: z.enum(["always", "never", "handled"]).optional(),
+  alignItems: z.enum(["flex-start", "center", "flex-end", "stretch", "baseline"]).optional(),
+  justifyContent: z.enum(["flex-start", "center", "flex-end", "space-between", "space-around"]).optional(),
 });
 
 type ScrollViewUIElement = Extract<UIElement, { type: "ScrollView" }>;
@@ -81,8 +85,17 @@ export const ScrollViewElementComponent = ({ element, ctx }: Props): React.React
     opacity: p.opacity,
   };
 
+  // Horizontal: children must keep their intrinsic width and overflow so the row
+  // can scroll — so NO flexGrow (which would pin the content to the viewport
+  // width) and children render with parentType "XScroll" (row layout, no
+  // flexShrink default). Vertical keeps flexGrow:1 so a short payload still fills
+  // the scroll viewport. alignItems/justifyContent let authors control cross-axis
+  // alignment + distribution along the scroll axis.
   const contentContainerStyle = {
-    flexGrow: 1,
+    flexDirection: horizontal ? ("row" as const) : ("column" as const),
+    flexGrow: horizontal ? undefined : 1,
+    alignItems: p.alignItems,
+    justifyContent: p.justifyContent,
     padding: p.contentContainerPadding,
   };
 
@@ -99,7 +112,7 @@ export const ScrollViewElementComponent = ({ element, ctx }: Props): React.React
       style={hasGradient ? { flex: 1 } : containerStyle}
       contentContainerStyle={contentContainerStyle}
     >
-      {ctx.renderChildren(element.children, horizontal ? "XStack" : "YStack")}
+      {ctx.renderChildren(element.children, horizontal ? "XScroll" : "YStack")}
     </ScrollView>
   );
 

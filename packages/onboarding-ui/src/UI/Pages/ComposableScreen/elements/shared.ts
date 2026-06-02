@@ -11,7 +11,7 @@ export type RenderContext = {
   setVariable: (key: string, entry: ComposableVariableEntry) => void;
   onContinue: () => void;
   customActions: CustomActions;
-  renderChildren: (elements: UIElement[], parentType: "XStack" | "YStack" | "ZStack" | "RichText") => React.ReactNode;
+  renderChildren: (elements: UIElement[], parentType: "XStack" | "YStack" | "ZStack" | "RichText" | "XScroll") => React.ReactNode;
 };
 
 // Text-style defaults a `RichText` container hands down to its child `Text`

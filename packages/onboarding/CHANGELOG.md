@@ -8,6 +8,13 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.34.0] - 2026-06-02
+
+### Added
+- **`ScrollView` element `alignItems` / `justifyContent`** — two optional props on the `ScrollView` UIElement controlling cross-axis alignment (`alignItems`: `"flex-start"` | `"center"` | `"flex-end"` | `"stretch"` | `"baseline"`) and distribution along the scroll axis (`justifyContent`: `"flex-start"` | `"center"` | `"flex-end"` | `"space-between"` | `"space-around"`). Applied to the scroll content container.
+
+---
+
 ## [1.33.0] - 2026-06-01
 
 ### Added

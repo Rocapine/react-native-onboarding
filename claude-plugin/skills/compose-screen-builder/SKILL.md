@@ -26,6 +26,8 @@ Inject every value into every element you emit. Never:
 
 Start from an archetype in `../create-step-json/references/composable-archetypes.md`. Customize from there. Don't compose from scratch unless the screen is genuinely novel.
 
+Then apply the polish layer from `../create-step-json/references/screen-patterns.md` — universal skeleton + canonical CTA, select-and-advance questions, carousel state machines, staggered-entrance choreography, self-completing loaders, social-proof layering, permission screens, ghost opt-outs. Archetypes are the skeleton; screen-patterns is what makes the screen feel hand-built.
+
 ### 3. Compose the tree
 
 ## Element types
@@ -148,7 +150,7 @@ Reference variables from `Text` ONLY when `Text.props.mode === "expression"`. Th
 - `{ "type": "custom", "function": "name", "variables": ["a","b"] }` — emit to host. Host wires the implementation.
 - `{ "type": "setVariable", "name": "counter", "value": "{{counter}} + 1", "valueMode": "expression" }` — write a variable. `valueMode: "expression"` triggers interpolation + numeric coercion based on the variable's runtime `kind`.
 
-Note: the headless Zod schema currently only enumerates `"continue" | CustomButtonAction`. The UI mirror re-declares the schema and supports `setVariable`. If Studio validates strictly against headless, prefer `custom` actions for non-continue behavior — see `packages/onboarding/src/onboarding-example.ts` for the patterns that ship.
+The headless Zod schema enumerates all three: `"continue" | CustomButtonAction | SetVariableButtonAction` (`ButtonElement.ts`). `setVariable` also accepts `kind: "int" | "float" | "string"` to tag the stored variable's type — set it when the value feeds numeric expressions or comparisons.
 
 ## Disabling continue conditionally
 
@@ -254,3 +256,5 @@ Each override is a `Partial` of the overridable Button props: `BaseBoxProps` (in
 - Don't put `Carousel` inside vertical-scrolling container without explicit `height`.
 - Don't invent brand colors when probe data exists.
 - Don't reach for hex when a theme token applies.
+- Don't use `RadioGroup` for a single-select that should advance on tap — use select-and-advance Button rows (`[{setVariable}, "continue"]` + `pressedStyle` previewing the selected state; `screen-patterns.md` §2). RadioGroup is for review-before-advance steps.
+- Don't show a Rive/Lottie hero with all text + CTA visible at once — stagger their `FadeIn` entrances behind the media's runtime (`screen-patterns.md` §4).

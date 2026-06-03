@@ -37,11 +37,12 @@ Pick from `references/composable-archetypes.md`:
 | Numeric picker (age, weight, height) | `picker` |
 | Reflection / personalized message | `reflection` |
 | Social proof | `social-proof` |
-| Loader / "building your plan" | `loader` |
+| Loader / "building your plan" | `loader` (self-completing — chained `ProgressIndicator`s, no host timer) |
 | Commitment / signature | `commitment` |
+| Permission / integration ask (notifications, HealthKit, …) | `permission` |
 | Carousel intro | `carousel` |
 
-Each archetype is a ready ComposableScreen tree using only `BaseStepTypeSchema` + ComposableScreen UIElements. Customize tokens/copy from the app probe.
+Each archetype is a ready ComposableScreen tree using only `BaseStepTypeSchema` + ComposableScreen UIElements. Customize tokens/copy from the app probe. After picking the archetype, consult `references/screen-patterns.md` for production-grade composition (select-and-advance questions, motion choreography, loaders, social-proof layering, permission branches).
 
 ### 3. Generate the step
 
@@ -50,7 +51,7 @@ Always set:
 - `type: "ComposableScreen"`
 - `id` — the **step** id: kebab-case, matches target app convention (camelCase / kebab — match probe). Referenced by `nextStep` links, so keep it stable/readable. (Distinct from **element** ids inside `payload.elements`, which must be UUID v4 — see `payload` below.)
 - `name` — human-readable.
-- `displayProgressHeader` — `false` for hook/loader/commitment, `true` otherwise.
+- `displayProgressHeader` — `true` ONLY for data-collection screens (`question-*`, `input`, `picker`); `false` for narrative/value screens (`hero`, `carousel`, `reflection`, `social-proof`, `permission`, `loader`, `commitment`). Rule of thumb: progress bar shows while the user is actively answering, hidden during storytelling and permission moments.
 - `customPayload: null`
 - `continueButtonLabel` — pick verb from app's voice (probe). Note: in ComposableScreen this is usually unused since the CTA is its own `Button` element inside `payload.elements`.
 - `nextStep` — **always emit as an explicit multi-path link** when generating a flow of > 1 step. Default-link each step to the next via `{ defaultTargetStepId: "<next-step-id>", branches: [] }`. Only the terminal step (or a true single-step generation) gets `nextStep: null`. If a branching condition applies, add `branches: [{ condition, targetStepId }]` — first match wins, `defaultTargetStepId` is the fallback. **Do not rely on the null + array-order linear fallback for multi-step flows.** Explicit links survive reordering and make adding branches trivial. (`null` still resolves linearly at runtime — see `resolveNextStepNumber.test.ts` — but explicit multi-path is the convention.)

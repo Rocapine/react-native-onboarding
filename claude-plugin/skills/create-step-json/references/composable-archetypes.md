@@ -6,6 +6,8 @@
 
 > **Design fidelity rule.** Every value below in `<DP.xxx>` placeholders comes from the Design Profile produced by `inspect-target-app.md`. Replace, don't ship with placeholders. Generic skeletons are a regression.
 
+> **Polish layer.** Archetypes below are skeletons. For production-grade composition — motion choreography, select-and-advance questions, self-completing loaders, social-proof layering, permission screens — see `screen-patterns.md` (same directory).
+
 Outer shape (always):
 
 ```json
@@ -44,10 +46,15 @@ CTA pattern (use every time — never bare `actions: ["continue"]` with no styli
     "fontSize": 17,
     "borderRadius": "<DP.buttonBorderRadius>",
     "paddingVertical": 16,
+    "haptic": "light",
+    "pressedStyle": { "opacity": 0.85 },
+    "disabledStyle": { "backgroundColor": "<DP.surface.raised>", "color": "<DP.text.muted>" },
     "actions": ["continue"]
   }
 }
 ```
+
+(`haptic` + `pressedStyle` on every CTA; `disabledStyle` only matters with a `disabledWhen`. Never the deprecated `disabledBackgroundColor`/`disabledColor`.)
 
 ### Adding motion to an element
 
@@ -95,7 +102,7 @@ Two ways to mix styles across fragments:
 
 ## hero
 
-Branded welcome. Hero media + tight value prop + primary CTA. No progress bar.
+Branded welcome. Hero media + tight value prop + primary CTA. No progress bar. When the hero is a Rive/Lottie, stagger the text + CTA entrances behind it (`screen-patterns.md` §4) instead of showing everything at once; decorative pill titles: §9.
 
 ```json
 [
@@ -113,13 +120,52 @@ Branded welcome. Hero media + tight value prop + primary CTA. No progress bar.
 
 ## question-single
 
-Title + helper + tappable cards (RadioGroup styled as cards) + disabled-until-selected CTA.
+**Default: select-and-advance** — full-width Button rows that set the variable and continue on tap. No separate Continue button; `pressedStyle` previews the selected state so the tap reads as a selection. See `screen-patterns.md` §2.
 
 ```json
 [
-  { "id": "kicker", "type": "Text", "props": { "content": "Step 2 of 6", "fontFamily": "<DP.fonts.body>", "fontSize": "<DP.typeScale.caption>", "color": "<DP.text.tertiary>", "letterSpacing": 1.2 } },
   { "id": "title", "type": "Text", "props": { "content": "What's your goal?", "fontFamily": "<DP.fonts.heading>", "fontSize": "<DP.typeScale.h1>", "fontWeight": "<DP.fontWeights.bold>", "color": "<DP.text.primary>" } },
   { "id": "subtitle", "type": "Text", "props": { "content": "We'll personalize your plan around this.", "fontFamily": "<DP.fonts.body>", "fontSize": "<DP.typeScale.body>", "color": "<DP.text.secondary>" } },
+  {
+    "id": "answers",
+    "type": "YStack",
+    "props": { "gap": "<DP.spacing.sm>", "paddingTop": "<DP.spacing.md>" },
+    "children": [
+      {
+        "id": "opt-lose", "type": "Button",
+        "props": {
+          "label": "Lose weight", "haptic": "light",
+          "color": "<DP.text.primary>", "backgroundColor": "<DP.surface.card>",
+          "fontFamily": "<DP.fonts.body>", "fontSize": "<DP.typeScale.body>", "fontWeight": "<DP.fontWeights.regular>",
+          "textAlign": "left", "borderRadius": "<DP.radius.md>",
+          "paddingVertical": 18, "paddingHorizontal": 20,
+          "pressedStyle": { "color": "<DP.text.onBrand>", "backgroundColor": "<DP.brand.primary>" },
+          "actions": [ { "type": "setVariable", "name": "goal", "value": "lose" }, "continue" ]
+        }
+      },
+      {
+        "id": "opt-muscle", "type": "Button",
+        "props": {
+          "label": "Build muscle", "haptic": "light",
+          "color": "<DP.text.primary>", "backgroundColor": "<DP.surface.card>",
+          "fontFamily": "<DP.fonts.body>", "fontSize": "<DP.typeScale.body>", "fontWeight": "<DP.fontWeights.regular>",
+          "textAlign": "left", "borderRadius": "<DP.radius.md>",
+          "paddingVertical": 18, "paddingHorizontal": 20,
+          "pressedStyle": { "color": "<DP.text.onBrand>", "backgroundColor": "<DP.brand.primary>" },
+          "actions": [ { "type": "setVariable", "name": "goal", "value": "muscle" }, "continue" ]
+        }
+      }
+      /* one Button per option, same recipe */
+    ]
+  }
+]
+```
+
+**RadioGroup variant** (use only when the user should review/change the pick before advancing — confirm-style steps):
+
+```json
+[
+  { "id": "title", "type": "Text", "props": { "content": "What's your goal?", "fontFamily": "<DP.fonts.heading>", "fontSize": "<DP.typeScale.h1>", "fontWeight": "<DP.fontWeights.bold>", "color": "<DP.text.primary>" } },
   {
     "id": "answers",
     "type": "RadioGroup",
@@ -127,6 +173,7 @@ Title + helper + tappable cards (RadioGroup styled as cards) + disabled-until-se
       "variableName": "goal",
       "direction": "vertical",
       "gap": "<DP.spacing.sm>",
+      "haptic": "light",
       "itemBackgroundColor": "<DP.surface.card>",
       "itemSelectedBackgroundColor": "<DP.brand.primary>",
       "itemBorderColor": "<DP.border.subtle>",
@@ -157,9 +204,9 @@ Title + helper + tappable cards (RadioGroup styled as cards) + disabled-until-se
       "backgroundColor": "<DP.brand.primary>", "color": "<DP.text.onBrand>",
       "fontFamily": "<DP.fonts.heading>", "fontWeight": "<DP.fontWeights.semibold>", "fontSize": 17,
       "borderRadius": "<DP.buttonBorderRadius>", "paddingVertical": 16,
-      "disabledBackgroundColor": "<DP.surface.raised>",
-      "disabledColor": "<DP.text.muted>",
-      "disabledWhen": { "variable": "goal", "operator": "eq", "value": "" },
+      "haptic": "light", "pressedStyle": { "opacity": 0.85 },
+      "disabledStyle": { "backgroundColor": "<DP.surface.raised>", "color": "<DP.text.muted>" },
+      "disabledWhen": { "variable": "goal", "operator": "is_empty" },
       "actions": ["continue"]
     }
   }
@@ -207,8 +254,9 @@ Same shape as question-single but `CheckboxGroup` + multi-select. CTA disabled u
       "backgroundColor": "<DP.brand.primary>", "color": "<DP.text.onBrand>",
       "fontFamily": "<DP.fonts.heading>", "fontWeight": "<DP.fontWeights.semibold>", "fontSize": 17,
       "borderRadius": "<DP.buttonBorderRadius>", "paddingVertical": 16,
-      "disabledBackgroundColor": "<DP.surface.raised>", "disabledColor": "<DP.text.muted>",
-      "disabledWhen": { "variable": "obstacles", "operator": "eq", "value": "" },
+      "haptic": "light", "pressedStyle": { "opacity": 0.85 },
+      "disabledStyle": { "backgroundColor": "<DP.surface.raised>", "color": "<DP.text.muted>" },
+      "disabledWhen": { "variable": "obstacles", "operator": "is_empty" },
       "actions": ["continue"]
     }
   }
@@ -250,8 +298,9 @@ Centered hero input with the app's input styling.
       "backgroundColor": "<DP.brand.primary>", "color": "<DP.text.onBrand>",
       "fontFamily": "<DP.fonts.heading>", "fontWeight": "<DP.fontWeights.semibold>", "fontSize": 17,
       "borderRadius": "<DP.buttonBorderRadius>", "paddingVertical": 16,
-      "disabledBackgroundColor": "<DP.surface.raised>", "disabledColor": "<DP.text.muted>",
-      "disabledWhen": { "variable": "name", "operator": "eq", "value": "" },
+      "haptic": "light", "pressedStyle": { "opacity": 0.85 },
+      "disabledStyle": { "backgroundColor": "<DP.surface.raised>", "color": "<DP.text.muted>" },
+      "disabledWhen": { "variable": "name", "operator": "is_empty" },
       "actions": ["continue"]
     }
   }
@@ -300,8 +349,9 @@ Large display number + small unit. Wrap input + unit in an XStack so they align.
       "backgroundColor": "<DP.brand.primary>", "color": "<DP.text.onBrand>",
       "fontFamily": "<DP.fonts.heading>", "fontWeight": "<DP.fontWeights.semibold>", "fontSize": 17,
       "borderRadius": "<DP.buttonBorderRadius>", "paddingVertical": 16,
-      "disabledBackgroundColor": "<DP.surface.raised>", "disabledColor": "<DP.text.muted>",
-      "disabledWhen": { "variable": "weight", "operator": "eq", "value": "" },
+      "haptic": "light", "pressedStyle": { "opacity": 0.85 },
+      "disabledStyle": { "backgroundColor": "<DP.surface.raised>", "color": "<DP.text.muted>" },
+      "disabledWhen": { "variable": "weight", "operator": "is_empty" },
       "actions": ["continue"]
     }
   }
@@ -353,90 +403,88 @@ Personalized mirror of prior answers. Card-styled body wrapping a `YStack`.
 
 ## social-proof
 
-Three quote cards in a vertical scroll.
+Layered composition beats a list of quote cards: laurel header (laurels + gold stars + claim), ONE floating testimonial card with a big soft shadow, a payoff RichText line, then the CTA. Stat-anchored variant (accent-colored number span inside gray copy) for value-prop screens. Full recipes: `screen-patterns.md` §6.
 
 ```json
 [
-  { "id": "title", "type": "Text", "props": { "content": "Why 50,000 people start with us", "fontFamily": "<DP.fonts.heading>", "fontSize": "<DP.typeScale.h2>", "fontWeight": "<DP.fontWeights.bold>", "color": "<DP.text.primary>", "textAlign": "center" } },
-  {
-    "id": "quotes",
-    "type": "YStack",
-    "props": { "gap": "<DP.spacing.md>" },
+  { "id": "laurel-row", "type": "XStack", "props": { "justifyContent": "center", "alignItems": "center", "gap": "<DP.spacing.sm>" },
     "children": [
-      {
-        "id": "quote-1",
-        "type": "YStack",
-        "props": { "backgroundColor": "<DP.surface.card>", "borderRadius": "<DP.radius.md>", "padding": "<DP.spacing.md>", "gap": 6, "borderWidth": 1, "borderColor": "<DP.border.subtle>" },
+      { "id": "laurel-l", "type": "Image", "props": { "url": "<APP_LAUREL_SVG>", "width": 48, "resizeMode": "contain" } },
+      { "id": "rating-block", "type": "YStack", "props": { "alignItems": "center", "gap": 2 },
         "children": [
-          { "id": "q1-stars", "type": "Text", "props": { "content": "★★★★★", "color": "<DP.brand.primary>" } },
-          { "id": "q1-text", "type": "Text", "props": { "content": "Changed my routine completely.", "fontFamily": "<DP.fonts.body>", "fontSize": "<DP.typeScale.body>", "color": "<DP.text.primary>" } },
-          { "id": "q1-author", "type": "Text", "props": { "content": "Alex, 32", "fontFamily": "<DP.fonts.body>", "fontSize": "<DP.typeScale.caption>", "color": "<DP.text.tertiary>" } }
-        ]
-      },
-      {
-        "id": "quote-2",
-        "type": "YStack",
-        "props": { "backgroundColor": "<DP.surface.card>", "borderRadius": "<DP.radius.md>", "padding": "<DP.spacing.md>", "gap": 6, "borderWidth": 1, "borderColor": "<DP.border.subtle>" },
-        "children": [
-          { "id": "q2-stars", "type": "Text", "props": { "content": "★★★★★", "color": "<DP.brand.primary>" } },
-          { "id": "q2-text", "type": "Text", "props": { "content": "I look forward to opening this every day.", "fontFamily": "<DP.fonts.body>", "fontSize": "<DP.typeScale.body>", "color": "<DP.text.primary>" } },
-          { "id": "q2-author", "type": "Text", "props": { "content": "Maya, 28", "fontFamily": "<DP.fonts.body>", "fontSize": "<DP.typeScale.caption>", "color": "<DP.text.tertiary>" } }
-        ]
-      }
-    ]
-  },
+          { "id": "stars", "type": "Text", "props": { "content": "★★★★★", "fontSize": "<DP.typeScale.h3>", "color": "<DP.accent.gold>" } },
+          { "id": "claim", "type": "Text", "props": { "content": "Loved by +100K users", "fontFamily": "<DP.fonts.body>", "fontSize": "<DP.typeScale.caption>", "color": "<DP.text.secondary>" } }
+        ] },
+      { "id": "laurel-r", "type": "Image", "props": { "url": "<APP_LAUREL_SVG_MIRRORED>", "width": 48, "resizeMode": "contain" } }
+    ] },
+  { "id": "testimonial", "type": "YStack",
+    "props": { "backgroundColor": "<DP.surface.card>", "borderRadius": "<DP.radius.xl>", "padding": 20, "gap": 6, "margin": 12,
+      "elevation": 12, "shadowColor": "#000000", "shadowOffset": { "width": 0, "height": 10 }, "shadowRadius": 20, "shadowOpacity": 0.25 },
+    "children": [
+      { "id": "q-author", "type": "Text", "props": { "content": "@maya.runs", "fontFamily": "<DP.fonts.body>", "fontSize": "<DP.typeScale.bodySm>", "fontWeight": "<DP.fontWeights.semibold>", "color": "<DP.text.primary>" } },
+      { "id": "q-stars", "type": "Text", "props": { "content": "★★★★★", "color": "<DP.accent.gold>" } },
+      { "id": "q-text", "type": "Text", "props": { "content": "I look forward to opening this every day.", "fontFamily": "<DP.fonts.body>", "fontSize": "<DP.typeScale.body>", "color": "<DP.text.primary>" } },
+      { "id": "q-date", "type": "Text", "props": { "content": "May 12", "fontSize": 13, "color": "<DP.text.tertiary>" } }
+    ] },
   { "id": "spacer", "type": "YStack", "props": { "flex": 1 }, "children": [] },
   {
     "id": "cta",
     "type": "Button",
     "props": {
-      "label": "Continue", "variant": "filled",
+      "label": "Rate the app", "variant": "filled",
       "backgroundColor": "<DP.brand.primary>", "color": "<DP.text.onBrand>",
       "fontFamily": "<DP.fonts.heading>", "fontWeight": "<DP.fontWeights.semibold>", "fontSize": 17,
       "borderRadius": "<DP.buttonBorderRadius>", "paddingVertical": 16,
+      "haptic": "light", "pressedStyle": { "opacity": 0.85 },
       "actions": ["continue"]
     }
   }
 ]
 ```
 
+Simpler fallback (no laurel assets): keep the title + ONE quote card — never three plain stacked quotes.
+
 ---
 
 ## loader
 
-Lottie + status line + secondary tip card. No auto-advance built into schema — emit a `custom` action `delayedContinue` that the host wires to a timer (fall back to plain `["continue"]` if host doesn't implement it).
+**Self-completing sequential loader** — no host timer needed. Chained `ProgressIndicator`s fill one after another via `delay`; each row's label flips from in-progress text to a done-row (check icon) via `renderWhen` on the bound variable; the CTA only renders when the last bar hits 100. Full recipe + "Did you know?" card rail: `screen-patterns.md` §5.
 
 ```json
 [
-  { "id": "spacer-top", "type": "YStack", "props": { "flex": 1 }, "children": [] },
-  { "id": "anim", "type": "Lottie", "props": { "source": "<APP_LOADER_LOTTIE_URL>", "autoPlay": true, "loop": true, "height": 220 } },
-  { "id": "title", "type": "Text", "props": { "content": "Building your plan…", "fontFamily": "<DP.fonts.heading>", "fontSize": "<DP.typeScale.h2>", "fontWeight": "<DP.fontWeights.bold>", "color": "<DP.text.primary>", "textAlign": "center" } },
-  { "id": "subtitle", "type": "Text", "props": { "content": "Tuning macros and weekly targets to your inputs.", "fontFamily": "<DP.fonts.body>", "fontSize": "<DP.typeScale.body>", "color": "<DP.text.secondary>", "textAlign": "center" } },
+  { "id": "title", "type": "Text", "props": { "content": "Building your plan…", "fontFamily": "<DP.fonts.heading>", "fontSize": "<DP.typeScale.h1>", "fontWeight": "<DP.fontWeights.medium>", "color": "<DP.text.primary>" } },
   {
-    "id": "tip",
-    "type": "YStack",
-    "props": { "backgroundColor": "<DP.surface.card>", "borderRadius": "<DP.radius.md>", "padding": "<DP.spacing.md>", "gap": 4, "borderWidth": 1, "borderColor": "<DP.border.subtle>" },
+    "id": "rows", "type": "YStack", "props": { "gap": "<DP.spacing.md>", "paddingTop": "<DP.spacing.lg>" },
     "children": [
-      { "id": "tip-kicker", "type": "Text", "props": { "content": "Did you know", "fontFamily": "<DP.fonts.body>", "fontSize": "<DP.typeScale.caption>", "fontWeight": "<DP.fontWeights.semibold>", "color": "<DP.brand.primary>", "letterSpacing": 1.2 } },
-      { "id": "tip-body", "type": "Text", "props": { "content": "Most people see results in the first 2 weeks of consistent logging.", "fontFamily": "<DP.fonts.body>", "fontSize": "<DP.typeScale.body>", "color": "<DP.text.primary>" } }
+      { "id": "bar-1", "type": "ProgressIndicator", "props": { "variant": "linear", "autoplay": true, "duration": 5000, "delay": 0, "initialValue": 0, "thickness": 12, "color": "<DP.brand.primary>", "trackColor": "<DP.surface.raised>", "variableName": "loader1" } },
+      { "id": "label-1-busy", "type": "Text", "renderWhen": { "variable": "loader1", "operator": "lt", "value": "100" }, "props": { "content": "Analyzing your answers…", "fontFamily": "<DP.fonts.body>", "fontSize": "<DP.typeScale.body>", "color": "<DP.text.secondary>" } },
+      { "id": "label-1-done", "type": "XStack", "renderWhen": { "variable": "loader1", "operator": "eq", "value": "100" }, "props": { "gap": 10, "alignItems": "center" },
+        "children": [
+          { "id": "check-1", "type": "Icon", "props": { "name": "CircleCheck", "size": 20, "color": "<DP.brand.primary>" } },
+          { "id": "done-1", "type": "Text", "props": { "content": "Answers analyzed", "fontFamily": "<DP.fonts.body>", "fontSize": "<DP.typeScale.body>", "color": "<DP.text.primary>" } }
+        ] },
+      { "id": "bar-2", "type": "ProgressIndicator", "props": { "variant": "linear", "autoplay": true, "duration": 5000, "delay": 5000, "initialValue": 0, "thickness": 12, "color": "<DP.brand.primary>", "trackColor": "<DP.surface.raised>", "variableName": "loader2" } }
+      /* bar N: delay = (N-1) × duration; matching busy/done rows per bar */
     ]
   },
-  { "id": "spacer-bot", "type": "YStack", "props": { "flex": 1 }, "children": [] },
+  { "id": "spacer", "type": "YStack", "props": { "flex": 1 }, "children": [] },
   {
     "id": "cta",
     "type": "Button",
+    "renderWhen": { "variable": "loader2", "operator": "eq", "value": "100" },
     "props": {
       "label": "Continue", "variant": "filled",
       "backgroundColor": "<DP.brand.primary>", "color": "<DP.text.onBrand>",
       "fontFamily": "<DP.fonts.heading>", "fontWeight": "<DP.fontWeights.semibold>", "fontSize": 17,
       "borderRadius": "<DP.buttonBorderRadius>", "paddingVertical": 16,
-      "actions": [
-        { "type": "custom", "function": "delayedContinue", "variables": [] }
-      ]
+      "haptic": "light", "pressedStyle": { "opacity": 0.85 },
+      "actions": ["continue"]
     }
   }
 ]
 ```
+
+Fallback: if the wait must track *real* backend work (not a fixed duration), emit `actions: [{ "type": "custom", "function": "delayedContinue", "variables": [] }]` and let the host wire the timer.
 
 ---
 
@@ -476,8 +524,9 @@ Signature-style: title + 3 commitment checkboxes (forced-tap) + big CTA.
       "backgroundColor": "<DP.brand.primary>", "color": "<DP.text.onBrand>",
       "fontFamily": "<DP.fonts.heading>", "fontWeight": "<DP.fontWeights.semibold>", "fontSize": 17,
       "borderRadius": "<DP.buttonBorderRadius>", "paddingVertical": 16,
-      "disabledBackgroundColor": "<DP.surface.raised>", "disabledColor": "<DP.text.muted>",
-      "disabledWhen": { "variable": "commitments", "operator": "eq", "value": "" },
+      "haptic": "light", "pressedStyle": { "opacity": 0.85 },
+      "disabledStyle": { "backgroundColor": "<DP.surface.raised>", "color": "<DP.text.muted>" },
+      "disabledWhen": { "variable": "commitments", "operator": "is_empty" },
       "actions": ["continue"]
     }
   }
@@ -486,9 +535,15 @@ Signature-style: title + 3 commitment checkboxes (forced-tap) + big CTA.
 
 ---
 
+## permission
+
+OS-permission / integration ask (notifications, HealthKit, …) as a designed screen — logo with soft shadow, benefit rows (icon-in-circle + title/body), privacy reassurance line, primary CTA firing a host `custom` action, ghost "Later" opt-out. If granting populates data later screens would collect manually, branch past them (`is_not_null` conditions on the populated variables). Full recipe + branch shape: `screen-patterns.md` §7–8. `displayProgressHeader: false`.
+
+---
+
 ## carousel
 
-3-slide intro. Each slide = title + image + body inside a YStack. Use carousel's built-in dots.
+3-slide intro. Each slide = title + image + body inside a YStack. Use carousel's built-in dots. For a per-page CTA that pages the carousel itself ("Discover" → "Next →" → "Continue"), bind `variableName` and swap CTAs via `renderWhen` — the state-machine variant in `screen-patterns.md` §3.
 
 ```json
 [

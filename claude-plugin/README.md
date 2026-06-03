@@ -50,7 +50,7 @@ cat > .claude-plugin/marketplace.json <<'EOF'
 {
   "name": "rocapine-local",
   "owner": { "name": "Rocapine" },
-  "plugins": [{ "name": "rocapine-onboarding-sdk", "source": "./claude-plugin" }]
+  "plugins": [{ "name": "react-native-onboarding", "source": "./claude-plugin" }]
 }
 EOF
 ```
@@ -58,7 +58,7 @@ EOF
 Then in Claude Code:
 ```
 /plugin marketplace add /path/to/repo
-/plugin install rocapine-onboarding-sdk@rocapine-local
+/plugin install react-native-onboarding@rocapine-local
 ```
 
 ## Reference

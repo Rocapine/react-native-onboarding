@@ -44,8 +44,9 @@ Run: `npx tsx scripts/_validate-composable.ts "$(cat step.json)"`
    - `RadioGroup.props.items` / `CheckboxGroup.props.items` is `[{label, value}]` (NOT `options`)
    - `WheelPicker.props` provides exactly one of `items: [{label, value}]` (unique values) or `range: {min, max, step?, unit?}` — both or neither is a schema error; `defaultValue` (if present) must match an available item value
    - `ProgressIndicator.props.variant` (if present) is `"linear"|"circular"`; `easing` (if present) is `"linear"|"ease-in"|"ease-out"|"ease-in-out"`; `value`/`initialValue` are 0–100; `duration`/`delay`/`thickness`/`size` are non-negative numbers; `autoplay`/`loop`/`showLabel` are booleans. Not a container — must NOT have `children`
-   - `Button.props.actions` is an array; entries are `"continue"` or `{type:"custom",function,variables?}` or `{type:"setVariable",name,value,valueMode?}` (note: setVariable may not be in headless schema yet — check)
+   - `Button.props.actions` is an array; entries are `"continue"` or `{type:"custom",function,variables?}` or `{type:"setVariable",name,value,valueMode?,kind?}` (`valueMode` ∈ `"literal"|"expression"`; `kind` ∈ `"int"|"float"|"string"` — all three action shapes are in the headless schema, `ButtonElement.ts`)
    - `Button.props.disabledWhen` (NOT `disabled`) is a valid `LeafCondition` or `ConditionGroup`
+   - **Gating sanity (warning, not schema error)**: a `disabledWhen` / `renderWhen` condition should reference a variable captured on the SAME screen (this screen's `variableName` elements or `setVariable` actions) or a deliberate upstream capture. A CTA gated on a variable this screen never touches is almost always a copy-paste bug (seen in production: picker CTAs gated on a stale `goals` variable from an earlier screen) — flag it.
    - `Button.props.pressedStyle` / `disabledStyle` (if present) are objects — `Partial` of overridable Button props; must NOT nest `pressedStyle`/`disabledStyle`. `transitionDurationMs` is a non-negative number.
    - `haptic` on `Button` / `RadioGroup` / `CheckboxGroup` (if present) is one of `"none"|"light"|"medium"|"heavy"|"soft"|"rigid"` — any other value is a schema error. Optional + opt-in; needs the optional `expo-haptics` peer dep at runtime (no-op without it)
    - Shadow fields (any element): `shadowColor` string; `shadowOffset` is `{width, height}` (NOT a number); `shadowOpacity` 0–1; `shadowRadius`/`elevation` non-negative numbers
@@ -95,6 +96,7 @@ Run: `npx tsx scripts/_validate-composable.ts "$(cat step.json)"`
 - `nextStep: null` on a non-terminal step in a multi-step flow (relies on implicit array-order linking; prefer explicit `defaultTargetStepId`).
 - `branches[].targetStepId` referencing nonexistent step ID.
 - `branches[].condition` referencing a variable never captured upstream.
+- `disabledWhen` / `renderWhen` gating a CTA on a variable the screen never captures — likely a copy-paste leftover from a duplicated screen; the button silently stays enabled/disabled based on stale state. Warn with the variable name + the screen's actual captured variables.
 - Branch with non-null condition that lists an unknown `operator` (binary, require `value`: `eq|neq|gt|lt|gte|lte|contains|in|not_in`; unary, omit `value`: `is_empty|is_not_empty|is_null|is_not_null`). A binary operator missing `value` is a schema error; a unary operator ignores any `value`.
 - `customPayload: {}` instead of `null` (both validate; prefer `null`).
 - `Carousel` with empty `children`.

@@ -31,8 +31,13 @@ type DesignProfile = {
   lineHeightMultiplier: number; // usually 1.2–1.5
 
   // Spacing + shape — pulled from existing Button + Card components
-  radius: { sm: number; md: number; lg: number; pill: number };
+  radius: { sm: number; md: number; lg: number; xl?: number; pill: number };  // xl ≈ featured/testimonial cards (e.g. 24)
   spacing: { xs: number; sm: number; md: number; lg: number; xl: number };
+  gutter?: number;                  // screen-edge horizontal padding (usually spacing.lg, e.g. 24)
+
+  // Optional accents + effects — fall back to nearest existing token when absent
+  accent?: { gold?: string; pastels?: string[] };  // gold = star ratings; pastels = decorative chip backgrounds
+  shadow?: { card?: { color: string; offset: { width: number; height: number }; opacity: number; radius: number; elevation: number } };
   buttonHeight: number;          // standard primary button height
   buttonPaddingH: number;        // standard primary button horizontal padding
   buttonBorderRadius: number;    // standard primary button corner radius

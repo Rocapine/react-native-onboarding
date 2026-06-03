@@ -34,14 +34,22 @@ Strong consumer-app onboarding arc:
 6. **Commitment** (1 screen, archetype `commitment`) — verbal lock-in.
 7. **Paywall handoff** — exit onboarding to host paywall.
 
+Permission/integration asks (`permission` archetype) slot in after the question funnel, once value is established — and a granted integration should *shorten* the funnel (branch past manual-entry screens it makes redundant).
+
 Total: 8–12 screens. > 15 = measurable drop-off.
+
+Composition recipes (motion choreography, select-and-advance, loaders, social-proof layering): `../create-step-json/references/screen-patterns.md`.
+
+## displayProgressHeader rule
+
+Progress bar ON only while the user is actively answering — `question-*`, `input`, `picker` screens. OFF for narrative/value moments: `hero`, `carousel`, `reflection`, `social-proof`, `permission`, `loader`, `commitment`. The bar signals "almost done with questions"; on storytelling screens it only adds friction.
 
 ## Per-archetype heuristics
 
 ### question-single
-- 3–5 options. 6+ = paralysis.
+- 3–5 options. 6+ = paralysis (7 acceptable for attribution screens).
 - Labels ≤ 30 chars. Action-oriented ("Lose weight" not "Weight loss").
-- Always declare `variableName` on the `RadioGroup`.
+- **Default to select-and-advance**: Button rows with `[{setVariable}, "continue"]` + `pressedStyle` previewing the selected state — one less tap per screen. Use `RadioGroup` (+ explicit Continue) only when the user should review the pick before advancing; then always declare `variableName`.
 
 ### question-multi
 - Use only when answers are non-exclusive (e.g. obstacles, dietary restrictions).
@@ -68,10 +76,18 @@ Total: 8–12 screens. > 15 = measurable drop-off.
 ### social-proof
 - Place AFTER user has seen value, not as cold ask.
 - One quote, one name. Multiple = noise.
+- Compose in layers, not a flat list: laurels + gold stars + user-count claim, ONE floating testimonial card (big soft shadow), a payoff line, then the rate CTA. Stat-anchored variant: one big accent-colored number ("82%") inside gray supporting copy.
 
 ### loader
-- 2000–4000ms total. Faster = fake; slower = broken.
-- If SDK lacks auto-advance action, flag the gap.
+- **Self-completing**: chain `ProgressIndicator`s via `delay` (bar *i* starts when *i−1* ends), flip each row's label to a check-row via `renderWhen` at 100, gate the CTA on the last bar. No host timer needed.
+- ~5s per bar, 2–3 bars. A horizontal "Did you know?" card rail makes the wait feel like value.
+- Use the host-wired `delayedContinue` custom action only when gating on real backend work.
+
+### permission (notifications, HealthKit, …)
+- Ask late — after the question funnel, with value established. Never a bare OS dialog: designed screen with logo, benefit rows (icon-in-circle + title/body), and a privacy reassurance line ("Your data is encrypted and private" + shield icon).
+- Always offer a ghost-button opt-out ("Later", "Add data manually") — never trap.
+- CTA fires a host `custom` action (`requestNotifications`, `connectAppleHealth`).
+- **Branch on the grant**: if the integration populates variables later screens collect manually, add `is_not_null` branches that skip those screens. Granted permission = shorter funnel.
 
 ### commitment
 - 2–3 commitment items, present tense, "I will" phrasing.
@@ -126,7 +142,7 @@ Every step in a multi-step flow uses the explicit multi-path link form:
 
 ## Performance
 
-- `Image.source.localPathId` ≫ `url` for above-fold. Bundle hero image.
+- `Image.url` is the only valid prop (no `source.localPathId`). For above-fold media use fast CDN URLs; prefer WebP/SVG (decoded via `expo-image` / `react-native-svg`).
 - `Lottie` with remote source: preload or show blank.
 - `Carousel` of 4+ images: lazy-load via SDK's built-in mechanism.
 
@@ -142,9 +158,9 @@ Every step in a multi-step flow uses the explicit multi-path link form:
 
 - Email capture mid-onboarding before value delivered. Always after.
 - Push notification prompt before user has any reason to want them.
-- "Skip" button on any non-info screen — kills funnel.
+- "Skip" button on any non-info screen — kills funnel. (Quiet ghost-button opt-outs on permission screens — "Later" — are fine and expected.)
 - Onboarding > 15 screens.
-- Asking for permissions inside onboarding instead of after.
+- Asking for permissions *prematurely* — before value is delivered, or via a bare OS dialog instead of a designed `permission` screen.
 - Generic brand colors when app probe data is available.
 - Inventing font names not loaded by `expo-font`.
 - Long-form copy that won't translate (if multi-locale).

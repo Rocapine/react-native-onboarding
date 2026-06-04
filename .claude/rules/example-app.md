@@ -7,6 +7,13 @@ paths:
 
 Local packages via `file:../packages/onboarding` and `file:../packages/onboarding-ui`. Rebuild before reload after package changes.
 
+## Upgrading the example's Expo SDK
+
+Bumping `example/` Expo SDK (`npx expo install expo@latest && npx expo install --fix`) is not enough in this monorepo: `packages/onboarding` + `packages/onboarding-ui` **devDeps pin `react`/`react-native`** (and onboarding-ui pins expo-router/reanimated/safe-area/svg/etc). Leave them on the old SDK and workspace hoisting keeps a **duplicate react-native** (e.g. example 0.85 + packages 0.83) — `expo-doctor` flags "Found duplicates for react-native", and Metro/native builds break. Bump both packages' devDeps to match, then `npm dedupe` (collapses same-version nested copies expo-doctor still warns about). CNG app: no `ios/`/`android/` committed, so config-plugin changes go in `app.json`.
+
+- RN 0.85 (SDK 56) removed `StyleSheet.absoluteFillObject` → use `StyleSheet.absoluteFill` (now the equivalent frozen object). Native peer deps must match the SDK too (e.g. `react-native-svg` 15.15.4 for RN 0.85's `ImageResponseObserver` signature) — `npx expo install <pkg> --check` shows the expected version even for transitively-pulled deps.
+- **`weak let` Swift error in expo-modules-jsi is Xcode's live indexer, not the build.** jsi compiles via a prebuilt SPM xcframework at `node_modules/expo-modules-jsi/apple/Products/ExpoModulesJSI.xcframework`; confirm the real build by checking the active slice's binary size (~2MB real vs ~16KB stub) + mtime. Don't patch node_modules for it.
+
 ```bash
 cd example/
 npm install

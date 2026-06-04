@@ -8,7 +8,7 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
-## [1.36.0] - 2026-06-04
+## [1.37.0] - 2026-06-04
 
 ### Added
 - **`blurRadius` prop on the `Image` ComposableScreen element** — optional non-negative number applying a uniform Gaussian blur (native `Image.blurRadius`, no extra dependency). `0`/omitted = sharp; ignored for SVGs.

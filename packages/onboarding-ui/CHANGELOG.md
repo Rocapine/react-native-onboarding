@@ -9,6 +9,16 @@ here.
 
 ---
 
+## [1.36.1] - 2026-06-04
+
+### Fixed
+- **`ProgressiveBlurImage` element on React Native 0.85** — replaced removed `StyleSheet.absoluteFillObject` with `StyleSheet.absoluteFill` (RN 0.85 dropped the former; the latter is now the equivalent frozen style object). Fixes the build under Expo SDK 56.
+
+### Changed
+- **Expo SDK 56 / React Native 0.85 alignment** — bumped build-time dev dependencies (`react` 19.2.3, `react-native` 0.85.3, `expo-router` ~56.2.8, `expo-store-review` ~56.0.3, `react-native-gesture-handler` ~2.31.1, `react-native-reanimated` 4.3.1, `react-native-safe-area-context` ~5.7.0, `react-native-svg` 15.15.4, `@react-native-community/datetimepicker` ^9.1.0). `react-native-svg` 15.15.4 fixes a native build break against RN 0.85's `ImageResponseObserver` signature. No runtime/API changes (peer deps stay `*`).
+
+---
+
 ## [1.36.0] - 2026-06-04
 
 ### Added

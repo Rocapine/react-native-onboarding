@@ -190,7 +190,7 @@ const RadialSvg = ({
   const c = mask.center ?? { x: 0.5, y: 0.5 };
   const r = mask.radius ?? 0.75;
   return (
-    <Svg style={StyleSheet.absoluteFillObject} width="100%" height="100%">
+    <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
       <Defs>
         <RadialGradient id={id} cx={String(c.x)} cy={String(c.y)} r={String(r)} gradientUnits="objectBoundingBox">
           {mask.stops.map((s, i) => (
@@ -269,7 +269,7 @@ export const ProgressiveBlurImageElementComponent = ({ element }: Props): React.
     backgroundColor: p.backgroundColor,
   } as any;
 
-  const sharpImage = renderRaster(p.url, p.resizeMode, StyleSheet.absoluteFillObject);
+  const sharpImage = renderRaster(p.url, p.resizeMode, StyleSheet.absoluteFill);
 
   // Dark scrim (degraded path + error-boundary fallback). Radial → SVG (always
   // available), linear → GradientBox (plain View when expo-linear-gradient absent).
@@ -279,7 +279,7 @@ export const ProgressiveBlurImageElementComponent = ({ element }: Props): React.
   ) : (
     <GradientBox
       gradient={linearColorGradient(p.mask, maxBlurOpacity, "0,0,0")}
-      style={StyleSheet.absoluteFillObject as any}
+      style={StyleSheet.absoluteFill as any}
     />
   );
 
@@ -304,7 +304,7 @@ export const ProgressiveBlurImageElementComponent = ({ element }: Props): React.
   const blurredCopy = renderRaster(
     p.url,
     p.resizeMode,
-    StyleSheet.absoluteFillObject,
+    StyleSheet.absoluteFill,
     intensityToBlurRadius(p.intensity)
   );
 
@@ -317,7 +317,7 @@ export const ProgressiveBlurImageElementComponent = ({ element }: Props): React.
       start={EDGE_POINT[p.mask.from]}
       end={EDGE_POINT[p.mask.to]}
       locations={p.mask.stops.map((s) => s.position)}
-      style={StyleSheet.absoluteFillObject}
+      style={StyleSheet.absoluteFill}
     />
   );
 
@@ -328,7 +328,7 @@ export const ProgressiveBlurImageElementComponent = ({ element }: Props): React.
     ) : (
       <GradientBox
         gradient={linearColorGradient(p.mask, maxBlurOpacity, rgb)}
-        style={StyleSheet.absoluteFillObject as any}
+        style={StyleSheet.absoluteFill as any}
       />
     );
 
@@ -338,7 +338,7 @@ export const ProgressiveBlurImageElementComponent = ({ element }: Props): React.
         {/* Sharp base. */}
         {sharpImage}
         {/* Blurred copy, revealed only where the mask is opaque → progressive blur. */}
-        <Masked style={StyleSheet.absoluteFillObject} maskElement={maskElement}>
+        <Masked style={StyleSheet.absoluteFill} maskElement={maskElement}>
           {blurredCopy}
         </Masked>
         {tintOverlay}

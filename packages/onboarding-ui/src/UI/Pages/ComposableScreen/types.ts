@@ -47,6 +47,8 @@ export type { ImageElementProps } from "./elements/ImageElement";
 export type {
   ProgressiveBlurImageElementProps,
   BlurMask,
+  LinearBlurMask,
+  RadialBlurMask,
   BlurMaskStop,
 } from "./elements/ProgressiveBlurImageElement";
 export type { LottieElementProps } from "./elements/LottieElement";

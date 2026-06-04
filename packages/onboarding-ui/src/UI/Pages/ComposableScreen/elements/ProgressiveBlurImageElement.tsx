@@ -1,6 +1,7 @@
 import React from "react";
 import { z } from "zod";
 import { Image as RNImage, View, StyleSheet, UIManager } from "react-native";
+import Svg, { Defs, Rect, RadialGradient, Stop } from "react-native-svg";
 import { BaseBoxProps, BaseBoxPropsSchema, GradientEdge } from "./BaseBoxProps";
 import type { GradientBackground } from "./BaseBoxProps";
 import { UIElement } from "../types";
@@ -24,8 +25,9 @@ try {
   // masked-view not installed
 }
 
-// expo-linear-gradient — optional. Used both for the mask gradient and the
-// fallback scrim. Absent → plain dark View scrim.
+// expo-linear-gradient — optional. Used for the LINEAR mask + tint/scrim
+// gradients. Absent → plain dark View scrim (radial masks use react-native-svg,
+// a required dep, so they don't depend on this).
 let LinearGradient: React.ComponentType<any> | null = null;
 try {
   LinearGradient = require("expo-linear-gradient").LinearGradient;
@@ -37,7 +39,14 @@ try {
 // import headless internals). Keep in lockstep with
 // packages/onboarding/src/steps/ComposableScreen/elements/ProgressiveBlurImageElement.ts.
 export type BlurMaskStop = { position: number; opacity: number };
-export type BlurMask = { from: GradientEdge; to: GradientEdge; stops: BlurMaskStop[] };
+export type LinearBlurMask = { type?: "linear"; from: GradientEdge; to: GradientEdge; stops: BlurMaskStop[] };
+export type RadialBlurMask = {
+  type: "radial";
+  center?: { x: number; y: number };
+  radius?: number;
+  stops: BlurMaskStop[];
+};
+export type BlurMask = LinearBlurMask | RadialBlurMask;
 
 export type ProgressiveBlurImageElementProps = BaseBoxProps & {
   url: string;
@@ -54,17 +63,29 @@ const BlurMaskStopSchema = z.object({
   opacity: z.number().min(0).max(1),
 });
 
+const EDGE_ENUM = z.enum(["top", "bottom", "left", "right", "topLeft", "topRight", "bottomLeft", "bottomRight"]);
+
+const LinearBlurMaskSchema = z.object({
+  type: z.literal("linear").optional(),
+  from: EDGE_ENUM,
+  to: EDGE_ENUM,
+  stops: z.array(BlurMaskStopSchema).min(2, "blur mask requires at least 2 stops"),
+});
+
+const RadialBlurMaskSchema = z.object({
+  type: z.literal("radial"),
+  center: z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) }).optional(),
+  radius: z.number().positive().optional(),
+  stops: z.array(BlurMaskStopSchema).min(2, "blur mask requires at least 2 stops"),
+});
+
 export const ProgressiveBlurImageElementPropsSchema = BaseBoxPropsSchema.extend({
   url: z.string().min(1, "url must not be empty"),
   aspectRatio: z.number().optional(),
   resizeMode: z.enum(["cover", "contain", "stretch", "center"]).optional(),
   intensity: z.number().min(0).max(100),
   tint: z.enum(["light", "dark", "default"]).optional(),
-  mask: z.object({
-    from: z.enum(["top", "bottom", "left", "right", "topLeft", "topRight", "bottomLeft", "bottomRight"]),
-    to: z.enum(["top", "bottom", "left", "right", "topLeft", "topRight", "bottomLeft", "bottomRight"]),
-    stops: z.array(BlurMaskStopSchema).min(2, "blur mask requires at least 2 stops"),
-  }),
+  mask: z.union([LinearBlurMaskSchema, RadialBlurMaskSchema]),
   maxBlurOpacity: z.number().min(0).max(1).optional(),
 });
 
@@ -107,6 +128,8 @@ const renderRaster = (
 // Map the 0–100 intensity onto an expo-image/RN blurRadius in px.
 const intensityToBlurRadius = (intensity: number): number => Math.max(0, Math.round(intensity * 0.3));
 
+const isRadialMask = (mask: BlurMask): mask is RadialBlurMask => mask.type === "radial";
+
 type BlurUIElement = Extract<UIElement, { type: "ProgressiveBlurImage" }>;
 
 type Props = {
@@ -114,21 +137,23 @@ type Props = {
   ctx: RenderContext;
 };
 
+// ---------------------------------------------------------------------------
+// LINEAR helpers (expo-linear-gradient).
+// ---------------------------------------------------------------------------
+
 // Mask alpha (= blur strength) → black with that alpha. MaskedView keys off the
 // alpha channel of its mask element, so a transparent→opaque black ramp reveals
 // the blurred image copy only where the mask is opaque.
-const maskColors = (mask: BlurMask, maxBlurOpacity: number): string[] =>
+const linearMaskColors = (mask: LinearBlurMask, maxBlurOpacity: number): string[] =>
   mask.stops.map((s) => `rgba(0,0,0,${(s.opacity * maxBlurOpacity).toFixed(3)})`);
 
 // `tint` → an rgb triple for the darkening/lightening overlay. "default" = no tint.
 const tintRgb = (tint?: "light" | "dark" | "default"): string | null =>
   tint === "dark" ? "0,0,0" : tint === "light" ? "255,255,255" : null;
 
-// Tint overlay following the mask shape: a color gradient (not a mask) that
-// darkens (or lightens) the blurred region for text legibility — this is the
-// "dark tint" of the Figma hero.
-const tintGradient = (
-  mask: BlurMask,
+// A linear color gradient following the mask shape (tint overlay / fallback scrim).
+const linearColorGradient = (
+  mask: LinearBlurMask,
   maxBlurOpacity: number,
   rgb: string
 ): GradientBackground => ({
@@ -141,17 +166,45 @@ const tintGradient = (
   })),
 });
 
-// Fallback scrim (no masked-view / native view absent): a dark color gradient so
-// the bottom still darkens for text legibility even without the blur copy.
-const fallbackGradient = (mask: BlurMask, maxBlurOpacity: number): GradientBackground => ({
-  type: "linear",
-  from: mask.from,
-  to: mask.to,
-  stops: mask.stops.map((s) => ({
-    color: `rgba(0,0,0,${(s.opacity * maxBlurOpacity * 0.6).toFixed(3)})`,
-    position: s.position,
-  })),
-});
+// ---------------------------------------------------------------------------
+// RADIAL helpers (react-native-svg — a required dep, always available).
+// A radial color/alpha gradient rect; `objectBoundingBox` units map cx/cy/r to
+// 0..1 fractions of the box (so a non-square box yields the Figma ellipse).
+// ---------------------------------------------------------------------------
+
+const RadialSvg = ({
+  mask,
+  id,
+  color,
+  opacityScale,
+}: {
+  mask: RadialBlurMask;
+  id: string;
+  /** SVG stop color, e.g. "black" or "rgb(0,0,0)". */
+  color: string;
+  /** Multiplier applied to each stop's opacity. */
+  opacityScale: number;
+}): React.ReactElement => {
+  const c = mask.center ?? { x: 0.5, y: 0.5 };
+  const r = mask.radius ?? 0.75;
+  return (
+    <Svg style={StyleSheet.absoluteFillObject} width="100%" height="100%">
+      <Defs>
+        <RadialGradient id={id} cx={String(c.x)} cy={String(c.y)} r={String(r)} gradientUnits="objectBoundingBox">
+          {mask.stops.map((s, i) => (
+            <Stop
+              key={i}
+              offset={String(s.position)}
+              stopColor={color}
+              stopOpacity={String(Math.min(1, s.opacity * opacityScale))}
+            />
+          ))}
+        </RadialGradient>
+      </Defs>
+      <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${id})`} />
+    </Svg>
+  );
+};
 
 // The JS package may be present (hoisted in a monorepo / installed) while the
 // NATIVE view manager is missing — e.g. a dev-client binary built before the
@@ -188,6 +241,8 @@ class ProgressiveBlurBoundary extends React.Component<
 export const ProgressiveBlurImageElementComponent = ({ element }: Props): React.ReactElement => {
   const p = element.props;
   const maxBlurOpacity = p.maxBlurOpacity ?? 1;
+  const radial = isRadialMask(p.mask);
+  const rgb = tintRgb(p.tint);
 
   const containerStyle = {
     flex: p.flex,
@@ -213,32 +268,37 @@ export const ProgressiveBlurImageElementComponent = ({ element }: Props): React.
   } as any;
 
   const sharpImage = renderRaster(p.url, p.resizeMode, StyleSheet.absoluteFillObject);
-  const locations = p.mask.stops.map((s) => s.position);
-  const rgb = tintRgb(p.tint);
 
-  // Degraded path: sharp image + a dark gradient scrim (GradientBox falls back
-  // to a plain View when expo-linear-gradient is also absent). Used both when a
-  // dep is missing and as the error-boundary fallback when the native view of a
-  // present-in-JS dep is absent on the running binary.
+  // Dark scrim (degraded path + error-boundary fallback). Radial → SVG (always
+  // available), linear → GradientBox (plain View when expo-linear-gradient absent).
+  // `isRadialMask(p.mask)` narrows the union in each branch.
+  const scrim = isRadialMask(p.mask) ? (
+    <RadialSvg mask={p.mask} id={`pbi-fb-${element.id}`} color="black" opacityScale={maxBlurOpacity * 0.6} />
+  ) : (
+    <GradientBox
+      gradient={linearColorGradient(p.mask, maxBlurOpacity, "0,0,0")}
+      style={StyleSheet.absoluteFillObject as any}
+    />
+  );
+
   const fallback = (
     <View style={containerStyle}>
       {sharpImage}
-      <GradientBox
-        gradient={fallbackGradient(p.mask, maxBlurOpacity)}
-        style={StyleSheet.absoluteFillObject as any}
-      />
+      {scrim}
     </View>
   );
 
-  // Full path needs masked-view + linear-gradient in JS *and* the masked-view
-  // native view registered. (expo-blur is intentionally not used — see
-  // renderRaster note: a masked BlurView is transparent on iOS.)
-  const canProgressiveBlur = MaskedView && LinearGradient && nativeMaskedViewAvailable();
+  // Full path needs masked-view (+ its native view) and, for a LINEAR mask, the
+  // expo-linear-gradient dep. A RADIAL mask renders via react-native-svg (always
+  // available). expo-blur is intentionally not used — a masked BlurView is
+  // transparent on iOS (see renderRaster note).
+  const gradientDepReady = radial || !!LinearGradient;
+  const canProgressiveBlur = MaskedView && nativeMaskedViewAvailable() && gradientDepReady;
 
   if (!canProgressiveBlur) return fallback;
 
   const Masked = MaskedView!;
-  const Gradient = LinearGradient!;
+  const Gradient = LinearGradient as React.ComponentType<any>; // non-null for linear masks (gradientDepReady)
   const blurredCopy = renderRaster(
     p.url,
     p.resizeMode,
@@ -246,33 +306,40 @@ export const ProgressiveBlurImageElementComponent = ({ element }: Props): React.
     intensityToBlurRadius(p.intensity)
   );
 
+  // Mask element: opaque where the blur should show.
+  const maskElement = isRadialMask(p.mask) ? (
+    <RadialSvg mask={p.mask} id={`pbi-mask-${element.id}`} color="black" opacityScale={maxBlurOpacity} />
+  ) : (
+    <Gradient
+      colors={linearMaskColors(p.mask, maxBlurOpacity)}
+      start={EDGE_POINT[p.mask.from]}
+      end={EDGE_POINT[p.mask.to]}
+      locations={p.mask.stops.map((s) => s.position)}
+      style={StyleSheet.absoluteFillObject}
+    />
+  );
+
+  // Tint overlay following the mask shape (the Figma dark tint).
+  const tintOverlay =
+    rgb == null ? null : isRadialMask(p.mask) ? (
+      <RadialSvg mask={p.mask} id={`pbi-tint-${element.id}`} color={`rgb(${rgb})`} opacityScale={maxBlurOpacity * 0.6} />
+    ) : (
+      <GradientBox
+        gradient={linearColorGradient(p.mask, maxBlurOpacity, rgb)}
+        style={StyleSheet.absoluteFillObject as any}
+      />
+    );
+
   return (
     <ProgressiveBlurBoundary fallback={fallback}>
       <View style={containerStyle}>
         {/* Sharp base. */}
         {sharpImage}
         {/* Blurred copy, revealed only where the mask is opaque → progressive blur. */}
-        <Masked
-          style={StyleSheet.absoluteFillObject}
-          maskElement={
-            <Gradient
-              colors={maskColors(p.mask, maxBlurOpacity)}
-              start={EDGE_POINT[p.mask.from]}
-              end={EDGE_POINT[p.mask.to]}
-              locations={locations}
-              style={StyleSheet.absoluteFillObject}
-            />
-          }
-        >
+        <Masked style={StyleSheet.absoluteFillObject} maskElement={maskElement}>
           {blurredCopy}
         </Masked>
-        {/* Tint overlay (the Figma dark tint) following the mask shape. */}
-        {rgb && (
-          <GradientBox
-            gradient={tintGradient(p.mask, maxBlurOpacity, rgb)}
-            style={StyleSheet.absoluteFillObject as any}
-          />
-        )}
+        {tintOverlay}
       </View>
     </ProgressiveBlurBoundary>
   );

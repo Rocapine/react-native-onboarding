@@ -19,20 +19,44 @@ const BlurMaskStopSchema = z.object({
   opacity: z.number().min(0).max(1),
 });
 
-// Linear-only mask (reuses BaseBoxProps' 8-edge direction vocab). The Figma
-// reference uses a radial mask; a vertical linear fade approximates it and is
-// what the expo-blur + masked-view engine supports.
-export type BlurMask = {
+// Linear mask (reuses BaseBoxProps' 8-edge direction vocab). `type` is optional
+// and defaults to "linear" so existing `{ from, to, stops }` payloads stay valid.
+export type LinearBlurMask = {
+  type?: "linear";
   from: GradientEdge;
   to: GradientEdge;
   stops: BlurMaskStop[];
 };
 
-const BlurMaskSchema = z.object({
+// Radial mask — sharp at the center, blurring outward (matches the Figma hero
+// exactly). `center` is in 0..1 box fractions (default {0.5,0.5}); `radius` is a
+// 0..1 fraction of the box (default ~0.75). Rendered via react-native-svg.
+export type RadialBlurMask = {
+  type: "radial";
+  center?: { x: number; y: number };
+  radius?: number;
+  stops: BlurMaskStop[];
+};
+
+export type BlurMask = LinearBlurMask | RadialBlurMask;
+
+const LinearBlurMaskSchema = z.object({
+  type: z.literal("linear").optional(),
   from: GradientEdgeSchema,
   to: GradientEdgeSchema,
   stops: z.array(BlurMaskStopSchema).min(2, "blur mask requires at least 2 stops"),
 });
+
+const RadialBlurMaskSchema = z.object({
+  type: z.literal("radial"),
+  center: z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) }).optional(),
+  radius: z.number().positive().optional(),
+  stops: z.array(BlurMaskStopSchema).min(2, "blur mask requires at least 2 stops"),
+});
+
+// Linear first: a `{ from, to, stops }` payload (no `type`) matches it directly;
+// a `{ type: "radial", … }` payload fails linear (no from/to) and falls to radial.
+const BlurMaskSchema = z.union([LinearBlurMaskSchema, RadialBlurMaskSchema]);
 
 // A full-bleed image with a gradient-masked Gaussian blur baked in: sharp where
 // the mask is transparent, progressively blurred where it's opaque. Self-

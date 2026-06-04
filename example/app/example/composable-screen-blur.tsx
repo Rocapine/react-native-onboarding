@@ -35,12 +35,15 @@ export default function ComposableScreenBlurExample() {
                 intensity: 60,
                 tint: 'dark',
                 maxBlurOpacity: 0.8,
+                // Radial mask: sharp around the face (center, slightly high),
+                // blurring outward toward the edges — matches the Figma hero.
                 mask: {
-                  from: 'top',
-                  to: 'bottom',
+                  type: 'radial',
+                  center: { x: 0.5, y: 0.38 },
+                  radius: 0.55,
                   stops: [
                     { position: 0, opacity: 0 },
-                    { position: 0.4, opacity: 0 },
+                    { position: 0.6, opacity: 0 },
                     { position: 1, opacity: 1 },
                   ],
                 },

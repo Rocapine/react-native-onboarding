@@ -15,6 +15,8 @@ export type {
   RichTextElementProps,
   ProgressiveBlurImageElementProps,
   BlurMask,
+  LinearBlurMask,
+  RadialBlurMask,
   BlurMaskStop,
   ProgressIndicatorElementProps,
   ProgressEasing,

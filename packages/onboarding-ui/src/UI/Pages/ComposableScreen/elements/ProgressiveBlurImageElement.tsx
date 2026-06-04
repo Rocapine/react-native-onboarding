@@ -151,7 +151,9 @@ const linearMaskColors = (mask: LinearBlurMask, maxBlurOpacity: number): string[
 const tintRgb = (tint?: "light" | "dark" | "default"): string | null =>
   tint === "dark" ? "0,0,0" : tint === "light" ? "255,255,255" : null;
 
-// A linear color gradient following the mask shape (tint overlay / fallback scrim).
+// A linear color gradient following the mask shape (tint overlay / fallback
+// scrim). Tint alpha tracks the mask strength × maxBlurOpacity so a "dark" tint
+// actually reads dark (no extra dampening).
 const linearColorGradient = (
   mask: LinearBlurMask,
   maxBlurOpacity: number,
@@ -161,7 +163,7 @@ const linearColorGradient = (
   from: mask.from,
   to: mask.to,
   stops: mask.stops.map((s) => ({
-    color: `rgba(${rgb},${(s.opacity * maxBlurOpacity * 0.6).toFixed(3)})`,
+    color: `rgba(${rgb},${(s.opacity * maxBlurOpacity).toFixed(3)})`,
     position: s.position,
   })),
 });
@@ -273,7 +275,7 @@ export const ProgressiveBlurImageElementComponent = ({ element }: Props): React.
   // available), linear → GradientBox (plain View when expo-linear-gradient absent).
   // `isRadialMask(p.mask)` narrows the union in each branch.
   const scrim = isRadialMask(p.mask) ? (
-    <RadialSvg mask={p.mask} id={`pbi-fb-${element.id}`} color="black" opacityScale={maxBlurOpacity * 0.6} />
+    <RadialSvg mask={p.mask} id={`pbi-fb-${element.id}`} color="black" opacityScale={maxBlurOpacity} />
   ) : (
     <GradientBox
       gradient={linearColorGradient(p.mask, maxBlurOpacity, "0,0,0")}
@@ -322,7 +324,7 @@ export const ProgressiveBlurImageElementComponent = ({ element }: Props): React.
   // Tint overlay following the mask shape (the Figma dark tint).
   const tintOverlay =
     rgb == null ? null : isRadialMask(p.mask) ? (
-      <RadialSvg mask={p.mask} id={`pbi-tint-${element.id}`} color={`rgb(${rgb})`} opacityScale={maxBlurOpacity * 0.6} />
+      <RadialSvg mask={p.mask} id={`pbi-tint-${element.id}`} color={`rgb(${rgb})`} opacityScale={maxBlurOpacity} />
     ) : (
       <GradientBox
         gradient={linearColorGradient(p.mask, maxBlurOpacity, rgb)}

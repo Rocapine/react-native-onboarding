@@ -8,6 +8,13 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.36.1] - 2026-06-04
+
+### Changed
+- **Expo SDK 56 / React Native 0.85 alignment** — bumped build-time `react` (19.2.3) and `react-native` (0.85.3) dev dependencies so the package builds against the SDK 56 toolchain. No runtime/API changes (peer deps stay `*`).
+
+---
+
 ## [1.36.0] - 2026-06-04
 
 ### Added

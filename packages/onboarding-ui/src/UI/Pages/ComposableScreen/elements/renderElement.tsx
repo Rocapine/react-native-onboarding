@@ -1,8 +1,10 @@
 import React from "react";
+import { Pressable } from "react-native";
 import { evaluateCondition } from "@rocapine/react-native-onboarding";
 import { UIElement } from "../types";
 import { BaseBoxProps } from "./BaseBoxProps";
 import { RenderContext } from "./shared";
+import { runActions } from "./runActions";
 import { StackElementComponent } from "./StackElement";
 import { TextElementComponent } from "./TextElement";
 import { RichTextElementComponent } from "./RichTextElement";
@@ -128,12 +130,34 @@ export const renderElement = (
     return null;
   })();
 
-  // Wrap only when motion is requested — zero overhead (no extra view) otherwise.
   // Cast to BaseBoxProps: not every element's props type extends it (e.g.
-  // WheelPicker), but the animation/transform/flex/alignSelf fields are all
-  // optional BaseBoxProps members and simply read as undefined when absent.
+  // WheelPicker), but onClick/animation/transform/flex/alignSelf are all optional
+  // BaseBoxProps members and simply read as undefined when absent.
   const p = element.props as BaseBoxProps;
-  if (node !== null && (p.animation || p.transform)) {
+
+  // onClick makes any element a tap target. Wrapped in a layout-transparent
+  // Pressable (forwards only flex/alignSelf, like AnimatedBox) so it doesn't
+  // disturb layout. The element's own box style stays on `node`. Inner
+  // interactive children (Button, RadioGroup, Input…) capture their own taps.
+  let content = node;
+  const onClick = p.onClick;
+  if (content !== null && onClick) {
+    content = (
+      <Pressable
+        key={`${element.id}-click`}
+        onPress={() => {
+          void runActions([onClick], ctx);
+        }}
+        accessibilityRole="button"
+        style={{ flex: p.flex, flexShrink: p.flexShrink, flexGrow: p.flexGrow, alignSelf: p.alignSelf }}
+      >
+        {content}
+      </Pressable>
+    );
+  }
+
+  // Wrap only when motion is requested — zero overhead (no extra view) otherwise.
+  if (content !== null && (p.animation || p.transform)) {
     return (
       <AnimatedBox
         key={element.id}
@@ -142,10 +166,10 @@ export const renderElement = (
         flex={p.flex}
         alignSelf={p.alignSelf}
       >
-        {node}
+        {content}
       </AnimatedBox>
     );
   }
 
-  return node;
+  return content;
 };

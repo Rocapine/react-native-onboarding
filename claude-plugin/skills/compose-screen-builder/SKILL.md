@@ -192,6 +192,10 @@ Unary operators (omit `value`): `is_empty`, `is_not_empty`, `is_null`, `is_not_n
 
 Each override is a `Partial` of the overridable Button props: `BaseBoxProps` (incl. shadow), plus `variant`, `backgroundColor`, `color`, `fontSize`, `fontWeight`, `fontFamily`, `fontStyle`, `textAlign`. It does NOT nest `pressedStyle` / `disabledStyle`.
 
+**`onClick` on any element.** Every UIElement (via `BaseBoxProps`) accepts `onClick` — a **single** action of the same set as Button (`"continue"` | `{type:"setVariable",…}` | `{type:"custom",…}`). Use it to make a non-Button element tappable (e.g. an image/`YStack` card → `setVariable` then `"continue"` needs two taps since it's a single action; for chained actions or a primary CTA use a `Button` with an `actions` array). Interactive elements keep their own press behavior.
+
+**Tick design (RadioGroup / CheckboxGroup).** Beyond `showTick`, customize the indicator: `tickSize`, `tickBorderWidth`, `tickBorderRadius` (shape — radio defaults to a circle, checkbox to `4`), `tickBorderColor` / `tickSelectedBorderColor`, `tickBackgroundColor` / `tickSelectedBackgroundColor`, `tickColor` (radio inner dot / checkbox ✓).
+
 ```json
 {
   "type": "Button",

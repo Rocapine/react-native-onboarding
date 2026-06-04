@@ -31,7 +31,10 @@ Every styled UIElement (`Button`, `RadioGroup`, `CheckboxGroup`, `Input`, `Wheel
 - `itemFontFamily`, `itemFontSize`, `itemFontWeight`, `itemFontStyle`
 - `itemPadding`, `itemPaddingVertical`, `itemPaddingHorizontal`
 - `showTick` — show/hide the radio circle (checkbox box) indicator. Default: `true`
+- Tick design: `tickSize` (default 20), `tickBorderWidth` (default 2), `tickBorderRadius` (radio default = circle, checkbox default 4 — set them to swap shapes), `tickBorderColor` / `tickSelectedBorderColor`, `tickBackgroundColor` / `tickSelectedBackgroundColor` (checkbox selected fill defaults to `primary`), `tickColor` (radio inner-dot / checkbox ✓ color)
 - `haptic: "none" | "light" | "medium" | "heavy" | "soft" | "rigid"` — tactile feedback on select/toggle (opt-in; needs optional `expo-haptics`)
+
+**`onClick` (any element):** every UIElement accepts `onClick` — a single action (`"continue"` | `{type:"setVariable",…}` | `{type:"custom",…}`), same set as `Button`. Makes any image/card/stack tappable. Prefer `Button.actions` for a primary CTA (ordered list + disabled/pressed states).
 
 `Input`:
 - `backgroundColor`, `color`, `placeholderColor`, `borderRadius`

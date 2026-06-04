@@ -30,6 +30,14 @@ export type RadioGroupElementProps = BaseBoxProps & {
   itemPadding?: number;
   itemPaddingHorizontal?: number;
   itemPaddingVertical?: number;
+  tickSize?: number;
+  tickBorderWidth?: number;
+  tickBorderRadius?: number;
+  tickBorderColor?: string;
+  tickSelectedBorderColor?: string;
+  tickBackgroundColor?: string;
+  tickSelectedBackgroundColor?: string;
+  tickColor?: string;
 };
 
 export const RadioGroupElementPropsSchema = BaseBoxPropsSchema.extend({
@@ -55,6 +63,14 @@ export const RadioGroupElementPropsSchema = BaseBoxPropsSchema.extend({
   itemPadding: z.number().optional(),
   itemPaddingHorizontal: z.number().optional(),
   itemPaddingVertical: z.number().optional(),
+  tickSize: z.number().positive().optional(),
+  tickBorderWidth: z.number().min(0).optional(),
+  tickBorderRadius: z.number().min(0).optional(),
+  tickBorderColor: z.string().optional(),
+  tickSelectedBorderColor: z.string().optional(),
+  tickBackgroundColor: z.string().optional(),
+  tickSelectedBackgroundColor: z.string().optional(),
+  tickColor: z.string().optional(),
 }).superRefine((data, ctx) => {
   const values = data.items.map((i) => i.value);
   const unique = new Set(values);
@@ -151,30 +167,39 @@ export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement
               paddingVertical: element.props.itemPaddingVertical,
             }}
           >
-            {element.props.showTick !== false && (
-              <View
-                style={{
-                  width: 20,
-                  height: 20,
-                  borderRadius: 10,
-                  borderWidth: 2,
-                  borderColor: isSelected ? theme.colors.primary : theme.colors.neutral.medium,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                {isSelected && (
-                  <View
-                    style={{
-                      width: 10,
-                      height: 10,
-                      borderRadius: 5,
-                      backgroundColor: theme.colors.primary,
-                    }}
-                  />
-                )}
-              </View>
-            )}
+            {element.props.showTick !== false && (() => {
+              const size = element.props.tickSize ?? 20;
+              const dot = size * 0.5;
+              return (
+                <View
+                  style={{
+                    width: size,
+                    height: size,
+                    borderRadius: element.props.tickBorderRadius ?? size / 2,
+                    borderWidth: element.props.tickBorderWidth ?? 2,
+                    borderColor: isSelected
+                      ? (element.props.tickSelectedBorderColor ?? theme.colors.primary)
+                      : (element.props.tickBorderColor ?? theme.colors.neutral.medium),
+                    backgroundColor: isSelected
+                      ? (element.props.tickSelectedBackgroundColor ?? "transparent")
+                      : (element.props.tickBackgroundColor ?? "transparent"),
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {isSelected && (
+                    <View
+                      style={{
+                        width: dot,
+                        height: dot,
+                        borderRadius: dot / 2,
+                        backgroundColor: element.props.tickColor ?? theme.colors.primary,
+                      }}
+                    />
+                  )}
+                </View>
+              );
+            })()}
             <Text
               style={{
                 flexShrink: 1,

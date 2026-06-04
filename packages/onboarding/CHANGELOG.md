@@ -8,6 +8,15 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.37.0] - 2026-06-04
+
+### Added
+
+- **`onClick` on every ComposableScreen element** (via `BaseBoxProps`) — a single `ButtonAction` (`"continue"` | `setVariable` | `custom`) that makes any element a tap target. `ButtonAction` (+ `CustomButtonAction` / `SetVariableButtonAction` and their schemas) moved to `common.types.ts` and re-exported from `ButtonElement` (public exports unchanged).
+- **Tick design props on `RadioGroup` / `CheckboxGroup`** — `tickSize`, `tickBorderWidth`, `tickBorderRadius`, `tickBorderColor`, `tickSelectedBorderColor`, `tickBackgroundColor`, `tickSelectedBackgroundColor`, `tickColor`. All optional; defaults reproduce the previous look.
+
+---
+
 ## [1.36.0] - 2026-06-04
 
 ### Added

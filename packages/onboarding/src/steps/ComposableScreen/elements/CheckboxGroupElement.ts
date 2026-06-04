@@ -26,6 +26,22 @@ export type CheckboxGroupElementProps = BaseBoxProps & {
   itemPadding?: number;
   itemPaddingHorizontal?: number;
   itemPaddingVertical?: number;
+  /** Tick (checkbox box) size in px. Default 20. */
+  tickSize?: number;
+  /** Tick border width. Default 2. */
+  tickBorderWidth?: number;
+  /** Tick border radius. Default 4. Raise it toward tickSize/2 for a circular checkbox. */
+  tickBorderRadius?: number;
+  /** Unselected tick border color. Default theme neutral.medium. */
+  tickBorderColor?: string;
+  /** Selected tick border color. Default theme primary. */
+  tickSelectedBorderColor?: string;
+  /** Unselected tick fill. Default transparent. */
+  tickBackgroundColor?: string;
+  /** Selected tick fill. Default theme primary. */
+  tickSelectedBackgroundColor?: string;
+  /** Checkmark color when selected. Default #fff. */
+  tickColor?: string;
 };
 
 export const CheckboxGroupElementPropsSchema = BaseBoxPropsSchema.extend({
@@ -51,6 +67,14 @@ export const CheckboxGroupElementPropsSchema = BaseBoxPropsSchema.extend({
   itemPadding: z.number().optional(),
   itemPaddingHorizontal: z.number().optional(),
   itemPaddingVertical: z.number().optional(),
+  tickSize: z.number().positive().optional(),
+  tickBorderWidth: z.number().min(0).optional(),
+  tickBorderRadius: z.number().min(0).optional(),
+  tickBorderColor: z.string().optional(),
+  tickSelectedBorderColor: z.string().optional(),
+  tickBackgroundColor: z.string().optional(),
+  tickSelectedBackgroundColor: z.string().optional(),
+  tickColor: z.string().optional(),
 }).superRefine((data, ctx) => {
   const values = data.items.map((i) => i.value);
   const unique = new Set(values);

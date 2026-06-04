@@ -478,6 +478,11 @@ export default function ComposableScreenExample() {
                 showTick: true,
                 gap: 8,
                 marginVertical: 8,
+                // Tick design customization
+                tickSize: 26,
+                tickBorderRadius: 8,
+                tickSelectedBorderColor: '#16a34a',
+                tickColor: '#16a34a',
                 items: [
                   { label: 'Monthly', value: 'monthly' },
                   { label: 'Yearly', value: 'yearly' },
@@ -498,6 +503,25 @@ export default function ComposableScreenExample() {
                 marginVertical: 4,
               },
             },
+            // onClick on any element — tap this card to set `plan`.
+            {
+              id: 'onclick-card',
+              type: 'YStack' as const,
+              props: {
+                padding: 16,
+                borderRadius: 12,
+                borderWidth: 1,
+                marginVertical: 8,
+                onClick: { type: 'setVariable' as const, name: 'plan', value: 'lifetime', label: 'Lifetime' },
+              },
+              children: [
+                {
+                  id: 'onclick-card-text',
+                  type: 'Text' as const,
+                  props: { content: 'Tap to pick Lifetime', textAlign: 'center' as const, fontWeight: '600' },
+                },
+              ],
+            },
             // Checkbox group element
             {
               id: 'hero-checkbox',
@@ -506,7 +530,13 @@ export default function ComposableScreenExample() {
                 variableName: 'goals',
                 defaultValues: ['health', 'fitness'],
                 haptic: 'light' as const,
-                showTick: false,
+                showTick: true,
+                // Tick design: circular checkbox, custom fill + checkmark color
+                tickSize: 24,
+                tickBorderRadius: 12,
+                tickSelectedBackgroundColor: '#16a34a',
+                tickSelectedBorderColor: '#16a34a',
+                tickColor: '#ffffff',
                 gap: 8,
                 marginVertical: 8,
                 items: [

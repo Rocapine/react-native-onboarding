@@ -9,6 +9,23 @@ here.
 
 ---
 
+## [1.37.0] - 2026-06-04
+
+### Added
+
+- **`onClick` on every ComposableScreen element** — `renderElement` wraps any element with an `onClick` prop in a layout-transparent `Pressable` that fires the action via the shared runner. Interactive elements (Button/Input/RadioGroup/CheckboxGroup/pickers) keep their own press behavior.
+- **Tick design props on `RadioGroup` / `CheckboxGroup`** — `tickSize`, `tickBorderWidth`, `tickBorderRadius` (shape), `tickBorderColor` / `tickSelectedBorderColor`, `tickBackgroundColor` / `tickSelectedBackgroundColor`, `tickColor` (radio inner dot / checkbox ✓). Defaults reproduce the previous look (radio inner dot scales to `tickSize/2`, checkbox ✓ scales to `tickSize`).
+
+### Changed
+
+- Extracted the Button action runner into `elements/runActions.ts`; `ButtonElement` and the `onClick` wrapper both call it, so action semantics never drift.
+
+### Fixed
+
+- `ErrorBoundary` now reads `ZodError.issues` (Zod v4) with an `.errors` fallback. Previously it read the removed `.errors`, so any invalid-payload red box failed to format and showed an unhelpful/garbled message instead of the offending field path. Validation errors now render as `• path > to > field [code]: message`.
+
+---
+
 ## [1.36.0] - 2026-06-04
 
 ### Added

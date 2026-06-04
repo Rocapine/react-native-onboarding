@@ -4,55 +4,27 @@ import {
   type LeafCondition,
   type ConditionGroup,
   type HapticStyle,
+  type CustomButtonAction,
+  type SetVariableButtonAction,
+  type ButtonAction,
   LeafConditionSchema,
   ConditionGroupSchema,
   HapticStyleSchema,
-} from "../../common.types";
-
-export type CustomButtonAction = {
-  type: "custom";
-  function: string;
-  variables?: string[];
-};
-
-export const CustomButtonActionSchema = z.object({
-  type: z.literal("custom"),
-  function: z.string().min(1, "function must not be empty"),
-  variables: z.array(z.string()).optional(),
-});
-
-export type SetVariableButtonAction = {
-  type: "setVariable";
-  name: string;
-  value: string;
-  label?: string;
-  /**
-   * When `"expression"`, `value` is parsed as an arithmetic expression with
-   * `{{var}}` references, numeric literals, and `+ - * /` (parens supported).
-   * On parse failure, falls back to plain interpolation (string).
-   * Defaults to `"literal"` — `value` stored verbatim.
-   */
-  valueMode?: "literal" | "expression";
-  /** Tags the stored variable's underlying type. */
-  kind?: "int" | "float" | "string";
-};
-
-export const SetVariableButtonActionSchema = z.object({
-  type: z.literal("setVariable"),
-  name: z.string().min(1, "name must not be empty"),
-  value: z.string(),
-  label: z.string().optional(),
-  valueMode: z.enum(["literal", "expression"]).optional(),
-  kind: z.enum(["int", "float", "string"]).optional(),
-});
-
-export type ButtonAction = "continue" | CustomButtonAction | SetVariableButtonAction;
-
-export const ButtonActionSchema = z.union([
-  z.literal("continue"),
   CustomButtonActionSchema,
   SetVariableButtonActionSchema,
-]);
+  ButtonActionSchema,
+} from "../../common.types";
+
+// ButtonAction now lives in common.types.ts (shared with BaseBoxProps.onClick).
+// Re-exported here so existing import paths + public exports stay valid.
+export {
+  type CustomButtonAction,
+  type SetVariableButtonAction,
+  type ButtonAction,
+  CustomButtonActionSchema,
+  SetVariableButtonActionSchema,
+  ButtonActionSchema,
+};
 
 type ButtonOverridableProps = BaseBoxProps & {
   variant?: "filled" | "outlined" | "ghost";

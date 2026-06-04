@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { type ButtonAction, ButtonActionSchema } from "../../common.types";
 
 export type GradientStop = {
   color: string;
@@ -289,6 +290,12 @@ export type BaseBoxProps = {
   elevation?: number;
   transform?: ElementTransform;
   animation?: ElementAnimation;
+  /**
+   * Makes any element a tap target. Fires a single action on press — same set
+   * as `Button` (`"continue"` | `setVariable` | `custom`). Interactive elements
+   * (Button/Input/pickers) keep their own press behavior.
+   */
+  onClick?: ButtonAction;
 };
 
 export const BaseBoxPropsSchema = z.object({
@@ -323,4 +330,5 @@ export const BaseBoxPropsSchema = z.object({
   elevation: z.number().min(0).optional(),
   transform: TransformSchema.optional(),
   animation: ElementAnimationSchema.optional(),
+  onClick: ButtonActionSchema.optional(),
 });

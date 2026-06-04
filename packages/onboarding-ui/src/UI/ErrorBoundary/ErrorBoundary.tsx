@@ -28,16 +28,22 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   formatZodError(error: ZodError<any>): string {
     try {
-      // @ts-ignore
-      return error.errors
-        // @ts-ignore
+      // Zod v4 exposes `.issues`; `.errors` was the v3 name (no longer present
+      // in v4, so reading it alone would throw on `.map`). Prefer issues, fall
+      // back to errors for older zod.
+      const issues: any[] = (error as any).issues ?? (error as any).errors ?? [];
+      if (!Array.isArray(issues) || issues.length === 0) {
+        return error.message || 'Unknown validation error';
+      }
+      return issues
         .map((err) => {
-          const path = err.path.join(' > ');
-          return `• ${path || 'root'}: ${err.message}`;
+          const path = Array.isArray(err.path) ? err.path.join(' > ') : '';
+          const code = err.code ? ` [${err.code}]` : '';
+          return `• ${path || 'root'}${code}: ${err.message}`;
         })
         .join('\n');
-    } catch (error) {
-      console.error('Error formatting Zod error:', error);
+    } catch (e) {
+      console.error('Error formatting Zod error:', e);
       return 'An error occurred while formatting the Zod error';
     }
   }

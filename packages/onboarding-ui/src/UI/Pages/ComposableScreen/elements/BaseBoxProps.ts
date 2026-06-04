@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { type ButtonAction, ButtonActionSchema } from "@rocapine/react-native-onboarding";
 
 export type GradientStop = {
   color: string;
@@ -289,6 +290,8 @@ export type BaseBoxProps = {
   elevation?: number;
   transform?: ElementTransform;
   animation?: ElementAnimation;
+  /** Single tap action (same set as Button). Wired generically in renderElement. */
+  onClick?: ButtonAction;
 };
 
 export const BaseBoxPropsSchema = z.object({
@@ -323,4 +326,5 @@ export const BaseBoxPropsSchema = z.object({
   elevation: z.number().min(0).optional(),
   transform: TransformSchema.optional(),
   animation: ElementAnimationSchema.optional(),
+  onClick: ButtonActionSchema.optional(),
 });

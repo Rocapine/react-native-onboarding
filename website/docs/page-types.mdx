@@ -466,6 +466,22 @@ Every UIElement inherits an optional `transform` and `animation` from `BaseBoxPr
 - **Effect presets** (looping, not reanimated-named): `pulse` (`minScale`/`maxScale`), `fade` (`minOpacity`), `rotate` (`degrees`), `shimmer`, `bounce`. `loop: false` runs the effect once.
 - Unknown presets degrade to no-op (forward-compatible across reanimated versions). On web some entering presets degrade gracefully (content still mounts).
 
+#### `onClick` (every element)
+
+Every UIElement inherits an optional `onClick` from `BaseBoxProps`, making any element a tap target that fires **one** action — the same action set as `Button`:
+
+| `onClick` value | Effect |
+|-----------------|--------|
+| `"continue"` | Advance to the next step |
+| `{ type: "setVariable", name, value, label?, valueMode?, kind? }` | Write an onboarding variable (`valueMode: "expression"` evaluates `value` as an arithmetic/`{{var}}` expression; default `"literal"`) |
+| `{ type: "custom", function, variables? }` | Invoke a registered `customAction`, passing the requested variables |
+
+```json
+{ "id": "card", "type": "YStack", "props": { "onClick": { "type": "setVariable", "name": "plan", "value": "pro" } }, "children": [ /* … */ ] }
+```
+
+The renderer wraps the element in a layout-transparent `Pressable` only when `onClick` is set. Interactive elements (`Button`, `Input`, `RadioGroup`, `CheckboxGroup`, pickers) keep their own press/selection behavior; prefer `Button.actions` for a primary CTA (it supports an ordered action list, disabled state, and pressed styling). `onClick` runs through the same action runner as `Button`, so semantics match.
+
 ```json
 {
   "id": "hero-badge",
@@ -723,6 +739,12 @@ Plain-text children are automatically split into **one item per word** so the ro
 | `itemColor` | `string` | Unselected label color; defaults to `theme.colors.text.primary` |
 | `itemSelectedColor` | `string` | Selected label color; defaults to `theme.colors.primary` |
 | `showTick` | `boolean` | Show/hide the radio circle indicator. When `false`, the label and selected background/border still render. Defaults to `true` |
+| `tickSize` | `number` | Tick (radio circle) size in px. Defaults to `20` |
+| `tickBorderWidth` | `number` | Tick border width. Defaults to `2` |
+| `tickBorderRadius` | `number` | Tick border radius. Defaults to `tickSize/2` (a circle); lower it for a rounded square |
+| `tickBorderColor` / `tickSelectedBorderColor` | `string` | Unselected / selected tick border. Default `neutral.medium` / `primary` |
+| `tickBackgroundColor` / `tickSelectedBackgroundColor` | `string` | Unselected / selected tick fill. Both default transparent |
+| `tickColor` | `string` | Inner dot color when selected. Defaults to `primary` |
 | `haptic` | `"none" \| "light" \| "medium" \| "heavy" \| "soft" \| "rigid"` | Tactile feedback fired on selection. Maps to expo-haptics `ImpactFeedbackStyle`. Opt-in — omit or `"none"` for no feedback. Requires the optional `expo-haptics` peer dep (no-op if not installed) |
 | `itemFontSize` | `number` | |
 | `itemFontWeight` | `string` | |
@@ -754,6 +776,12 @@ Plain-text children are automatically split into **one item per word** so the ro
 | `itemColor` | `string` | Unselected label color; defaults to `theme.colors.text.primary` |
 | `itemSelectedColor` | `string` | Selected label color; defaults to `theme.colors.primary` |
 | `showTick` | `boolean` | Show/hide the checkbox box indicator. When `false`, the label and selected background/border still render. Defaults to `true` |
+| `tickSize` | `number` | Tick (checkbox box) size in px. Defaults to `20` |
+| `tickBorderWidth` | `number` | Tick border width. Defaults to `2` |
+| `tickBorderRadius` | `number` | Tick border radius. Defaults to `4`; raise toward `tickSize/2` for a circular checkbox |
+| `tickBorderColor` / `tickSelectedBorderColor` | `string` | Unselected / selected tick border. Default `neutral.medium` / `primary` |
+| `tickBackgroundColor` / `tickSelectedBackgroundColor` | `string` | Unselected / selected tick fill. Default transparent / `primary` |
+| `tickColor` | `string` | Checkmark color when selected. Defaults to `#fff` |
 | `haptic` | `"none" \| "light" \| "medium" \| "heavy" \| "soft" \| "rigid"` | Tactile feedback fired on toggle. Maps to expo-haptics `ImpactFeedbackStyle`. Opt-in — omit or `"none"` for no feedback. Requires the optional `expo-haptics` peer dep (no-op if not installed) |
 | `itemFontSize` | `number` | |
 | `itemFontWeight` | `string` | |

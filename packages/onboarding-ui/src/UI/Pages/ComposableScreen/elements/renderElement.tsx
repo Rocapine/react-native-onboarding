@@ -7,6 +7,7 @@ import { StackElementComponent } from "./StackElement";
 import { TextElementComponent } from "./TextElement";
 import { RichTextElementComponent } from "./RichTextElement";
 import { ImageElementComponent } from "./ImageElement";
+import { ProgressiveBlurImageElementComponent } from "./ProgressiveBlurImageElement";
 import { LottieElementComponent } from "./LottieElement";
 import { RiveElementRenderer } from "./RiveElement";
 import { IconElementComponent } from "./IconElement";
@@ -54,6 +55,10 @@ export const renderElement = (
 
   if (element.type === "Image") {
     return <ImageElementComponent key={element.id} element={element} ctx={ctx} />;
+  }
+
+  if (element.type === "ProgressiveBlurImage") {
+    return <ProgressiveBlurImageElementComponent key={element.id} element={element} ctx={ctx} />;
   }
 
   if (element.type === "Lottie") {

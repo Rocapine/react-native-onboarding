@@ -24,7 +24,7 @@ export type LinearGradientConfig = {
 
 export type GradientBackground = LinearGradientConfig;
 
-const GradientEdgeSchema = z.enum(["top", "bottom", "left", "right", "topLeft", "topRight", "bottomLeft", "bottomRight"]);
+export const GradientEdgeSchema = z.enum(["top", "bottom", "left", "right", "topLeft", "topRight", "bottomLeft", "bottomRight"]);
 
 const GradientStopSchema = z.object({
   color: z.string(),

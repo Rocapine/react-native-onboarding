@@ -424,6 +424,7 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 | `Text` | `<Text>` | — | — |
 | `RichText` | `<View>` wrapping `Text` children | wrapping `row` | — |
 | `Image` | `<Image>` | — | — |
+| `ProgressiveBlurImage` | `<Image>` + masked `BlurView` | depth (z-axis) | `expo-blur`, `@react-native-masked-view/masked-view`, `expo-linear-gradient` (all optional) |
 | `Icon` | Lucide icon | — | — (bundled) |
 | `Input` | `<TextInput>` | — | — |
 | `RadioGroup` | Radio item list | — | — |
@@ -557,6 +558,7 @@ As of 1.15.0, `OnboardingTemplate` does not apply safe-area insets. Built-in pag
 | `height` | `number` | When omitted, `aspectRatio` is used to size the image |
 | `aspectRatio` | `number` | Used when `height` is absent; defaults to `16/9` |
 | `resizeMode` | `"cover" \| "contain" \| "stretch" \| "center"` | Defaults to `"cover"`. For SVG sources it maps to `preserveAspectRatio` |
+| `blurRadius` | `number` | Uniform Gaussian blur radius in px (native, no extra dep). `0`/omitted = sharp. Ignored for SVGs |
 | `borderRadius` / `borderWidth` | `number` | |
 | `borderColor` | `string` | |
 | `opacity` | `number` | |
@@ -566,6 +568,24 @@ As of 1.15.0, `OnboardingTemplate` does not apply safe-area insets. Built-in pag
 :::note Image format support
 - **WebP / AVIF:** when the optional peer dep `expo-image` is installed, `Image` renders through it for reliable WebP/AVIF decoding (React Native's built-in `Image` is unreliable for WebP on iOS). Without `expo-image`, it falls back to React Native's `Image`.
 - **SVG:** a `url` whose path ends in `.svg` (query string / hash tolerant) is auto-detected and rendered with `react-native-svg`'s `SvgUri` — no schema change, existing `.svg` URLs just work. `resizeMode` maps to the SVG `preserveAspectRatio`.
+:::
+
+**ProgressiveBlurImage props:**
+
+A full-bleed image with a gradient-masked Gaussian blur baked in: sharp where the `mask` is transparent, progressively blurred where it's opaque (the Figma "welcome screen" hero look — sharp subject up top, blurred toward the bottom so overlaid white text stays legible). Self-contained — drop it as the bottom layer of a `ZStack` with sharp foreground content above it.
+
+| Prop | Type | Notes |
+|------|------|-------|
+| `url` | `string` | **Required** — remote image URI |
+| `intensity` | `number` | **Required** — blur strength, `0`–`100` (expo-blur intensity) |
+| `mask` | `{ from, to, stops: [{ position, opacity }] }` | **Required** — linear gradient driving where the blur is strong. `from`/`to` are edges (`"top"`, `"bottom"`, …); each stop's `opacity` (0–1) is the **blur strength** at `position` (0–1), not a color |
+| `tint` | `"light" \| "dark" \| "default"` | Blur tint. Defaults to `"default"` |
+| `maxBlurOpacity` | `number` | Clamp on the masked blur layer (0–1). Defaults to `1` |
+| `resizeMode` | `"cover" \| "contain" \| "stretch" \| "center"` | Defaults to `"cover"` |
+| `aspectRatio` / `width` / `height` / `borderRadius` / `opacity` / `margin*` | | Standard box props |
+
+:::note Optional peer deps + graceful degradation
+The progressive blur needs `expo-blur`, `@react-native-masked-view/masked-view`, and `expo-linear-gradient` (all optional). When any is missing, the element degrades to a **sharp image + a dark gradient scrim** derived from the mask (still legible for overlaid text) and never throws. The `mask` is linear-only; a radial Figma mask is approximated by a vertical fade.
 :::
 
 **Text props:**

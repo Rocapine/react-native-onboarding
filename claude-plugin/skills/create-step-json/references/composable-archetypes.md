@@ -616,7 +616,8 @@ OS-permission / integration ask (notifications, HealthKit, …) as a designed sc
 | `SafeAreaView` | — | `edges: ["top","bottom"]` or modes; never `"always"` |
 | `YStack` / `XStack` / `ZStack` | — | `children` at element top-level |
 | `Text` | `content` | `mode: "expression"` to interpolate `{{var}}`; set `fontFamily`, `fontSize`, `fontWeight`, `color` from Design Profile |
-| `Image` | `url` (string) | NOT `source.uri`. WebP/AVIF decode via `expo-image` when installed (falls back to RN `Image`); `.svg` URLs auto-render via `react-native-svg` (`resizeMode`→`preserveAspectRatio`) — no schema change |
+| `Image` | `url` (string) | NOT `source.uri`. WebP/AVIF decode via `expo-image` when installed (falls back to RN `Image`); `.svg` URLs auto-render via `react-native-svg` (`resizeMode`→`preserveAspectRatio`) — no schema change. Optional `blurRadius` (uniform px blur) |
+| `ProgressiveBlurImage` | `url`, `intensity` (0–100), `mask` | Full-bleed image with gradient-masked blur (sharp→blurred). `mask: { from, to, stops: [{position 0–1, opacity 0–1}] }` (opacity = blur strength, linear). Optional `tint` (`light`/`dark`/`default`), `maxBlurOpacity`. Bottom layer of a `ZStack` with sharp content above. Needs optional `expo-blur` + `@react-native-masked-view/masked-view` + `expo-linear-gradient`; degrades to sharp image + dark scrim |
 | `Lottie` | `source` (string URL) | |
 | `Rive` | `url` (string URL) | |
 | `Input` | — | `variableName`, `keyboardType`, `autoCapitalize`, `maxLength`, `textAlign`. No `suffix`/`autoFocus`. |

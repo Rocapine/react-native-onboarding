@@ -9,6 +9,17 @@ here.
 
 ---
 
+## [1.36.0] - 2026-06-04
+
+### Added
+- **Uniform image blur** — the `Image` ComposableScreen renderer now forwards a `blurRadius` prop to both `expo-image` and RN `Image` (native blur, no extra dep). `0`/omitted = sharp; ignored for SVGs.
+- **`ProgressiveBlurImage` element renderer** — renders a full-bleed image with a gradient-masked `BlurView` overlay, producing a progressive (variable) blur: sharp where the `mask` is transparent, blurred where it's opaque. Composes as the bottom layer of a `ZStack` with sharp foreground content above.
+
+### Changed
+- **`expo-blur` + `@react-native-masked-view/masked-view` added as optional peer dependencies** — needed (alongside the existing `expo-linear-gradient`) for `ProgressiveBlurImage`. When any is absent the element degrades gracefully to a sharp image + a dark gradient scrim derived from the mask (still legible for overlaid text) and never throws. The `mask` is linear-only; a radial source mask is approximated by a vertical fade.
+
+---
+
 ## [1.35.0] - 2026-06-02
 
 ### Added

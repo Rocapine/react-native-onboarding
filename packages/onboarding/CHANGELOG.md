@@ -8,6 +8,14 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.36.0] - 2026-06-04
+
+### Added
+- **`blurRadius` prop on the `Image` ComposableScreen element** — optional non-negative number applying a uniform Gaussian blur (native `Image.blurRadius`, no extra dependency). `0`/omitted = sharp; ignored for SVGs.
+- **New `ProgressiveBlurImage` ComposableScreen element** — a full-bleed image with a gradient-masked Gaussian blur baked in (sharp where the `mask` is transparent, progressively blurred where it's opaque — the "welcome screen" hero look). Props: `url`, `intensity` (0–100), `tint` (`light`/`dark`/`default`), `mask` (`{ from, to, stops: [{ position, opacity }] }`, linear; mask `opacity` = blur strength), `maxBlurOpacity`, plus standard box props. Leaf element (no `children`); intended as the bottom layer of a `ZStack`.
+
+---
+
 ## [1.35.0] - 2026-06-02
 
 ### Added

@@ -10,6 +10,10 @@ import { type StackElementProps, StackElementPropsSchema } from "./elements/Stac
 import { type TextElementProps, TextElementPropsSchema } from "./elements/TextElement";
 import { type RichTextElementProps, RichTextElementPropsSchema } from "./elements/RichTextElement";
 import { type ImageElementProps, ImageElementPropsSchema } from "./elements/ImageElement";
+import {
+  type ProgressiveBlurImageElementProps,
+  ProgressiveBlurImageElementPropsSchema,
+} from "./elements/ProgressiveBlurImageElement";
 import { type LottieElementProps, LottieElementPropsSchema } from "./elements/LottieElement";
 import { type RiveElementProps, RiveElementPropsSchema } from "./elements/RiveElement";
 import { type IconElementProps, IconElementPropsSchema } from "./elements/IconElement";
@@ -51,6 +55,11 @@ export type { TextElementProps, TextSpan } from "./elements/TextElement";
 export { TextSpanSchema } from "./elements/TextElement";
 export type { RichTextElementProps } from "./elements/RichTextElement";
 export type { ImageElementProps } from "./elements/ImageElement";
+export type {
+  ProgressiveBlurImageElementProps,
+  BlurMask,
+  BlurMaskStop,
+} from "./elements/ProgressiveBlurImageElement";
 export type { LottieElementProps } from "./elements/LottieElement";
 export type { RiveElementProps } from "./elements/RiveElement";
 export type { IconElementProps } from "./elements/IconElement";
@@ -122,6 +131,13 @@ type UIElement =
       renderWhen?: LeafCondition | ConditionGroup;
       type: "Image";
       props: ImageElementProps;
+    }
+  | {
+      id: string;
+      name?: string;
+      renderWhen?: LeafCondition | ConditionGroup;
+      type: "ProgressiveBlurImage";
+      props: ProgressiveBlurImageElementProps;
     }
   | {
       id: string;
@@ -277,6 +293,13 @@ const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
       renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
       type: z.literal("Image"),
       props: ImageElementPropsSchema,
+    }),
+    z.object({
+      id: z.string(),
+      name: z.string().optional(),
+      renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
+      type: z.literal("ProgressiveBlurImage"),
+      props: ProgressiveBlurImageElementPropsSchema,
     }),
     z.object({
       id: z.string(),

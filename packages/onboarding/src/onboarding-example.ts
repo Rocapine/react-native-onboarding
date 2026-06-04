@@ -186,6 +186,33 @@ export const onboardingExample = {
                   resizeMode: "cover",
                   borderRadius: 12,
                   marginVertical: 8,
+                  // Uniform blur (Phase 1) — RN/expo-image native blurRadius.
+                  blurRadius: 8,
+                },
+              },
+              {
+                id: "progressive-blur-demo",
+                type: "ProgressiveBlurImage",
+                props: {
+                  url: "https://picsum.photos/800/600?random=88",
+                  width: "100%",
+                  aspectRatio: 4 / 3,
+                  resizeMode: "cover",
+                  borderRadius: 12,
+                  marginVertical: 8,
+                  intensity: 60,
+                  tint: "dark",
+                  maxBlurOpacity: 0.8,
+                  // Sharp at top, progressively blurred toward the bottom.
+                  mask: {
+                    from: "top",
+                    to: "bottom",
+                    stops: [
+                      { position: 0, opacity: 0 },
+                      { position: 0.4, opacity: 0 },
+                      { position: 1, opacity: 1 },
+                    ],
+                  },
                 },
               },
               {

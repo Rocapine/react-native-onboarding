@@ -1,6 +1,6 @@
 {
   "name": "@rocapine/react-native-onboarding-ui",
-  "version": "1.35.0",
+  "version": "1.36.0",
   "description": "UI components and renderers for Rocapine Onboarding Studio - Built on top of the headless SDK",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -47,6 +47,7 @@
     "@react-native-community/datetimepicker": "*",
     "@react-native-picker/picker": "*",
     "@rocapine/react-native-onboarding": "^1.23.0",
+    "@react-native-masked-view/masked-view": "*",
     "@shopify/react-native-skia": ">=1.0.0",
     "@tanstack/react-query": ">=5.0.0",
     "@types/react": "*",
@@ -65,6 +66,9 @@
   },
   "peerDependenciesMeta": {
     "@react-native-community/datetimepicker": {
+      "optional": true
+    },
+    "@react-native-masked-view/masked-view": {
       "optional": true
     },
     "@react-native-picker/picker": {

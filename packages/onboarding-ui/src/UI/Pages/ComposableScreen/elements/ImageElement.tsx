@@ -21,12 +21,15 @@ export type ImageElementProps = BaseBoxProps & {
   url: string;
   aspectRatio?: number;
   resizeMode?: "cover" | "contain" | "stretch" | "center";
+  /** Uniform Gaussian blur radius (px). 0/undefined = sharp. Ignored for SVGs. */
+  blurRadius?: number;
 };
 
 export const ImageElementPropsSchema = BaseBoxPropsSchema.extend({
   url: z.string().min(1, "url must not be empty"),
   aspectRatio: z.number().optional(),
   resizeMode: z.enum(["cover", "contain", "stretch", "center"]).optional(),
+  blurRadius: z.number().min(0).optional(),
 });
 
 type ResizeMode = "cover" | "contain" | "stretch" | "center";
@@ -54,12 +57,18 @@ const isSvgUrl = (url: string): boolean =>
   url.split(/[?#]/)[0].toLowerCase().endsWith(".svg");
 
 // Pick expo-image when installed (better webp/avif), else RN Image. resizeMode
-// passes through unchanged on RN; maps to contentFit on expo-image.
-const renderRaster = (url: string, resizeMode: ResizeMode | undefined, style: any): React.ReactElement =>
+// passes through unchanged on RN; maps to contentFit on expo-image. `blurRadius`
+// is a native prop on both — undefined leaves the image sharp.
+const renderRaster = (
+  url: string,
+  resizeMode: ResizeMode | undefined,
+  style: any,
+  blurRadius?: number
+): React.ReactElement =>
   ExpoImage ? (
-    <ExpoImage source={url} contentFit={CONTENT_FIT[resizeMode ?? "cover"]} style={style} />
+    <ExpoImage source={url} contentFit={CONTENT_FIT[resizeMode ?? "cover"]} blurRadius={blurRadius} style={style} />
   ) : (
-    <RNImage source={{ uri: url }} resizeMode={resizeMode} style={style} />
+    <RNImage source={{ uri: url }} resizeMode={resizeMode} blurRadius={blurRadius} style={style} />
   );
 
 type ImageUIElement = Extract<UIElement, { type: "Image" }>;
@@ -117,7 +126,7 @@ export const ImageElementComponent = ({ element }: Props): React.ReactElement =>
         height: "100%",
         borderRadius: p.borderRadius,
         overflow: (p.overflow ?? "hidden") as any,
-      })
+      }, p.blurRadius)
     );
     if (p.backgroundGradient) {
       return (
@@ -170,5 +179,5 @@ export const ImageElementComponent = ({ element }: Props): React.ReactElement =>
     );
   }
 
-  return renderRaster(p.url, p.resizeMode, simpleStyle);
+  return renderRaster(p.url, p.resizeMode, simpleStyle, p.blurRadius);
 };

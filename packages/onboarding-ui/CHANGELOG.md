@@ -9,6 +9,17 @@ here.
 
 ---
 
+## [1.36.0] - 2026-06-04
+
+### Added
+- **Uniform image blur** — the `Image` ComposableScreen renderer now forwards a `blurRadius` prop to both `expo-image` and RN `Image` (native blur, no extra dep). `0`/omitted = sharp; ignored for SVGs.
+- **`ProgressiveBlurImage` element renderer** — renders a full-bleed sharp image with a gradient-masked **blurred copy** of the same image on top (revealed where the `mask` is opaque) plus an optional `tint` gradient, producing a progressive (variable) blur: sharp where the mask is transparent, blurred + tinted where it's opaque. Masking a blurred image copy (rather than a backdrop `BlurView`) is what makes it composite reliably on iOS — a masked `BlurView` has no backdrop to sample and renders transparent. Supports both **linear** and **radial** masks: linear renders via `expo-linear-gradient`, radial via `react-native-svg` (a required dep — radial works even without expo-linear-gradient). The tint overlay + degraded scrim follow the same mask shape. Composes as the bottom layer of a `ZStack` with sharp foreground content above. A native-view probe + error boundary degrade to a sharp image + dark scrim (never throws) when the masked-view native module isn't in the running binary.
+
+### Changed
+- **`@react-native-masked-view/masked-view` added as an optional peer dependency** — needed (alongside the existing `expo-linear-gradient` for the mask/tint gradients and `expo-image` for the blurred copy) by `ProgressiveBlurImage`. When absent the element degrades gracefully to a sharp image + a dark gradient scrim derived from the mask (still legible for overlaid text). The `mask` is linear-only; a radial source mask is approximated by a vertical fade.
+
+---
+
 ## [1.35.0] - 2026-06-02
 
 ### Added

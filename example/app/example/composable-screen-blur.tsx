@@ -65,9 +65,64 @@ export default function ComposableScreenBlurExample() {
                   props: { flex: 1, paddingHorizontal: 24, justifyContent: 'space-between' },
                   children: [
                 {
-                  id: 'top-spacer',
-                  type: 'Text',
-                  props: { content: '+1,028,709  women on Harmony', fontSize: 15, color: '#fff', textAlign: 'center', marginVertical: 8 },
+                  id: 'top',
+                  type: 'YStack',
+                  props: { gap: 12, paddingVertical: 8 },
+                  children: [
+                    {
+                      id: 'top-bar',
+                      type: 'XStack',
+                      props: { alignItems: 'center', justifyContent: 'space-between' },
+                      children: [
+                        {
+                          id: 'partner-pill',
+                          type: 'YStack',
+                          props: {
+                            borderWidth: 1,
+                            borderColor: 'rgba(255,255,255,0.9)',
+                            borderRadius: 100,
+                            paddingHorizontal: 12,
+                            paddingVertical: 8,
+                          },
+                          children: [
+                            {
+                              id: 'partner-pill-text',
+                              type: 'Text',
+                              props: { content: "I'm a partner", fontSize: 15, fontWeight: '500', color: '#fff' },
+                            },
+                          ],
+                        },
+                        {
+                          id: 'brand-icon',
+                          type: 'Icon',
+                          props: { name: 'Sparkles', size: 36, color: '#fff' },
+                        },
+                        {
+                          id: 'login-pill',
+                          type: 'YStack',
+                          props: {
+                            borderWidth: 1,
+                            borderColor: 'rgba(255,255,255,0.9)',
+                            borderRadius: 100,
+                            paddingHorizontal: 16,
+                            paddingVertical: 8,
+                          },
+                          children: [
+                            {
+                              id: 'login-pill-text',
+                              type: 'Text',
+                              props: { content: 'Log in', fontSize: 15, fontWeight: '500', color: '#fff' },
+                            },
+                          ],
+                        },
+                      ],
+                    },
+                    {
+                      id: 'social-proof',
+                      type: 'Text',
+                      props: { content: '+1,028,709  women on Harmony', fontSize: 15, color: '#fff', textAlign: 'center' },
+                    },
+                  ],
                 },
                 {
                   id: 'headline',
@@ -123,6 +178,12 @@ export default function ComposableScreenBlurExample() {
                         borderRadius: 2000,
                         paddingHorizontal: 48,
                         paddingVertical: 16,
+                        // Drop shadow lifts the CTA off the blurred photo.
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 6 },
+                        shadowOpacity: 0.35,
+                        shadowRadius: 16,
+                        elevation: 10,
                       },
                     },
                   ],

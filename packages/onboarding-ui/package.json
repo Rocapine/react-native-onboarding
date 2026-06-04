@@ -53,7 +53,6 @@
     "@types/react": "*",
     "expo-router": ">=3.0.0",
     "expo-store-review": "*",
-    "expo-blur": "*",
     "expo-linear-gradient": "*",
     "expo-haptics": "*",
     "expo-image": "*",
@@ -70,9 +69,6 @@
       "optional": true
     },
     "@react-native-masked-view/masked-view": {
-      "optional": true
-    },
-    "expo-blur": {
       "optional": true
     },
     "@react-native-picker/picker": {

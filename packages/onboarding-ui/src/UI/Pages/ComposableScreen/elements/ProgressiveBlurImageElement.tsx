@@ -15,14 +15,6 @@ try {
   // expo-image not installed — RN Image fallback below
 }
 
-// expo-blur BlurView — optional. Absent → degrade to a flat gradient scrim.
-let BlurView: React.ComponentType<any> | null = null;
-try {
-  BlurView = require("expo-blur").BlurView;
-} catch {
-  // expo-blur not installed
-}
-
 // @react-native-masked-view/masked-view — optional. Absent → no progressive
 // mask, so we degrade to a flat gradient scrim rather than a full-screen blur.
 let MaskedView: React.ComponentType<any> | null = null;
@@ -96,12 +88,24 @@ const EDGE_POINT: Record<string, { x: number; y: number }> = {
   bottomRight: { x: 1, y: 1 },
 };
 
-const renderRaster = (url: string, resizeMode: ResizeMode | undefined, style: any): React.ReactElement =>
+const renderRaster = (
+  url: string,
+  resizeMode: ResizeMode | undefined,
+  style: any,
+  blurRadius?: number
+): React.ReactElement =>
   ExpoImage ? (
-    <ExpoImage source={url} contentFit={CONTENT_FIT[resizeMode ?? "cover"]} style={style} />
+    <ExpoImage source={url} contentFit={CONTENT_FIT[resizeMode ?? "cover"]} blurRadius={blurRadius} style={style} />
   ) : (
-    <RNImage source={{ uri: url }} resizeMode={resizeMode} style={style} />
+    <RNImage source={{ uri: url }} resizeMode={resizeMode} blurRadius={blurRadius} style={style} />
   );
+
+// expo-blur's BlurView blurs the *backdrop behind it*, but a MaskedView renders
+// its child into an isolated offscreen layer with no backdrop to sample — so a
+// masked BlurView is transparent on iOS (no blur, no tint). Instead we mask a
+// real blurred *copy* of the image, which composites reliably on both platforms.
+// Map the 0–100 intensity onto an expo-image/RN blurRadius in px.
+const intensityToBlurRadius = (intensity: number): number => Math.max(0, Math.round(intensity * 0.3));
 
 type BlurUIElement = Extract<UIElement, { type: "ProgressiveBlurImage" }>;
 
@@ -111,13 +115,34 @@ type Props = {
 };
 
 // Mask alpha (= blur strength) → black with that alpha. MaskedView keys off the
-// alpha channel of its mask element, so a transparent→opaque black ramp makes
-// the BlurView visible only where the mask is opaque.
+// alpha channel of its mask element, so a transparent→opaque black ramp reveals
+// the blurred image copy only where the mask is opaque.
 const maskColors = (mask: BlurMask, maxBlurOpacity: number): string[] =>
   mask.stops.map((s) => `rgba(0,0,0,${(s.opacity * maxBlurOpacity).toFixed(3)})`);
 
-// Fallback scrim: reuse the mask shape as a dark color gradient so the bottom
-// still darkens for text legibility when blur deps are absent.
+// `tint` → an rgb triple for the darkening/lightening overlay. "default" = no tint.
+const tintRgb = (tint?: "light" | "dark" | "default"): string | null =>
+  tint === "dark" ? "0,0,0" : tint === "light" ? "255,255,255" : null;
+
+// Tint overlay following the mask shape: a color gradient (not a mask) that
+// darkens (or lightens) the blurred region for text legibility — this is the
+// "dark tint" of the Figma hero.
+const tintGradient = (
+  mask: BlurMask,
+  maxBlurOpacity: number,
+  rgb: string
+): GradientBackground => ({
+  type: "linear",
+  from: mask.from,
+  to: mask.to,
+  stops: mask.stops.map((s) => ({
+    color: `rgba(${rgb},${(s.opacity * maxBlurOpacity * 0.6).toFixed(3)})`,
+    position: s.position,
+  })),
+});
+
+// Fallback scrim (no masked-view / native view absent): a dark color gradient so
+// the bottom still darkens for text legibility even without the blur copy.
 const fallbackGradient = (mask: BlurMask, maxBlurOpacity: number): GradientBackground => ({
   type: "linear",
   from: mask.from,
@@ -189,6 +214,7 @@ export const ProgressiveBlurImageElementComponent = ({ element }: Props): React.
 
   const sharpImage = renderRaster(p.url, p.resizeMode, StyleSheet.absoluteFillObject);
   const locations = p.mask.stops.map((s) => s.position);
+  const rgb = tintRgb(p.tint);
 
   // Degraded path: sharp image + a dark gradient scrim (GradientBox falls back
   // to a plain View when expo-linear-gradient is also absent). Used both when a
@@ -204,20 +230,28 @@ export const ProgressiveBlurImageElementComponent = ({ element }: Props): React.
     </View>
   );
 
-  // Full path requires all three optional deps in JS *and* the masked-view
-  // native view to be registered.
-  const canProgressiveBlur =
-    BlurView && MaskedView && LinearGradient && nativeMaskedViewAvailable();
+  // Full path needs masked-view + linear-gradient in JS *and* the masked-view
+  // native view registered. (expo-blur is intentionally not used — see
+  // renderRaster note: a masked BlurView is transparent on iOS.)
+  const canProgressiveBlur = MaskedView && LinearGradient && nativeMaskedViewAvailable();
 
   if (!canProgressiveBlur) return fallback;
 
   const Masked = MaskedView!;
   const Gradient = LinearGradient!;
-  const Blur = BlurView!;
+  const blurredCopy = renderRaster(
+    p.url,
+    p.resizeMode,
+    StyleSheet.absoluteFillObject,
+    intensityToBlurRadius(p.intensity)
+  );
+
   return (
     <ProgressiveBlurBoundary fallback={fallback}>
       <View style={containerStyle}>
+        {/* Sharp base. */}
         {sharpImage}
+        {/* Blurred copy, revealed only where the mask is opaque → progressive blur. */}
         <Masked
           style={StyleSheet.absoluteFillObject}
           maskElement={
@@ -230,13 +264,15 @@ export const ProgressiveBlurImageElementComponent = ({ element }: Props): React.
             />
           }
         >
-          <Blur
-            intensity={p.intensity}
-            tint={p.tint ?? "default"}
-            experimentalBlurMethod="dimezisBlurView"
-            style={StyleSheet.absoluteFillObject}
-          />
+          {blurredCopy}
         </Masked>
+        {/* Tint overlay (the Figma dark tint) following the mask shape. */}
+        {rgb && (
+          <GradientBox
+            gradient={tintGradient(p.mask, maxBlurOpacity, rgb)}
+            style={StyleSheet.absoluteFillObject as any}
+          />
+        )}
       </View>
     </ProgressiveBlurBoundary>
   );

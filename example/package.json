@@ -36,7 +36,6 @@
     "@rocapine/react-native-onboarding-ui": "file:../packages/onboarding-ui",
     "@tanstack/react-query": "^5.90.2",
     "expo": "^55.0.15",
-    "expo-blur": "~55.0.14",
     "expo-constants": "~55.0.14",
     "expo-dev-client": "~55.0.27",
     "expo-font": "~55.0.6",

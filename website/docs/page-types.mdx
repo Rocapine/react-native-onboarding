@@ -424,7 +424,7 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 | `Text` | `<Text>` | — | — |
 | `RichText` | `<View>` wrapping `Text` children | wrapping `row` | — |
 | `Image` | `<Image>` | — | — |
-| `ProgressiveBlurImage` | `<Image>` + masked `BlurView` | depth (z-axis) | `expo-blur`, `@react-native-masked-view/masked-view`, `expo-linear-gradient` (all optional) |
+| `ProgressiveBlurImage` | `<Image>` + masked blurred image copy | depth (z-axis) | `@react-native-masked-view/masked-view`, `expo-linear-gradient`, `expo-image` (all optional) |
 | `Icon` | Lucide icon | — | — (bundled) |
 | `Input` | `<TextInput>` | — | — |
 | `RadioGroup` | Radio item list | — | — |
@@ -577,7 +577,7 @@ A full-bleed image with a gradient-masked Gaussian blur baked in: sharp where th
 | Prop | Type | Notes |
 |------|------|-------|
 | `url` | `string` | **Required** — remote image URI |
-| `intensity` | `number` | **Required** — blur strength, `0`–`100` (expo-blur intensity) |
+| `intensity` | `number` | **Required** — blur strength, `0`–`100` (mapped to the blurred copy's blur radius) |
 | `mask` | `{ from, to, stops: [{ position, opacity }] }` | **Required** — linear gradient driving where the blur is strong. `from`/`to` are edges (`"top"`, `"bottom"`, …); each stop's `opacity` (0–1) is the **blur strength** at `position` (0–1), not a color |
 | `tint` | `"light" \| "dark" \| "default"` | Blur tint. Defaults to `"default"` |
 | `maxBlurOpacity` | `number` | Clamp on the masked blur layer (0–1). Defaults to `1` |
@@ -585,7 +585,7 @@ A full-bleed image with a gradient-masked Gaussian blur baked in: sharp where th
 | `aspectRatio` / `width` / `height` / `borderRadius` / `opacity` / `margin*` | | Standard box props |
 
 :::note Optional peer deps + graceful degradation
-The progressive blur needs `expo-blur`, `@react-native-masked-view/masked-view`, and `expo-linear-gradient` (all optional). When any is missing, the element degrades to a **sharp image + a dark gradient scrim** derived from the mask (still legible for overlaid text) and never throws. The `mask` is linear-only; a radial Figma mask is approximated by a vertical fade.
+The progressive blur masks a **blurred copy** of the image (not a backdrop `BlurView` — a masked `BlurView` has no backdrop to sample and renders transparent on iOS). It needs `@react-native-masked-view/masked-view` + `expo-linear-gradient` (+ `expo-image` for the blurred copy), all optional. When the masked-view native module is missing (incl. a dev-client built before it was installed), the element degrades to a **sharp image + a dark gradient scrim** derived from the mask (still legible for overlaid text) and never throws. The `mask` is linear-only; a radial Figma mask is approximated by a vertical fade.
 :::
 
 **Text props:**

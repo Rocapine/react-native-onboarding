@@ -9,7 +9,7 @@ here.
 
 ---
 
-## [1.37.0] - 2026-06-04
+## [1.36.0] - 2026-06-04
 
 ### Added
 - **Uniform image blur** — the `Image` ComposableScreen renderer now forwards a `blurRadius` prop to both `expo-image` and RN `Image` (native blur, no extra dep). `0`/omitted = sharp; ignored for SVGs.

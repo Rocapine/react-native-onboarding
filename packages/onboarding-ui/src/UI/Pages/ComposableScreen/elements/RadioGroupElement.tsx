@@ -1,6 +1,7 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { z } from "zod";
-import { View, Text, TouchableOpacity } from "react-native";
+import { View, Text, TouchableOpacity, Image as RNImage, type LayoutChangeEvent } from "react-native";
+import { SvgUri } from "react-native-svg";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
 import { RenderContext, dim } from "./shared";
@@ -14,7 +15,19 @@ export type RadioGroupElementProps = BaseBoxProps & {
   gap?: number;
   direction?: "vertical" | "horizontal";
   showTick?: boolean;
-  items: Array<{ label: string; value: string }>;
+  columns?: number;
+  itemImageSize?: number;
+  itemAlign?: "row" | "column";
+  itemDescriptionColor?: string;
+  itemDescriptionFontSize?: number;
+  items: Array<{
+    label: string;
+    value: string;
+    description?: string;
+    imageUrl?: string;
+    imageAspectRatio?: number;
+    icon?: string;
+  }>;
   itemBackgroundColor?: string;
   itemSelectedBackgroundColor?: string;
   itemBorderColor?: string;
@@ -39,7 +52,19 @@ export const RadioGroupElementPropsSchema = BaseBoxPropsSchema.extend({
   gap: z.number().optional(),
   direction: z.enum(["vertical", "horizontal"]).optional(),
   showTick: z.boolean().optional(),
-  items: z.array(z.object({ label: z.string().trim().min(1, "item label must not be empty"), value: z.string().trim().min(1, "item value must not be empty") })).min(1, "items must not be empty"),
+  columns: z.number().int().min(1).max(6).optional(),
+  itemImageSize: z.number().positive().optional(),
+  itemAlign: z.enum(["row", "column"]).optional(),
+  itemDescriptionColor: z.string().optional(),
+  itemDescriptionFontSize: z.number().optional(),
+  items: z.array(z.object({
+    label: z.string().trim().min(1, "item label must not be empty"),
+    value: z.string().trim().min(1, "item value must not be empty"),
+    description: z.string().optional(),
+    imageUrl: z.string().optional(),
+    imageAspectRatio: z.number().positive().optional(),
+    icon: z.string().optional(),
+  })).min(1, "items must not be empty"),
   itemBackgroundColor: z.string().optional(),
   itemSelectedBackgroundColor: z.string().optional(),
   itemBorderColor: z.string().optional(),
@@ -73,6 +98,40 @@ type Props = {
   ctx: RenderContext;
 };
 
+const isSvgUrl = (url: string): boolean =>
+  url.split(/[?#]/)[0].toLowerCase().endsWith(".svg");
+
+// Renders a per-item image (svg or raster) or a lucide icon. `imageUrl` wins
+// over `icon` when both are set. Returns null when neither is provided.
+const ItemMedia = ({
+  imageUrl,
+  icon,
+  size,
+  aspectRatio,
+  color,
+}: {
+  imageUrl?: string;
+  icon?: string;
+  size: number;
+  aspectRatio?: number;
+  color: string;
+}): React.ReactElement | null => {
+  if (imageUrl) {
+    const style = { width: size, height: size / (aspectRatio ?? 1) };
+    return isSvgUrl(imageUrl) ? (
+      <SvgUri uri={imageUrl} width={style.width} height={style.height} />
+    ) : (
+      <RNImage source={{ uri: imageUrl }} resizeMode="contain" style={style} />
+    );
+  }
+  if (icon) {
+    const icons = require("lucide-react-native");
+    const IconComp = icons[icon] as React.ComponentType<{ size?: number; color?: string }> | undefined;
+    return IconComp ? <IconComp size={size} color={color} /> : null;
+  }
+  return null;
+};
+
 export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement => {
   const { theme, variables, setVariable } = ctx;
   const selectedValue = element.props.variableName ? variables[element.props.variableName]?.value : undefined;
@@ -91,16 +150,36 @@ export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement
     }
   };
 
-  const isHorizontal = element.props.direction === "horizontal";
+  // `columns` (grid) overrides `direction`: wrapping row with each item sized so
+  // N fit per row. Falls back to the direction flow.
+  const columns = element.props.columns;
+  const gap = element.props.gap ?? 8;
+  const isGrid = columns != null && columns > 0;
+  const isHorizontal = !isGrid && element.props.direction === "horizontal";
+  const itemAlign = element.props.itemAlign ?? "row";
+  // Measure the container so grid items get an EXACT pixel width that accounts
+  // for the inter-item gaps (gap is px, so a %-only width can't be exact). Until
+  // the first layout, fall back to an even %-split estimate (one frame); flexWrap
+  // keeps it sane if the estimate is slightly wide.
+  const [gridWidth, setGridWidth] = useState(0);
+  const gridItemWidth = !isGrid
+    ? undefined
+    : gridWidth > 0
+      ? (gridWidth - gap * (columns - 1)) / columns
+      : (`${100 / columns}%` as const);
+  const onGridLayout = isGrid
+    ? (e: LayoutChangeEvent) => setGridWidth(e.nativeEvent.layout.width)
+    : undefined;
 
   return (
     <GradientBox
       gradient={element.props.backgroundGradient}
+      onLayout={onGridLayout}
       style={{
-        flexDirection: isHorizontal ? "row" : "column",
-        flexWrap: isHorizontal ? "wrap" : undefined,
+        flexDirection: isGrid || isHorizontal ? "row" : "column",
+        flexWrap: isGrid || isHorizontal ? "wrap" : undefined,
         alignSelf: element.props.alignSelf,
-        gap: element.props.gap ?? 8,
+        gap,
         width: dim(element.props.width),
         height: dim(element.props.height),
         margin: element.props.margin,
@@ -130,6 +209,17 @@ export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement
           ? (element.props.itemSelectedBorderColor ?? theme.colors.primary)
           : (element.props.itemBorderColor ?? theme.colors.neutral.low);
 
+        const media = (
+          <ItemMedia
+            imageUrl={item.imageUrl}
+            icon={item.icon}
+            size={element.props.itemImageSize ?? 40}
+            aspectRatio={item.imageAspectRatio}
+            color={textColor}
+          />
+        );
+        const hasMedia = !!(item.imageUrl || item.icon);
+
         return (
           <TouchableOpacity
             key={item.value}
@@ -139,9 +229,10 @@ export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement
             accessibilityState={{ selected: isSelected, checked: isSelected }}
             accessibilityLabel={item.label}
             style={{
-              flexDirection: "row",
+              flexDirection: itemAlign,
               alignItems: "center",
               gap: 12,
+              width: gridItemWidth as any,
               backgroundColor: bgColor,
               borderRadius: element.props.itemBorderRadius ?? 8,
               borderWidth: element.props.itemBorderWidth ?? 1,
@@ -175,18 +266,33 @@ export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement
                 )}
               </View>
             )}
-            <Text
-              style={{
-                flexShrink: 1,
-                color: textColor,
-                fontSize: element.props.itemFontSize ?? theme.typography.textStyles.body.fontSize,
-                fontWeight: (element.props.itemFontWeight as any) ?? theme.typography.textStyles.body.fontWeight,
-                fontFamily: element.props.itemFontFamily,
-                fontStyle: element.props.itemFontStyle,
-              }}
-            >
-              {item.label}
-            </Text>
+            {hasMedia && media}
+            <View style={{ flexShrink: 1, alignItems: itemAlign === "column" ? "center" : "flex-start" }}>
+              <Text
+                style={{
+                  color: textColor,
+                  fontSize: element.props.itemFontSize ?? theme.typography.textStyles.body.fontSize,
+                  fontWeight: (element.props.itemFontWeight as any) ?? theme.typography.textStyles.body.fontWeight,
+                  fontFamily: element.props.itemFontFamily,
+                  fontStyle: element.props.itemFontStyle,
+                  textAlign: itemAlign === "column" ? "center" : "left",
+                }}
+              >
+                {item.label}
+              </Text>
+              {item.description ? (
+                <Text
+                  style={{
+                    marginTop: 2,
+                    color: element.props.itemDescriptionColor ?? theme.colors.text.secondary,
+                    fontSize: element.props.itemDescriptionFontSize ?? 13,
+                    textAlign: itemAlign === "column" ? "center" : "left",
+                  }}
+                >
+                  {item.description}
+                </Text>
+              ) : null}
+            </View>
           </TouchableOpacity>
         );
       })}

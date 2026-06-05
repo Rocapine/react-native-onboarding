@@ -1,4 +1,4 @@
-import type { NextStep } from "./steps/common.types";
+import type { NextStep, ProgressMode } from "./steps/common.types";
 
 /**
  * Base step type that all onboarding steps must conform to.
@@ -9,6 +9,11 @@ export type BaseStepType = {
   type: string;
   name: string;
   displayProgressHeader?: boolean;
+  /**
+   * Per-step progress role. Absent ⇒ "counted" (today's behavior). Drives the
+   * counted-aware progress fraction (see `computeProgress` / `useOnboarding`).
+   */
+  progressMode?: ProgressMode;
   payload?: any;
   customPayload?: any;
   continueButtonLabel?: string;

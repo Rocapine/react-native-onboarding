@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
-import { Animated, Pressable, Text } from "react-native";
+import { Animated, Linking, Pressable, Text } from "react-native";
 import {
   useResolvedFontStyle,
   evaluateCondition,
@@ -17,6 +17,20 @@ import { GradientBox } from "./GradientBox";
 import { ComposableVariableEntry } from "../../../Provider/OnboardingProgressProvider";
 import { evaluateSetVariableExpression } from "./expression";
 import { triggerHaptic, type HapticStyle } from "./haptics";
+
+/**
+ * Optional result a custom action handler may return to write variables back
+ * into the live ComposableScreen variable bag and/or stop the action queue.
+ * Returning `void` (the common case) writes nothing and continues the queue —
+ * so existing handlers are unaffected. Defined locally here because the UI
+ * package depends on the PUBLISHED headless package, which does not yet export
+ * this type (mirrors the repo's inline-schema-duplication convention); it
+ * becomes the headless export's mirror once that version ships.
+ */
+export type ActionResult = {
+  variables?: Record<string, ComposableVariableEntry>;
+  abort?: boolean;
+};
 
 export type CustomButtonAction = {
   type: "custom";
@@ -60,13 +74,171 @@ export const SetVariableButtonActionSchema = z.object({
   kind: z.enum(["int", "float", "string"]).optional(),
 });
 
-export type ButtonAction = "continue" | CustomButtonAction | SetVariableButtonAction;
+/**
+ * Declares a variable a capability action promises to write into the variable
+ * bag once its host handler resolves. Inline-duplicated from the headless
+ * package (which depends on the PUBLISHED build that does not yet export it);
+ * becomes the headless mirror once that version ships.
+ */
+export type ActionVariableDecl = {
+  name: string;
+  kind?: ComposableVariableKind;
+  label?: string;
+};
+
+export const ActionVariableDeclSchema = z.object({
+  name: z.string().min(1),
+  kind: z.enum(["int", "float", "string"]).optional(),
+  label: z.string().optional(),
+});
+
+// ── First-class capability / navigation actions (inline-duplicated) ─────────
+
+export type NavigateButtonAction = {
+  type: "navigate";
+  stepId: string;
+};
+
+export const NavigateButtonActionSchema = z.object({
+  type: z.literal("navigate"),
+  stepId: z.string().min(1),
+});
+
+export type RequestNotificationPermissionButtonAction = {
+  type: "requestNotificationPermission";
+  writes?: ActionVariableDecl[];
+};
+
+export const RequestNotificationPermissionButtonActionSchema = z.object({
+  type: z.literal("requestNotificationPermission"),
+  writes: z.array(ActionVariableDeclSchema).optional(),
+});
+
+export type RequestHealthSyncButtonAction = {
+  type: "requestHealthSync";
+  metrics?: string[];
+  writes?: ActionVariableDecl[];
+};
+
+export const RequestHealthSyncButtonActionSchema = z.object({
+  type: z.literal("requestHealthSync"),
+  metrics: z.array(z.string()).optional(),
+  writes: z.array(ActionVariableDeclSchema).optional(),
+});
+
+export type PresentPaywallButtonAction = {
+  type: "presentPaywall";
+  placement?: string;
+  writes?: ActionVariableDecl[];
+};
+
+export const PresentPaywallButtonActionSchema = z.object({
+  type: z.literal("presentPaywall"),
+  placement: z.string().optional(),
+  writes: z.array(ActionVariableDeclSchema).optional(),
+});
+
+export type RestorePurchaseButtonAction = {
+  type: "restorePurchase";
+  writes?: ActionVariableDecl[];
+};
+
+export const RestorePurchaseButtonActionSchema = z.object({
+  type: z.literal("restorePurchase"),
+  writes: z.array(ActionVariableDeclSchema).optional(),
+});
+
+export type OpenURLButtonAction = {
+  type: "openURL";
+  url: string;
+  external?: boolean;
+};
+
+export const OpenURLButtonActionSchema = z.object({
+  type: z.literal("openURL"),
+  url: z.string().min(1),
+  external: z.boolean().optional(),
+});
+
+export type RequestReviewButtonAction = {
+  type: "requestReview";
+  writes?: ActionVariableDecl[];
+};
+
+export const RequestReviewButtonActionSchema = z.object({
+  type: z.literal("requestReview"),
+  writes: z.array(ActionVariableDeclSchema).optional(),
+});
+
+export type ButtonAction =
+  | "continue"
+  | CustomButtonAction
+  | SetVariableButtonAction
+  | NavigateButtonAction
+  | RequestNotificationPermissionButtonAction
+  | RequestHealthSyncButtonAction
+  | PresentPaywallButtonAction
+  | RestorePurchaseButtonAction
+  | OpenURLButtonAction
+  | RequestReviewButtonAction;
 
 export const ButtonActionSchema = z.union([
   z.literal("continue"),
-  CustomButtonActionSchema,
-  SetVariableButtonActionSchema,
+  z.discriminatedUnion("type", [
+    CustomButtonActionSchema,
+    SetVariableButtonActionSchema,
+    NavigateButtonActionSchema,
+    RequestNotificationPermissionButtonActionSchema,
+    RequestHealthSyncButtonActionSchema,
+    PresentPaywallButtonActionSchema,
+    RestorePurchaseButtonActionSchema,
+    OpenURLButtonActionSchema,
+    RequestReviewButtonActionSchema,
+  ]),
 ]);
+
+/**
+ * Context every capability handler receives. Inline-duplicated from the headless
+ * `ActionHandlerCtx`; the published headless build does not yet export it.
+ */
+export type ActionHandlerCtx = {
+  variables: Record<string, ComposableVariableEntry | undefined>;
+  writes?: ActionVariableDecl[];
+};
+
+/**
+ * Typed registry of host handlers for the first-class capability actions.
+ * Inline-duplicated from the headless `ActionHandlers` (published build does
+ * not export it yet). Threaded onto the RenderContext alongside `customActions`.
+ */
+export type ActionHandlers = {
+  requestNotificationPermission?: (
+    ctx: ActionHandlerCtx
+  ) => void | ActionResult | Promise<void | ActionResult>;
+  requestHealthSync?: (
+    ctx: ActionHandlerCtx & { metrics?: string[] }
+  ) => void | ActionResult | Promise<void | ActionResult>;
+  presentPaywall?: (
+    ctx: ActionHandlerCtx & { placement?: string }
+  ) => void | ActionResult | Promise<void | ActionResult>;
+  restorePurchase?: (
+    ctx: ActionHandlerCtx
+  ) => void | ActionResult | Promise<void | ActionResult>;
+  openURL?: (
+    ctx: ActionHandlerCtx & { url: string; external?: boolean }
+  ) => void | ActionResult | Promise<void | ActionResult>;
+  requestReview?: (
+    ctx: ActionHandlerCtx
+  ) => void | ActionResult | Promise<void | ActionResult>;
+  /**
+   * Host router hook for the `navigate` action. The SDK does not own routing —
+   * when registered the SDK calls this so the host drives the actual screen
+   * change; without it `navigate` falls back to a progress-only jump.
+   */
+  navigate?: (
+    ctx: ActionHandlerCtx & { stepId: string }
+  ) => void | ActionResult | Promise<void | ActionResult>;
+};
 
 type ButtonOverridableProps = BaseBoxProps & {
   variant?: "filled" | "outlined" | "ghost";
@@ -145,7 +317,7 @@ type Props = {
 };
 
 export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElement => {
-  const { theme, onContinue, customActions, variables, setVariable } = ctx;
+  const { theme, onContinue, customActions, actionHandlers, goToStep, variables, setVariable } = ctx;
   const flatVariables = useMemo(
     () =>
       Object.fromEntries(
@@ -165,43 +337,189 @@ export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElem
     const effective: ButtonAction[] =
       actions ?? (action === "continue" ? ["continue"] : []);
 
+    // Build the slice of variables the action declared it cares about. When a
+    // capability action declares `writes`, the handler receives the current
+    // values of those names so it can read-modify-write; otherwise it gets the
+    // full bag (capability handlers rarely need a filter).
+    const sliceFor = (
+      writes?: ActionVariableDecl[]
+    ): Record<string, ComposableVariableEntry | undefined> => {
+      if (!writes || writes.length === 0) return { ...variables };
+      const out: Record<string, ComposableVariableEntry | undefined> = {};
+      for (const w of writes) out[w.name] = variables[w.name];
+      return out;
+    };
+    // Merge a handler's returned variables into the bag. Returns `true` when the
+    // action requested an abort (caller should stop the remaining actions).
+    const mergeResult = (result: ActionResult | void): boolean => {
+      if (result?.variables) {
+        for (const [name, entry] of Object.entries(result.variables)) {
+          setVariable(name, entry);
+        }
+      }
+      return !!result?.abort;
+    };
+    // Run a capability handler with shared error handling. Returns "abort" when
+    // the queue should stop (handler aborted or threw), "done" otherwise.
+    const runCapability = async (
+      label: string,
+      handler:
+        | ((ctx: any) => void | ActionResult | Promise<void | ActionResult>)
+        | undefined,
+      handlerArgs: any
+    ): Promise<"abort" | "done"> => {
+      if (!handler) {
+        console.warn(`[ComposableScreen] No actionHandlers.${label} registered`);
+        return "done";
+      }
+      try {
+        const result = (await handler(handlerArgs)) as ActionResult | void;
+        return mergeResult(result) ? "abort" : "done";
+      } catch (err) {
+        console.error(`[ComposableScreen] actionHandlers.${label} threw:`, err);
+        return "abort";
+      }
+    };
+
     for (const act of effective) {
       if (act === "continue") {
         onContinue();
         return;
       }
-      if (act.type === "setVariable") {
-        let value: string;
-        let kind: ComposableVariableKind | undefined;
-        if (act.valueMode === "expression") {
-          const computed = evaluateSetVariableExpression(act.value, variables);
-          value = computed.value;
-          kind = computed.kind;
-        } else {
-          value = act.value;
-          kind = act.kind;
+      switch (act.type) {
+        case "setVariable": {
+          let value: string;
+          let kind: ComposableVariableKind | undefined;
+          if (act.valueMode === "expression") {
+            const computed = evaluateSetVariableExpression(act.value, variables);
+            value = computed.value;
+            kind = computed.kind;
+          } else {
+            value = act.value;
+            kind = act.kind;
+          }
+          setVariable(act.name, { value, label: act.label, kind });
+          continue;
         }
-        setVariable(act.name, { value, label: act.label, kind });
-        continue;
-      }
-      const handler = customActions[act.function];
-      if (!handler) {
-        console.warn(
-          `[ComposableScreen] No customAction registered for "${act.function}"`
-        );
-        continue;
-      }
-      const requested = act.variables ?? [];
-      const vars: Record<string, ComposableVariableEntry | undefined> = {};
-      for (const name of requested) vars[name] = variables[name];
-      try {
-        await handler({ variables: vars });
-      } catch (err) {
-        console.error(
-          `[ComposableScreen] customAction "${act.function}" threw:`,
-          err
-        );
-        return;
+        case "navigate": {
+          // Prefer a host router hook so the actual screen changes — the SDK
+          // does not own routing. When `actionHandlers.navigate` is registered
+          // the host drives the route push (and its useFocusEffect then sets the
+          // correct progress position). Without one, fall back to a best-effort
+          // progress-only jump: the bar moves but the host keeps rendering the
+          // current step until its own router advances.
+          if (actionHandlers.navigate) {
+            await runCapability("navigate", actionHandlers.navigate, {
+              stepId: act.stepId,
+              variables: sliceFor(undefined),
+            });
+            return;
+          }
+          console.warn(
+            `[ComposableScreen] navigate("${act.stepId}"): no actionHandlers.navigate registered — updating progress only (host owns routing).`
+          );
+          goToStep(act.stepId);
+          return;
+        }
+        case "openURL": {
+          // Value-first interpolation: a variable's display label is rarely a
+          // valid URL fragment (unlike Text, where the label is what's shown).
+          const url = act.url.replace(/\{\{([^}]+?)\}\}/g, (_, key) => {
+            const v = variables[String(key).trim()];
+            return (v?.value ?? v?.label ?? "") as string;
+          });
+          // Prefer a host handler; otherwise fall back to RN core Linking.
+          if (actionHandlers.openURL) {
+            const r = await runCapability("openURL", actionHandlers.openURL, {
+              url,
+              external: act.external,
+              variables: sliceFor(undefined),
+            });
+            if (r === "abort") return;
+          } else {
+            try {
+              await Linking.openURL(url);
+            } catch (err) {
+              console.error(`[ComposableScreen] openURL("${url}") failed:`, err);
+              return;
+            }
+          }
+          continue;
+        }
+        case "requestNotificationPermission": {
+          const r = await runCapability(
+            "requestNotificationPermission",
+            actionHandlers.requestNotificationPermission,
+            { variables: sliceFor(act.writes), writes: act.writes }
+          );
+          if (r === "abort") return;
+          continue;
+        }
+        case "requestHealthSync": {
+          const r = await runCapability(
+            "requestHealthSync",
+            actionHandlers.requestHealthSync,
+            { variables: sliceFor(act.writes), writes: act.writes, metrics: act.metrics }
+          );
+          if (r === "abort") return;
+          continue;
+        }
+        case "presentPaywall": {
+          const r = await runCapability(
+            "presentPaywall",
+            actionHandlers.presentPaywall,
+            { variables: sliceFor(act.writes), writes: act.writes, placement: act.placement }
+          );
+          if (r === "abort") return;
+          continue;
+        }
+        case "restorePurchase": {
+          const r = await runCapability(
+            "restorePurchase",
+            actionHandlers.restorePurchase,
+            { variables: sliceFor(act.writes), writes: act.writes }
+          );
+          if (r === "abort") return;
+          continue;
+        }
+        case "requestReview": {
+          const r = await runCapability(
+            "requestReview",
+            actionHandlers.requestReview,
+            { variables: sliceFor(act.writes), writes: act.writes }
+          );
+          if (r === "abort") return;
+          continue;
+        }
+        case "custom": {
+          const handler = customActions[act.function];
+          if (!handler) {
+            console.warn(
+              `[ComposableScreen] No customAction registered for "${act.function}"`
+            );
+            continue;
+          }
+          const requested = act.variables ?? [];
+          const vars: Record<string, ComposableVariableEntry | undefined> = {};
+          for (const name of requested) vars[name] = variables[name];
+          try {
+            // The published headless `CustomActionHandler` is typed `() => void`;
+            // the next SDK release widens it to `void | ActionResult`. Cast so we
+            // can honor a returned result today — `void`-returning handlers (the
+            // common case) yield `undefined` and skip both branches below.
+            const result = (await handler({ variables: vars })) as ActionResult | void;
+            // Merge any variables the handler wrote back into the variable bag,
+            // then honor an optional `abort` to stop the remaining actions.
+            if (mergeResult(result)) return;
+          } catch (err) {
+            console.error(
+              `[ComposableScreen] customAction "${act.function}" threw:`,
+              err
+            );
+            return;
+          }
+          continue;
+        }
       }
     }
   };

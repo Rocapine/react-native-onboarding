@@ -135,12 +135,31 @@ export const NextStepSchema = z
   .default(null);
 export type NextStep = z.infer<typeof NextStepSchema>;
 
+// ── Progress mode ─────────────────────────────────────────────────────────────
+// Per-step role in the progress-bar denominator. Optional and back-compatible:
+// an ABSENT field behaves exactly like today (the step is counted and the bar
+// shows per `displayProgressHeader`).
+//   - "counted"      — counts toward total + advances position (today's default).
+//   - "interstitial" — does NOT count toward total; the bar stays frozen at the
+//                      surrounding counted position (welcome/transition screens).
+//   - "excluded"     — does NOT count and the bar is hidden on this step
+//                      (loaders, paywalls).
+export const ProgressModeSchema = z.enum(["counted", "interstitial", "excluded"]);
+export type ProgressMode = z.infer<typeof ProgressModeSchema>;
+
 // ── Base step schema ──────────────────────────────────────────────────────────
 
 export const BaseStepTypeSchema = z.object({
   id: z.string(),
   name: z.string(),
   displayProgressHeader: z.boolean(),
+  /**
+   * Optional per-step progress role. Absent ⇒ "counted" (today's behavior).
+   * `interstitial`/`excluded` steps are dropped from the progress denominator
+   * and from the active position, so the bar advances evenly across the
+   * counted steps only. See `useOnboarding` / `OnboardingProvider`.
+   */
+  progressMode: ProgressModeSchema.optional(),
   customPayload: CustomPayloadSchema,
   continueButtonLabel: z.string().optional().default("Continue"),
   buttonSection: ButtonSectionSchema.optional(),

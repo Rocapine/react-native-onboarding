@@ -20,7 +20,7 @@ const ComposableScreenRendererBase = ({ step, onContinue }: ContentProps) => {
   const validatedData = useMemo(() => ComposableScreenStepTypeSchema.parse(step), [step]);
   const { elements } = validatedData.payload;
   const { composableVariables, setComposableVariable } = useContext(OnboardingProgressContext);
-  const { setVariable: setHeadlessVariable, customActions } = useContext(HeadlessProgressContext);
+  const { setVariable: setHeadlessVariable, customActions, actionHandlers, goToStep } = useContext(HeadlessProgressContext);
 
   const setVariableAndSync = useCallback(
     (key: string, entry: ComposableVariableEntry) => {
@@ -49,6 +49,8 @@ const ComposableScreenRendererBase = ({ step, onContinue }: ContentProps) => {
     setVariable: setVariableAndSync,
     onContinue,
     customActions,
+    actionHandlers,
+    goToStep,
     renderChildren,
   };
 

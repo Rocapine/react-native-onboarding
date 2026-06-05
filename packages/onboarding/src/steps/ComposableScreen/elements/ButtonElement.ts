@@ -9,6 +9,24 @@ import {
   HapticStyleSchema,
 } from "../../common.types";
 
+/**
+ * Declares a variable a capability action promises to write into the variable
+ * bag once its host handler resolves. Surfaced to studio's variable scanning so
+ * a later step's branch/interpolation can target the name before any value
+ * exists. `kind` mirrors `ComposableVariableKind` ("int" | "float" | "string").
+ */
+export type ActionVariableDecl = {
+  name: string;
+  kind?: "int" | "float" | "string";
+  label?: string;
+};
+
+export const ActionVariableDeclSchema = z.object({
+  name: z.string().min(1),
+  kind: z.enum(["int", "float", "string"]).optional(),
+  label: z.string().optional(),
+});
+
 export type CustomButtonAction = {
   type: "custom";
   function: string;
@@ -46,12 +64,128 @@ export const SetVariableButtonActionSchema = z.object({
   kind: z.enum(["int", "float", "string"]).optional(),
 });
 
-export type ButtonAction = "continue" | CustomButtonAction | SetVariableButtonAction;
+// ── First-class capability / navigation actions ────────────────────────────
+// Each arm is a discriminated-union member on `type`. Capability arms carry an
+// optional `writes` declaration (the variables their host handler promises to
+// merge back into the variable bag) so studio can register and branch on them.
+
+/** Absolute jump to another step in the same onboarding. SDK-resolvable (no host handler). */
+export type NavigateButtonAction = {
+  type: "navigate";
+  /** Target step id in the same onboarding. */
+  stepId: string;
+};
+
+export const NavigateButtonActionSchema = z.object({
+  type: z.literal("navigate"),
+  stepId: z.string().min(1),
+});
+
+/** Request OS notification permission. Result (e.g. granted/denied) is branchable via `writes`. */
+export type RequestNotificationPermissionButtonAction = {
+  type: "requestNotificationPermission";
+  writes?: ActionVariableDecl[];
+};
+
+export const RequestNotificationPermissionButtonActionSchema = z.object({
+  type: z.literal("requestNotificationPermission"),
+  writes: z.array(ActionVariableDeclSchema).optional(),
+});
+
+/**
+ * Request a health-data sync. Vendor-neutral: `metrics` are free-form keys the
+ * host maps to HealthKit / Health Connect identifiers; the host returns the
+ * declared `writes` (e.g. cycleStart) into the variable bag.
+ */
+export type RequestHealthSyncButtonAction = {
+  type: "requestHealthSync";
+  metrics?: string[];
+  writes?: ActionVariableDecl[];
+};
+
+export const RequestHealthSyncButtonActionSchema = z.object({
+  type: z.literal("requestHealthSync"),
+  metrics: z.array(z.string()).optional(),
+  writes: z.array(ActionVariableDeclSchema).optional(),
+});
+
+/** Present a paywall. Vendor-neutral `placement` key; result (purchased/dismissed) via `writes`. */
+export type PresentPaywallButtonAction = {
+  type: "presentPaywall";
+  placement?: string;
+  writes?: ActionVariableDecl[];
+};
+
+export const PresentPaywallButtonActionSchema = z.object({
+  type: z.literal("presentPaywall"),
+  placement: z.string().optional(),
+  writes: z.array(ActionVariableDeclSchema).optional(),
+});
+
+/** Restore a previous purchase. Result (e.g. restored boolean) via `writes`. */
+export type RestorePurchaseButtonAction = {
+  type: "restorePurchase";
+  writes?: ActionVariableDecl[];
+};
+
+export const RestorePurchaseButtonActionSchema = z.object({
+  type: z.literal("restorePurchase"),
+  writes: z.array(ActionVariableDeclSchema).optional(),
+});
+
+/**
+ * Open a URL. `url` supports `{{var}}` interpolation at runtime; `external`
+ * hints in-app browser vs system browser. SDK can fall back to `Linking.openURL`
+ * when no host handler is registered.
+ */
+export type OpenURLButtonAction = {
+  type: "openURL";
+  url: string;
+  external?: boolean;
+};
+
+export const OpenURLButtonActionSchema = z.object({
+  type: z.literal("openURL"),
+  url: z.string().min(1),
+  external: z.boolean().optional(),
+});
+
+/** Request an in-app store review prompt (StoreKit / Play In-App Review). */
+export type RequestReviewButtonAction = {
+  type: "requestReview";
+  writes?: ActionVariableDecl[];
+};
+
+export const RequestReviewButtonActionSchema = z.object({
+  type: z.literal("requestReview"),
+  writes: z.array(ActionVariableDeclSchema).optional(),
+});
+
+export type ButtonAction =
+  | "continue"
+  | CustomButtonAction
+  | SetVariableButtonAction
+  | NavigateButtonAction
+  | RequestNotificationPermissionButtonAction
+  | RequestHealthSyncButtonAction
+  | PresentPaywallButtonAction
+  | RestorePurchaseButtonAction
+  | OpenURLButtonAction
+  | RequestReviewButtonAction;
 
 export const ButtonActionSchema = z.union([
   z.literal("continue"),
-  CustomButtonActionSchema,
-  SetVariableButtonActionSchema,
+  z.discriminatedUnion("type", [
+    CustomButtonActionSchema,
+    SetVariableButtonActionSchema,
+    NavigateButtonActionSchema,
+    RequestNotificationPermissionButtonActionSchema,
+    RequestHealthSyncButtonActionSchema,
+    PresentPaywallButtonActionSchema,
+    RestorePurchaseButtonActionSchema,
+    OpenURLButtonActionSchema,
+    RequestReviewButtonActionSchema,
+  ]),
 ]);
 
 type ButtonOverridableProps = BaseBoxProps & {

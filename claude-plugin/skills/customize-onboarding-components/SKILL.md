@@ -94,6 +94,23 @@ Wire the implementation in the host via `customActions` on `OnboardingProvider`:
 
 Actions run sequentially; throwing aborts the chain; the literal string `"continue"` is terminal and advances the flow.
 
+**First-class capability actions** — for common host capabilities, prefer the typed `actionHandlers` registry over a generic `custom` action: `navigate`, `openURL`, `requestNotificationPermission`, `requestHealthSync`, `presentPaywall`, `restorePurchase`, `requestReview`. Each is an optional handler; an unregistered one warn-and-skips.
+
+```tsx
+<OnboardingProvider
+  actionHandlers={{
+    // SDK does NOT own routing — register this to make a `navigate` action change screens
+    navigate: ({ stepId }) => router.push(`/onboarding/${stepId}`),
+    presentPaywall: async ({ placement }) => {
+      const purchased = await paywall.present(placement);
+      return { variables: { is_premium: { value: String(purchased), kind: "string" } } }; // merged back
+    },
+  }}
+/>
+```
+
+A handler (custom **or** capability) may return `{ variables?, abort? }` (`ActionResult`): returned `variables` merge into the live variable bag (so a later step can branch on a permission/purchase result); `abort: true` stops the remaining actions. Returning nothing keeps today's behavior.
+
 ## Tier 3 — Replace a UIElement renderer (deep customization)
 
 Edit the UI package mirror at `packages/onboarding-ui/src/UI/Pages/ComposableScreen/elements/<Element>Element.tsx`. Use cases:

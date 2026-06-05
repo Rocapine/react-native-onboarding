@@ -37,6 +37,8 @@ import {
   type ProgressIndicatorElementProps,
   ProgressIndicatorElementPropsSchema,
 } from "./elements/ProgressIndicatorElement";
+import { type SliderElementProps, SliderElementPropsSchema } from "./elements/SliderElement";
+import { type ReviewsElementProps, ReviewsElementPropsSchema } from "./elements/ReviewsElement";
 
 export type { BaseBoxProps } from "./elements/BaseBoxProps";
 export { BaseBoxPropsSchema } from "./elements/BaseBoxProps";
@@ -70,6 +72,8 @@ export type {
   KeyboardAvoidingBehavior,
 } from "./elements/KeyboardAvoidingViewElement";
 export type { ProgressIndicatorElementProps, ProgressEasing } from "./elements/ProgressIndicatorElement";
+export type { SliderElementProps, SliderReaction, SliderReactionStop } from "./elements/SliderElement";
+export type { ReviewsElementProps, ReviewProof } from "./elements/ReviewsElement";
 
 // UIElement union — must live here (not in elements/) to avoid circular deps
 // because the Stack variant's children: UIElement[] references itself.
@@ -227,6 +231,20 @@ export type UIElement =
       renderWhen?: LeafCondition | ConditionGroup;
       type: "ProgressIndicator";
       props: ProgressIndicatorElementProps;
+    }
+  | {
+      id: string;
+      name?: string;
+      renderWhen?: LeafCondition | ConditionGroup;
+      type: "Slider";
+      props: SliderElementProps;
+    }
+  | {
+      id: string;
+      name?: string;
+      renderWhen?: LeafCondition | ConditionGroup;
+      type: "Reviews";
+      props: ReviewsElementProps;
     };
 
 // The `Text` variant, extracted so `RichText` can restrict its children to
@@ -389,6 +407,20 @@ export const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
       renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
       type: z.literal("ProgressIndicator"),
       props: ProgressIndicatorElementPropsSchema,
+    }),
+    z.object({
+      id: z.string(),
+      name: z.string().optional(),
+      renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
+      type: z.literal("Slider"),
+      props: SliderElementPropsSchema,
+    }),
+    z.object({
+      id: z.string(),
+      name: z.string().optional(),
+      renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
+      type: z.literal("Reviews"),
+      props: ReviewsElementPropsSchema,
     }),
   ])
 );

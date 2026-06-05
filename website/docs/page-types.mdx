@@ -403,14 +403,14 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 - Any screen that doesn't fit a pre-built type
 
 **Key features:**
-- Recursive element tree (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `Text`, `RichText`, `Image`, `Lottie`, `Rive`, `Icon`, `Video`, `Input`, `RadioGroup`, `CheckboxGroup`, `Button`, `DatePicker`, `WheelPicker`, `ProgressIndicator`, `Carousel`)
+- Recursive element tree (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `Text`, `RichText`, `Image`, `Lottie`, `Rive`, `Icon`, `Video`, `Input`, `RadioGroup`, `CheckboxGroup`, `Button`, `DatePicker`, `WheelPicker`, `ProgressIndicator`, `Carousel`, `Slider`, `Reviews`)
 - Full flexbox layout support
 - Border, radius, overflow, and opacity control
 - Dimension constraints (`width`, `height`, `min/max`)
 - Spacing with both `padding` and `margin`
 - Text color defaults to `theme.colors.text.primary`
 - Lottie, Rive, Video, DatePicker, and WheelPicker as optional peer deps — graceful fallback if not installed
-- **Variable context** — `Input`, `RadioGroup`, `CheckboxGroup`, `DatePicker`, and `WheelPicker` elements write into shared state; `Text` elements interpolate those values with `{{variableName}}` expressions
+- **Variable context** — `Input`, `RadioGroup`, `CheckboxGroup`, `DatePicker`, `WheelPicker`, and `Slider` elements write into shared state; `Text` elements interpolate those values with `{{variableName}}` expressions, and `Image.urlByVariable` swaps its source by a variable's value
 - **Conditional rendering** — every UIElement accepts `renderWhen?: LeafCondition | ConditionGroup`; the renderer skips the element and its subtree when the condition is false
 
 **Element types:**
@@ -434,6 +434,8 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 | `DatePicker` | Native date/time picker | — | `@react-native-community/datetimepicker` |
 | `WheelPicker` | Native scrolling wheel selector | — | `@react-native-picker/picker` |
 | `ProgressIndicator` | Linear bar / circular ring | — | — |
+| `Slider` | Draggable value track + optional value-bound media reaction | — | — (reaction reuses `Lottie`/`Rive`/`Image`) |
+| `Reviews` | Award badge + star rating + review cards + "+N others" | — | `react-native-svg` (bundled) |
 | `Lottie` | `LottieView` | — | `lottie-react-native` |
 | `Rive` | `<Rive>` | — | `rive-react-native` |
 | `Video` | `<VideoView>` | — | `expo-video` |
@@ -553,7 +555,8 @@ As of 1.15.0, `OnboardingTemplate` does not apply safe-area insets. Built-in pag
 
 | Prop | Type | Notes |
 |------|------|-------|
-| `url` | `string` | **Required** — remote image URI |
+| `url` | `string` | **Required** — remote image URI (the fallback when `urlByVariable` is set but unresolved) |
+| `urlByVariable` | `{ variableName: string; cases: Record<string, string>; default?: string }` | Swap the source by a variable's value: resolves `cases[variables[variableName].value]`, falling back to `default` then `url`. Cheap per-user personalization; fully back-compatible (omit → `url`) |
 | `width` | `number` | Defaults to `"100%"` |
 | `height` | `number` | When omitted, `aspectRatio` is used to size the image |
 | `aspectRatio` | `number` | Used when `height` is absent; defaults to `16/9` |
@@ -709,10 +712,15 @@ Plain-text children are automatically split into **one item per word** so the ro
 
 | Prop | Type | Notes |
 |------|------|-------|
-| `items` | `Array<{ label: string; value: string }>` | **Required** — list of options |
+| `items` | `Array<{ label: string; value: string; description?: string; imageUrl?: string; imageAspectRatio?: number; icon?: string }>` | **Required** — list of options. `imageUrl` (raster or `.svg`) wins over `icon` (Lucide name); `description` renders a secondary line under the label |
 | `variableName` | `string` | Context key — selected entry (value + label) is written to shared `composableVariables` |
 | `defaultValue` | `string` | Pre-selects the matching item on mount; also written to context |
-| `direction` | `"vertical" \| "horizontal"` | Layout direction; defaults to `"vertical"` |
+| `direction` | `"vertical" \| "horizontal"` | Layout direction; defaults to `"vertical"`. Overridden by `columns` |
+| `columns` | `number` (1–6) | Grid layout: N items per row. When set, overrides `direction`. Item width is measured exactly (accounts for `gap`) |
+| `itemImageSize` | `number` | px edge of a per-item `imageUrl`/`icon`; defaults to `40` |
+| `itemAlign` | `"row" \| "column"` | Image/icon vs text: side-by-side (`row`, default) or stacked tile (`column`) |
+| `itemDescriptionColor` | `string` | Color of the per-item `description` line; defaults to `theme.colors.text.secondary` |
+| `itemDescriptionFontSize` | `number` | Font size of the `description` line; defaults to `13` |
 | `gap` | `number` | Space between items; defaults to `8` |
 | `itemBackgroundColor` | `string` | Unselected item background; defaults to `"transparent"` |
 | `itemSelectedBackgroundColor` | `string` | Selected item background; defaults to `primary + 15% opacity` |
@@ -740,10 +748,18 @@ Plain-text children are automatically split into **one item per word** so the ro
 
 | Prop | Type | Notes |
 |------|------|-------|
-| `items` | `Array<{ label: string; value: string }>` | **Required** — list of options; values must be unique |
+| `items` | `Array<{ label: string; value: string; description?: string; imageUrl?: string; imageAspectRatio?: number; icon?: string }>` | **Required** — list of options; values must be unique. `imageUrl` (raster or `.svg`) wins over `icon` (Lucide name); `description` renders a secondary line under the label |
 | `variableName` | `string` | Context key — selected values stored as `JSON.stringify(string[])`, label as comma-joined display names |
 | `defaultValues` | `string[]` | Pre-selects matching items on mount; must reference valid item values |
-| `direction` | `"vertical" \| "horizontal"` | Layout direction; defaults to `"vertical"` |
+| `direction` | `"vertical" \| "horizontal"` | Layout direction; defaults to `"vertical"`. Overridden by `columns` |
+| `columns` | `number` (1–6) | Grid layout: N items per row. When set, overrides `direction`. Item width is measured exactly (accounts for `gap`) |
+| `itemImageSize` | `number` | px edge of a per-item `imageUrl`/`icon`; defaults to `40` |
+| `itemAlign` | `"row" \| "column"` | Image/icon vs text: side-by-side (`row`, default) or stacked tile (`column`) |
+| `itemDescriptionColor` | `string` | Color of the per-item `description` line; defaults to `theme.colors.text.secondary` |
+| `itemDescriptionFontSize` | `number` | Font size of the `description` line; defaults to `13` |
+| `minSelection` | `number` | Advisory minimum selection count (not enforced on continue) |
+| `maxSelection` | `number` | Hard cap — selecting beyond this is blocked (fires a `rigid` haptic) |
+| `disableAtMax` | `boolean` | When `true` and `maxSelection` is reached, unselected items render dimmed + disabled |
 | `gap` | `number` | Space between items; defaults to `8` |
 | `itemBackgroundColor` | `string` | Unselected item background; defaults to `"transparent"` |
 | `itemSelectedBackgroundColor` | `string` | Selected item background; defaults to `primary + 10% opacity` |
@@ -826,13 +842,27 @@ Plain-text children are automatically split into **one item per word** so the ro
 - `{ type: "custom", function: string, variables?: string[] }` — invokes a developer-injected handler registered on `OnboardingProvider.customActions`. `variables` lists the keys to read from the live ComposableScreen variable map and forward to the handler.
 - `{ type: "setVariable", name: string, value: string, label?: string }` — writes to the variable map (`{ value, label }`). Pair with `"continue"` to set a discriminator a downstream `nextStep` rule can branch on; the value is visible to the same-tick branch evaluation.
 
+**First-class capability / navigation actions** — these resolve against the typed `OnboardingProvider.actionHandlers` registry (not `customActions`):
+
+- `{ type: "navigate", stepId: string }` — jump to another step in the same onboarding. **The SDK does not own routing**: register `actionHandlers.navigate` to drive the actual screen change (e.g. `router.push`). Without a handler the SDK does a best-effort progress-only jump (`goToStep`) and warns — the bar moves but the host keeps rendering the current step. Terminal.
+- `{ type: "openURL", url: string, external?: boolean }` — opens a URL. `url` supports `{{var}}` interpolation (value-first). Uses `actionHandlers.openURL` if registered, else falls back to React Native `Linking.openURL`.
+- `{ type: "requestNotificationPermission", writes?: ActionVariableDecl[] }`
+- `{ type: "requestHealthSync", metrics?: string[], writes?: ActionVariableDecl[] }`
+- `{ type: "presentPaywall", placement?: string, writes?: ActionVariableDecl[] }`
+- `{ type: "restorePurchase", writes?: ActionVariableDecl[] }`
+- `{ type: "requestReview", writes?: ActionVariableDecl[] }`
+
+The capability arms are **vendor-neutral** — the SDK defines the intent and result shape but never imports a paywall/health/review SDK. Each maps to an optional `actionHandlers.<name>` you register. `writes` (`Array<{ name: string; kind?: "int" | "float" | "string"; label? }>`) declares the variables the handler promises to merge back, so a later step can branch on them before any value exists.
+
+**ActionResult merge-back** — both `custom` and capability handlers may return `{ variables?: Record<string, { value, label?, kind? }>, abort?: boolean }`. Returned `variables` are merged into the live variable bag (so a handler like Apple-Health sync can feed a downstream branch); `abort: true` stops the remaining actions. Returning `void` (the common case) writes nothing and continues — existing handlers are unaffected.
+
 Execution rules:
 
 - Sequential. Each action awaits the previous before starting.
-- Async-aware. If a custom handler returns a `Promise`, the runtime awaits it.
-- `"continue"` is **terminal** — any actions after it are ignored.
-- A thrown error in a custom handler is logged via `console.error` and the remaining chain is aborted.
-- An unknown `function` name (no matching key in `customActions`) emits `console.warn` and the chain skips to the next action.
+- Async-aware. If a handler returns a `Promise`, the runtime awaits it.
+- `"continue"` and `"navigate"` are **terminal** — any actions after them are ignored.
+- A thrown error in any handler is logged via `console.error` and the remaining chain is aborted.
+- An unregistered handler (custom `function` miss, or an absent `actionHandlers.<name>`) emits `console.warn`; `custom` skips to the next action, capability arms warn-and-skip.
 
 ```jsonc
 {
@@ -863,6 +893,24 @@ import { OnboardingProvider } from "@rocapine/react-native-onboarding";
         name: variables.name?.value,
         plan: variables.plan?.value,
       });
+    },
+  }}
+>
+  {children}
+</OnboardingProvider>
+```
+
+Register capability/navigation handlers via the typed `actionHandlers` prop:
+
+```tsx
+<OnboardingProvider
+  client={client}
+  actionHandlers={{
+    navigate: ({ stepId }) => router.push(`/onboarding/${stepId}`),
+    presentPaywall: async ({ placement }) => {
+      const purchased = await paywall.present(placement);
+      // merged back into the variable bag for a later step to branch on
+      return { variables: { is_premium: { value: String(purchased), kind: "string" } } };
     },
   }}
 >
@@ -952,6 +1000,46 @@ Renders a linear bar or circular ring showing progress from 0 to 100. The value 
 | All `BaseBoxProps` | — | `width`, `height`, `margin*`, `padding*`, `alignSelf`, `opacity`, etc. |
 
 **Dependencies:** None
+
+**Slider props:**
+
+A draggable value track (PanResponder, no extra dep) that snaps to `step` and writes the snapped numeric value to `variableName` (stored as a string). Optionally shows a value-bound **reaction** (Lottie/Rive/Image) that swaps as the value changes.
+
+| Prop | Type | Notes |
+|------|------|-------|
+| `min` / `max` | `number` | **Required** — value range. `max` must be `> min` |
+| `variableName` | `string` | Context key — snapped value written as a string (e.g. `"5"`) |
+| `step` | `number` | Snap increment; defaults to `1`. Must be `> 0` |
+| `defaultValue` | `number` | Initial value, clamped to `[min, max]`; defaults to `min`. Seeds the variable on mount |
+| `minLabel` / `maxLabel` | `string` | Captions under the track ends |
+| `showValue` | `boolean` | Render the live numeric value above the track; defaults to `false` |
+| `valueSuffix` | `string` | Unit shown next to the value (e.g. `"kg"`) |
+| `trackColor` / `trackFilledColor` | `string` | Track + filled-portion colors |
+| `trackHeight` | `number` | Track thickness in px; defaults to `4` |
+| `knobColor` | `string` | Knob color; defaults to `theme.colors.primary` |
+| `knobSize` | `number` | Knob diameter in px; defaults to `24` |
+| `reaction` | `{ type: "Lottie" \| "Rive" \| "Image"; height?: number; source?: string; stops?: Array<{ atValue: number; source: string }> }` | Value-bound media. Provide **exactly one** of `source` (single asset) or `stops` (discrete swap — renders the source whose `atValue` is the highest `≤` current value). Each `stops[].atValue` must be within `[min, max]` |
+| All `BaseBoxProps` | — | `width`, `height`, `margin*`, `padding*`, `alignSelf`, `opacity`, etc. |
+
+**Dependencies:** None (reaction reuses the existing `Lottie`/`Rive`/`Image` renderers, so their peer deps apply only if you use that reaction type)
+
+**Reviews props:**
+
+An award badge (laurels + stars + label) above one or more review cards, with an optional overlapping-avatar "+N others" group. Mirrors the legacy `Ratings` social-proof shape so existing data ports directly.
+
+| Prop | Type | Notes |
+|------|------|-------|
+| `reviews` | `Array<{ numberOfStar: number; content: string; authorName: string }>` | **Required** — at least one. `numberOfStar` is `0–5` |
+| `showAward` | `boolean` | Laurel + award badge above the cards; defaults to `true` |
+| `awardLabel` | `string` | Award badge text; defaults to `"Users Choice"` |
+| `awardStars` | `number` | Filled-star count in the award row (`0–5`); defaults to `5` |
+| `starColor` / `emptyStarColor` | `string` | Filled / empty star colors; default `"#FED64B"` and theme neutral |
+| `layout` | `"card" \| "stack" \| "carousel"` | `card` shows the first review; `stack`/`carousel` show all as a vertical stack (true swiping is a follow-up). Defaults to `"card"` |
+| `showOthersCount` | `boolean` | "+N others" avatar group below the card; defaults to `true` |
+| `cardBackgroundColor` | `string` | Card background; defaults to `theme.colors.neutral.lowestest` |
+| All `BaseBoxProps` | — | `width`, `height`, `margin*`, `padding*`, `alignSelf`, `opacity`, etc. |
+
+**Dependencies:** `react-native-svg` (already bundled for animated/SVG elements)
 
 **Carousel props:**
 
@@ -1353,12 +1441,21 @@ All page types share these properties:
   type: string;                  // Discriminated union field
   name: string;                  // Display name (for debugging)
   displayProgressHeader: boolean; // Show/hide progress bar
+  progressMode?: "counted" | "interstitial" | "excluded"; // Per-step progress role (see below)
   payload: object;               // Type-specific data
   customPayload: object | null;  // Your custom fields
   continueButtonLabel?: string;  // Optional CTA text
   figmaUrl?: string | null;      // Design reference
 }
 ```
+
+**`progressMode`** controls how each step participates in the progress bar. Absent ⇒ `"counted"` (today's behavior — exactly the legacy `100 * number / length` fraction when no step sets it):
+
+- `"counted"` — counts toward the total and advances the bar.
+- `"interstitial"` — excluded from the denominator; the bar freezes at the surrounding counted position (welcome/transition screens). Visibility still follows `displayProgressHeader`.
+- `"excluded"` — excluded from the denominator **and** the bar is hidden on this step regardless of `displayProgressHeader` (loaders, paywalls).
+
+`interstitial`/`excluded` steps are dropped from both the denominator and the active position, so the bar advances evenly across the counted steps only.
 
 ---
 

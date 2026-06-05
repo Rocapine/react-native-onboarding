@@ -39,17 +39,19 @@ Then apply the polish layer from `../create-step-json/references/screen-patterns
 | `SafeAreaView` | Safe-area wrapper with per-edge mode |
 | `Text` | Text node (supports `{{variableName}}` interpolation; `content` may be a string or an array of styled spans for inline rich text) |
 | `RichText` | Wrapping flex row of child `Text` elements (Text-only `children`); words and padded/rounded/rotated "chip" segments wrap and align together. Each child is a real flex child, so it honors box props (`padding`, `borderRadius`, `border`, `backgroundColor`, `transform`) + its own `renderWhen` / `expression`, and inherits the container's text-style defaults (`fontSize`, `color`, …). `flexWrap` defaults to `"wrap"` |
-| `Image` | Image from a `url`. Decodes WebP/AVIF via `expo-image` when that optional peer dep is installed (falls back to RN `Image`); a `.svg` URL is auto-detected and rendered with `react-native-svg`. Optional `blurRadius` (px) applies a uniform Gaussian blur (ignored for SVGs) |
+| `Image` | Image from a `url`. Decodes WebP/AVIF via `expo-image` when that optional peer dep is installed (falls back to RN `Image`); a `.svg` URL is auto-detected and rendered with `react-native-svg`. Optional `blurRadius` (px) applies a uniform Gaussian blur (ignored for SVGs). `urlByVariable: { variableName, cases, default? }` swaps the source by a variable's value (cheap personalization) |
 | `ProgressiveBlurImage` | Full-bleed image with a gradient-masked Gaussian blur baked in — sharp where the `mask` is transparent, progressively blurred where it's opaque (Figma "welcome screen" hero). Props: `url`, `intensity` (0–100), `tint` (`light`/`dark`/`default`), `mask` (linear `{ from, to, stops }` **or** radial `{ type:"radial", center?, radius?, stops }`; stop `opacity` = blur strength), `maxBlurOpacity`. Needs optional `@react-native-masked-view/masked-view` + `expo-linear-gradient` (linear) / `react-native-svg` (radial, bundled) + `expo-image`; degrades to a sharp image + dark scrim when absent. Self-contained — use as the bottom layer of a `ZStack` with sharp content above |
 | `Lottie` / `Rive` / `Video` | Animated media |
 | `Icon` | Vector icon |
 | `Input` | Text input bound to a variable |
-| `Button` | Triggers a `ButtonAction` (continue, setVariable, custom) |
-| `RadioGroup` / `CheckboxGroup` | Bound to a variable |
+| `Button` | Triggers a `ButtonAction` (continue, setVariable, custom, navigate, openURL, capability actions) |
+| `RadioGroup` / `CheckboxGroup` | Bound to a variable. Per-item `imageUrl`/`icon`/`description`; `columns` grid + `itemAlign`/`itemImageSize`; `CheckboxGroup` adds `minSelection`/`maxSelection`/`disableAtMax` |
 | `DatePicker` | Date input bound to a variable |
 | `WheelPicker` | Scrolling wheel selector bound to a variable (needs `@react-native-picker/picker`) |
 | `Carousel` | Inline horizontal pager |
 | `ProgressIndicator` | Linear / circular progress bar; static `value`, bound `variableName`, or `autoplay` animation |
+| `Slider` | Draggable value track bound to a variable; `min`/`max`/`step`, end labels, optional value-bound `reaction` (Lottie/Rive/Image, `source` or discrete `stops`) |
+| `Reviews` | Award badge + star rating + review cards + "+N others"; `reviews[]`, `layout` (`card`/`stack`/`carousel`) |
 
 Authoritative prop shapes: `packages/onboarding/src/steps/ComposableScreen/elements/*.ts`.
 
@@ -150,8 +152,11 @@ Reference variables from `Text` ONLY when `Text.props.mode === "expression"`. Th
 - `"continue"` — advance to next step. Terminal.
 - `{ "type": "custom", "function": "name", "variables": ["a","b"] }` — emit to host. Host wires the implementation.
 - `{ "type": "setVariable", "name": "counter", "value": "{{counter}} + 1", "valueMode": "expression" }` — write a variable. `valueMode: "expression"` triggers interpolation + numeric coercion based on the variable's runtime `kind`.
+- `{ "type": "navigate", "stepId": "..." }` — jump to another step. **Terminal.** SDK does NOT own routing: host must register `actionHandlers.navigate` to drive the real screen change; without it the SDK only nudges the progress bar and warns.
+- `{ "type": "openURL", "url": "https://...", "external": true }` — open a URL (`{{var}}` interpolated, value-first). Uses `actionHandlers.openURL` else RN `Linking`.
+- Capability arms — `requestNotificationPermission`, `requestHealthSync` (`metrics?`), `presentPaywall` (`placement?`), `restorePurchase`, `requestReview`. Each optional `writes?: [{ name, kind?, label? }]` declares variables its `actionHandlers.<name>` promises to merge back. Vendor-neutral; warn-and-skip when no handler registered.
 
-The headless Zod schema enumerates all three: `"continue" | CustomButtonAction | SetVariableButtonAction` (`ButtonElement.ts`). `setVariable` also accepts `kind: "int" | "float" | "string"` to tag the stored variable's type — set it when the value feeds numeric expressions or comparisons.
+The headless Zod schema is a discriminated union on `type`: `"continue" | CustomButtonAction | SetVariableButtonAction | NavigateButtonAction | …capability arms` (`ButtonElement.ts`). `setVariable` also accepts `kind: "int" | "float" | "string"` to tag the stored variable's type — set it when the value feeds numeric expressions or comparisons. `custom` and capability handlers may return `{ variables?, abort? }` (`ActionResult`) — returned `variables` merge into the bag, `abort` stops the chain.
 
 ## Disabling continue conditionally
 

@@ -24,6 +24,8 @@ import { SafeAreaViewElementComponent } from "./SafeAreaViewElement";
 import { ScrollViewElementComponent } from "./ScrollViewElement";
 import { KeyboardAvoidingViewElementComponent } from "./KeyboardAvoidingViewElement";
 import { ProgressIndicatorElementComponent } from "./ProgressIndicatorElement";
+import { SliderElementComponent } from "./SliderElement";
+import { ReviewsElementComponent } from "./ReviewsElement";
 import { AnimatedBox } from "./AnimatedBox";
 
 export const renderElement = (
@@ -123,6 +125,14 @@ export const renderElement = (
 
   if (element.type === "ProgressIndicator") {
     return <ProgressIndicatorElementComponent key={element.id} element={element} ctx={ctx} />;
+  }
+
+  if (element.type === "Slider") {
+    return <SliderElementComponent key={element.id} element={element} ctx={ctx} />;
+  }
+
+  if (element.type === "Reviews") {
+    return <ReviewsElementComponent key={element.id} element={element} ctx={ctx} />;
   }
 
     return null;

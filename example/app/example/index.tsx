@@ -21,6 +21,7 @@ const examples: Example[] = [
       { name: "Media", route: "/example/composable-screen-media" },
       { name: "Text & Layout", route: "/example/composable-screen-layout" },
       { name: "Form", route: "/example/composable-screen-form" },
+      { name: "Checkbox Grid", route: "/example/composable-screen-checkbox-grid" },
       { name: "Carousel", route: "/example/composable-screen-carousel" },
       { name: "Button", route: "/example/composable-screen-button" },
       { name: "ZStack", route: "/example/composable-screen-zstack" },

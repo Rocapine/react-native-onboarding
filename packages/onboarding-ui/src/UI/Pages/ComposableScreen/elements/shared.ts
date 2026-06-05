@@ -4,6 +4,7 @@ import { UIElement } from "../types";
 import { Theme } from "../../../Theme/types";
 import { ComposableVariableEntry } from "../../../Provider/OnboardingProgressProvider";
 import type { BaseBoxProps } from "./BaseBoxProps";
+import type { ActionHandlers } from "./ButtonElement";
 
 export type RenderContext = {
   theme: Theme;
@@ -11,6 +12,13 @@ export type RenderContext = {
   setVariable: (key: string, entry: ComposableVariableEntry) => void;
   onContinue: () => void;
   customActions: CustomActions;
+  /** Typed handlers for first-class capability actions (Button `actions`). */
+  actionHandlers: ActionHandlers;
+  /**
+   * Absolute jump to a step by id (Button `navigate` action). Updates the
+   * progress context; the host still owns the actual route change.
+   */
+  goToStep: (stepId: string) => void;
   renderChildren: (elements: UIElement[], parentType: "XStack" | "YStack" | "ZStack" | "RichText" | "XScroll") => React.ReactNode;
 };
 

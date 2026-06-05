@@ -73,6 +73,22 @@ export function collectElementDefaults(
         }
         break;
       }
+      case "Slider": {
+        const name = el.props.variableName;
+        if (name) {
+          // Mirror SliderElementComponent's snap/clamp so the overlaid default
+          // matches the value the slider seeds on mount. Default = min when unset.
+          const p = el.props;
+          const raw = p.defaultValue ?? p.min;
+          const step = p.step && p.step > 0 ? p.step : 1;
+          const clamped = Math.min(p.max, Math.max(p.min, raw));
+          const steps = Math.round((clamped - p.min) / step);
+          const snapped = Math.round((p.min + steps * step) * 1e6) / 1e6;
+          const value = Math.min(p.max, Math.max(p.min, snapped));
+          out[name] = { value: String(value), label: String(value) };
+        }
+        break;
+      }
       case "YStack":
       case "XStack":
       case "ZStack":

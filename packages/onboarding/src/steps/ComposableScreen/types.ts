@@ -33,6 +33,8 @@ import {
   KeyboardAvoidingViewElementPropsSchema,
 } from "./elements/KeyboardAvoidingViewElement";
 import { type ProgressIndicatorElementProps, ProgressIndicatorElementPropsSchema } from "./elements/ProgressIndicatorElement";
+import { type SliderElementProps, SliderElementPropsSchema } from "./elements/SliderElement";
+import { type ReviewsElementProps, ReviewsElementPropsSchema } from "./elements/ReviewsElement";
 
 export type { BaseBoxProps, GradientBackground, GradientEdge, GradientStop, LinearGradientConfig } from "./elements/BaseBoxProps";
 export type {
@@ -67,8 +69,33 @@ export type { RiveElementProps } from "./elements/RiveElement";
 export type { IconElementProps } from "./elements/IconElement";
 export type { VideoElementProps } from "./elements/VideoElement";
 export type { InputElementProps } from "./elements/InputElement";
-export type { ButtonElementProps, ButtonAction, CustomButtonAction, SetVariableButtonAction } from "./elements/ButtonElement";
-export { ButtonActionSchema, CustomButtonActionSchema, SetVariableButtonActionSchema } from "./elements/ButtonElement";
+export type {
+  ButtonElementProps,
+  ButtonAction,
+  CustomButtonAction,
+  SetVariableButtonAction,
+  NavigateButtonAction,
+  RequestNotificationPermissionButtonAction,
+  RequestHealthSyncButtonAction,
+  PresentPaywallButtonAction,
+  RestorePurchaseButtonAction,
+  OpenURLButtonAction,
+  RequestReviewButtonAction,
+  ActionVariableDecl,
+} from "./elements/ButtonElement";
+export {
+  ButtonActionSchema,
+  CustomButtonActionSchema,
+  SetVariableButtonActionSchema,
+  NavigateButtonActionSchema,
+  RequestNotificationPermissionButtonActionSchema,
+  RequestHealthSyncButtonActionSchema,
+  PresentPaywallButtonActionSchema,
+  RestorePurchaseButtonActionSchema,
+  OpenURLButtonActionSchema,
+  RequestReviewButtonActionSchema,
+  ActionVariableDeclSchema,
+} from "./elements/ButtonElement";
 export type { RadioGroupElementProps } from "./elements/RadioGroupElement";
 export type { CheckboxGroupElementProps } from "./elements/CheckboxGroupElement";
 export type { DatePickerElementProps } from "./elements/DatePickerElement";
@@ -83,6 +110,10 @@ export type {
   KeyboardAvoidingBehavior,
 } from "./elements/KeyboardAvoidingViewElement";
 export type { ProgressIndicatorElementProps, ProgressEasing } from "./elements/ProgressIndicatorElement";
+export type { SliderElementProps, SliderReaction, SliderReactionStop } from "./elements/SliderElement";
+export { SliderElementPropsSchema, snapSliderValue, resolveSliderDefault } from "./elements/SliderElement";
+export type { ReviewsElementProps, ReviewProof } from "./elements/ReviewsElement";
+export { ReviewsElementPropsSchema } from "./elements/ReviewsElement";
 
 /**
  * Type tag for a ComposableScreen variable. Drives expression-mode coercion
@@ -257,6 +288,20 @@ type UIElement =
       renderWhen?: LeafCondition | ConditionGroup;
       type: "ProgressIndicator";
       props: ProgressIndicatorElementProps;
+    }
+  | {
+      id: string;
+      name?: string;
+      renderWhen?: LeafCondition | ConditionGroup;
+      type: "Slider";
+      props: SliderElementProps;
+    }
+  | {
+      id: string;
+      name?: string;
+      renderWhen?: LeafCondition | ConditionGroup;
+      type: "Reviews";
+      props: ReviewsElementProps;
     };
 
 // The `Text` variant, extracted so `RichText` can restrict its children to
@@ -419,6 +464,20 @@ const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
       renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
       type: z.literal("ProgressIndicator"),
       props: ProgressIndicatorElementPropsSchema,
+    }),
+    z.object({
+      id: z.string(),
+      name: z.string().optional(),
+      renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
+      type: z.literal("Slider"),
+      props: SliderElementPropsSchema,
+    }),
+    z.object({
+      id: z.string(),
+      name: z.string().optional(),
+      renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
+      type: z.literal("Reviews"),
+      props: ReviewsElementPropsSchema,
     }),
   ])
 );

@@ -10,7 +10,28 @@ export type RadioGroupElementProps = BaseBoxProps & {
   gap?: number;
   direction?: "vertical" | "horizontal";
   showTick?: boolean;
-  items: Array<{ label: string; value: string }>;
+  /** Grid layout: N items per row. When set, overrides `direction`. */
+  columns?: number;
+  /** px; square edge of a per-item `imageUrl` tile image. */
+  itemImageSize?: number;
+  /** Layout of item image/icon vs text: side-by-side ("row") or stacked tile ("column"). */
+  itemAlign?: "row" | "column";
+  /** Color of the optional per-item description line. */
+  itemDescriptionColor?: string;
+  /** Font size of the optional per-item description line. */
+  itemDescriptionFontSize?: number;
+  items: Array<{
+    label: string;
+    value: string;
+    /** Secondary line rendered under the label. */
+    description?: string;
+    /** Per-item image tile (asset URL). Wins over `icon` when both set. */
+    imageUrl?: string;
+    /** Aspect ratio for the item image; default 1 (square). */
+    imageAspectRatio?: number;
+    /** Lucide icon name; `imageUrl` wins if both are set. */
+    icon?: string;
+  }>;
   itemBackgroundColor?: string;
   itemSelectedBackgroundColor?: string;
   itemBorderColor?: string;
@@ -35,7 +56,19 @@ export const RadioGroupElementPropsSchema = BaseBoxPropsSchema.extend({
   gap: z.number().optional(),
   direction: z.enum(["vertical", "horizontal"]).optional(),
   showTick: z.boolean().optional(),
-  items: z.array(z.object({ label: z.string().trim().min(1, "item label must not be empty"), value: z.string().trim().min(1, "item value must not be empty") })).min(1, "items must not be empty"),
+  columns: z.number().int().min(1).max(6).optional(),
+  itemImageSize: z.number().positive().optional(),
+  itemAlign: z.enum(["row", "column"]).optional(),
+  itemDescriptionColor: z.string().optional(),
+  itemDescriptionFontSize: z.number().optional(),
+  items: z.array(z.object({
+    label: z.string().trim().min(1, "item label must not be empty"),
+    value: z.string().trim().min(1, "item value must not be empty"),
+    description: z.string().optional(),
+    imageUrl: z.string().optional(),
+    imageAspectRatio: z.number().positive().optional(),
+    icon: z.string().optional(),
+  })).min(1, "items must not be empty"),
   itemBackgroundColor: z.string().optional(),
   itemSelectedBackgroundColor: z.string().optional(),
   itemBorderColor: z.string().optional(),

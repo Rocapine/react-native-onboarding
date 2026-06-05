@@ -23,6 +23,17 @@ export type ImageElementProps = BaseBoxProps & {
   resizeMode?: "cover" | "contain" | "stretch" | "center";
   /** Uniform Gaussian blur radius (px). 0/undefined = sharp. Ignored for SVGs. */
   blurRadius?: number;
+  /**
+   * Swap the rendered image by a variable's value. The runtime resolves
+   * `cases[variables[variableName].value]`, falling back to `default` and then
+   * to plain `url` when the variable is unset or has no matching case.
+   * Optional and fully backward-compatible — when unset, `url` is used.
+   */
+  urlByVariable?: {
+    variableName: string;
+    cases: Record<string, string>;
+    default?: string;
+  };
 };
 
 export const ImageElementPropsSchema = BaseBoxPropsSchema.extend({
@@ -30,6 +41,13 @@ export const ImageElementPropsSchema = BaseBoxPropsSchema.extend({
   aspectRatio: z.number().optional(),
   resizeMode: z.enum(["cover", "contain", "stretch", "center"]).optional(),
   blurRadius: z.number().min(0).optional(),
+  urlByVariable: z
+    .object({
+      variableName: z.string().min(1, "variableName must not be empty"),
+      cases: z.record(z.string(), z.string()),
+      default: z.string().optional(),
+    })
+    .optional(),
 });
 
 type ResizeMode = "cover" | "contain" | "stretch" | "center";
@@ -78,9 +96,18 @@ type Props = {
   ctx: RenderContext;
 };
 
-export const ImageElementComponent = ({ element }: Props): React.ReactElement => {
+export const ImageElementComponent = ({ element, ctx }: Props): React.ReactElement => {
   const p = element.props;
-  const isSvg = isSvgUrl(p.url);
+  // Resolve the effective URL: when `urlByVariable` is set, look up the live
+  // variable's value in `cases`, falling back to `default` then plain `url`.
+  // Unset → plain `url` (backward-compatible).
+  let url = p.url;
+  if (p.urlByVariable) {
+    const { variableName, cases, default: fallback } = p.urlByVariable;
+    const current = ctx.variables[variableName]?.value;
+    url = (current != null ? cases[String(current)] : undefined) ?? fallback ?? p.url;
+  }
+  const isSvg = isSvgUrl(url);
   const hasShadow = p.shadowColor != null || p.elevation != null;
   // iOS clips shadows when overflow:hidden, so a shadow-bearing Image needs a
   // wrapper View carrying the shadow (no overflow clip) and the Image inside
@@ -115,13 +142,13 @@ export const ImageElementComponent = ({ element }: Props): React.ReactElement =>
     // Inner content fills the wrapper (which carries layout + corner clip).
     const innerImage = isSvg ? (
       <SvgUri
-        uri={p.url}
+        uri={url}
         width="100%"
         height="100%"
         preserveAspectRatio={SVG_ASPECT[p.resizeMode ?? "contain"]}
       />
     ) : (
-      renderRaster(p.url, p.resizeMode, {
+      renderRaster(url, p.resizeMode, {
         width: "100%",
         height: "100%",
         borderRadius: p.borderRadius,
@@ -170,7 +197,7 @@ export const ImageElementComponent = ({ element }: Props): React.ReactElement =>
     return (
       <View style={simpleStyle}>
         <SvgUri
-          uri={p.url}
+          uri={url}
           width="100%"
           height="100%"
           preserveAspectRatio={SVG_ASPECT[p.resizeMode ?? "contain"]}
@@ -179,5 +206,5 @@ export const ImageElementComponent = ({ element }: Props): React.ReactElement =>
     );
   }
 
-  return renderRaster(p.url, p.resizeMode, simpleStyle, p.blurRadius);
+  return renderRaster(url, p.resizeMode, simpleStyle, p.blurRadius);
 };

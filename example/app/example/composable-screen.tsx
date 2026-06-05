@@ -967,6 +967,49 @@ export default function ComposableScreenExample() {
               },
               children: [],
             },
+            // Slider with a discrete value-bound image reaction
+            {
+              id: 'slider-demo',
+              type: 'Slider' as const,
+              props: {
+                variableName: 'energyLevel',
+                min: 0,
+                max: 10,
+                step: 1,
+                defaultValue: 5,
+                minLabel: 'Low',
+                maxLabel: 'High',
+                showValue: true,
+                valueSuffix: '/ 10',
+                marginVertical: 8,
+                reaction: {
+                  type: 'Image' as const,
+                  height: 120,
+                  stops: [
+                    { atValue: 0, source: 'https://picsum.photos/seed/low/300/200' },
+                    { atValue: 4, source: 'https://picsum.photos/seed/mid/300/200' },
+                    { atValue: 8, source: 'https://picsum.photos/seed/high/300/200' },
+                  ],
+                },
+              },
+            },
+            // Reviews: award badge + star cards + "+N others"
+            {
+              id: 'reviews-demo',
+              type: 'Reviews' as const,
+              props: {
+                showAward: true,
+                awardLabel: "Users' Choice",
+                awardStars: 5,
+                showOthersCount: true,
+                marginVertical: 8,
+                reviews: [
+                  { numberOfStar: 5, content: 'Genuinely changed my mornings.', authorName: 'Alex' },
+                  { numberOfStar: 5, content: 'Simple, fast, and it just works.', authorName: 'Priya' },
+                  { numberOfStar: 4, content: 'Great onboarding, loved the flow.', authorName: 'Sam' },
+                ],
+              },
+            },
           ],
         },
           ],

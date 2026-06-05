@@ -1,6 +1,6 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { z } from "zod";
-import { View, Text, TouchableOpacity, Image as RNImage } from "react-native";
+import { View, Text, TouchableOpacity, Image as RNImage, type LayoutChangeEvent } from "react-native";
 import { SvgUri } from "react-native-svg";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import type { UIElement } from "../types";
@@ -185,18 +185,31 @@ export const CheckboxGroupComponent = ({ element, ctx }: Props): React.ReactElem
   const selectionCount = (selectedValues ?? []).length;
   const atMax = element.props.maxSelection !== undefined && selectionCount >= element.props.maxSelection;
 
-  // `columns` (grid) overrides `direction`: wrapping row with each item sized to
-  // a percentage width so N fit per row. Falls back to the direction flow.
+  // `columns` (grid) overrides `direction`: wrapping row with each item sized so
+  // N fit per row. Falls back to the direction flow.
   const columns = element.props.columns;
   const gap = element.props.gap ?? 8;
   const isGrid = columns != null && columns > 0;
   const isHorizontal = !isGrid && element.props.direction === "horizontal";
   const itemAlign = element.props.itemAlign ?? "row";
-  const gridItemWidth = isGrid ? `${(100 - gap * (columns - 1) / 3) / columns}%` : undefined;
+  // Measure the container so grid items get an EXACT pixel width that accounts
+  // for the inter-item gaps (gap is px, so a %-only width can't be exact). Until
+  // the first layout, fall back to an even %-split estimate (one frame); flexWrap
+  // keeps it sane if the estimate is slightly wide.
+  const [gridWidth, setGridWidth] = useState(0);
+  const gridItemWidth = !isGrid
+    ? undefined
+    : gridWidth > 0
+      ? (gridWidth - gap * (columns - 1)) / columns
+      : (`${100 / columns}%` as const);
+  const onGridLayout = isGrid
+    ? (e: LayoutChangeEvent) => setGridWidth(e.nativeEvent.layout.width)
+    : undefined;
 
   return (
     <GradientBox
       gradient={element.props.backgroundGradient}
+      onLayout={onGridLayout}
       style={{
         flexDirection: isGrid || isHorizontal ? "row" : "column",
         flexWrap: isGrid || isHorizontal ? "wrap" : undefined,

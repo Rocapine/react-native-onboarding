@@ -169,7 +169,9 @@ export const SliderElementComponent = ({ element, ctx }: Props): React.ReactElem
   const stored = props.variableName ? variables[props.variableName]?.value : undefined;
   const defaultValue = props.defaultValue ?? props.min;
   // The live numeric value derives from the variable when set, else the default.
-  const value = stored !== undefined && stored !== "" ? Number(stored) : defaultValue;
+  // Guard against a non-numeric stored value (NaN would break track/knob math).
+  const parsed = stored !== undefined && stored !== "" ? Number(stored) : NaN;
+  const value = Number.isFinite(parsed) ? parsed : defaultValue;
 
   const [trackWidth, setTrackWidth] = useState(0);
 

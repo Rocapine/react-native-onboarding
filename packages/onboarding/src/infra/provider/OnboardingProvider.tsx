@@ -72,6 +72,17 @@ export type ActionHandlers = {
   requestReview?: (
     ctx: ActionHandlerCtx
   ) => void | ActionResult | Promise<void | ActionResult>;
+  /**
+   * Host router hook for the `navigate` action. The SDK does NOT own routing:
+   * when this is registered the SDK calls it so the host can drive the actual
+   * screen change (e.g. `router.push` to the step's route). Without it, the
+   * `navigate` action falls back to a best-effort progress-only jump
+   * (`goToStep`) — the bar moves but the host keeps rendering the current step
+   * until its own router advances. Register this to make `navigate` real.
+   */
+  navigate?: (
+    ctx: ActionHandlerCtx & { stepId: string }
+  ) => void | ActionResult | Promise<void | ActionResult>;
 };
 
 interface OnboardingProviderProps {

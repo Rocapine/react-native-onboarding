@@ -12,7 +12,7 @@ import {
 } from "@rocapine/react-native-onboarding";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
-import { RenderContext, buildShadowStyle, dim, interpolate, resolveInheritedFontFamily } from "./shared";
+import { RenderContext, buildShadowStyle, dim, resolveInheritedFontFamily } from "./shared";
 import { GradientBox } from "./GradientBox";
 import { ComposableVariableEntry } from "../../../Provider/OnboardingProgressProvider";
 import { evaluateSetVariableExpression } from "./expression";
@@ -230,6 +230,14 @@ export type ActionHandlers = {
   requestReview?: (
     ctx: ActionHandlerCtx
   ) => void | ActionResult | Promise<void | ActionResult>;
+  /**
+   * Host router hook for the `navigate` action. The SDK does not own routing —
+   * when registered the SDK calls this so the host drives the actual screen
+   * change; without it `navigate` falls back to a progress-only jump.
+   */
+  navigate?: (
+    ctx: ActionHandlerCtx & { stepId: string }
+  ) => void | ActionResult | Promise<void | ActionResult>;
 };
 
 type ButtonOverridableProps = BaseBoxProps & {
@@ -394,14 +402,32 @@ export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElem
           continue;
         }
         case "navigate": {
-          // SDK-internal: resolve the target step and update the progress
-          // context. Terminal like "continue" — the host's router (driven off
-          // the progress context / its own logic) owns the actual screen change.
+          // Prefer a host router hook so the actual screen changes — the SDK
+          // does not own routing. When `actionHandlers.navigate` is registered
+          // the host drives the route push (and its useFocusEffect then sets the
+          // correct progress position). Without one, fall back to a best-effort
+          // progress-only jump: the bar moves but the host keeps rendering the
+          // current step until its own router advances.
+          if (actionHandlers.navigate) {
+            await runCapability("navigate", actionHandlers.navigate, {
+              stepId: act.stepId,
+              variables: sliceFor(undefined),
+            });
+            return;
+          }
+          console.warn(
+            `[ComposableScreen] navigate("${act.stepId}"): no actionHandlers.navigate registered — updating progress only (host owns routing).`
+          );
           goToStep(act.stepId);
           return;
         }
         case "openURL": {
-          const url = interpolate(act.url, variables);
+          // Value-first interpolation: a variable's display label is rarely a
+          // valid URL fragment (unlike Text, where the label is what's shown).
+          const url = act.url.replace(/\{\{([^}]+?)\}\}/g, (_, key) => {
+            const v = variables[String(key).trim()];
+            return (v?.value ?? v?.label ?? "") as string;
+          });
           // Prefer a host handler; otherwise fall back to RN core Linking.
           if (actionHandlers.openURL) {
             const r = await runCapability("openURL", actionHandlers.openURL, {

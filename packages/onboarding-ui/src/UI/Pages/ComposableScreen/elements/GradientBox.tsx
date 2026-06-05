@@ -1,6 +1,6 @@
 import React from "react";
 import { View } from "react-native";
-import type { ViewStyle } from "react-native";
+import type { LayoutChangeEvent, ViewStyle } from "react-native";
 import type { GradientBackground } from "./BaseBoxProps";
 
 let LinearGradient: React.ComponentType<{
@@ -9,6 +9,7 @@ let LinearGradient: React.ComponentType<{
   end?: { x: number; y: number };
   locations?: number[];
   style?: object;
+  onLayout?: (e: LayoutChangeEvent) => void;
   children?: React.ReactNode;
 }> | null = null;
 
@@ -32,10 +33,11 @@ const EDGE_POINT: Record<string, { x: number; y: number }> = {
 type Props = {
   gradient?: GradientBackground;
   style?: ViewStyle;
+  onLayout?: (e: LayoutChangeEvent) => void;
   children?: React.ReactNode;
 };
 
-export const GradientBox = ({ gradient, style, children }: Props): React.ReactElement => {
+export const GradientBox = ({ gradient, style, onLayout, children }: Props): React.ReactElement => {
   if (gradient?.type === "linear" && LinearGradient) {
     const colors = gradient.stops.map((s) => s.color) as [string, string, ...string[]];
     const allHavePositions = gradient.stops.every((s) => s.position !== undefined);
@@ -47,10 +49,11 @@ export const GradientBox = ({ gradient, style, children }: Props): React.ReactEl
         end={EDGE_POINT[gradient.to]}
         locations={locations}
         style={style}
+        onLayout={onLayout}
       >
         {children}
       </LinearGradient>
     );
   }
-  return <View style={style}>{children}</View>;
+  return <View style={style} onLayout={onLayout}>{children}</View>;
 };

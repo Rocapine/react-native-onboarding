@@ -64,6 +64,8 @@ Every element accepts optional `transform` (static) and `animation` (`{ entering
 
 Every element also accepts optional `onPress: ButtonAction[]` (also `BaseBoxProps`) — the same action list as `Button.actions` (`"continue"` / `{type:"setVariable",…}` / `{type:"custom",…}`), making any element tappable (e.g. a tappable `Image` card or `YStack` row). Runtime ignores it on elements that own their own gesture (`Button` — use `actions`; `RadioGroup`, `CheckboxGroup`, `DatePicker`, `Input`, `WheelPicker`).
 
+A `setVariable` action with `arrayOp: "append" | "remove" | "toggle"` operates on a `CheckboxGroup`-style multi-select variable (JSON `string[]`) — `value`/`label` are the single member to add/drop/flip. Lets a custom tappable card act like a checkbox (e.g. tap a goal tile → `toggle` it into `goals`), without a `CheckboxGroup` widget.
+
 ```json
 {
   "id": "hero-badge", "type": "Image",

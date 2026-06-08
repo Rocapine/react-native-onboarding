@@ -154,9 +154,12 @@ export const onboardingExample = {
                     entering: { preset: "FadeInDown", duration: 500, delay: 100, easing: "ease-out" },
                   },
                   // Generic onPress: any non-pressable element can dispatch the same
-                  // action list as Button. Tapping the hero records a variable.
+                  // action list as Button. Tapping the hero records a flag, and
+                  // toggles "hero" into the `favorites` multi-select (arrayOp) —
+                  // same JSON-array encoding as CheckboxGroup, no widget needed.
                   onPress: [
                     { type: "setVariable", name: "hero_tapped", value: "true", kind: "string" },
+                    { type: "setVariable", name: "favorites", value: "hero", label: "Hero", arrayOp: "toggle" },
                   ],
                 },
               },

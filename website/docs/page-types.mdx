@@ -843,7 +843,7 @@ Plain-text children are automatically split into **one item per word** so the ro
 
 - `"continue"` — advances to the next onboarding step (calls the `onContinue` callback wired to the renderer).
 - `{ type: "custom", function: string, variables?: string[] }` — invokes a developer-injected handler registered on `OnboardingProvider.customActions`. `variables` lists the keys to read from the live ComposableScreen variable map and forward to the handler.
-- `{ type: "setVariable", name: string, value: string, label?: string }` — writes to the variable map (`{ value, label }`). Pair with `"continue"` to set a discriminator a downstream `nextStep` rule can branch on; the value is visible to the same-tick branch evaluation.
+- `{ type: "setVariable", name: string, value: string, label?: string, valueMode?: "literal" | "expression", kind?: "int" | "float" | "string", arrayOp?: "append" | "remove" | "toggle" }` — writes to the variable map (`{ value, label }`). Pair with `"continue"` to set a discriminator a downstream `nextStep` rule can branch on; the value is visible to the same-tick branch evaluation. With **`arrayOp`** the target is treated as a `CheckboxGroup`-style multi-select (JSON-encoded `string[]`) and `value`/`label` are the single member to `append` (add, dedup), `remove` (drop), or `toggle` (flip — matches a checkbox tap); the stored label stays comma-joined like a real checkbox and `kind` is ignored. This lets any element (via `onPress`) add or remove a chip from a multi-select without a `CheckboxGroup` widget.
 
 Execution rules:
 

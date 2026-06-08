@@ -13,6 +13,7 @@ here.
 
 ### Added
 - **Generic `onPress` on non-pressable elements** — `renderElement` now wraps any element declaring `onPress: ButtonAction[]` in a single central `Pressable` (mirroring the existing `AnimatedBox` wrapper), dispatching the same action list as `Button` via a new shared `runActions` helper. Makes static elements (Text, Icon, Image, Lottie, Rive, Video, ProgressIndicator, RichText, Stacks, ZStack, SafeAreaView, ScrollView, KeyboardAvoidingView, Carousel) tappable. Skipped for elements that own their own tap/focus/scroll gesture (`Button`, `RadioGroup`, `CheckboxGroup`, `DatePicker`, `Input`, `WheelPicker`).
+- **`arrayOp` multi-select support in `runActions`** — a `setVariable` action with `arrayOp: "append" | "remove" | "toggle"` reads the target variable's JSON-encoded `string[]` (the `CheckboxGroup` encoding), applies the set operation to `value`, and re-stores `JSON.stringify(values)` + comma-joined member labels. `append` dedups, `toggle` flips, `remove` drops; the label list stays aligned to the value list. Makes a tappable card behave like a checkbox.
 
 ### Changed
 - **Extracted `runActions` from `ButtonElement`** — the press-action dispatch loop (continue / setVariable / custom) moved into `elements/runActions.ts` and is now shared by `Button` and the generic `onPress`. `Button`'s behavior (haptic, `disabledWhen`, `pressedStyle`) is unchanged. `ButtonAction` types/schemas moved to `elements/actions.ts` (re-exported from `ButtonElement` for back-compat).

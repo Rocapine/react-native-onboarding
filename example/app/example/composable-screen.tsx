@@ -67,9 +67,12 @@ export default function ComposableScreenExample() {
                   entering: { preset: 'FadeInDown' as const, duration: 500, delay: 100, easing: 'ease-out' as const },
                 },
                 // Generic onPress — any non-pressable element can dispatch the same
-                // action list as Button. Tapping the hero image records a variable.
+                // action list as Button. Tapping the hero records a flag and toggles
+                // "hero" into the `favorites` multi-select (arrayOp) — same JSON-array
+                // encoding as CheckboxGroup, no widget needed.
                 onPress: [
                   { type: 'setVariable' as const, name: 'hero_tapped', value: 'true', kind: 'string' as const },
+                  { type: 'setVariable' as const, name: 'favorites', value: 'hero', label: 'Hero', arrayOp: 'toggle' as const },
                 ],
               },
             },

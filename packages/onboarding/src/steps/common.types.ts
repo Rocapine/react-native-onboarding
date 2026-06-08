@@ -75,6 +75,20 @@ export type SetVariableButtonAction = {
   valueMode?: "literal" | "expression";
   /** Tags the stored variable's underlying type. */
   kind?: "int" | "float" | "string";
+  /**
+   * Treat the target variable as a multi-select collection (the JSON-encoded
+   * `string[]` used by `CheckboxGroup`) and apply `value` as a set operation
+   * instead of overwriting:
+   * - `"append"` — add `value` if absent (dedup; no-op if already present)
+   * - `"remove"` — drop `value` if present
+   * - `"toggle"` — add when absent, remove when present (matches CheckboxGroup tap)
+   *
+   * The variable's `value` is stored as `JSON.stringify(string[])` and its
+   * `label` as the comma-joined member labels (`label ?? value` for each entry),
+   * mirroring `CheckboxGroup`. `kind` is ignored in this mode (the stored value
+   * is always a JSON string). Omit `arrayOp` for the default overwrite behavior.
+   */
+  arrayOp?: "append" | "remove" | "toggle";
 };
 
 export const SetVariableButtonActionSchema = z.object({
@@ -84,6 +98,7 @@ export const SetVariableButtonActionSchema = z.object({
   label: z.string().optional(),
   valueMode: z.enum(["literal", "expression"]).optional(),
   kind: z.enum(["int", "float", "string"]).optional(),
+  arrayOp: z.enum(["append", "remove", "toggle"]).optional(),
 });
 
 export type ButtonAction = "continue" | CustomButtonAction | SetVariableButtonAction;

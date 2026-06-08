@@ -160,8 +160,9 @@ Reference variables from `Text` ONLY when `Text.props.mode === "expression"`. Th
 - `"continue"` — advance to next step. Terminal.
 - `{ "type": "custom", "function": "name", "variables": ["a","b"] }` — emit to host. Host wires the implementation.
 - `{ "type": "setVariable", "name": "counter", "value": "{{counter}} + 1", "valueMode": "expression" }` — write a variable. `valueMode: "expression"` triggers interpolation + numeric coercion based on the variable's runtime `kind`.
+- `{ "type": "setVariable", "name": "goals", "value": "sleep", "label": "Sleep", "arrayOp": "append" }` — multi-select set operation on a `CheckboxGroup`-style variable (JSON-encoded `string[]`). `arrayOp`: `"append"` (add, dedup — no-op if present), `"remove"` (drop), `"toggle"` (flip, like a checkbox tap). `value`/`label` are the single member added/removed; the variable's label stays comma-joined like a real checkbox. Use this to add/remove a chip from a multi-select without a `CheckboxGroup` widget. `kind` is ignored (stored value is always a JSON string).
 
-The headless Zod schema enumerates all three: `"continue" | CustomButtonAction | SetVariableButtonAction` (`ButtonAction` in `common.types.ts`, re-exported from `ButtonElement.ts`). `setVariable` also accepts `kind: "int" | "float" | "string"` to tag the stored variable's type — set it when the value feeds numeric expressions or comparisons. The **same `ButtonAction[]` shape** is reusable as `onPress` on any non-pressable element — see [onPress](#onpress--make-any-element-tappable-every-element).
+The headless Zod schema enumerates all three: `"continue" | CustomButtonAction | SetVariableButtonAction` (`ButtonAction` in `common.types.ts`, re-exported from `ButtonElement.ts`). `setVariable` also accepts `kind: "int" | "float" | "string"` to tag the stored variable's type (overwrite mode only) and `arrayOp: "append" | "remove" | "toggle"` for multi-select collections. The **same `ButtonAction[]` shape** is reusable as `onPress` on any non-pressable element — see [onPress](#onpress--make-any-element-tappable-every-element).
 
 ## Disabling continue conditionally
 

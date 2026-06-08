@@ -128,3 +128,7 @@ Page Renderer is intentionally a plain `View flex:1` inside `KeyboardAvoidingVie
 ## Rive intrinsic = artboard pixel size
 
 `rive-react-native` doesn't expose the artboard ratio to JS, so a Rive view with no `height` / `flex` / `aspectRatio` reports the raw artboard pixels as its intrinsic — fills the screen. `RiveElement` falls back to `aspectRatio: 1` when unsized; authors with a known ratio override via `aspectRatio`.
+
+## UI press-action dispatch (`runActions`)
+
+`elements/runActions.ts` runs a `ButtonAction[]` (continue / setVariable / custom) — shared by `Button.actions` and the generic `onPress`. It lives in its **own** module, NOT `shared.ts`: `shared.ts` ↔ `expression.ts` already form a cycle (`expression` imports `interpolate` from `shared`) and `runActions` needs both. `ButtonAction` types/schemas are the leaf `elements/actions.ts` (UI mirror of headless `common.types.ts`) so `BaseBoxProps.ts` + `runActions.ts` import them cycle-free. `setVariable` `arrayOp` (`append`/`remove`/`toggle`) operates on the JSON-`string[]` CheckboxGroup encoding — value = `JSON.stringify(values)`, label = comma-joined members.

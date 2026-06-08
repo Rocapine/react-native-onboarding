@@ -142,6 +142,10 @@ Optional dep for a press-time **side-effect** (not a visual element): wrap in a 
 
 **A prop type/enum shared across several elements** (e.g. `HapticStyle` on Button/RadioGroup/CheckboxGroup) lives in `packages/onboarding/src/steps/common.types.ts` (export type + Zod schema). Headless elements import it; UI mirrors re-declare the enum inline (mirrors stay self-contained — they don't import headless internals).
 
+**Relocating a shared type with back-compat** — when you move a type out of an element file into `common.types.ts` but keep a re-export from the old file, that file can't both `import { X }` (for local use) **and** `export { X } from "../../common.types"` — TS flags a duplicate export. Split it: `import { X }` then `export type { X }` / `export { Xschema }` (re-exports the local binding).
+
+**A cross-element *behavior* prop** (e.g. `onPress`, `animation`/`transform`) goes on `BaseBoxProps` (both packages) and is wired **once** centrally in `renderElement.tsx` (the `Pressable` / `AnimatedBox` wrappers), never per-element. Skip the elements that own the gesture (`onPress` skips Button/RadioGroup/CheckboxGroup/DatePicker/Input/WheelPicker).
+
 **Animated elements**: `react-native-reanimated` + `react-native-svg` are already available (precedent: `UI/Components/CircularProgress.tsx`) — don't add a peer dep for SVG/animation. Call reanimated hooks (`useAnimatedProps`/`useAnimatedStyle`) **unconditionally** — compute every variant's animated value before any `variant` branch, else rules-of-hooks breaks when the element switches shape.
 
 When adding/changing a `UIElement` type in either ComposableScreen `types.ts`, **always**:

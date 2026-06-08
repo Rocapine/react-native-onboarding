@@ -9,6 +9,13 @@ here.
 
 ---
 
+## [1.39.0] - 2026-06-08
+
+### Added
+- **`AnimatedText` UIElement** — a number that count-animates `from`→`to` and renders as formatted text (`decimals`, `thousandsSeparator`, `easing`, `loop`). The animation runs entirely on the UI thread and writes straight into a native `TextInput` via `useAnimatedProps({ text })` (the react-native-redash `ReText` pattern), so it produces **zero React re-renders per frame and never writes a composable variable**. It is the performant replacement for driving a count-up through an `autoplay` `ProgressIndicator` bound to a variable (which re-renders the whole ComposableScreen tree on every step). Renders the number only — compose static labels as sibling `Text`.
+
+---
+
 ## [1.38.2] - 2026-06-08
 
 ### Fixed

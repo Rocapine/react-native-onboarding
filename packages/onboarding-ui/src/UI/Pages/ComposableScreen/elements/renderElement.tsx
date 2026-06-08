@@ -26,6 +26,7 @@ import { SafeAreaViewElementComponent } from "./SafeAreaViewElement";
 import { ScrollViewElementComponent } from "./ScrollViewElement";
 import { KeyboardAvoidingViewElementComponent } from "./KeyboardAvoidingViewElement";
 import { ProgressIndicatorElementComponent } from "./ProgressIndicatorElement";
+import { AnimatedTextElementComponent } from "./AnimatedTextElement";
 import { AnimatedBox } from "./AnimatedBox";
 
 // Element types that own their own press / focus / scroll handling. The generic
@@ -135,6 +136,10 @@ export const renderElement = (
 
   if (element.type === "ProgressIndicator") {
     return <ProgressIndicatorElementComponent key={element.id} element={element} ctx={ctx} />;
+  }
+
+  if (element.type === "AnimatedText") {
+    return <AnimatedTextElementComponent key={element.id} element={element} ctx={ctx} />;
   }
 
     return null;

@@ -8,6 +8,13 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.39.0] - 2026-06-08
+
+### Added
+- **`AnimatedText` UIElement schema** — type + Zod schema for the new count-up text element (`from`/`to`/`duration`/`delay`/`easing`/`autoplay`/`loop`/`decimals`/`thousandsSeparator` + text styling). Added to the ComposableScreen `UIElement` union. `to` is required; the element renders the number only and never writes a variable. See the UI package for the animated `TextInput` renderer.
+
+---
+
 ## [1.38.2] - 2026-06-08
 
 ### Changed

@@ -30,6 +30,7 @@ const examples: Example[] = [
       { name: "Keyboard", route: "/example/composable-screen-keyboard" },
       { name: "Runtime Fonts", route: "/example/composable-screen-fonts" },
       { name: "Animations", route: "/example/composable-screen-animations" },
+      { name: "Re-render Isolation", route: "/example/composable-screen-rerender" },
       { name: "All", route: "/example/composable-screen" },
     ],
   },

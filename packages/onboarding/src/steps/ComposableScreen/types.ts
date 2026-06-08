@@ -33,6 +33,7 @@ import {
   KeyboardAvoidingViewElementPropsSchema,
 } from "./elements/KeyboardAvoidingViewElement";
 import { type ProgressIndicatorElementProps, ProgressIndicatorElementPropsSchema } from "./elements/ProgressIndicatorElement";
+import { type AnimatedTextElementProps, AnimatedTextElementPropsSchema } from "./elements/AnimatedTextElement";
 
 export type { BaseBoxProps, GradientBackground, GradientEdge, GradientStop, LinearGradientConfig } from "./elements/BaseBoxProps";
 export type {
@@ -83,6 +84,7 @@ export type {
   KeyboardAvoidingBehavior,
 } from "./elements/KeyboardAvoidingViewElement";
 export type { ProgressIndicatorElementProps, ProgressEasing } from "./elements/ProgressIndicatorElement";
+export type { AnimatedTextElementProps } from "./elements/AnimatedTextElement";
 
 /**
  * Type tag for a ComposableScreen variable. Drives expression-mode coercion
@@ -257,6 +259,13 @@ type UIElement =
       renderWhen?: LeafCondition | ConditionGroup;
       type: "ProgressIndicator";
       props: ProgressIndicatorElementProps;
+    }
+  | {
+      id: string;
+      name?: string;
+      renderWhen?: LeafCondition | ConditionGroup;
+      type: "AnimatedText";
+      props: AnimatedTextElementProps;
     };
 
 // The `Text` variant, extracted so `RichText` can restrict its children to
@@ -419,6 +428,13 @@ const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
       renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
       type: z.literal("ProgressIndicator"),
       props: ProgressIndicatorElementPropsSchema,
+    }),
+    z.object({
+      id: z.string(),
+      name: z.string().optional(),
+      renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
+      type: z.literal("AnimatedText"),
+      props: AnimatedTextElementPropsSchema,
     }),
   ])
 );

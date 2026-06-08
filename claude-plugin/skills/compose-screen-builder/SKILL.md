@@ -49,7 +49,7 @@ Then apply the polish layer from `../create-step-json/references/screen-patterns
 | `DatePicker` | Date input bound to a variable |
 | `WheelPicker` | Scrolling wheel selector bound to a variable (needs `@react-native-picker/picker`) |
 | `Carousel` | Inline horizontal pager |
-| `ProgressIndicator` | Linear / circular progress bar; static `value`, bound `variableName`, or `autoplay` animation |
+| `ProgressIndicator` | Linear / circular progress bar; static `value`, bound `variableName`, or `autoplay` animation. `minValue`/`maxValue` set the range (default 0–100) for an animated count-up; `step` snaps label/variable, `labelSuffix` replaces `%` |
 
 Authoritative prop shapes: `packages/onboarding/src/steps/ComposableScreen/elements/*.ts`.
 
@@ -250,7 +250,7 @@ Each override is a `Partial` of the overridable Button props: `BaseBoxProps` (in
 | `Button` | `actions: [...]`, `disabledWhen` | `action`, `disabled` |
 | `SafeAreaView` | `edges: ["top","bottom"]` or `{ top: "additive" }` | `{ top: "always" }` |
 | `Input` | `textAlign`, `keyboardType`, `autoCapitalize`, `maxLength` | `suffix`, `autoFocus`, `alignment` |
-| `ProgressIndicator` | `variant: "linear"\|"circular"`, `value` (0–100), `variableName`, `autoplay`, `duration`, `delay`, `easing` | `progress`, `percent`, `type` |
+| `ProgressIndicator` | `variant: "linear"\|"circular"`, `value`, `variableName`, `autoplay`, `minValue`/`maxValue` (default 0–100), `step`, `labelSuffix`, `duration`, `delay`, `easing` | `progress`, `percent`, `type` |
 | Stacks / Carousel | `children` at element top-level | `children` inside `props` |
 
 ## Anti-patterns

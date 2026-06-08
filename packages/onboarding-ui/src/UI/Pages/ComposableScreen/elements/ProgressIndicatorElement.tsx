@@ -27,6 +27,10 @@ export type ProgressIndicatorElementProps = BaseBoxProps & {
   autoplay?: boolean;
   loop?: boolean;
   initialValue?: number;
+  minValue?: number;
+  maxValue?: number;
+  step?: number;
+  labelSuffix?: string;
   duration?: number;
   delay?: number;
   easing?: ProgressEasing;
@@ -43,10 +47,14 @@ const ProgressEasingSchema = z.enum(["linear", "ease-in", "ease-out", "ease-in-o
 export const ProgressIndicatorElementPropsSchema = BaseBoxPropsSchema.extend({
   variant: z.enum(["linear", "circular"]).optional(),
   variableName: z.string().min(1).optional(),
-  value: z.number().min(0).max(100).optional(),
+  value: z.number().optional(),
   autoplay: z.boolean().optional(),
   loop: z.boolean().optional(),
-  initialValue: z.number().min(0).max(100).optional(),
+  initialValue: z.number().optional(),
+  minValue: z.number().optional(),
+  maxValue: z.number().optional(),
+  step: z.number().gt(0).optional(),
+  labelSuffix: z.string().optional(),
   duration: z.number().min(0).optional(),
   delay: z.number().min(0).optional(),
   easing: ProgressEasingSchema.optional(),
@@ -60,7 +68,7 @@ export const ProgressIndicatorElementPropsSchema = BaseBoxPropsSchema.extend({
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
-const clamp = (n: number): number => Math.max(0, Math.min(100, n));
+const clamp = (n: number, min: number, max: number): number => Math.max(min, Math.min(max, n));
 
 type ProgressUIElement = Extract<UIElement, { type: "ProgressIndicator" }>;
 
@@ -74,7 +82,12 @@ export const ProgressIndicatorElementComponent = ({ element, ctx }: Props): Reac
   const { props } = element;
 
   const variant = props.variant ?? "linear";
-  const initialValue = clamp(props.initialValue ?? 0);
+  const minValue = props.minValue ?? 0;
+  const maxValue = props.maxValue ?? 100;
+  const range = maxValue - minValue;
+  const step = props.step && props.step > 0 ? props.step : 1;
+  const labelSuffix = props.labelSuffix ?? "%";
+  const initialValue = clamp(props.initialValue ?? minValue, minValue, maxValue);
   const duration = props.duration ?? 1000;
   const delay = props.delay ?? 0;
   const easing = EASING_MAP[props.easing ?? "ease-in-out"];
@@ -85,55 +98,67 @@ export const ProgressIndicatorElementComponent = ({ element, ctx }: Props): Reac
   const trackColor = props.trackColor ?? theme.colors.neutral.lower;
   const labelColor = props.labelColor ?? theme.colors.text.primary;
 
-  // Bound variable value (input mode, non-autoplay) or static value.
+  // Snap a raw value to `step` within [minValue, maxValue]. The label and the
+  // written variable carry the snapped value, not a percentage.
+  const snap = (v: number): number =>
+    clamp(minValue + Math.round((v - minValue) / step) * step, minValue, maxValue);
+
+  // Bound variable value (input mode, non-autoplay) or static value. `progress`
+  // is the value in [minValue, maxValue]; the fill fraction is derived from it.
   const boundRaw = props.variableName ? variables[props.variableName]?.value : undefined;
-  const boundValue = boundRaw !== undefined ? clamp(Number(boundRaw) || 0) : undefined;
-  const target = autoplay ? 100 : clamp(boundValue ?? props.value ?? initialValue);
+  const boundValue = boundRaw !== undefined ? clamp(Number(boundRaw) || 0, minValue, maxValue) : undefined;
+  const target = autoplay ? maxValue : clamp(boundValue ?? props.value ?? initialValue, minValue, maxValue);
 
   const progress = useSharedValue(initialValue);
-  const [percentage, setPercentage] = useState(Math.round(initialValue));
+  const [displayValue, setDisplayValue] = useState(snap(initialValue));
 
   // Mirror the animated value into a label + (autoplay) the bound variable.
-  // Reaction input is the *rounded* percent, so the JS callback fires only when
-  // the integer changes (≤100 hops/sweep) rather than every frame — avoids a
-  // per-frame context write storm (setVariable re-renders all variable consumers).
+  // Reaction input is the *step-snapped* value, so the JS callback fires only
+  // when the snapped value changes ((maxValue-minValue)/step hops/sweep) rather
+  // than every frame — avoids a per-frame context write storm (setVariable
+  // re-renders all variable consumers). Coarse `step` for large ranges.
   const showLabel = props.showLabel ?? false;
   const variableName = props.variableName;
   const writeVariable = (v: number) => {
     if (autoplay && variableName) {
-      setVariable(variableName, { value: String(v), kind: "int" });
+      setVariable(variableName, { value: String(v), kind: Number.isInteger(v) ? "int" : "float" });
     }
   };
   const writesVariable = autoplay && !!variableName;
   // The dependency array is REQUIRED. Without it reanimated tears down and
   // rebuilds this mapper on EVERY render. A looping `showLabel` indicator
-  // re-renders ~40×/s forever (one setPercentage per frame), so its mapper would
-  // be start/stopped ~40×/s indefinitely — perpetual churn on the UI-thread mapper
+  // re-renders continuously (one setDisplayValue per step hop), so its mapper
+  // would be start/stopped indefinitely — perpetual churn on the UI-thread mapper
   // scheduler that destabilizes *other* running animations on the same screen
   // (they visibly reset mid/after a sweep — "finishes then resets for no reason").
-  // Recreating also resets `prev` to undefined, defeating the `rounded === prev`
+  // Recreating also resets `prev` to undefined, defeating the `snapped === prev`
   // guard so the JS callbacks over-fire. Keying on the values the worklet branches
-  // on keeps the mapper stable; the JS fns it calls (setPercentage, setVariable via
-  // writeVariable) are already stable across renders.
+  // on (incl. minValue/maxValue/step) keeps the mapper stable; the JS fns it calls
+  // (setDisplayValue, setVariable via writeVariable) are already stable across renders.
   useAnimatedReaction(
-    () => Math.round(progress.value),
-    (rounded, prev) => {
-      if (rounded === prev) return;
-      if (showLabel) runOnJS(setPercentage)(rounded);
-      if (writesVariable) runOnJS(writeVariable)(rounded);
+    () => {
+      // Inline snap (worklet — can't call the JS `snap` closure). Captures the
+      // primitive minValue/maxValue/step (re-keyed via the deps array below).
+      const snapped = minValue + Math.round((progress.value - minValue) / step) * step;
+      return Math.max(minValue, Math.min(maxValue, snapped));
     },
-    [showLabel, writesVariable, variableName]
+    (snapped, prev) => {
+      if (snapped === prev) return;
+      if (showLabel) runOnJS(setDisplayValue)(snapped);
+      if (writesVariable) runOnJS(writeVariable)(snapped);
+    },
+    [showLabel, writesVariable, variableName, minValue, maxValue, step]
   );
 
-  // Autoplay: animate initialValue -> 100, optionally looping, after `delay`.
+  // Autoplay: animate initialValue -> maxValue, optionally looping, after `delay`.
   useEffect(() => {
     if (!autoplay) return;
     progress.value = initialValue;
-    const anim = withTiming(100, { duration, easing });
+    const anim = withTiming(maxValue, { duration, easing });
     const looped = loop ? withRepeat(anim, -1, false) : anim;
     progress.value = delay > 0 ? withDelay(delay, looped) : looped;
     return () => cancelAnimation(progress);
-  }, [autoplay, loop, duration, delay, easing, initialValue]);
+  }, [autoplay, loop, duration, delay, easing, initialValue, maxValue]);
 
   // Bound / static (non-autoplay): animate toward the current target after `delay`.
   useEffect(() => {
@@ -149,12 +174,14 @@ export const ProgressIndicatorElementComponent = ({ element, ctx }: Props): Reac
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
 
-  const animatedCircleProps = useAnimatedProps(() => ({
-    strokeDashoffset: circumference * (1 - progress.value / 100),
-  }));
-  const animatedFillStyle = useAnimatedStyle(() => ({
-    width: `${progress.value}%`,
-  }));
+  const animatedCircleProps = useAnimatedProps(() => {
+    const frac = range > 0 ? (progress.value - minValue) / range : 0;
+    return { strokeDashoffset: circumference * (1 - frac) };
+  });
+  const animatedFillStyle = useAnimatedStyle(() => {
+    const frac = range > 0 ? (progress.value - minValue) / range : 0;
+    return { width: `${frac * 100}%` };
+  });
 
   const containerStyle = {
     alignSelf: props.alignSelf,
@@ -212,7 +239,7 @@ export const ProgressIndicatorElementComponent = ({ element, ctx }: Props): Reac
                 fontFamily: theme.typography.textStyles.heading2.fontFamily,
               }}
             >
-              {percentage}%
+              {displayValue}{labelSuffix}
             </Text>
           </View>
         ) : null}
@@ -253,7 +280,7 @@ export const ProgressIndicatorElementComponent = ({ element, ctx }: Props): Reac
             textAlign: "right",
           }}
         >
-          {percentage}%
+          {displayValue}{labelSuffix}
         </Text>
       ) : null}
     </View>

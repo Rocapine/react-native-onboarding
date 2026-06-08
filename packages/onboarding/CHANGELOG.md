@@ -8,6 +8,17 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.38.0] - 2026-06-08
+
+### Added
+- **`ProgressIndicator` value range (`minValue` / `maxValue` / `step`)** — the indicator is no longer fixed to 0–100. `minValue` (default 0) and `maxValue` (default 100) set an arbitrary value range, so `autoplay` animates `initialValue → maxValue` and the bound `variableName` / label carry the **raw value** (not a percentage). Enables an animated count-up to N: `{ minValue: 0, maxValue: 5000, step: 50, autoplay: true, variableName: "…" }`, then read `{{var}}` in a `Text` (`mode: "expression"`). `step` (default 1, `> 0`) snaps the displayed/written value and bounds the per-sweep write count to `(maxValue − minValue) / step` — use a coarse step for large ranges.
+- **`ProgressIndicator.labelSuffix`** — suffix appended after the label value (default `"%"`); set `""` or a unit (e.g. `" kg"`) for non-percentage ranges.
+
+### Changed
+- **`ProgressIndicator` `value` / `initialValue` no longer capped at 100** — their Zod `.min(0).max(100)` was relaxed to a plain number; out-of-range values clamp to `[minValue, maxValue]` at runtime instead of failing parse. Defaults (`minValue:0`, `maxValue:100`, `step:1`, `labelSuffix:"%"`) keep existing percentage payloads byte-identical.
+
+---
+
 ## [1.37.0] - 2026-06-08
 
 ### Added

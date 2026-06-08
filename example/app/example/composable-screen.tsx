@@ -163,6 +163,37 @@ export default function ComposableScreenExample() {
                 alignSelf: 'center' as const,
               },
             },
+            // Count-up: animates a real value 0 -> 5000 (minValue/maxValue),
+            // snapping by step (100 hops). Writes `membersJoined`; Text reads it.
+            {
+              id: 'progress-countup',
+              type: 'ProgressIndicator',
+              props: {
+                variant: 'linear' as const,
+                autoplay: true,
+                loop: false,
+                minValue: 0,
+                maxValue: 5000,
+                step: 50,
+                variableName: 'membersJoined',
+                duration: 2000,
+                easing: 'ease-out' as const,
+                thickness: 8,
+                showLabel: false,
+                marginVertical: 8,
+              },
+            },
+            {
+              id: 'progress-countup-text',
+              type: 'Text',
+              props: {
+                content: '{{membersJoined}} members joined',
+                mode: 'expression' as const,
+                fontSize: 18,
+                textAlign: 'center' as const,
+                marginVertical: 4,
+              },
+            },
             // Video element
             {
               id: 'hero-video',

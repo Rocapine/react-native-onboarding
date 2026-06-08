@@ -949,16 +949,20 @@ npx expo install @react-native-picker/picker
 
 **ProgressIndicator props:**
 
-Renders a linear bar or circular ring showing progress from 0 to 100. The value can be static (`value`), bound to a variable (`variableName`), or animated on mount (`autoplay`).
+Renders a linear bar or circular ring. By default the value range is 0–100 (a percentage), but `minValue`/`maxValue` let it represent any range — e.g. an **animated count-up** from 0 to N. The value can be static (`value`), bound to a variable (`variableName`), or animated on mount (`autoplay`). To show the count-up as plain text, set `autoplay` + `variableName`, then read `{{var}}` in a `Text` element (`mode: "expression"`) — the variable carries the real value, no math needed.
 
 | Prop | Type | Notes |
 |------|------|-------|
 | `variant` | `"linear" \| "circular"` | Defaults to `"linear"` |
-| `variableName` | `string` | Bound variable (int 0–100). When `autoplay` is on, the current rounded progress is written to this variable each frame; when off, the indicator reflects/animates to this variable's value |
-| `value` | `number` | Static value 0–100 used when no `variableName` is set |
-| `autoplay` | `boolean` | Animate from `initialValue` to 100 on mount |
+| `variableName` | `string` | Bound variable. When `autoplay` is on, the current step-snapped value (in `[minValue, maxValue]`) is written each step hop; when off, the indicator reflects/animates to this variable's value |
+| `value` | `number` | Static value (in `[minValue, maxValue]`) used when no `variableName` is set |
+| `autoplay` | `boolean` | Animate from `initialValue` to `maxValue` on mount |
 | `loop` | `boolean` | Repeat the autoplay animation |
-| `initialValue` | `number` | Starting value 0–100; defaults to `0` |
+| `initialValue` | `number` | Starting value (in `[minValue, maxValue]`); defaults to `minValue` |
+| `minValue` | `number` | Lower bound of the value range; defaults to `0` |
+| `maxValue` | `number` | Upper bound of the value range; defaults to `100` |
+| `step` | `number` (> 0) | Quantization step for the label/variable; defaults to `1`. Bounds JS callbacks to `(maxValue − minValue) / step` per sweep — **use a coarse step for large ranges** (e.g. `maxValue: 5000, step: 50`) to avoid a per-step re-render storm |
+| `labelSuffix` | `string` | Appended after the label value; defaults to `"%"`. Set `""` or a unit (e.g. `" kg"`) for non-percentage ranges |
 | `duration` | `number` | Animation duration in ms; defaults to `1000` |
 | `delay` | `number` | Delay in ms before the animation starts; defaults to `0` |
 | `easing` | `"linear" \| "ease-in" \| "ease-out" \| "ease-in-out"` | Defaults to `"ease-in-out"` |
@@ -966,7 +970,7 @@ Renders a linear bar or circular ring showing progress from 0 to 100. The value 
 | `trackColor` | `string` | Track color; defaults to `theme.colors.neutral.lower` |
 | `thickness` | `number` | Bar height (linear) / ring stroke width (circular) |
 | `size` | `number` | Circular diameter in px; defaults to `120` |
-| `showLabel` | `boolean` | Show the percentage label |
+| `showLabel` | `boolean` | Show the value label (value + `labelSuffix`) |
 | `labelColor` | `string` | Label text color; defaults to `theme.colors.text.primary` |
 | All `BaseBoxProps` | — | `width`, `height`, `margin*`, `padding*`, `alignSelf`, `opacity`, etc. |
 

@@ -44,8 +44,9 @@ Every styled UIElement (`Button`, `RadioGroup`, `CheckboxGroup`, `Input`, `Wheel
 `ProgressIndicator` (`variant: "linear" | "circular"`):
 - `color` (progress fill; defaults to `theme.colors.primary`), `trackColor` (defaults to `theme.colors.neutral.lower`)
 - `thickness` (bar height / ring stroke width), `size` (circular diameter px; default `120`)
-- `showLabel`, `labelColor` (defaults to `theme.colors.text.primary`)
-- value source: static `value` (0–100), bound `variableName`, or `autoplay`/`loop`/`initialValue`/`duration`/`easing` animation
+- `showLabel`, `labelColor` (defaults to `theme.colors.text.primary`), `labelSuffix` (default `"%"`; set `""` / unit for non-percent ranges)
+- value range: `minValue` (default 0) / `maxValue` (default 100) — label + bound variable carry the raw value, not a percentage; `step` (default 1) snaps the label/variable. For an animated count-up to N: `minValue:0, maxValue:N, autoplay`, coarse `step` for large N
+- value source: static `value`, bound `variableName`, or `autoplay`/`loop`/`initialValue`/`duration`/`easing` animation (all in `[minValue, maxValue]`)
 
 `Text`:
 - `fontFamily`, `fontSize`, `fontWeight`, `fontStyle`, `color`, `lineHeight`, `letterSpacing`, `textAlign`

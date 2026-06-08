@@ -9,6 +9,13 @@ here.
 
 ---
 
+## [1.38.2] - 2026-06-08
+
+### Fixed
+- **Entry transitions restarting on re-render** — `AnimatedBox` rebuilt its `entering`/`exiting`/`layout` reanimated builders inline on every render, handing `Animated.View` a fresh `entering` instance each time and re-firing the entry transition. With an autoplay `ProgressIndicator` on screen (writes its bound variable each step → re-renders the whole ComposableScreen tree), every sibling's entry animation visibly reloaded. The builders are now memoized on their (stable, from the memoized parsed step) spec objects.
+
+---
+
 ## [1.38.1] - 2026-06-08
 
 ### Fixed

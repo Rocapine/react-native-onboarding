@@ -79,6 +79,8 @@ Use legacy `useResolvedFontFamily` only for elements that never set `fontWeight`
 
 `ctx.variables` is `Record<string, ComposableVariableEntry>` (each entry `{value, label?}`). Headless utils that expect primitive variables (`evaluateCondition`, `evaluateLeaf`, `resolveNextStepNumber`) want `Record<string, unknown>`. Flatten before calling:
 
+**Use the precomputed `ctx.flatVariables`** — `Renderer` memoizes the flatten once per render and passes it on `RenderContext`. `renderElement`, `RichTextElement`, `ButtonElement` read `ctx.flatVariables` directly. Don't rebuild a local `Object.fromEntries` per element/component — that re-allocated on every tree re-render (an autoplay `ProgressIndicator` writes a variable each step → whole tree re-renders), which v1.38.1 removed. New consumers needing primitives outside the ctx flow flatten with:
+
 ```ts
 const flatVars = useMemo(
   () => Object.fromEntries(Object.entries(variables).map(([k, v]) => [k, v?.value])),

@@ -8,6 +8,11 @@ import type { BaseBoxProps } from "./BaseBoxProps";
 export type RenderContext = {
   theme: Theme;
   variables: Record<string, ComposableVariableEntry>;
+  // Variables flattened to primitives (entry.value), memoized once per render in
+  // Renderer. renderWhen / evaluateCondition want primitives; computing this per
+  // element rebuilt the object on every tree re-render (e.g. each autoplay
+  // ProgressIndicator step writes a variable → full re-render).
+  flatVariables: Record<string, unknown>;
   setVariable: (key: string, entry: ComposableVariableEntry) => void;
   onContinue: () => void;
   customActions: CustomActions;

@@ -222,12 +222,21 @@ const StepProgress = ({ step, progress, theme }: StepProgressProps) => {
   const [barComplete, setBarComplete] = useState(false);
   const styles = createStyles(theme);
 
+  // Track the one-time transitions in refs, not the state being set, so the
+  // effect deps stay [progress] and the listener attaches exactly once. Keying
+  // on barStarted/barComplete (the very states the callback flips) re-ran the
+  // effect on each setState → listener torn down and re-added mid-animation.
+  const startedRef = useRef(false);
+  const completeRef = useRef(false);
+
   useEffect(() => {
     const listenerId = progress.addListener(({ value }) => {
-      if (value > 0 && !barStarted) {
+      if (value > 0 && !startedRef.current) {
+        startedRef.current = true;
         setBarStarted(true);
       }
-      if (value >= 1 && !barComplete) {
+      if (value >= 1 && !completeRef.current) {
+        completeRef.current = true;
         setBarComplete(true);
       }
     });
@@ -235,7 +244,7 @@ const StepProgress = ({ step, progress, theme }: StepProgressProps) => {
     return () => {
       progress.removeListener(listenerId);
     };
-  }, [progress, barStarted, barComplete]);
+  }, [progress]);
 
   const progressWidth = progress.interpolate({
     inputRange: [0, 1],

@@ -35,12 +35,20 @@ export const CircularProgress = ({
   const progress = useSharedValue(0);
   const [percentage, setPercentage] = useState(0);
 
-  // Update percentage text using useAnimatedReaction
+  // Update percentage text using useAnimatedReaction. Round *inside* the reader
+  // so the JS callback fires only when the displayed integer changes (~100 hops),
+  // not every frame — a per-frame setPercentage re-renders this component ~60×/s
+  // and the resulting mapper churn destabilizes other animations on the screen.
+  // The deps array ([]) is REQUIRED: without it reanimated tears down and rebuilds
+  // the mapper on every render, which also resets `prev` and defeats the guard.
   useAnimatedReaction(
-    () => progress.value,
-    (currentValue) => {
-      runOnJS(setPercentage)(Math.round(currentValue));
-    }
+    () => Math.round(progress.value),
+    (rounded, prev) => {
+      if (rounded !== prev) {
+        runOnJS(setPercentage)(rounded);
+      }
+    },
+    []
   );
 
   useEffect(() => {

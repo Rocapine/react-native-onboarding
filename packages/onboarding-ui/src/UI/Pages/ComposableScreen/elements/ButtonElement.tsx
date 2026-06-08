@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { Animated, Pressable, Text } from "react-native";
 import {
@@ -108,16 +108,9 @@ type Props = {
 };
 
 export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElement => {
-  const { theme, variables } = ctx;
-  const flatVariables = useMemo(
-    () =>
-      Object.fromEntries(
-        Object.entries(variables).map(([k, v]) => [k, v?.value])
-      ),
-    [variables]
-  );
+  const { theme } = ctx;
   const isDisabled = element.props.disabledWhen
-    ? evaluateCondition(element.props.disabledWhen, flatVariables)
+    ? evaluateCondition(element.props.disabledWhen, ctx.flatVariables)
     : false;
   const [isPressed, setIsPressed] = useState(false);
 

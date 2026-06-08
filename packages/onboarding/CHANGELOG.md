@@ -8,6 +8,13 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.38.1] - 2026-06-08
+
+### Changed
+- **Version sync only** — no headless changes. Bumped in lockstep with `@rocapine/react-native-onboarding-ui` 1.38.1 (UI-side re-render fixes in the Loader animations and ComposableScreen render tree).
+
+---
+
 ## [1.38.0] - 2026-06-08
 
 ### Added

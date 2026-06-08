@@ -47,10 +47,7 @@ export const renderElement = (
   parentType?: "XStack" | "YStack" | "ZStack" | "RichText" | "XScroll"
 ): React.ReactNode => {
   if (element.renderWhen) {
-    const flatVars = Object.fromEntries(
-      Object.entries(ctx.variables).map(([k, v]) => [k, v?.value])
-    );
-    if (!evaluateCondition(element.renderWhen, flatVars)) return null;
+    if (!evaluateCondition(element.renderWhen, ctx.flatVariables)) return null;
   }
 
   // Dispatch to the concrete element renderer. Captured into `node` so a single

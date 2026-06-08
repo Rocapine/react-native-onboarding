@@ -118,12 +118,9 @@ export const RichTextElementComponent = ({ element, ctx, parentType }: Props): R
   // words, keep chips whole. renderWhen is evaluated once per source child here
   // (flowing-text words then render unconditionally); chips keep their renderWhen
   // and are gated by renderElement.
-  const flatVars = Object.fromEntries(
-    Object.entries(ctx.variables).map(([k, v]) => [k, v?.value])
-  );
   const expanded: UIElement[] = [];
   for (const child of element.children) {
-    if (child.renderWhen && !evaluateCondition(child.renderWhen, flatVars)) continue;
+    if (child.renderWhen && !evaluateCondition(child.renderWhen, ctx.flatVariables)) continue;
 
     if (isFlowingText(child)) {
       const raw = child.props.content as string;

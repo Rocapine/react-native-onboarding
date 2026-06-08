@@ -40,12 +40,20 @@ const ComposableScreenRendererBase = ({ step, onContinue }: ContentProps) => {
     [elementDefaults, composableVariables]
   );
 
+  // Flatten variables to primitives once per render — renderElement reuses this
+  // for every element's renderWhen check instead of rebuilding it per element.
+  const flatVariables = useMemo(
+    () => Object.fromEntries(Object.entries(effectiveVariables).map(([k, v]) => [k, v?.value])),
+    [effectiveVariables]
+  );
+
   const renderChildren = (children: UIElement[], parentType: "XStack" | "YStack" | "ZStack" | "RichText" | "XScroll") =>
     children.map((child) => renderElement(child, ctx, parentType));
 
   const ctx: RenderContext = {
     theme,
     variables: effectiveVariables,
+    flatVariables,
     setVariable: setVariableAndSync,
     onContinue,
     customActions,

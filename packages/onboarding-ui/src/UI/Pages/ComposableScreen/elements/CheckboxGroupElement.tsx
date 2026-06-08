@@ -1,9 +1,10 @@
 import React, { useEffect } from "react";
 import { z } from "zod";
 import { View, Text, TouchableOpacity } from "react-native";
+import { useResolvedFontStyle } from "@rocapine/react-native-onboarding";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import type { UIElement } from "../types";
-import { dim, type RenderContext } from "./shared";
+import { dim, resolveInheritedFontFamily, type RenderContext } from "./shared";
 import { GradientBox } from "./GradientBox";
 import { triggerHaptic, type HapticStyle } from "./haptics";
 
@@ -85,6 +86,13 @@ export const CheckboxGroupComponent = ({ element, ctx }: Props): React.ReactElem
     if (typeof rawValue !== "string") return undefined;
     try { return JSON.parse(rawValue) as string[]; } catch { return undefined; }
   })();
+
+  // Resolve item typography once (group-level props apply to every item). Falls
+  // back to theme.typography.defaultFontFamily so labels honor the theme font.
+  const resolvedFont = useResolvedFontStyle(
+    resolveInheritedFontFamily(element.props.itemFontFamily, theme.typography.defaultFontFamily),
+    element.props.itemFontWeight
+  );
 
   useEffect(() => {
     if (element.props.variableName && element.props.defaultValues && selectedValues === undefined) {
@@ -198,8 +206,10 @@ export const CheckboxGroupComponent = ({ element, ctx }: Props): React.ReactElem
                 flexShrink: 1,
                 color: textColor,
                 fontSize: element.props.itemFontSize ?? theme.typography.textStyles.body.fontSize,
-                fontWeight: (element.props.itemFontWeight as any) ?? theme.typography.textStyles.body.fontWeight,
-                fontFamily: element.props.itemFontFamily,
+                fontWeight: resolvedFont.resolvedToVariant
+                  ? undefined
+                  : ((element.props.itemFontWeight as any) ?? theme.typography.textStyles.body.fontWeight),
+                fontFamily: resolvedFont.fontFamily,
                 fontStyle: element.props.itemFontStyle,
               }}
             >

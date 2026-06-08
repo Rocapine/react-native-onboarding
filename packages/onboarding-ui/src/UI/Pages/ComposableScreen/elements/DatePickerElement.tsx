@@ -4,6 +4,7 @@ import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/dat
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { z } from "zod";
 import type { UIElement } from "../types";
+import { useResolvedFontFamily } from "@rocapine/react-native-onboarding";
 import { dim, type RenderContext } from "./shared";
 import { GradientBox } from "./GradientBox";
 
@@ -61,6 +62,8 @@ function formatDate(date: Date, mode: "date" | "time" | "datetime"): string {
 export const DatePickerElementComponent = ({ element, ctx }: Props): React.ReactElement => {
   const { theme, variables, setVariable } = ctx;
   const { props } = element;
+  // Trigger label honors the theme default font (Android shows a custom Text trigger).
+  const labelFontFamily = useResolvedFontFamily(theme.typography.defaultFontFamily, undefined);
 
   const persistedValue = props.variableName ? variables[props.variableName]?.value : undefined;
   const initialDate = persistedValue
@@ -151,6 +154,7 @@ export const DatePickerElementComponent = ({ element, ctx }: Props): React.React
             style={{
               color: props.textColor ?? theme.colors.text.primary,
               fontSize: theme.typography.textStyles.body.fontSize,
+              fontFamily: labelFontFamily,
             }}
           >
             {formatDate(date, mode)}

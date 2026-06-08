@@ -8,6 +8,13 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.36.2] - 2026-06-08
+
+### Changed
+- **Version alignment** — no headless changes; bumped to stay in lockstep with `@rocapine/react-native-onboarding-ui` 1.36.2 (ComposableScreen text-element font fallback fix).
+
+---
+
 ## [1.36.1] - 2026-06-04
 
 ### Changed

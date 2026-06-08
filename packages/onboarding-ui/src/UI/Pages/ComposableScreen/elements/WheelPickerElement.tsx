@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo } from "react";
 import { View, Text } from "react-native";
-import { resolveWheelPickerItems } from "@rocapine/react-native-onboarding";
+import { resolveWheelPickerItems, useResolvedFontFamily } from "@rocapine/react-native-onboarding";
 import { UIElement } from "../types";
-import { RenderContext, dim } from "./shared";
+import { RenderContext, dim, resolveInheritedFontFamily } from "./shared";
 
 // Lazy load Picker - only needed for WheelPicker elements, peer dep is optional.
 let PickerComponent: any;
@@ -72,6 +72,11 @@ export const WheelPickerElementComponent = ({ element, ctx }: Props): React.Reac
   } as const;
 
   const itemColor = props.itemColor ?? theme.colors.text.primary;
+  // Fall back to the theme default font so wheel items honor theme typography.
+  const itemFontFamily = useResolvedFontFamily(
+    resolveInheritedFontFamily(props.itemFontFamily, theme.typography.defaultFontFamily),
+    undefined
+  );
 
   if (!PickerComponent) {
     // Peer dep not installed — surface a clear placeholder instead of crashing.
@@ -92,7 +97,7 @@ export const WheelPickerElementComponent = ({ element, ctx }: Props): React.Reac
         itemStyle={{
           color: itemColor,
           fontSize: props.itemFontSize,
-          fontFamily: props.itemFontFamily,
+          fontFamily: itemFontFamily,
         }}
       >
         {items.map((item) => (

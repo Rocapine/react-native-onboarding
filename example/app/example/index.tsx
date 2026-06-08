@@ -26,6 +26,7 @@ const examples: Example[] = [
       { name: "ZStack", route: "/example/composable-screen-zstack" },
       { name: "Progressive Blur", route: "/example/composable-screen-blur" },
       { name: "ScrollView", route: "/example/composable-screen-scrollview" },
+      { name: "Grid Select (onPress)", route: "/example/composable-screen-grid-select" },
       { name: "Keyboard", route: "/example/composable-screen-keyboard" },
       { name: "Runtime Fonts", route: "/example/composable-screen-fonts" },
       { name: "Animations", route: "/example/composable-screen-animations" },

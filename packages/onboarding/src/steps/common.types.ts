@@ -43,6 +43,72 @@ export const HapticStyleSchema = z.enum([
 ]);
 export type HapticStyle = z.infer<typeof HapticStyleSchema>;
 
+// ── Press actions ─────────────────────────────────────────────────────────────
+// Shared by `Button.actions` and the generic `onPress` on every UIElement
+// (BaseBoxProps). An action is `"continue"` (terminal — advances the onboarding),
+// `{type:"custom"}` (invokes a host-registered customAction), or
+// `{type:"setVariable"}` (writes an onboarding variable). Run sequentially.
+
+export type CustomButtonAction = {
+  type: "custom";
+  function: string;
+  variables?: string[];
+};
+
+export const CustomButtonActionSchema = z.object({
+  type: z.literal("custom"),
+  function: z.string().min(1, "function must not be empty"),
+  variables: z.array(z.string()).optional(),
+});
+
+export type SetVariableButtonAction = {
+  type: "setVariable";
+  name: string;
+  value: string;
+  label?: string;
+  /**
+   * When `"expression"`, `value` is parsed as an arithmetic expression with
+   * `{{var}}` references, numeric literals, and `+ - * /` (parens supported).
+   * On parse failure, falls back to plain interpolation (string).
+   * Defaults to `"literal"` — `value` stored verbatim.
+   */
+  valueMode?: "literal" | "expression";
+  /** Tags the stored variable's underlying type. */
+  kind?: "int" | "float" | "string";
+  /**
+   * Treat the target variable as a multi-select collection (the JSON-encoded
+   * `string[]` used by `CheckboxGroup`) and apply `value` as a set operation
+   * instead of overwriting:
+   * - `"append"` — add `value` if absent (dedup; no-op if already present)
+   * - `"remove"` — drop `value` if present
+   * - `"toggle"` — add when absent, remove when present (matches CheckboxGroup tap)
+   *
+   * The variable's `value` is stored as `JSON.stringify(string[])` and its
+   * `label` as the comma-joined member labels (`label ?? value` for each entry),
+   * mirroring `CheckboxGroup`. `kind` is ignored in this mode (the stored value
+   * is always a JSON string). Omit `arrayOp` for the default overwrite behavior.
+   */
+  arrayOp?: "append" | "remove" | "toggle";
+};
+
+export const SetVariableButtonActionSchema = z.object({
+  type: z.literal("setVariable"),
+  name: z.string().min(1, "name must not be empty"),
+  value: z.string(),
+  label: z.string().optional(),
+  valueMode: z.enum(["literal", "expression"]).optional(),
+  kind: z.enum(["int", "float", "string"]).optional(),
+  arrayOp: z.enum(["append", "remove", "toggle"]).optional(),
+});
+
+export type ButtonAction = "continue" | CustomButtonAction | SetVariableButtonAction;
+
+export const ButtonActionSchema = z.union([
+  z.literal("continue"),
+  CustomButtonActionSchema,
+  SetVariableButtonActionSchema,
+]);
+
 // ── Branching / nextStep schemas ─────────────────────────────────────────────
 
 export const ConditionOperatorSchema = z.enum([

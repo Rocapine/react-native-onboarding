@@ -66,6 +66,11 @@ export default function ComposableScreenExample() {
                 animation: {
                   entering: { preset: 'FadeInDown' as const, duration: 500, delay: 100, easing: 'ease-out' as const },
                 },
+                // Generic onPress — any non-pressable element can dispatch the same
+                // action list as Button. Tapping the hero image records a variable.
+                onPress: [
+                  { type: 'setVariable' as const, name: 'hero_tapped', value: 'true', kind: 'string' as const },
+                ],
               },
             },
             // SVG image — rendered via react-native-svg SvgUri (URL ends in .svg)

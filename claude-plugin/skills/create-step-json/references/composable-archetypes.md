@@ -60,6 +60,10 @@ CTA pattern (use every time — never bare `actions: ["continue"]` with no styli
 
 Every element accepts optional `transform` (static) and `animation` (`{ entering, exiting, layout, effect }`, mirroring `react-native-reanimated`) via `BaseBoxProps`. Drop them into any archetype element's `props` for entrance/exit/loop motion. `entering`/`exiting` presets are exact reanimated builder names (e.g. `FadeInUp`, `ZoomInDown`, `FadeOut`); `effect.preset` is a continuous loop — one of `"pulse"|"fade"|"rotate"|"shimmer"|"bounce"`. Full preset lists live in the `compose-screen-builder` skill. Unknown presets degrade to a no-op.
 
+### Making an element tappable
+
+Every element also accepts optional `onPress: ButtonAction[]` (also `BaseBoxProps`) — the same action list as `Button.actions` (`"continue"` / `{type:"setVariable",…}` / `{type:"custom",…}`), making any element tappable (e.g. a tappable `Image` card or `YStack` row). Runtime ignores it on elements that own their own gesture (`Button` — use `actions`; `RadioGroup`, `CheckboxGroup`, `DatePicker`, `Input`, `WheelPicker`).
+
 ```json
 {
   "id": "hero-badge", "type": "Image",

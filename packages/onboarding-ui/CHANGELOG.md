@@ -9,6 +9,16 @@ here.
 
 ---
 
+## [1.37.0] - 2026-06-08
+
+### Added
+- **Generic `onPress` on non-pressable elements** — `renderElement` now wraps any element declaring `onPress: ButtonAction[]` in a single central `Pressable` (mirroring the existing `AnimatedBox` wrapper), dispatching the same action list as `Button` via a new shared `runActions` helper. Makes static elements (Text, Icon, Image, Lottie, Rive, Video, ProgressIndicator, RichText, Stacks, ZStack, SafeAreaView, ScrollView, KeyboardAvoidingView, Carousel) tappable. Skipped for elements that own their own tap/focus/scroll gesture (`Button`, `RadioGroup`, `CheckboxGroup`, `DatePicker`, `Input`, `WheelPicker`).
+
+### Changed
+- **Extracted `runActions` from `ButtonElement`** — the press-action dispatch loop (continue / setVariable / custom) moved into `elements/runActions.ts` and is now shared by `Button` and the generic `onPress`. `Button`'s behavior (haptic, `disabledWhen`, `pressedStyle`) is unchanged. `ButtonAction` types/schemas moved to `elements/actions.ts` (re-exported from `ButtonElement` for back-compat).
+
+---
+
 ## [1.36.1] - 2026-06-04
 
 ### Fixed

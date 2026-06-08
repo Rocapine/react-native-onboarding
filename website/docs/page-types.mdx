@@ -483,6 +483,25 @@ Every UIElement inherits an optional `transform` and `animation` from `BaseBoxPr
 }
 ```
 
+#### `onPress` — make any element tappable (every element)
+
+Every UIElement also inherits an optional `onPress: ButtonAction[]` from `BaseBoxProps` — the **same action list as `Button.actions`** (`"continue"`, `{ type: "setVariable", … }`, `{ type: "custom", … }`, run sequentially, `"continue"` terminal; see the **Button actions** section below). Use it to make a static element react to a tap — a tappable card/`Image`, a logo that advances the flow, a `Text` row that fires a custom action.
+
+```json
+{
+  "id": "plan-card",
+  "type": "YStack",
+  "props": {
+    "padding": 16,
+    "borderRadius": 12,
+    "onPress": [{ "type": "setVariable", "name": "plan", "value": "pro" }, "continue"]
+  },
+  "children": []
+}
+```
+
+Runtime **ignores `onPress`** on elements that already own a tap / focus / scroll gesture: `Button` (use `actions`), `RadioGroup`, `CheckboxGroup`, `DatePicker`, `Input`, `WheelPicker`. The schema still accepts it everywhere (it lives on `BaseBoxProps`), so wire selection / continue through those elements' own props instead.
+
 **Stack props (`YStack` / `XStack`):**
 
 | Prop | Type | Notes |

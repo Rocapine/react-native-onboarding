@@ -6,7 +6,6 @@ import {
   evaluateCondition,
   type LeafCondition,
   type ConditionGroup,
-  type ComposableVariableKind,
   LeafConditionSchema,
   ConditionGroupSchema,
 } from "@rocapine/react-native-onboarding";
@@ -14,59 +13,23 @@ import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
 import { RenderContext, buildShadowStyle, dim, resolveInheritedFontFamily } from "./shared";
 import { GradientBox } from "./GradientBox";
-import { ComposableVariableEntry } from "../../../Provider/OnboardingProgressProvider";
-import { evaluateSetVariableExpression } from "./expression";
 import { triggerHaptic, type HapticStyle } from "./haptics";
+import {
+  type ButtonAction,
+  ButtonActionSchema,
+} from "./actions";
+import { runActions } from "./runActions";
 
-export type CustomButtonAction = {
-  type: "custom";
-  function: string;
-  variables?: string[];
-};
-
-export const CustomButtonActionSchema = z.object({
-  type: z.literal("custom"),
-  function: z.string().min(1, "function must not be empty"),
-  variables: z.array(z.string()).optional(),
-});
-
-export type SetVariableButtonAction = {
-  type: "setVariable";
-  name: string;
-  value: string;
-  label?: string;
-  /**
-   * When `"expression"`, `value` is parsed as an arithmetic expression with
-   * `{{var}}` references, numeric literals, and `+ - * /` (parens supported).
-   * On parse failure, falls back to plain interpolation (string).
-   * Defaults to `"literal"` — `value` stored verbatim.
-   */
-  valueMode?: "literal" | "expression";
-  /**
-   * Tags the stored variable's underlying type. In `"literal"` mode this is
-   * used as-is. In `"expression"` mode the inferred result kind is used
-   * unless `kind` is explicitly set (ignored — expression mode derives kind
-   * from evaluation).
-   */
-  kind?: ComposableVariableKind;
-};
-
-export const SetVariableButtonActionSchema = z.object({
-  type: z.literal("setVariable"),
-  name: z.string().min(1, "name must not be empty"),
-  value: z.string(),
-  label: z.string().optional(),
-  valueMode: z.enum(["literal", "expression"]).optional(),
-  kind: z.enum(["int", "float", "string"]).optional(),
-});
-
-export type ButtonAction = "continue" | CustomButtonAction | SetVariableButtonAction;
-
-export const ButtonActionSchema = z.union([
-  z.literal("continue"),
+// `ButtonAction` and its variants live in `./actions` (shared with the generic
+// `onPress` on BaseBoxProps). Re-exported for back-compat.
+export {
+  type CustomButtonAction,
   CustomButtonActionSchema,
+  type SetVariableButtonAction,
   SetVariableButtonActionSchema,
-]);
+} from "./actions";
+export type { ButtonAction };
+export { ButtonActionSchema };
 
 type ButtonOverridableProps = BaseBoxProps & {
   variant?: "filled" | "outlined" | "ghost";
@@ -145,7 +108,7 @@ type Props = {
 };
 
 export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElement => {
-  const { theme, onContinue, customActions, variables, setVariable } = ctx;
+  const { theme, variables } = ctx;
   const flatVariables = useMemo(
     () =>
       Object.fromEntries(
@@ -164,46 +127,7 @@ export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElem
     const { actions, action } = element.props;
     const effective: ButtonAction[] =
       actions ?? (action === "continue" ? ["continue"] : []);
-
-    for (const act of effective) {
-      if (act === "continue") {
-        onContinue();
-        return;
-      }
-      if (act.type === "setVariable") {
-        let value: string;
-        let kind: ComposableVariableKind | undefined;
-        if (act.valueMode === "expression") {
-          const computed = evaluateSetVariableExpression(act.value, variables);
-          value = computed.value;
-          kind = computed.kind;
-        } else {
-          value = act.value;
-          kind = act.kind;
-        }
-        setVariable(act.name, { value, label: act.label, kind });
-        continue;
-      }
-      const handler = customActions[act.function];
-      if (!handler) {
-        console.warn(
-          `[ComposableScreen] No customAction registered for "${act.function}"`
-        );
-        continue;
-      }
-      const requested = act.variables ?? [];
-      const vars: Record<string, ComposableVariableEntry | undefined> = {};
-      for (const name of requested) vars[name] = variables[name];
-      try {
-        await handler({ variables: vars });
-      } catch (err) {
-        console.error(
-          `[ComposableScreen] customAction "${act.function}" threw:`,
-          err
-        );
-        return;
-      }
-    }
+    await runActions(effective, ctx);
   };
 
   // State overrides are merged over base props. disabledStyle wins over the

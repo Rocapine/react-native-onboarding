@@ -43,6 +43,57 @@ export const HapticStyleSchema = z.enum([
 ]);
 export type HapticStyle = z.infer<typeof HapticStyleSchema>;
 
+// ── Press actions ─────────────────────────────────────────────────────────────
+// Shared by `Button.actions` and the generic `onPress` on every UIElement
+// (BaseBoxProps). An action is `"continue"` (terminal — advances the onboarding),
+// `{type:"custom"}` (invokes a host-registered customAction), or
+// `{type:"setVariable"}` (writes an onboarding variable). Run sequentially.
+
+export type CustomButtonAction = {
+  type: "custom";
+  function: string;
+  variables?: string[];
+};
+
+export const CustomButtonActionSchema = z.object({
+  type: z.literal("custom"),
+  function: z.string().min(1, "function must not be empty"),
+  variables: z.array(z.string()).optional(),
+});
+
+export type SetVariableButtonAction = {
+  type: "setVariable";
+  name: string;
+  value: string;
+  label?: string;
+  /**
+   * When `"expression"`, `value` is parsed as an arithmetic expression with
+   * `{{var}}` references, numeric literals, and `+ - * /` (parens supported).
+   * On parse failure, falls back to plain interpolation (string).
+   * Defaults to `"literal"` — `value` stored verbatim.
+   */
+  valueMode?: "literal" | "expression";
+  /** Tags the stored variable's underlying type. */
+  kind?: "int" | "float" | "string";
+};
+
+export const SetVariableButtonActionSchema = z.object({
+  type: z.literal("setVariable"),
+  name: z.string().min(1, "name must not be empty"),
+  value: z.string(),
+  label: z.string().optional(),
+  valueMode: z.enum(["literal", "expression"]).optional(),
+  kind: z.enum(["int", "float", "string"]).optional(),
+});
+
+export type ButtonAction = "continue" | CustomButtonAction | SetVariableButtonAction;
+
+export const ButtonActionSchema = z.union([
+  z.literal("continue"),
+  CustomButtonActionSchema,
+  SetVariableButtonActionSchema,
+]);
+
 // ── Branching / nextStep schemas ─────────────────────────────────────────────
 
 export const ConditionOperatorSchema = z.enum([

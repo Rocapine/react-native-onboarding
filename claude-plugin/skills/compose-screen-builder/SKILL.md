@@ -97,6 +97,16 @@ Worked example (Image with static tilt, entrance/exit, and a continuous pulse):
 }
 ```
 
+## onPress — make any element tappable (every element)
+
+`onPress: ButtonAction[]` is a `BaseBoxProps` field, so **every** element accepts it (same shape + runtime as `Button.actions` — see [Button actions](#button-actions)). Use it to make a static element react to a tap: tap a card/`Image` to `setVariable`, tap a logo to `"continue"`, tap a `Text` row to fire a `custom` action.
+
+```json
+{ "id": "card", "type": "YStack", "props": { "padding": 16, "borderRadius": 12, "onPress": [{ "type": "setVariable", "name": "plan", "value": "pro" }, "continue"] }, "children": [ … ] }
+```
+
+Runtime **ignores `onPress`** on elements that already own a tap/focus/scroll gesture: `Button` (use `actions`), `RadioGroup`, `CheckboxGroup`, `DatePicker`, `Input`, `WheelPicker`. The schema still accepts it there (it's on `BaseBoxProps`), so don't rely on it for those — wire selection/continue via their own props instead.
+
 ## Variables
 
 **There is no `payload.variables` map.** Variables live at runtime in the headless provider's variables store. They are populated by:
@@ -151,7 +161,7 @@ Reference variables from `Text` ONLY when `Text.props.mode === "expression"`. Th
 - `{ "type": "custom", "function": "name", "variables": ["a","b"] }` — emit to host. Host wires the implementation.
 - `{ "type": "setVariable", "name": "counter", "value": "{{counter}} + 1", "valueMode": "expression" }` — write a variable. `valueMode: "expression"` triggers interpolation + numeric coercion based on the variable's runtime `kind`.
 
-The headless Zod schema enumerates all three: `"continue" | CustomButtonAction | SetVariableButtonAction` (`ButtonElement.ts`). `setVariable` also accepts `kind: "int" | "float" | "string"` to tag the stored variable's type — set it when the value feeds numeric expressions or comparisons.
+The headless Zod schema enumerates all three: `"continue" | CustomButtonAction | SetVariableButtonAction` (`ButtonAction` in `common.types.ts`, re-exported from `ButtonElement.ts`). `setVariable` also accepts `kind: "int" | "float" | "string"` to tag the stored variable's type — set it when the value feeds numeric expressions or comparisons. The **same `ButtonAction[]` shape** is reusable as `onPress` on any non-pressable element — see [onPress](#onpress--make-any-element-tappable-every-element).
 
 ## Disabling continue conditionally
 

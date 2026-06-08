@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { type ButtonAction, ButtonActionSchema } from "../../common.types";
 
 export type GradientStop = {
   color: string;
@@ -289,6 +290,13 @@ export type BaseBoxProps = {
   elevation?: number;
   transform?: ElementTransform;
   animation?: ElementAnimation;
+  /**
+   * Ordered list of actions to run when the element is tapped. Same shape as
+   * `Button.actions` — sequential, `"continue"` is terminal. Makes any element
+   * pressable. Ignored for elements that own their own press/focus/scroll
+   * handling (Button, RadioGroup, CheckboxGroup, DatePicker, Input, WheelPicker).
+   */
+  onPress?: ButtonAction[];
 };
 
 export const BaseBoxPropsSchema = z.object({
@@ -323,4 +331,5 @@ export const BaseBoxPropsSchema = z.object({
   elevation: z.number().min(0).optional(),
   transform: TransformSchema.optional(),
   animation: ElementAnimationSchema.optional(),
+  onPress: z.array(ButtonActionSchema).optional(),
 });

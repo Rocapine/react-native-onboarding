@@ -1,8 +1,10 @@
 import React from "react";
+import { Pressable } from "react-native";
 import { evaluateCondition } from "@rocapine/react-native-onboarding";
 import { UIElement } from "../types";
 import { BaseBoxProps } from "./BaseBoxProps";
 import { RenderContext } from "./shared";
+import { runActions } from "./runActions";
 import { StackElementComponent } from "./StackElement";
 import { TextElementComponent } from "./TextElement";
 import { RichTextElementComponent } from "./RichTextElement";
@@ -25,6 +27,19 @@ import { ScrollViewElementComponent } from "./ScrollViewElement";
 import { KeyboardAvoidingViewElementComponent } from "./KeyboardAvoidingViewElement";
 import { ProgressIndicatorElementComponent } from "./ProgressIndicatorElement";
 import { AnimatedBox } from "./AnimatedBox";
+
+// Element types that own their own press / focus / scroll handling. The generic
+// `onPress` (BaseBoxProps) is NOT wired for these — Button/RadioGroup/Checkbox/
+// DatePicker already dispatch actions or selections; Input/WheelPicker would have
+// their focus / scroll-selection intercepted by an outer Pressable.
+const PRESS_HANDLED_TYPES = new Set<UIElement["type"]>([
+  "Button",
+  "RadioGroup",
+  "CheckboxGroup",
+  "DatePicker",
+  "Input",
+  "WheelPicker",
+]);
 
 export const renderElement = (
   element: UIElement,
@@ -128,12 +143,40 @@ export const renderElement = (
     return null;
   })();
 
+  // Cast to BaseBoxProps: not every element's props type extends it (e.g.
+  // WheelPicker), but the onPress/animation/transform/flex/alignSelf fields are
+  // all optional BaseBoxProps members and simply read as undefined when absent.
+  const p = element.props as BaseBoxProps;
+
+  // Generic onPress: make any non-pressable element tappable, dispatching the
+  // same action list as Button via runActions. Skipped for PRESS_HANDLED_TYPES.
+  // A Pressable around a scroll/carousel keeps inner scrolling working — RN's
+  // gesture responder gives the scroll the touch when it pans.
+  let content: React.ReactNode = node;
+  if (
+    content !== null &&
+    p.onPress &&
+    p.onPress.length > 0 &&
+    !PRESS_HANDLED_TYPES.has(element.type)
+  ) {
+    const onPress = p.onPress;
+    content = (
+      <Pressable
+        key={element.id}
+        onPress={() => {
+          void runActions(onPress, ctx);
+        }}
+      >
+        {content}
+      </Pressable>
+    );
+  }
+
   // Wrap only when motion is requested — zero overhead (no extra view) otherwise.
   // Cast to BaseBoxProps: not every element's props type extends it (e.g.
   // WheelPicker), but the animation/transform/flex/alignSelf fields are all
   // optional BaseBoxProps members and simply read as undefined when absent.
-  const p = element.props as BaseBoxProps;
-  if (node !== null && (p.animation || p.transform)) {
+  if (content !== null && (p.animation || p.transform)) {
     return (
       <AnimatedBox
         key={element.id}
@@ -142,10 +185,10 @@ export const renderElement = (
         flex={p.flex}
         alignSelf={p.alignSelf}
       >
-        {node}
+        {content}
       </AnimatedBox>
     );
   }
 
-  return node;
+  return content;
 };

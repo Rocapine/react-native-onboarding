@@ -153,6 +153,11 @@ export const onboardingExample = {
                   animation: {
                     entering: { preset: "FadeInDown", duration: 500, delay: 100, easing: "ease-out" },
                   },
+                  // Generic onPress: any non-pressable element can dispatch the same
+                  // action list as Button. Tapping the hero records a variable.
+                  onPress: [
+                    { type: "setVariable", name: "hero_tapped", value: "true", kind: "string" },
+                  ],
                 },
               },
               {

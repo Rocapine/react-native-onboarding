@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { type ButtonAction, ButtonActionSchema } from "./actions";
 
 export type GradientStop = {
   color: string;
@@ -289,6 +290,7 @@ export type BaseBoxProps = {
   elevation?: number;
   transform?: ElementTransform;
   animation?: ElementAnimation;
+  onPress?: ButtonAction[];
 };
 
 export const BaseBoxPropsSchema = z.object({
@@ -323,4 +325,5 @@ export const BaseBoxPropsSchema = z.object({
   elevation: z.number().min(0).optional(),
   transform: TransformSchema.optional(),
   animation: ElementAnimationSchema.optional(),
+  onPress: z.array(ButtonActionSchema).optional(),
 });

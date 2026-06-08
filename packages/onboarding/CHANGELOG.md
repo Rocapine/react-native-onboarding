@@ -8,6 +8,16 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.37.0] - 2026-06-08
+
+### Added
+- **`onPress` on every UIElement** — `BaseBoxProps` now carries an optional `onPress: ButtonAction[]`, so any element can be made tappable with the same action list as `Button.actions` (`"continue"` / `{type:"setVariable"}` / `{type:"custom"}`, run sequentially, `"continue"` terminal). Flows automatically to every ComposableScreen element variant via the shared `BaseBoxProps`. The UI runtime ignores it on elements that own their own gesture (`Button`, `RadioGroup`, `CheckboxGroup`, `DatePicker`, `Input`, `WheelPicker`) — see the UI changelog.
+
+### Changed
+- **`ButtonAction` moved to `common.types.ts`** — `ButtonAction`, `CustomButtonAction`, `SetVariableButtonAction` and their Zod schemas now live in `steps/common.types.ts` (shared with the new `onPress`), re-exported from `steps/ComposableScreen/elements/ButtonElement.ts` for back-compat. No change to the public API surface or payload shape.
+
+---
+
 ## [1.36.1] - 2026-06-04
 
 ### Changed

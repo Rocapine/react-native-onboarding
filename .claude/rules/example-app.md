@@ -38,6 +38,8 @@ Local `main` ref is **stale** in a worktree (branched from `origin/main`, which 
 
 Running metro from a worktree while another session runs metro in the main repo: port 8081 is taken, and `expo start` is **non-interactive** in a background shell — it prints "Use port 8083 instead?" then bails with "Skipping dev server". Pass an explicit free port: `npm start --prefix example -- --port 8083`.
 
+`npm install` in a worktree may fail on `@shopify/react-native-skia`'s postinstall (downloads a prebuilt binary from a CDN — intermittent `504 Gateway Time-out`). Use `npm install --ignore-scripts`: Metro JS bundling doesn't need the skia native binary (only on-device skia rendering does).
+
 ## Native module autolinking (peer-dep elements)
 
 A UIElement that renders an optional peer dep (e.g. `@react-native-picker/picker` for `Picker` / `WheelPicker`) needs that dep in **`example/package.json`** — workspace hoisting satisfies JS resolution but autolinking only sees declared example deps, so the native module is missing at runtime (`Unimplemented component: RNCPicker`). After adding, rebuild the dev client (`npx expo run:ios`) — reloading Metro is not enough.

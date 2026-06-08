@@ -65,24 +65,6 @@ export const AnimatedTextElementPropsSchema = BaseBoxPropsSchema.extend({
 // child, not an animatable prop.)
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 
-// JS-thread formatter for the static first-frame value (defaultValue). The
-// worklet below inlines the SAME logic — a worklet can't call this JS closure.
-const formatNumber = (value: number, decimals: number, separator: string): string => {
-  let str = value.toFixed(decimals);
-  if (separator === "") return str;
-  const neg = str[0] === "-";
-  if (neg) str = str.slice(1);
-  const dot = str.indexOf(".");
-  const intPart = dot === -1 ? str : str.slice(0, dot);
-  const decPart = dot === -1 ? "" : str.slice(dot);
-  let grouped = "";
-  for (let i = 0; i < intPart.length; i++) {
-    if (i > 0 && (intPart.length - i) % 3 === 0) grouped += separator;
-    grouped += intPart[i];
-  }
-  return (neg ? "-" : "") + grouped + decPart;
-};
-
 type AnimatedTextUIElement = Extract<UIElement, { type: "AnimatedText" }>;
 
 type Props = {
@@ -154,7 +136,12 @@ export const AnimatedTextElementComponent = ({ element, ctx }: Props): React.Rea
       str = (neg ? "-" : "") + grouped + decPart;
     }
     // `text` is TextInput's native prop, not in the public props type.
-    return { text: str } as object;
+    // `defaultValue` MUST be driven here too: once the count finishes, `progress`
+    // is constant and this worklet stops pushing `text`. A parent re-render then
+    // reconciles the TextInput and reverts the (uncontrolled) native value to its
+    // `defaultValue` — a static mount-time defaultValue would snap the display
+    // back to `from`. Keeping defaultValue in sync makes the fallback the live value.
+    return { text: str, defaultValue: str } as object;
   }, [from, to, decimals, separator]);
 
   return (
@@ -165,7 +152,6 @@ export const AnimatedTextElementComponent = ({ element, ctx }: Props): React.Rea
       contextMenuHidden
       underlineColorAndroid="transparent"
       accessibilityRole="text"
-      defaultValue={formatNumber(autoplay ? from : to, decimals, separator)}
       animatedProps={animatedProps}
       style={{
         // Neutralize TextInput defaults so it lays out like <Text>.

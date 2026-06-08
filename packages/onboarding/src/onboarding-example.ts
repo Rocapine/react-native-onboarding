@@ -306,6 +306,23 @@ export const onboardingExample = {
                 },
               },
               {
+                // AnimatedText: the same count-up animated entirely on the UI
+                // thread (native TextInput) — zero re-renders, no variable write.
+                id: "animated-countup",
+                type: "AnimatedText",
+                props: {
+                  from: 0,
+                  to: 1028709,
+                  duration: 2500,
+                  easing: "ease-out",
+                  thousandsSeparator: ",",
+                  fontSize: 28,
+                  fontWeight: "700",
+                  textAlign: "center",
+                  marginVertical: 4,
+                },
+              },
+              {
                 id: "hero-video",
                 type: "Video",
                 props: {

@@ -50,6 +50,7 @@ Then apply the polish layer from `../create-step-json/references/screen-patterns
 | `WheelPicker` | Scrolling wheel selector bound to a variable (needs `@react-native-picker/picker`) |
 | `Carousel` | Inline horizontal pager |
 | `ProgressIndicator` | Linear / circular progress bar; static `value`, bound `variableName`, or `autoplay` animation. `minValue`/`maxValue` set the range (default 0–100) for an animated count-up; `step` snaps label/variable, `labelSuffix` replaces `%` |
+| `AnimatedText` | Number that count-animates `from`→`to` on the UI thread (native TextInput) — **zero re-renders, no variable write**. The performant way to show an animated stat ("+1,028,709 members"); pair a static label as a sibling `Text`. `decimals`/`thousandsSeparator` format the number |
 
 Authoritative prop shapes: `packages/onboarding/src/steps/ComposableScreen/elements/*.ts`.
 
@@ -251,6 +252,7 @@ Each override is a `Partial` of the overridable Button props: `BaseBoxProps` (in
 | `SafeAreaView` | `edges: ["top","bottom"]` or `{ top: "additive" }` | `{ top: "always" }` |
 | `Input` | `textAlign`, `keyboardType`, `autoCapitalize`, `maxLength` | `suffix`, `autoFocus`, `alignment` |
 | `ProgressIndicator` | `variant: "linear"\|"circular"`, `value`, `variableName`, `autoplay`, `minValue`/`maxValue` (default 0–100), `step`, `labelSuffix`, `duration`, `delay`, `easing` | `progress`, `percent`, `type` |
+| `AnimatedText` | `to` (required), `from` (default 0), `duration`, `delay`, `easing`, `autoplay`, `loop`, `decimals`, `thousandsSeparator` (default `","`) + text styling (`fontSize`/`fontWeight`/`color`/`textAlign`/…) | `variableName` (it never writes a variable — use a sibling expression `Text` if downstream needs the value) |
 | Stacks / Carousel | `children` at element top-level | `children` inside `props` |
 
 ## Anti-patterns

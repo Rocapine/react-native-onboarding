@@ -194,6 +194,23 @@ export default function ComposableScreenExample() {
                 marginVertical: 4,
               },
             },
+            // AnimatedText — count-up animated on the UI thread (native TextInput),
+            // zero re-renders, no variable write. Performant counterpart above.
+            {
+              id: 'animated-countup',
+              type: 'AnimatedText' as const,
+              props: {
+                from: 0,
+                to: 1028709,
+                duration: 2500,
+                easing: 'ease-out' as const,
+                thousandsSeparator: ',',
+                fontSize: 28,
+                fontWeight: '700' as const,
+                textAlign: 'center' as const,
+                marginVertical: 4,
+              },
+            },
             // Video element
             {
               id: 'hero-video',

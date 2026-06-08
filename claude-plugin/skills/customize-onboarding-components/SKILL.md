@@ -48,6 +48,12 @@ Every styled UIElement (`Button`, `RadioGroup`, `CheckboxGroup`, `Input`, `Wheel
 - value range: `minValue` (default 0) / `maxValue` (default 100) — label + bound variable carry the raw value, not a percentage; `step` (default 1) snaps the label/variable. For an animated count-up to N: `minValue:0, maxValue:N, autoplay`, coarse `step` for large N
 - value source: static `value`, bound `variableName`, or `autoplay`/`loop`/`initialValue`/`duration`/`easing` animation (all in `[minValue, maxValue]`)
 
+`AnimatedText` (count-up number, animated on the UI thread — **no re-render, no variable write**):
+- value: `to` (required) / `from` (default 0); `autoplay` (default true), `loop` (default false), `duration` (default 1000), `delay`, `easing` (default `"ease-out"`)
+- formatting: `decimals` (default 0), `thousandsSeparator` (default `","`; set `""` to disable grouping)
+- text styling: `fontSize`, `fontWeight`, `fontFamily`, `fontStyle`, `color` (defaults to `theme.colors.text.primary`), `textAlign`, `letterSpacing`, `lineHeight`
+- renders the number only — compose static labels as sibling `Text`; use it instead of an `autoplay` `ProgressIndicator` bound to a variable when you only need an animated number (avoids the per-step re-render storm)
+
 `Text`:
 - `fontFamily`, `fontSize`, `fontWeight`, `fontStyle`, `color`, `lineHeight`, `letterSpacing`, `textAlign`
 

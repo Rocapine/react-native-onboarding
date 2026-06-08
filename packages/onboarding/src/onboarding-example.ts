@@ -274,6 +274,38 @@ export const onboardingExample = {
                 },
               },
               {
+                // Count-up: animates a real value 0 -> 5000 (not a percentage)
+                // via minValue/maxValue, snapping by `step` (100 hops, not 5000).
+                // Writes the live value to `membersJoined`; the Text below reads it.
+                id: "progress-countup",
+                type: "ProgressIndicator",
+                props: {
+                  variant: "linear",
+                  autoplay: true,
+                  loop: false,
+                  minValue: 0,
+                  maxValue: 5000,
+                  step: 50,
+                  variableName: "membersJoined",
+                  duration: 2000,
+                  easing: "ease-out",
+                  thickness: 8,
+                  showLabel: false,
+                  marginVertical: 8,
+                },
+              },
+              {
+                id: "progress-countup-text",
+                type: "Text",
+                props: {
+                  content: "{{membersJoined}} members joined",
+                  mode: "expression",
+                  fontSize: 18,
+                  textAlign: "center",
+                  marginVertical: 4,
+                },
+              },
+              {
                 id: "hero-video",
                 type: "Video",
                 props: {

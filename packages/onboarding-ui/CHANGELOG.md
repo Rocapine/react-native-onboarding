@@ -9,6 +9,16 @@ here.
 
 ---
 
+## [1.38.0] - 2026-06-08
+
+### Added
+- **`ProgressIndicator` arbitrary value range** — the renderer decouples the fill fraction (always 0–1, derived as `(value − minValue) / (maxValue − minValue)`) from the displayed value (in `[minValue, maxValue]`). `autoplay` animates to `maxValue`; the label and the `autoplay`-written variable now carry the raw value snapped to `step`, with `labelSuffix` (default `"%"`) appended. Lets a `ProgressIndicator` drive an animated count-up to N (read via `{{var}}` in a `Text`). The `useAnimatedReaction` worklet keys on the **step-snapped** value (not the rounded percent) and re-keys on `minValue`/`maxValue`/`step`, so the JS callback fires `(maxValue − minValue) / step` times per sweep — coarse `step` avoids a per-step re-render storm on large ranges.
+
+### Changed
+- **`ProgressIndicator` label is no longer percent-only** — both label render sites show `{value}{labelSuffix}` instead of a hardcoded `{percent}%`; the internal `clamp` is now range-aware (`clamp(n, min, max)`). With default props (`minValue:0`, `maxValue:100`, `step:1`, `labelSuffix:"%"`) the rendered output is unchanged.
+
+---
+
 ## [1.37.0] - 2026-06-08
 
 ### Added

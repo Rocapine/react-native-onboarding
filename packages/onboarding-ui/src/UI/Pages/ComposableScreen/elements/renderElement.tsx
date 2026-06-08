@@ -160,11 +160,23 @@ export const renderElement = (
     !PRESS_HANDLED_TYPES.has(element.type)
   ) {
     const onPress = p.onPress;
+    // The Pressable must be layout-transparent (like AnimatedBox): forward the
+    // element's flex sizing so the wrapper participates in its parent's flex
+    // context exactly as the element would. Without this, the style-less
+    // Pressable sizes to content while the element's `flex`/`flexShrink` sit on
+    // the inner node — breaking row splits (cards overflow) and column flow.
+    // Mirror StackElement's `parentType === "XStack"` flexShrink:1 default.
     content = (
       <Pressable
         key={element.id}
         onPress={() => {
           void runActions(onPress, ctx);
+        }}
+        style={{
+          flex: p.flex,
+          flexGrow: p.flexGrow,
+          flexShrink: p.flexShrink ?? (parentType === "XStack" ? 1 : undefined),
+          alignSelf: p.alignSelf,
         }}
       >
         {content}

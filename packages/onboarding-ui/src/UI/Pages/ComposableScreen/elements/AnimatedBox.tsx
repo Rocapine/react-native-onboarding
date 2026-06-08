@@ -56,9 +56,15 @@ export const AnimatedBox = ({
   alignSelf,
   children,
 }: Props): React.ReactElement => {
-  const entering = buildEntering(animation?.entering);
-  const exiting = buildExiting(animation?.exiting);
-  const layout = buildLayout(animation?.layout);
+  // Memoize the reanimated builders on their (stable) spec objects. Rebuilding
+  // them inline every render hands Animated.View a fresh `entering` instance,
+  // which re-fires the entry transition on every re-render — e.g. an autoplay
+  // ProgressIndicator writing its variable each step re-renders the whole tree,
+  // restarting every sibling's entry animation. The spec objects come from the
+  // memoized parsed step, so these references are stable across re-renders.
+  const entering = useMemo(() => buildEntering(animation?.entering), [animation?.entering]);
+  const exiting = useMemo(() => buildExiting(animation?.exiting), [animation?.exiting]);
+  const layout = useMemo(() => buildLayout(animation?.layout), [animation?.layout]);
 
   const effect = animation?.effect;
   const staticTransform = useMemo(() => buildStaticTransform(transform), [transform]);

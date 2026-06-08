@@ -8,6 +8,13 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.38.2] - 2026-06-08
+
+### Changed
+- **Version sync only** — no headless changes. Bumped in lockstep with `@rocapine/react-native-onboarding-ui` 1.38.2 (UI-side fix: memoize `AnimatedBox` entering/exiting/layout builders so entry transitions don't restart on re-render).
+
+---
+
 ## [1.38.1] - 2026-06-08
 
 ### Changed

@@ -9,6 +9,13 @@ here.
 
 ---
 
+## [1.36.2] - 2026-06-08
+
+### Fixed
+- **Theme font now applies to all ComposableScreen text elements** — `RadioGroup`/`CheckboxGroup` item labels, `WheelPicker` items, and the Android `DatePicker` trigger label previously rendered in the system font when their `fontFamily`/`itemFontFamily` prop was omitted, ignoring `theme.typography.defaultFontFamily`. They now resolve through `resolveInheritedFontFamily` + the font registry (matching `Button`/`Text`/`Input`), so omitted font falls back to the theme default and weighted variants are matched correctly (synthetic bold suppressed via `resolvedToVariant`).
+
+---
+
 ## [1.36.1] - 2026-06-04
 
 ### Fixed

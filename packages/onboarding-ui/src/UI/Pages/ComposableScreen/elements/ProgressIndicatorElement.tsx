@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { View, Text } from "react-native";
+import React, { useEffect } from "react";
+import { View, TextInput } from "react-native";
 import { z } from "zod";
 import Animated, {
   useSharedValue,
@@ -67,6 +67,11 @@ export const ProgressIndicatorElementPropsSchema = BaseBoxPropsSchema.extend({
 });
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+// Native TextInput label driven from a worklet (like AnimatedText) so the
+// `showLabel` value updates on the UI thread with NO React re-render — a
+// `useState` label would re-render this component on every step hop and churn
+// the reanimated mapper scheduler (destabilizing other on-screen animations).
+const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 
 const clamp = (n: number, min: number, max: number): number => Math.max(min, Math.min(max, n));
 
@@ -98,11 +103,6 @@ export const ProgressIndicatorElementComponent = ({ element, ctx }: Props): Reac
   const trackColor = props.trackColor ?? theme.colors.neutral.lower;
   const labelColor = props.labelColor ?? theme.colors.text.primary;
 
-  // Snap a raw value to `step` within [minValue, maxValue]. The label and the
-  // written variable carry the snapped value, not a percentage.
-  const snap = (v: number): number =>
-    clamp(minValue + Math.round((v - minValue) / step) * step, minValue, maxValue);
-
   // Bound variable value (input mode, non-autoplay) or static value. `progress`
   // is the value in [minValue, maxValue]; the fill fraction is derived from it.
   const boundRaw = props.variableName ? variables[props.variableName]?.value : undefined;
@@ -110,9 +110,10 @@ export const ProgressIndicatorElementComponent = ({ element, ctx }: Props): Reac
   const target = autoplay ? maxValue : clamp(boundValue ?? props.value ?? initialValue, minValue, maxValue);
 
   const progress = useSharedValue(initialValue);
-  const [displayValue, setDisplayValue] = useState(snap(initialValue));
 
-  // Mirror the animated value into a label + (autoplay) the bound variable.
+  // (autoplay) Write the step-snapped value to the bound variable. The label is
+  // rendered natively (see labelAnimatedProps below), so it does NOT go through
+  // React state — this reaction's ONLY job is the variable write.
   // Reaction input is the *step-snapped* value, so the JS callback fires only
   // when the snapped value changes ((maxValue-minValue)/step hops/sweep) rather
   // than every frame — avoids a per-frame context write storm (setVariable
@@ -126,15 +127,11 @@ export const ProgressIndicatorElementComponent = ({ element, ctx }: Props): Reac
   };
   const writesVariable = autoplay && !!variableName;
   // The dependency array is REQUIRED. Without it reanimated tears down and
-  // rebuilds this mapper on EVERY render. A looping `showLabel` indicator
-  // re-renders continuously (one setDisplayValue per step hop), so its mapper
-  // would be start/stopped indefinitely — perpetual churn on the UI-thread mapper
-  // scheduler that destabilizes *other* running animations on the same screen
-  // (they visibly reset mid/after a sweep — "finishes then resets for no reason").
-  // Recreating also resets `prev` to undefined, defeating the `snapped === prev`
-  // guard so the JS callbacks over-fire. Keying on the values the worklet branches
-  // on (incl. minValue/maxValue/step) keeps the mapper stable; the JS fns it calls
-  // (setDisplayValue, setVariable via writeVariable) are already stable across renders.
+  // rebuilds this mapper on EVERY render, resetting `prev` to undefined and
+  // defeating the `snapped === prev` guard so the JS callback over-fires.
+  // Keying on the values the worklet branches on (minValue/maxValue/step) keeps
+  // the mapper stable; the JS fn it calls (setVariable via writeVariable) is
+  // already stable across renders.
   useAnimatedReaction(
     () => {
       // Inline snap (worklet — can't call the JS `snap` closure). Captures the
@@ -144,11 +141,22 @@ export const ProgressIndicatorElementComponent = ({ element, ctx }: Props): Reac
     },
     (snapped, prev) => {
       if (snapped === prev) return;
-      if (showLabel) runOnJS(setDisplayValue)(snapped);
       if (writesVariable) runOnJS(writeVariable)(snapped);
     },
-    [showLabel, writesVariable, variableName, minValue, maxValue, step]
+    [writesVariable, variableName, minValue, maxValue, step]
   );
+
+  // Native label text, formatted on the UI thread (snapped value + suffix).
+  // Mirrors AnimatedText: returns `defaultValue` too so a re-render reconcile
+  // can't revert the uncontrolled TextInput to a stale mount-time value.
+  const labelAnimatedProps = useAnimatedProps(() => {
+    const snapped = Math.max(
+      minValue,
+      Math.min(maxValue, minValue + Math.round((progress.value - minValue) / step) * step)
+    );
+    const t = `${snapped}${labelSuffix}`;
+    return { text: t, defaultValue: t } as object;
+  }, [minValue, maxValue, step, labelSuffix]);
 
   // Autoplay: animate initialValue -> maxValue, optionally looping, after `delay`.
   useEffect(() => {
@@ -231,16 +239,24 @@ export const ProgressIndicatorElementComponent = ({ element, ctx }: Props): Reac
         </Svg>
         {props.showLabel ? (
           <View style={{ position: "absolute", alignItems: "center", justifyContent: "center" }}>
-            <Text
+            <AnimatedTextInput
+              editable={false}
+              pointerEvents="none"
+              caretHidden
+              contextMenuHidden
+              underlineColorAndroid="transparent"
+              accessibilityRole="text"
+              animatedProps={labelAnimatedProps}
               style={{
+                padding: 0,
+                includeFontPadding: false,
+                textAlign: "center",
                 color: labelColor,
                 fontSize: theme.typography.textStyles.heading2.fontSize,
                 fontWeight: theme.typography.fontWeight.bold,
                 fontFamily: theme.typography.textStyles.heading2.fontFamily,
               }}
-            >
-              {displayValue}{labelSuffix}
-            </Text>
+            />
           </View>
         ) : null}
       </View>
@@ -269,8 +285,17 @@ export const ProgressIndicatorElementComponent = ({ element, ctx }: Props): Reac
         />
       </View>
       {props.showLabel ? (
-        <Text
+        <AnimatedTextInput
+          editable={false}
+          pointerEvents="none"
+          caretHidden
+          contextMenuHidden
+          underlineColorAndroid="transparent"
+          accessibilityRole="text"
+          animatedProps={labelAnimatedProps}
           style={{
+            padding: 0,
+            includeFontPadding: false,
             marginLeft: 12,
             color: labelColor,
             fontSize: theme.typography.textStyles.label.fontSize,
@@ -279,9 +304,7 @@ export const ProgressIndicatorElementComponent = ({ element, ctx }: Props): Reac
             minWidth: 44,
             textAlign: "right",
           }}
-        >
-          {displayValue}{labelSuffix}
-        </Text>
+        />
       ) : null}
     </View>
   );

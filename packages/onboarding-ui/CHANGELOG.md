@@ -14,6 +14,9 @@ here.
 ### Added
 - **`AnimatedText` UIElement** — a number that count-animates `from`→`to` and renders as formatted text (`decimals`, `thousandsSeparator`, `easing`, `loop`). The animation runs entirely on the UI thread and writes straight into a native `TextInput` via `useAnimatedProps({ text })` (the react-native-redash `ReText` pattern), so it produces **zero React re-renders per frame and never writes a composable variable**. It is the performant replacement for driving a count-up through an `autoplay` `ProgressIndicator` bound to a variable (which re-renders the whole ComposableScreen tree on every step). Renders the number only — compose static labels as sibling `Text`.
 
+### Changed
+- **`ProgressIndicator` `showLabel` no longer re-renders** — the label was React state (`useState` + `runOnJS(setDisplayValue)` per step hop), so a `showLabel` indicator re-rendered itself on every step and churned the reanimated mapper scheduler (visibly destabilizing other on-screen animations). The label is now a native `TextInput` driven from a worklet (same technique as `AnimatedText`), so `showLabel` adds **zero re-renders**. The `setVariable` write for a bound `variableName` is unchanged (still the documented per-step write — keep `step` coarse for large ranges, or use `AnimatedText` for pure display).
+
 ---
 
 ## [1.38.2] - 2026-06-08

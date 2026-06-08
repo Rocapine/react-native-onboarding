@@ -5,6 +5,10 @@ paths:
 
 # Example App
 
+## Headless verification via Metro bundle
+
+To confirm RN/reanimated code compiles + worklets transform without a simulator, bundle through the running Metro: `curl "http://localhost:8083/node_modules/expo-router/entry.bundle?platform=ios&dev=true&minify=false&transform.routerRoot=app"`. `http 200` + `hasError:false` in the head = clean; an `UnableToResolve`/`*Error` JSON header = failure. **Use the `expo-router/entry` entry — `/index.bundle` is wrong (404).** Grep the output for your symbol to confirm it's wired in. Does NOT verify on-device pixel behavior (e.g. `useAnimatedProps({text})` rendering) — that still needs a simulator.
+
 Local packages via `file:../packages/onboarding` and `file:../packages/onboarding-ui`. Rebuild before reload after package changes.
 
 ## Upgrading the example's Expo SDK

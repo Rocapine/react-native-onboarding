@@ -69,7 +69,9 @@ const f = useResolvedFontStyle(props.fontFamily, props.fontWeight);
 
 `f.resolvedToVariant === true` → registry matched concrete weighted variant (e.g. `Inter-700`); **suppress `fontWeight`** or iOS/Android applies synthetic emboldening on top of already-weighted font file.
 
-Use legacy `useResolvedFontFamily` only for elements that never set `fontWeight`.
+Use legacy `useResolvedFontFamily` only for elements that never set `fontWeight`. It takes **2 args** — `useResolvedFontFamily(family, weight)`; pass `undefined` weight (TS2554 otherwise).
+
+**Applies to every text spot, including item-label maps + native control `itemStyle`.** Radio/Checkbox item labels, WheelPicker `itemStyle`, DatePicker trigger — resolve `resolveInheritedFontFamily(props.fontFamily, theme.typography.defaultFontFamily)` first, never pass `props.fontFamily` raw (omitted → system font, ignoring theme; this was the v1.36.2 bug). Group-level item font = call the hook **once at component top**, not inside the per-item `.map` (rules-of-hooks).
 
 ## RenderContext variables → primitive flattening
 

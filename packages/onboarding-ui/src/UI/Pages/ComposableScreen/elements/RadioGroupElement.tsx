@@ -1,9 +1,10 @@
 import React, { useEffect } from "react";
 import { z } from "zod";
 import { View, Text, TouchableOpacity } from "react-native";
+import { useResolvedFontStyle } from "@rocapine/react-native-onboarding";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
-import { RenderContext, dim } from "./shared";
+import { RenderContext, dim, resolveInheritedFontFamily } from "./shared";
 import { GradientBox } from "./GradientBox";
 import { triggerHaptic, type HapticStyle } from "./haptics";
 
@@ -76,6 +77,13 @@ type Props = {
 export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement => {
   const { theme, variables, setVariable } = ctx;
   const selectedValue = element.props.variableName ? variables[element.props.variableName]?.value : undefined;
+
+  // Resolve item typography once (group-level props apply to every item). Falls
+  // back to theme.typography.defaultFontFamily so labels honor the theme font.
+  const resolvedFont = useResolvedFontStyle(
+    resolveInheritedFontFamily(element.props.itemFontFamily, theme.typography.defaultFontFamily),
+    element.props.itemFontWeight
+  );
 
   useEffect(() => {
     if (element.props.variableName && element.props.defaultValue && selectedValue === undefined) {
@@ -180,8 +188,10 @@ export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement
                 flexShrink: 1,
                 color: textColor,
                 fontSize: element.props.itemFontSize ?? theme.typography.textStyles.body.fontSize,
-                fontWeight: (element.props.itemFontWeight as any) ?? theme.typography.textStyles.body.fontWeight,
-                fontFamily: element.props.itemFontFamily,
+                fontWeight: resolvedFont.resolvedToVariant
+                  ? undefined
+                  : ((element.props.itemFontWeight as any) ?? theme.typography.textStyles.body.fontWeight),
+                fontFamily: resolvedFont.fontFamily,
                 fontStyle: element.props.itemFontStyle,
               }}
             >

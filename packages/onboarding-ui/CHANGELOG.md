@@ -9,6 +9,17 @@ here.
 
 ---
 
+## [1.38.1] - 2026-06-08
+
+### Fixed
+- **Loader `CircularProgress` per-frame re-render** — the percentage `useAnimatedReaction` rounded inside its JS callback, firing `setPercentage` every frame (~60×/s) and re-rendering the component continuously; it also had no deps array, so Reanimated rebuilt the mapper on every render (resetting `prev`). Now rounds inside the reader with a `prev` guard and a `[]` deps array, so the JS callback fires only when the displayed integer changes.
+- **Loader `StepProgress` listener thrash** — the `progress.addListener` effect was keyed on `barStarted`/`barComplete`, the very states its callback flips, so each `setState` tore the listener down and re-attached it mid-animation. The one-time start/complete transitions now live in refs and the effect deps are `[progress]` (attaches once).
+
+### Changed
+- **ComposableScreen flattens variables once per render** — `renderElement` rebuilt `flatVars` via `Object.fromEntries` for every element on every tree re-render; an autoplay `ProgressIndicator` writing a variable each step re-renders the whole tree, making this pure churn. The flatten is now memoized once in `Renderer` as `ctx.flatVariables` (added to `RenderContext`) and reused by `renderElement`, `RichTextElement`, and `ButtonElement`.
+
+---
+
 ## [1.38.0] - 2026-06-08
 
 ### Added

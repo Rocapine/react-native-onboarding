@@ -250,7 +250,7 @@ Each override is a `Partial` of the overridable Button props: `BaseBoxProps` (in
 | `WheelPicker` | exactly one of `items: [{label,value}]` or `range: {min,max,step?,unit?}` | both `items` + `range`, or neither |
 | `Button` | `actions: [...]`, `disabledWhen` | `action`, `disabled` |
 | `SafeAreaView` | `edges: ["top","bottom"]` or `{ top: "additive" }` | `{ top: "always" }` |
-| `Input` | `textAlign`, `keyboardType`, `autoCapitalize`, `maxLength` | `suffix`, `autoFocus`, `alignment` |
+| `Input` | `textAlign`, `keyboardType`, `autoCapitalize`, `maxLength`, `autoFocus` | `suffix`, `alignment` |
 | `ProgressIndicator` | `variant: "linear"\|"circular"`, `value`, `variableName`, `autoplay`, `minValue`/`maxValue` (default 0–100), `step`, `labelSuffix`, `duration`, `delay`, `easing` | `progress`, `percent`, `type` |
 | `AnimatedText` | `to` (required), `from` (default 0), `duration`, `delay`, `easing`, `autoplay`, `loop`, `decimals`, `thousandsSeparator` (default `","`) + text styling (`fontSize`/`fontWeight`/`color`/`textAlign`/…) | `variableName` (it never writes a variable — use a sibling expression `Text` if downstream needs the value) |
 | Stacks / Carousel | `children` at element top-level | `children` inside `props` |

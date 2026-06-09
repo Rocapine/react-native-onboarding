@@ -348,6 +348,7 @@ export const onboardingExample = {
                       keyboardType: "default",
                       returnKeyType: "done",
                       autoCapitalize: "words",
+                      autoFocus: true,
                       marginVertical: 8,
                     },
                   },

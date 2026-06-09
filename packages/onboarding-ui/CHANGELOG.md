@@ -9,6 +9,21 @@ here.
 
 ---
 
+## [1.41.0] - 2026-06-09
+
+### Added
+
+- **`autoFocus` prop on `Input` element** — when `true`, the `TextInput` focuses on mount and the keyboard opens automatically. Optional, defaults to `false`.
+
+---
+
+## [1.40.0] - 2026-06-09
+
+### Changed
+- **Version sync only** — no UI changes. Bumped in lockstep with `@rocapine/react-native-onboarding` 1.40.0 (headless background asset preloader that warms remote image/video/Lottie/Rive/SVG assets from the payload after fetch). UI renderers are unchanged; preloaded assets are served from cache when each screen mounts.
+
+---
+
 ## [1.39.0] - 2026-06-08
 
 ### Added

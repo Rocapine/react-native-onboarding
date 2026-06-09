@@ -18,6 +18,7 @@ export type InputElementProps = BaseBoxProps & {
   multiline?: boolean;
   numberOfLines?: number;
   editable?: boolean;
+  autoFocus?: boolean;
   color?: string;
   backgroundColor?: string;
   fontSize?: number;
@@ -42,6 +43,7 @@ export const InputElementPropsSchema = BaseBoxPropsSchema.extend({
   multiline: z.boolean().optional(),
   numberOfLines: z.number().int().nonnegative().optional(),
   editable: z.boolean().optional(),
+  autoFocus: z.boolean().optional(),
   color: z.string().optional(),
   backgroundColor: z.string().optional(),
   fontSize: z.number().optional(),
@@ -102,6 +104,7 @@ export const InputElementComponent = ({ element, ctx }: Props): React.ReactEleme
       multiline={element.props.multiline ?? false}
       numberOfLines={element.props.numberOfLines}
       editable={element.props.editable ?? true}
+      autoFocus={element.props.autoFocus ?? false}
       style={{
         flex: element.props.flex,
         flexShrink: element.props.flexShrink,

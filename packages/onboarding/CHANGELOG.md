@@ -8,6 +8,17 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.40.0] - 2026-06-09
+
+### Added
+- **Background asset preloader** — once the onboarding payload is fetched, every remote image/video/Lottie/Rive/SVG asset referenced anywhere in the flow is warmed in the background so later screens render without a load flash. Fully non-blocking (never gates first render) and always on (no config). Covers ComposableScreen element trees (`Image`/`ProgressiveBlurImage`/`Video`/`Lottie`/`Rive`, recursing through container children), `MediaContent`, `Carousel`, and `Loader` `didYouKnowImages`. Bundled assets (MediaSource `localPathId`) are skipped — only remote URLs are warmed.
+- **New exports** — `extractAssetUrls(onboarding)` (pure: returns deduped `AssetRef[]` of remote assets, safe on partial/malformed payloads) and `preloadAssets(assets)` (fire-and-forget; native image prefetch via expo-image/RN Image, HTTP-cache warm for video/Lottie/Rive/SVG with bounded concurrency). `AssetRef`/`AssetKind` types exported. Hosts can call these manually for custom preloading.
+
+### Changed
+- **`expo-image` added as an optional peer dependency** — used for batched image prefetch when present; falls back to `Image.prefetch` from react-native when absent. No-op if neither warms.
+
+---
+
 ## [1.39.0] - 2026-06-08
 
 ### Added

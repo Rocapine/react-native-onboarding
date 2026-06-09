@@ -1,4 +1,4 @@
-import { createContext, useCallback, useRef, useState } from "react";
+import { createContext, useCallback, useEffect, useRef, useState } from "react";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { OnboardingStudioClient } from "../../OnboardingStudioClient";
 import { getOnboardingQuery } from "../queries/getOnboarding.query";
@@ -6,6 +6,8 @@ import { Onboarding } from "../../types";
 import { OnboardingStepType } from "../../steps/types";
 import { ComposableVariableEntry } from "../../steps/ComposableScreen/types";
 import { FontLoaderGate } from "./FontLoader";
+import { extractAssetUrls } from "../preload/extractAssetUrls";
+import { preloadAssets } from "../preload/preloadAssets";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -61,6 +63,18 @@ const OnboardingDataGate = ({
   const { data, error } = useQuery<Onboarding<OnboardingStepType>>(
     getOnboardingQuery<OnboardingStepType>(client, locale, customAudienceParams, setOnboarding)
   );
+
+  // Background asset preload: once the payload is available, warm every remote
+  // image/video/Lottie/Rive asset so later screens render without a load flash.
+  // Fire-and-forget and non-blocking — does NOT gate the FontLoaderGate render.
+  // Runs once per payload (the query reference is stable thanks to staleTime:
+  // Infinity, whether `data` came from cache or the network).
+  const preloadedRef = useRef<Onboarding<OnboardingStepType> | null>(null);
+  useEffect(() => {
+    if (!data || preloadedRef.current === data) return;
+    preloadedRef.current = data;
+    preloadAssets(extractAssetUrls(data));
+  }, [data]);
 
   if (error) throw error;
   if (!data) return <>{fontsFallback ?? null}</>;

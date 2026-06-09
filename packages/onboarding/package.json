@@ -1,6 +1,6 @@
 {
   "name": "@rocapine/react-native-onboarding",
-  "version": "1.40.0",
+  "version": "1.41.0",
   "description": "Headless React Native SDK for Rocapine Onboarding Studio - Data fetching, state management, and hooks",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -36,11 +36,15 @@
   },
   "peerDependencies": {
     "expo-font": "*",
+    "expo-image": "*",
     "react": "*",
     "react-native": "*"
   },
   "peerDependenciesMeta": {
     "expo-font": {
+      "optional": true
+    },
+    "expo-image": {
       "optional": true
     }
   },

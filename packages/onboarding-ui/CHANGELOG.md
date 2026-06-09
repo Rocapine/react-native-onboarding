@@ -9,6 +9,14 @@ here.
 
 ---
 
+## [1.41.1] - 2026-06-09
+
+### Fixed
+
+- **Static `transform` now applies from frame 0 when an element also has an entering animation** — reanimated's `entering`/`exiting`/`layout` builders take over the host view's transform for the duration of the transition, so a static `transform` (or continuous `effect`) placed on the same `AnimatedBox` view was suppressed until the entry finished, then snapped in. `AnimatedBox` now nests the two onto separate views when a reanimated builder is present: the outer (parent-facing) view keeps `flex`/`alignSelf` + the builder, the inner view carries the static transform/effect — so they stack instead of fighting. No-builder elements (transform/effect only) keep the single-view fast path.
+
+---
+
 ## [1.41.0] - 2026-06-09
 
 ### Added

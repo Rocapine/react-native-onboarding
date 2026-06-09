@@ -126,14 +126,35 @@ export const AnimatedBox = ({
     }
   }, [effect, staticTransform]);
 
+  // Reanimated's entering/exiting/layout builders take over the host view's
+  // transform for the duration of the transition — so a static `transform` (or
+  // continuous `effect`) placed on the SAME view is suppressed until the entry
+  // animation finishes, then snaps in. When a builder is present, split the two
+  // onto nested views: the outer (parent-facing) view keeps flex/alignSelf +
+  // the reanimated builder, the inner view carries the static transform/effect
+  // so it applies from frame 0 and persists. They stack instead of fighting.
+  const hasBuilder = !!(animation?.entering || animation?.exiting || animation?.layout);
+
+  if (!hasBuilder) {
+    return (
+      <Animated.View style={[{ flex, alignSelf }, animatedStyle]}>
+        {children}
+      </Animated.View>
+    );
+  }
+
   return (
     <Animated.View
       entering={entering}
       exiting={exiting}
       layout={layout}
-      style={[{ flex, alignSelf }, animatedStyle]}
+      style={{ flex, alignSelf }}
     >
-      {children}
+      {/* flex:1 so the transform view fills the flexed outer wrapper; when the
+          outer is content-sized (no flex) the inner is too. */}
+      <Animated.View style={[animatedStyle, { flex: flex != null ? 1 : undefined }]}>
+        {children}
+      </Animated.View>
     </Animated.View>
   );
 };

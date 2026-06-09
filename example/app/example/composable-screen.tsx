@@ -240,6 +240,7 @@ export default function ComposableScreenExample() {
                     keyboardType: 'default' as const,
                     returnKeyType: 'done' as const,
                     autoCapitalize: 'words' as const,
+                    autoFocus: true,
                     borderRadius: 12,
                     marginVertical: 8,
                   },

@@ -9,6 +9,14 @@ here.
 
 ---
 
+## [1.40.0] - 2026-06-09
+
+### Added
+
+- **`autoFocus` prop on `Input` element** — when `true`, the `TextInput` focuses on mount and the keyboard opens automatically. Optional, defaults to `false`.
+
+---
+
 ## [1.39.0] - 2026-06-08
 
 ### Added

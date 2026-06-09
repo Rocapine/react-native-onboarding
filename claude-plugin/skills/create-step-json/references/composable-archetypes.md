@@ -286,6 +286,7 @@ Centered hero input with the app's input styling.
       "variableName": "name",
       "placeholder": "Your name",
       "autoCapitalize": "words", "maxLength": 40,
+      "autoFocus": true,
       "textAlign": "center",
       "fontFamily": "<DP.fonts.heading>",
       "fontSize": 28, "fontWeight": "<DP.fontWeights.semibold>",

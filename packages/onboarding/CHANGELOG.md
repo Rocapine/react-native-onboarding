@@ -8,6 +8,14 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.41.2] - 2026-06-10
+
+### Changed
+
+- **Version sync only** — no headless changes. Bumped in lockstep with `@rocapine/react-native-onboarding-ui` 1.41.2 (applies `shadow*` props on Stack/ZStack containers).
+
+---
+
 ## [1.41.1] - 2026-06-09
 
 ### Changed

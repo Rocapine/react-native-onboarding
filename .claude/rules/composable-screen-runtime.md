@@ -125,6 +125,8 @@ Beyond the schema-mirror checklist in the root CLAUDE.md, a container needs its 
 
 A view with `overflow: hidden` (default for `Image`, gradient wrappers, many container styles) clips its own shadow on iOS, so the shadow renders invisible. For elements that want a shadow, build a wrapper View that carries `shadow*` + layout (no overflow clip) and let the inner content carry `borderRadius` + `overflow: hidden` for corner clipping. See `ImageElement.tsx` / `ButtonElement.tsx`. Also: when only `shadowColor` is set, default `shadowOpacity:1`, `shadowRadius:4` — iOS defaults opacity to 0 so a lone `shadowColor` does nothing.
 
+`shadow*` is a `BaseBoxProps` field, but — unlike `animation`/`transform` (wired once in `renderElement`) — it is **not** applied centrally. Each container renderer that builds its own `containerStyle` must `...buildShadowStyle(p)` (from `shared.ts`) explicitly, or shadow props parse fine and silently render nothing. Wired in: `ButtonElement`, `ImageElement`, `StackElement` (XStack/YStack), `ZStackElement`. **Still missing** (add when shadow is needed there): `ScrollViewElement`, `RichTextElement`, `TextElement`, `KeyboardAvoidingViewElement`. When adding a new container/box renderer, spread `buildShadowStyle(p)` alongside the other box props.
+
 ## RN treats `padding` and `padding{Horizontal,Vertical}` independently
 
 `style={{ padding: eff.padding, paddingHorizontal: eff.paddingHorizontal ?? 24 }}` will still apply 24 when payload sets `padding: 0`, because the axis prop's `??` fallback ignores the shorthand. Gate axis defaults on `eff.padding != null ? undefined : <default>` so explicit `padding:0` actually wins. Same gotcha for `margin`.

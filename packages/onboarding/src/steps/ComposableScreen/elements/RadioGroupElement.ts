@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
+import { BaseBoxProps, BaseBoxPropsSchema, type ShadowOffset, ShadowOffsetSchema } from "./BaseBoxProps";
 import { type HapticStyle, HapticStyleSchema } from "../../common.types";
 
 export type RadioGroupElementProps = BaseBoxProps & {
@@ -26,6 +26,12 @@ export type RadioGroupElementProps = BaseBoxProps & {
   itemPadding?: number;
   itemPaddingHorizontal?: number;
   itemPaddingVertical?: number;
+  /** Per-item drop shadow (applied to each radio row). iOS uses shadow*; Android uses itemElevation. */
+  itemShadowColor?: string;
+  itemShadowOffset?: ShadowOffset;
+  itemShadowOpacity?: number;
+  itemShadowRadius?: number;
+  itemElevation?: number;
 };
 
 export const RadioGroupElementPropsSchema = BaseBoxPropsSchema.extend({
@@ -51,6 +57,11 @@ export const RadioGroupElementPropsSchema = BaseBoxPropsSchema.extend({
   itemPadding: z.number().optional(),
   itemPaddingHorizontal: z.number().optional(),
   itemPaddingVertical: z.number().optional(),
+  itemShadowColor: z.string().optional(),
+  itemShadowOffset: ShadowOffsetSchema.optional(),
+  itemShadowOpacity: z.number().min(0).max(1).optional(),
+  itemShadowRadius: z.number().min(0).optional(),
+  itemElevation: z.number().min(0).optional(),
 }).superRefine((data, ctx) => {
   const values = data.items.map((i) => i.value);
   const unique = new Set(values);

@@ -2,9 +2,9 @@ import React, { useEffect } from "react";
 import { z } from "zod";
 import { View, Text, TouchableOpacity } from "react-native";
 import { useResolvedFontStyle } from "@rocapine/react-native-onboarding";
-import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
+import { BaseBoxProps, BaseBoxPropsSchema, type ShadowOffset, ShadowOffsetSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
-import { RenderContext, dim, resolveInheritedFontFamily } from "./shared";
+import { RenderContext, dim, resolveInheritedFontFamily, buildShadowStyle } from "./shared";
 import { GradientBox } from "./GradientBox";
 import { triggerHaptic, type HapticStyle } from "./haptics";
 
@@ -31,6 +31,11 @@ export type RadioGroupElementProps = BaseBoxProps & {
   itemPadding?: number;
   itemPaddingHorizontal?: number;
   itemPaddingVertical?: number;
+  itemShadowColor?: string;
+  itemShadowOffset?: ShadowOffset;
+  itemShadowOpacity?: number;
+  itemShadowRadius?: number;
+  itemElevation?: number;
 };
 
 export const RadioGroupElementPropsSchema = BaseBoxPropsSchema.extend({
@@ -56,6 +61,11 @@ export const RadioGroupElementPropsSchema = BaseBoxPropsSchema.extend({
   itemPadding: z.number().optional(),
   itemPaddingHorizontal: z.number().optional(),
   itemPaddingVertical: z.number().optional(),
+  itemShadowColor: z.string().optional(),
+  itemShadowOffset: ShadowOffsetSchema.optional(),
+  itemShadowOpacity: z.number().min(0).max(1).optional(),
+  itemShadowRadius: z.number().min(0).optional(),
+  itemElevation: z.number().min(0).optional(),
 }).superRefine((data, ctx) => {
   const values = data.items.map((i) => i.value);
   const unique = new Set(values);
@@ -157,6 +167,13 @@ export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement
               padding: element.props.itemPadding ?? (element.props.itemPaddingHorizontal === undefined && element.props.itemPaddingVertical === undefined ? 12 : undefined),
               paddingHorizontal: element.props.itemPaddingHorizontal,
               paddingVertical: element.props.itemPaddingVertical,
+              ...buildShadowStyle({
+                shadowColor: element.props.itemShadowColor,
+                shadowOffset: element.props.itemShadowOffset,
+                shadowOpacity: element.props.itemShadowOpacity,
+                shadowRadius: element.props.itemShadowRadius,
+                elevation: element.props.itemElevation,
+              }),
             }}
           >
             {element.props.showTick !== false && (

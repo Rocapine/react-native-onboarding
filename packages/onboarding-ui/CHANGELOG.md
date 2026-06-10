@@ -9,6 +9,13 @@ here.
 
 ---
 
+## [1.42.0] - 2026-06-10
+
+### Added
+- **RadioGroup / CheckboxGroup per-item shadow** — item rows now honor `itemShadowColor` / `itemShadowOffset` / `itemShadowOpacity` / `itemShadowRadius` / `itemElevation` via `buildShadowStyle` on each `TouchableOpacity`. Items carry no `overflow: hidden`, so the iOS shadow is not clipped; a lone `itemShadowColor` defaults opacity to `1` and radius to `4`.
+
+---
+
 ## [1.41.2] - 2026-06-10
 
 ### Fixed

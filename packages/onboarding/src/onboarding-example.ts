@@ -605,6 +605,13 @@ export const onboardingExample = {
                   showTick: true,
                   gap: 8,
                   marginVertical: 8,
+                  itemBackgroundColor: "#FFFFFF",
+                  itemBorderWidth: 0,
+                  itemShadowColor: "#000000",
+                  itemShadowOffset: { width: 0, height: 2 },
+                  itemShadowOpacity: 0.15,
+                  itemShadowRadius: 6,
+                  itemElevation: 3,
                   items: [
                     { label: "Monthly", value: "monthly" },
                     { label: "Yearly", value: "yearly" },

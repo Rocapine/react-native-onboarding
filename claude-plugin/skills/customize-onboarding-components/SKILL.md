@@ -30,6 +30,7 @@ Every styled UIElement (`Button`, `RadioGroup`, `CheckboxGroup`, `Input`, `Wheel
 - `itemColor`, `itemSelectedColor`
 - `itemFontFamily`, `itemFontSize`, `itemFontWeight`, `itemFontStyle`
 - `itemPadding`, `itemPaddingVertical`, `itemPaddingHorizontal`
+- `itemShadowColor`, `itemShadowOffset: {width,height}`, `itemShadowOpacity`, `itemShadowRadius`, `itemElevation` — per-item drop shadow (lone `itemShadowColor` defaults opacity `1` / radius `4`)
 - `showTick` — show/hide the radio circle (checkbox box) indicator. Default: `true`
 - `haptic: "none" | "light" | "medium" | "heavy" | "soft" | "rigid"` — tactile feedback on select/toggle (opt-in; needs optional `expo-haptics`)
 

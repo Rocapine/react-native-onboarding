@@ -8,6 +8,13 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.42.0] - 2026-06-10
+
+### Added
+- **RadioGroup / CheckboxGroup per-item shadow** — new optional props on both element schemas: `itemShadowColor`, `itemShadowOffset` (`{ width, height }`), `itemShadowOpacity` (0–1), `itemShadowRadius` (≥0), and `itemElevation` (≥0, Android). Applied to each item row.
+
+---
+
 ## [1.41.2] - 2026-06-10
 
 ### Changed

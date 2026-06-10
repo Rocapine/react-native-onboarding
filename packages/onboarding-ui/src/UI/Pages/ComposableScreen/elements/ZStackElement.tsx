@@ -2,7 +2,7 @@ import React from "react";
 import { View } from "react-native";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
-import { RenderContext, dim } from "./shared";
+import { RenderContext, dim, buildShadowStyle } from "./shared";
 import { GradientBox } from "./GradientBox";
 
 export type ZStackElementProps = BaseBoxProps;
@@ -44,6 +44,7 @@ export const ZStackElementComponent = ({ element, ctx }: Props): React.ReactElem
         borderColor: p.borderColor,
         overflow: p.overflow,
         opacity: p.opacity,
+        ...buildShadowStyle(p),
       }}
     >
       {element.children.map((child) => (

@@ -9,6 +9,14 @@ here.
 
 ---
 
+## [1.41.2] - 2026-06-10
+
+### Fixed
+
+- **`shadow*` props now render on `XStack` / `YStack` / `ZStack` containers** — `buildShadowStyle` was only wired into `ButtonElement` and `ImageElement`, so `shadowColor` / `shadowOffset` / `shadowOpacity` / `shadowRadius` / `elevation` set on Stack containers were silently dropped. `StackElement` and `ZStackElement` now spread `buildShadowStyle(p)` into their style objects. (iOS shadows still require `overflow` ≠ `hidden` on the shadowed view.)
+
+---
+
 ## [1.41.1] - 2026-06-09
 
 ### Fixed

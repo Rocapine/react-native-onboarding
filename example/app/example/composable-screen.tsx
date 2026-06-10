@@ -524,6 +524,40 @@ export default function ComposableScreenExample() {
                 },
               ],
             },
+            // Shadowed YStack card (verifies BaseBoxProps shadow* on containers)
+            {
+              id: 'card-shadow',
+              type: 'YStack',
+              props: {
+                padding: 16,
+                gap: 8,
+                marginVertical: 8,
+                borderRadius: 12,
+                backgroundColor: '#FFFFFF',
+                shadowColor: '#000000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.2,
+                shadowRadius: 8,
+                elevation: 4,
+              },
+              children: [
+                {
+                  id: 'card-shadow-title',
+                  type: 'Text',
+                  props: { content: 'Shadow', fontSize: 13, fontWeight: '600' },
+                },
+                {
+                  id: 'card-shadow-body',
+                  type: 'Text',
+                  props: {
+                    content: 'shadowColor, shadowOffset, shadowOpacity, shadowRadius, elevation on a YStack',
+                    fontSize: 12,
+                    lineHeight: 18,
+                    opacity: 0.6,
+                  },
+                },
+              ],
+            },
             // Radio group element
             {
               id: 'hero-radio',

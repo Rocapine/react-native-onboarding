@@ -2,7 +2,7 @@ import React from "react";
 import { z } from "zod";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
-import { RenderContext, dim } from "./shared";
+import { RenderContext, dim, buildShadowStyle } from "./shared";
 import { GradientBox } from "./GradientBox";
 
 export type StackElementProps = BaseBoxProps & {
@@ -60,6 +60,7 @@ export const StackElementComponent = ({ element, ctx, parentType }: Props): Reac
         borderColor: p.borderColor,
         overflow: p.overflow,
         opacity: p.opacity,
+        ...buildShadowStyle(p),
       }}
     >
       {ctx.renderChildren(element.children, element.type)}

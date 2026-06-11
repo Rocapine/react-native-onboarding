@@ -10,13 +10,15 @@ interface OnboardingPageProps {
   onContinue: (args?: any) => void;
   isSandbox?: boolean;
   theme?: Theme;
+  /** Offset for ComposableScreen keyboard avoidance — pass the height of any fixed header rendered above the page. */
+  keyboardVerticalOffset?: number;
   customComponents?: {
     QuestionAnswerButton?: React.ComponentType<QuestionAnswerButtonProps>;
     QuestionAnswersList?: React.ComponentType<QuestionAnswersListProps>;
   };
 }
 
-export const OnboardingPage = ({ step, onContinue, isSandbox }: OnboardingPageProps) => {
+export const OnboardingPage = ({ step, onContinue, isSandbox, keyboardVerticalOffset }: OnboardingPageProps) => {
   const { theme } = useTheme();
 
   switch (step.type) {
@@ -35,7 +37,7 @@ export const OnboardingPage = ({ step, onContinue, isSandbox }: OnboardingPagePr
     case 'Question':
       return <QuestionRenderer step={step} onContinue={onContinue} theme={theme} />;
     case 'ComposableScreen':
-      return <ComposableScreenRenderer step={step} onContinue={onContinue} />;
+      return <ComposableScreenRenderer step={step} onContinue={onContinue} keyboardVerticalOffset={keyboardVerticalOffset} />;
     default:
       if (isSandbox) {
         // @ts-ignore

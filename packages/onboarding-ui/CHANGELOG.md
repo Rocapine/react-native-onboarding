@@ -9,6 +9,19 @@ here.
 
 ---
 
+## [1.43.0] - 2026-06-11
+
+### Added
+
+- **`ProgressiveBlurImage` `blurAppear`** — fades the masked-blur + tint layer in
+  over the always-visible sharp base image after an optional delay, via a
+  reanimated opacity wrapper (`withDelay` + `withTiming`, reusing the shared
+  `EASING_MAP`). `{ delay? (ms, default 0), duration? (ms, default 400), easing?
+  (default "ease-out") }`. Omitting it renders the blur statically at full
+  strength on mount (unchanged). The degraded scrim fallback is unaffected.
+
+---
+
 ## [1.42.1] - 2026-06-11
 
 ### Fixed

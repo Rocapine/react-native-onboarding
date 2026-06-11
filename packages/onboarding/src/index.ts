@@ -18,6 +18,7 @@ export type {
   LinearBlurMask,
   RadialBlurMask,
   BlurMaskStop,
+  BlurAppear,
   ProgressIndicatorElementProps,
   ProgressEasing,
   AnimationEasing,

@@ -8,6 +8,19 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.43.0] - 2026-06-11
+
+### Added
+
+- **`ProgressiveBlurImage` `blurAppear`** — optional `{ delay?, duration?, easing? }`
+  on the element schema. Drives a delayed fade-in of the blur layer over the
+  always-visible sharp base image (the photo shows immediately, then the
+  progressive blur arrives). Omitting it keeps the legacy static-on-mount blur.
+  `easing` ∈ `"linear" | "ease-in" | "ease-out" | "ease-in-out"`. New exported
+  `BlurAppear` type.
+
+---
+
 ## [1.42.1] - 2026-06-11
 
 ### Changed

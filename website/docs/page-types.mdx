@@ -601,6 +601,7 @@ A full-bleed image with a gradient-masked Gaussian blur baked in: sharp where th
 | `mask` | linear `{ from, to, stops }` **or** radial `{ type: "radial", center?, radius?, stops }` | **Required** — gradient driving where the blur is strong. Each stop's `opacity` (0–1) is the **blur strength** at `position` (0–1), not a color. **Linear:** `from`/`to` are edges (`"top"`, `"bottom"`, …), `type` optional. **Radial:** `center` `{x,y}` in 0–1 box fractions (default `{0.5,0.5}`), `radius` a 0–1 fraction (default `0.75`); `position` runs center→edge |
 | `tint` | `"light" \| "dark" \| "default"` | Blur tint. Defaults to `"default"` |
 | `maxBlurOpacity` | `number` | Clamp on the masked blur layer (0–1). Defaults to `1` |
+| `blurAppear` | `{ delay?, duration?, easing? }` | Optional. Fades the blur layer in over the always-visible sharp image: `delay` (ms, default `0`), `duration` (ms, default `400`), `easing` (`"linear" \| "ease-in" \| "ease-out" \| "ease-in-out"`, default `"ease-out"`). Omit → blur shows statically at full strength on mount |
 | `resizeMode` | `"cover" \| "contain" \| "stretch" \| "center"` | Defaults to `"cover"` |
 | `aspectRatio` / `width` / `height` / `borderRadius` / `opacity` / `margin*` | | Standard box props |
 

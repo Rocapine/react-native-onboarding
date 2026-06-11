@@ -62,6 +62,7 @@ export type {
   LinearBlurMask,
   RadialBlurMask,
   BlurMaskStop,
+  BlurAppear,
 } from "./elements/ProgressiveBlurImageElement";
 export type { LottieElementProps } from "./elements/LottieElement";
 export type { RiveElementProps } from "./elements/RiveElement";

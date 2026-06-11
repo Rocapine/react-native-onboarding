@@ -13,9 +13,11 @@ import { collectElementDefaults } from "./elements/collectDefaults";
 type ContentProps = {
   step: ComposableScreenStepType;
   onContinue: () => void;
+  /** Distance between the top of the screen and this page's top (e.g. a fixed host header). */
+  keyboardVerticalOffset?: number;
 };
 
-const ComposableScreenRendererBase = ({ step, onContinue }: ContentProps) => {
+const ComposableScreenRendererBase = ({ step, onContinue, keyboardVerticalOffset }: ContentProps) => {
   const { theme } = useTheme();
   const validatedData = useMemo(() => ComposableScreenStepTypeSchema.parse(step), [step]);
   const { elements } = validatedData.payload;
@@ -70,6 +72,7 @@ const ComposableScreenRendererBase = ({ step, onContinue }: ContentProps) => {
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={keyboardVerticalOffset ?? 0}
       >
         <View style={styles.flex}>
           {elements.map((element) => renderElement(element, ctx))}

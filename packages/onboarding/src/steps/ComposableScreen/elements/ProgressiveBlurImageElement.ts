@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  AnimationEasing,
   BaseBoxProps,
   BaseBoxPropsSchema,
   GradientEdge,
@@ -40,6 +41,18 @@ export type RadialBlurMask = {
 
 export type BlurMask = LinearBlurMask | RadialBlurMask;
 
+// Delayed fade-in of the masked-blur (+ tint) layer over the always-visible sharp
+// base image: the photo shows immediately, then the progressive blur arrives. Omit
+// → blur renders statically at full strength on mount (legacy behavior).
+export type BlurAppear = {
+  /** ms before the fade starts. Default 0. */
+  delay?: number;
+  /** ms fade length. Default 400. */
+  duration?: number;
+  /** Easing curve. Default "ease-out". */
+  easing?: AnimationEasing;
+};
+
 const LinearBlurMaskSchema = z.object({
   type: z.literal("linear").optional(),
   from: GradientEdgeSchema,
@@ -74,6 +87,8 @@ export type ProgressiveBlurImageElementProps = BaseBoxProps & {
   mask: BlurMask;
   /** Clamp on the masked blur layer's max opacity (Figma ≈ 0.8). Default 1. */
   maxBlurOpacity?: number;
+  /** Animate the blur layer in (over the sharp base) after an optional delay. */
+  blurAppear?: BlurAppear;
 };
 
 export const ProgressiveBlurImageElementPropsSchema = BaseBoxPropsSchema.extend({
@@ -84,4 +99,11 @@ export const ProgressiveBlurImageElementPropsSchema = BaseBoxPropsSchema.extend(
   tint: z.enum(["light", "dark", "default"]).optional(),
   mask: BlurMaskSchema,
   maxBlurOpacity: z.number().min(0).max(1).optional(),
+  blurAppear: z
+    .object({
+      delay: z.number().min(0).optional(),
+      duration: z.number().min(0).optional(),
+      easing: z.enum(["linear", "ease-in", "ease-out", "ease-in-out"]).optional(),
+    })
+    .optional(),
 });

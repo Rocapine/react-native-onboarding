@@ -47,6 +47,8 @@ export default function ComposableScreenBlurExample() {
                     { position: 1, opacity: 1 },
                   ],
                 },
+                // Sharp hero first, then the radial blur eases in.
+                blurAppear: { delay: 400, duration: 600, easing: 'ease-out' },
               },
             },
             // Layer 2 — near-invisible scrim (matches the Figma 0.01 black layer).

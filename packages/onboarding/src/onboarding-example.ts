@@ -221,6 +221,8 @@ export const onboardingExample = {
                       { position: 1, opacity: 1 },
                     ],
                   },
+                  // Photo shows sharp, then the blur fades in after a beat.
+                  blurAppear: { delay: 400, duration: 600, easing: "ease-out" },
                 },
               },
               {

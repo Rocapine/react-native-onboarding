@@ -2,11 +2,18 @@ import React from "react";
 import { z } from "zod";
 import { Image as RNImage, View, StyleSheet, UIManager } from "react-native";
 import Svg, { Defs, Rect, RadialGradient, Stop } from "react-native-svg";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withDelay,
+} from "react-native-reanimated";
 import { BaseBoxProps, BaseBoxPropsSchema, GradientEdge } from "./BaseBoxProps";
-import type { GradientBackground } from "./BaseBoxProps";
+import type { AnimationEasing, GradientBackground } from "./BaseBoxProps";
 import { UIElement } from "../types";
 import { RenderContext, dim } from "./shared";
 import { GradientBox } from "./GradientBox";
+import { EASING_MAP } from "./buildAnimation";
 
 // expo-image (better webp/avif) — optional, falls back to RN Image.
 let ExpoImage: React.ComponentType<any> | null = null;
@@ -48,6 +55,12 @@ export type RadialBlurMask = {
 };
 export type BlurMask = LinearBlurMask | RadialBlurMask;
 
+export type BlurAppear = {
+  delay?: number;
+  duration?: number;
+  easing?: AnimationEasing;
+};
+
 export type ProgressiveBlurImageElementProps = BaseBoxProps & {
   url: string;
   aspectRatio?: number;
@@ -56,6 +69,7 @@ export type ProgressiveBlurImageElementProps = BaseBoxProps & {
   tint?: "light" | "dark" | "default";
   mask: BlurMask;
   maxBlurOpacity?: number;
+  blurAppear?: BlurAppear;
 };
 
 const BlurMaskStopSchema = z.object({
@@ -87,6 +101,13 @@ export const ProgressiveBlurImageElementPropsSchema = BaseBoxPropsSchema.extend(
   tint: z.enum(["light", "dark", "default"]).optional(),
   mask: z.union([LinearBlurMaskSchema, RadialBlurMaskSchema]),
   maxBlurOpacity: z.number().min(0).max(1).optional(),
+  blurAppear: z
+    .object({
+      delay: z.number().min(0).optional(),
+      duration: z.number().min(0).optional(),
+      easing: z.enum(["linear", "ease-in", "ease-out", "ease-in-out"]).optional(),
+    })
+    .optional(),
 });
 
 type ResizeMode = "cover" | "contain" | "stretch" | "center";
@@ -242,6 +263,25 @@ class ProgressiveBlurBoundary extends React.Component<
 
 export const ProgressiveBlurImageElementComponent = ({ element }: Props): React.ReactElement => {
   const p = element.props;
+
+  // Delayed fade-in of the blur layer over the always-visible sharp base. Hooks
+  // run unconditionally and above the early `fallback` returns below (rules of
+  // hooks). Absent `blurAppear` → opacity pinned at 1 (static, legacy behavior).
+  const blurAppear = p.blurAppear;
+  const blurProgress = useSharedValue(blurAppear ? 0 : 1);
+  React.useEffect(() => {
+    if (!blurAppear) {
+      blurProgress.value = 1;
+      return;
+    }
+    const easing = EASING_MAP[blurAppear.easing ?? "ease-out"];
+    blurProgress.value = withDelay(
+      blurAppear.delay ?? 0,
+      withTiming(1, { duration: blurAppear.duration ?? 400, easing })
+    );
+  }, [blurAppear, blurProgress]);
+  const blurLayerStyle = useAnimatedStyle(() => ({ opacity: blurProgress.value }));
+
   const maxBlurOpacity = p.maxBlurOpacity ?? 1;
   const radial = isRadialMask(p.mask);
   const rgb = tintRgb(p.tint);
@@ -335,13 +375,16 @@ export const ProgressiveBlurImageElementComponent = ({ element }: Props): React.
   return (
     <ProgressiveBlurBoundary fallback={fallback}>
       <View style={containerStyle}>
-        {/* Sharp base. */}
+        {/* Sharp base — always opaque, shows immediately. */}
         {sharpImage}
-        {/* Blurred copy, revealed only where the mask is opaque → progressive blur. */}
-        <Masked style={StyleSheet.absoluteFill} maskElement={maskElement}>
-          {blurredCopy}
-        </Masked>
-        {tintOverlay}
+        {/* Blurred copy + tint, faded in together when `blurAppear` is set
+            (static opacity 1 otherwise). Revealed only where the mask is opaque. */}
+        <Animated.View style={[StyleSheet.absoluteFill, blurLayerStyle]}>
+          <Masked style={StyleSheet.absoluteFill} maskElement={maskElement}>
+            {blurredCopy}
+          </Masked>
+          {tintOverlay}
+        </Animated.View>
       </View>
     </ProgressiveBlurBoundary>
   );

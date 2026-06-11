@@ -9,6 +9,21 @@ here.
 
 ---
 
+## [1.44.0] - 2026-06-11
+
+### Added
+
+- **`OnboardingPage` `keyboardVerticalOffset`** — optional number forwarded to the
+  `ComposableScreen` renderer's `KeyboardAvoidingView` (default `0`). Hosts that
+  render `OnboardingPage` below a fixed header (e.g. a `paddingTop: HEADER_HEIGHT`
+  wrapper when `displayProgressHeader` is true) push the view's top down, so the
+  iOS `behavior="padding"` math under-compensates by exactly that offset and the
+  bottom CTA stays hidden behind the keyboard on steps containing an `Input`.
+  Pass the header height (`keyboardVerticalOffset={HEADER_HEIGHT}`) to compensate.
+  Other step renderers are unchanged.
+
+---
+
 ## [1.43.0] - 2026-06-11
 
 ### Added

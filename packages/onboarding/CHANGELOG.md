@@ -8,6 +8,15 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.44.0] - 2026-06-11
+
+### Changed
+
+- Version bump only — paired with `@rocapine/react-native-onboarding-ui` 1.44.0
+  (`OnboardingPage` `keyboardVerticalOffset` prop). No headless changes.
+
+---
+
 ## [1.43.0] - 2026-06-11
 
 ### Added

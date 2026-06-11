@@ -9,6 +9,13 @@ here.
 
 ---
 
+## [1.42.1] - 2026-06-11
+
+### Fixed
+- **Button `flex` ignored** — `ButtonElement` now forwards `flex` / `flexShrink` / `flexGrow` from its resolved props in both render branches (gradient + default outer `Animated.View`). Previously these `BaseBoxProps` fields were dropped, so a `Button` with `flex: 1` always sized to its content; equal-width / proportional buttons inside an `XStack` now work without wrapping each Button in a `flex: 1` container. The `alignSelf` default (`"stretch"` when no `width`) is unchanged, so content-sized buttons behave as before.
+
+---
+
 ## [1.42.0] - 2026-06-10
 
 ### Added

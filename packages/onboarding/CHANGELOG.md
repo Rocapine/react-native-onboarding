@@ -8,6 +8,13 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.42.1] - 2026-06-11
+
+### Changed
+- **Version sync** — no functional change to the headless SDK. Released alongside `@rocapine/react-native-onboarding-ui@1.42.1` (Button `flex` fix) to keep both packages on the same version.
+
+---
+
 ## [1.42.0] - 2026-06-10
 
 ### Added

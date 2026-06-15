@@ -8,6 +8,18 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.44.1] - 2026-06-15
+
+### Changed
+
+- **Runtime font registration** — fonts now register under their file's
+  PostScript name (the font file's base name, e.g. `Inter-SemiBold.ttf` →
+  `Inter-SemiBold`) instead of a synthesized `<family>-<weight>` name.
+  `buildRegisteredName` now derives the name from the font URL, stripping
+  directory, query string, and extension.
+
+---
+
 ## [1.44.0] - 2026-06-11
 
 ### Changed

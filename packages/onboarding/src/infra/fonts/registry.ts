@@ -25,7 +25,14 @@ export const normalizeWeight = (key: FontWeightKey | string | number | undefined
   return Number.isFinite(parsed) ? parsed : 400;
 };
 
-const buildRegisteredName = (family: string, weight: number) => `${family}-${weight}`;
+// The registered (PostScript) name is the font file's base name, without
+// directory, query string, or extension — e.g. ".../Inter-SemiBold.ttf?v=2"
+// registers as "Inter-SemiBold".
+const buildRegisteredName = (url: string): string => {
+  const path = url.split(/[?#]/)[0];
+  const file = path.split("/").pop() ?? path;
+  return file.replace(/\.[^.]+$/, "");
+};
 
 let expoFontWarned = false;
 const loadExpoFont = (): typeof import("expo-font") | null => {
@@ -84,7 +91,7 @@ export const registerFonts = async (manifest: FontsManifest | undefined): Promis
     registry[family] = registry[family] ?? {};
 
     for (const { weight, url } of variants) {
-      const registeredName = buildRegisteredName(family, weight);
+      const registeredName = buildRegisteredName(url);
       registry[family][weight] = registeredName;
 
       loads.push(

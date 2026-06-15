@@ -9,6 +9,15 @@ here.
 
 ---
 
+## [1.44.1] - 2026-06-15
+
+### Changed
+
+- Version bump only — paired with `@rocapine/react-native-onboarding` 1.44.1
+  (runtime fonts register under their PostScript / file name). No UI changes.
+
+---
+
 ## [1.44.0] - 2026-06-11
 
 ### Added

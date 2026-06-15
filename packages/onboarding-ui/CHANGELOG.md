@@ -9,6 +9,18 @@ here.
 
 ---
 
+## [1.44.2] - 2026-06-15
+
+### Fixed
+
+- **Italic text renders with the italic face.** `TextElement` (incl. rich-text
+  spans) and `AnimatedTextElement` now pass `fontStyle` into
+  `useResolvedFontStyle`, so an italic request resolves to the registered italic
+  font face instead of the upright one. Paired with
+  `@rocapine/react-native-onboarding` 1.44.2.
+
+---
+
 ## [1.44.1] - 2026-06-15
 
 ### Changed

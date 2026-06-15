@@ -100,7 +100,7 @@ export const AnimatedTextElementComponent = ({ element, ctx }: Props): React.Rea
     p.fontFamily ?? inherited.fontFamily,
     theme.typography.defaultFontFamily
   );
-  const resolvedFont = useResolvedFontStyle(inheritedFontFamily, fontWeight);
+  const resolvedFont = useResolvedFontStyle(inheritedFontFamily, fontWeight, fontStyle);
 
   // 0 -> 1 driver, lives on the UI thread.
   const progress = useSharedValue(autoplay ? 0 : 1);

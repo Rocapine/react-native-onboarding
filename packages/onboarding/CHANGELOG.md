@@ -8,6 +8,35 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.44.2] - 2026-06-15
+
+### Fixed
+
+- **Italic font faces are no longer dropped.** The runtime font registry keyed
+  variants by weight only, so a `700-italic` face was overwritten by the
+  `700-normal` face at the same weight — any `fontStyle: "italic"` text then
+  rendered upright. Variants are now keyed by **weight + style**, both faces are
+  registered, and `resolveFontFamily` / `useResolvedFontStyle` /
+  `useResolvedFontFamily` accept an optional `fontStyle` argument and pick the
+  italic face when requested (falling back to the upright face when no italic is
+  registered at that weight).
+- **Apple SF Pro fonts now render at all weights on iOS.** A manifest family
+  whose name collides with the iOS system font (`SF Pro`, `SF Pro Display`,
+  `SF Pro Text`, `SF Pro Rounded`, `system`, … — matched case- and
+  separator-insensitively) is no longer registered as a bundled face on iOS:
+  registering under the system family name made iOS give the system font
+  precedence, so only Regular resolved (other weights rendered as tofu). On iOS
+  such families now resolve to `fontFamily: undefined` so React Native uses the
+  real system font honoring `fontWeight`. On Android (no SF Pro system font) the
+  bundled faces register and resolve normally.
+
+### Added
+
+- `isSystemFontFamily`, `normalizeStyle`, and the `FontStyleKey` /
+  `RegisteredFace` types are now exported from the package.
+
+---
+
 ## [1.44.1] - 2026-06-15
 
 ### Changed

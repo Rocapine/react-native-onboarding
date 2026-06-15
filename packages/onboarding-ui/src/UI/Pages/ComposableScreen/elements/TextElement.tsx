@@ -87,7 +87,7 @@ const RichTextSpan = ({
   baseFontFamily: string | undefined;
 }): React.ReactElement => {
   const fontFamily = resolveInheritedFontFamily(span.fontFamily, baseFontFamily);
-  const resolved = useResolvedFontStyle(fontFamily, span.fontWeight);
+  const resolved = useResolvedFontStyle(fontFamily, span.fontWeight, span.fontStyle);
   return (
     <Text
       style={{
@@ -146,7 +146,7 @@ export const TextElementComponent = ({ element, ctx, parentType }: Props): React
     p.fontFamily ?? inherited.fontFamily,
     theme.typography.defaultFontFamily
   );
-  const resolvedFont = useResolvedFontStyle(inheritedFontFamily, fontWeight);
+  const resolvedFont = useResolvedFontStyle(inheritedFontFamily, fontWeight, fontStyle);
 
   const textNode = (
     <Text

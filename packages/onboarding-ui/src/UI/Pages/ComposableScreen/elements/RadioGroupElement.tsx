@@ -92,7 +92,8 @@ export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement
   // back to theme.typography.defaultFontFamily so labels honor the theme font.
   const resolvedFont = useResolvedFontStyle(
     resolveInheritedFontFamily(element.props.itemFontFamily, theme.typography.defaultFontFamily),
-    element.props.itemFontWeight
+    element.props.itemFontWeight,
+    element.props.itemFontStyle
   );
 
   useEffect(() => {

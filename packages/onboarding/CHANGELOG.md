@@ -8,6 +8,15 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.44.4] - 2026-06-16
+
+### Changed
+
+- Version sync with `@rocapine/react-native-onboarding-ui@1.44.4` (empty/null
+  `fontFamily` now falls back to the theme default). No headless changes.
+
+---
+
 ## [1.44.3] - 2026-06-16
 
 ### Fixed

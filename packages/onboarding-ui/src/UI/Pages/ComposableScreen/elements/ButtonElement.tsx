@@ -170,7 +170,8 @@ export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElem
   );
   const resolvedFont = useResolvedFontStyle(
     inheritedFontFamily,
-    eff.fontWeight
+    eff.fontWeight,
+    eff.fontStyle
   );
 
   // Animate opacity between rest/pressed/disabled. Uses native driver — color

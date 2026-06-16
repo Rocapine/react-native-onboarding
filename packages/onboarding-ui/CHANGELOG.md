@@ -9,6 +9,31 @@ here.
 
 ---
 
+## [1.44.4] - 2026-06-16
+
+### Fixed
+
+- **Empty / null `fontFamily` now falls back to the theme default.** A text
+  element (`Text`, `Button`, `Input`, `RadioGroup`, `CheckboxGroup`,
+  `WheelPicker`, `AnimatedText`, rich-text spans) that provided no usable font
+  only fell back to `theme.typography.defaultFontFamily` when `fontFamily` was
+  `undefined` or `"inherit"`. The CMS emits an **empty string** (`""`) or
+  `null` for "no font selected", which slipped through
+  `resolveInheritedFontFamily` unchanged — a falsy family then reached
+  `resolveFontFamily`, which returns `undefined` (system font) and silently
+  ignored the configured default. `resolveInheritedFontFamily` now treats any
+  falsy value (`""` / `null` / `undefined`) as well as `"inherit"` as "use the
+  theme default".
+- **`fontStyle` now resolves the italic face on `Button` / `Input` /
+  `RadioGroup` / `CheckboxGroup`.** These passed only `fontFamily` + `fontWeight`
+  to `useResolvedFontStyle`, so a registered italic variant (e.g.
+  `PlayfairDisplay-Italic`) was never selected — text fell back to synthetic
+  italic over the upright face. `fontStyle` is now threaded into resolution so
+  the real italic face is picked when registered (matching `Text` /
+  `AnimatedText`).
+
+---
+
 ## [1.44.3] - 2026-06-16
 
 ### Changed

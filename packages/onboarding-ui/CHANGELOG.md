@@ -9,6 +9,15 @@ here.
 
 ---
 
+## [1.44.3] - 2026-06-16
+
+### Changed
+
+- Version sync with `@rocapine/react-native-onboarding@1.44.3` (production
+  fallback-cache fix in the headless SDK). No UI/renderer changes.
+
+---
+
 ## [1.44.2] - 2026-06-15
 
 ### Fixed

@@ -87,7 +87,8 @@ export const InputElementComponent = ({ element, ctx }: Props): React.ReactEleme
   );
   const resolvedFont = useResolvedFontStyle(
     inheritedFontFamily,
-    element.props.fontWeight
+    element.props.fontWeight,
+    element.props.fontStyle
   );
 
   return (

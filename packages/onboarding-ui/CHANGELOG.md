@@ -24,6 +24,13 @@ here.
   ignored the configured default. `resolveInheritedFontFamily` now treats any
   falsy value (`""` / `null` / `undefined`) as well as `"inherit"` as "use the
   theme default".
+- **`fontStyle` now resolves the italic face on `Button` / `Input` /
+  `RadioGroup` / `CheckboxGroup`.** These passed only `fontFamily` + `fontWeight`
+  to `useResolvedFontStyle`, so a registered italic variant (e.g.
+  `PlayfairDisplay-Italic`) was never selected — text fell back to synthetic
+  italic over the upright face. `fontStyle` is now threaded into resolution so
+  the real italic face is picked when registered (matching `Text` /
+  `AnimatedText`).
 
 ---
 

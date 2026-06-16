@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { View, TextInput } from "react-native";
 import { z } from "zod";
 import Animated, {
@@ -109,15 +109,31 @@ export const ProgressIndicatorElementComponent = ({ element, ctx }: Props): Reac
   const boundValue = boundRaw !== undefined ? clamp(Number(boundRaw) || 0, minValue, maxValue) : undefined;
   const target = autoplay ? maxValue : clamp(boundValue ?? props.value ?? initialValue, minValue, maxValue);
 
-  const progress = useSharedValue(initialValue);
+  // (autoplay) Seed from the persisted bound variable at mount, NOT always from
+  // initialValue. The variable store lives in a provider that can sit ABOVE a
+  // Suspense boundary, so if the screen subtree remounts (e.g. a parent query
+  // re-suspends on a locale change) the variable survives but this local
+  // sharedValue would otherwise reset to 0 — desyncing a completed bar's fill
+  // from its already-at-max variable (and any `renderWhen: eq max` checkmark
+  // that stays visible). Captured once per mount in a ref so the per-step
+  // variable writes this bar makes don't feed back into the seed.
+  const autoplaySeedRef = useRef(
+    autoplay && boundValue !== undefined ? boundValue : initialValue
+  );
+  const progress = useSharedValue(autoplaySeedRef.current);
 
-  // (autoplay) Write the step-snapped value to the bound variable. The label is
-  // rendered natively (see labelAnimatedProps below), so it does NOT go through
-  // React state — this reaction's ONLY job is the variable write.
-  // Reaction input is the *step-snapped* value, so the JS callback fires only
-  // when the snapped value changes ((maxValue-minValue)/step hops/sweep) rather
-  // than every frame — avoids a per-frame context write storm (setVariable
-  // re-renders all variable consumers). Coarse `step` for large ranges.
+  // (autoplay) Write the bound variable ONLY at the sweep boundaries (start /
+  // completion) — NOT on every step. Writing each step calls setVariable ~20×/s,
+  // which re-renders every ComposableScreen variable consumer. On Fabric /
+  // Reanimated 4 that re-render storm reverts the *already-settled* animated
+  // fill of sibling bars that finished earlier: their value stays at max but the
+  // bar paints empty, and only the last-finishing bar (after which no more
+  // writes occur) stays filled — the staggered-loader bug. Boundaries are all a
+  // bound variable needs for the common `renderWhen` loader pattern
+  // (`lt max` label → `eq max` checkmark); the live numeric % is rendered
+  // natively from the shared value (labelAnimatedProps), independent of writes.
+  // Trade-off: a consumer interpolating the variable mid-sweep ({{var}}) sees it
+  // jump min→max — use `showLabel` for a live readout instead.
   const showLabel = props.showLabel ?? false;
   const variableName = props.variableName;
   const writeVariable = (v: number) => {
@@ -141,7 +157,11 @@ export const ProgressIndicatorElementComponent = ({ element, ctx }: Props): Reac
     },
     (snapped, prev) => {
       if (snapped === prev) return;
-      if (writesVariable) runOnJS(writeVariable)(snapped);
+      // Boundaries only — see the writeVariable comment above. Intermediate
+      // steps are intentionally dropped to avoid the per-step re-render storm.
+      if (writesVariable && (snapped <= minValue || snapped >= maxValue)) {
+        runOnJS(writeVariable)(snapped);
+      }
     },
     [writesVariable, variableName, minValue, maxValue, step]
   );
@@ -158,15 +178,21 @@ export const ProgressIndicatorElementComponent = ({ element, ctx }: Props): Reac
     return { text: t, defaultValue: t } as object;
   }, [minValue, maxValue, step, labelSuffix]);
 
-  // Autoplay: animate initialValue -> maxValue, optionally looping, after `delay`.
+  // Autoplay: animate seed -> maxValue, optionally looping, after `delay`.
+  // `seed` is the mount-time value (persisted variable on a remount, else
+  // initialValue) — see autoplaySeedRef above. A bar already at maxValue (a
+  // completed bar restored after a remount) stays full and does NOT replay its
+  // sweep; a partially-filled bar resumes from where it was rather than from 0.
   useEffect(() => {
     if (!autoplay) return;
-    progress.value = initialValue;
+    const seed = autoplaySeedRef.current;
+    progress.value = seed;
+    if (seed >= maxValue) return () => cancelAnimation(progress);
     const anim = withTiming(maxValue, { duration, easing });
     const looped = loop ? withRepeat(anim, -1, false) : anim;
     progress.value = delay > 0 ? withDelay(delay, looped) : looped;
     return () => cancelAnimation(progress);
-  }, [autoplay, loop, duration, delay, easing, initialValue, maxValue]);
+  }, [autoplay, loop, duration, delay, easing, maxValue]);
 
   // Bound / static (non-autoplay): animate toward the current target after `delay`.
   useEffect(() => {
@@ -182,14 +208,28 @@ export const ProgressIndicatorElementComponent = ({ element, ctx }: Props): Reac
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
 
+  // Explicit deps arrays (same reason as the useAnimatedReaction above). An
+  // autoplay ProgressIndicator writes its variable every step → setVariable
+  // re-renders the whole tree ~20×/s; without deps these mappers are torn down
+  // and rebuilt on every one of those renders, needlessly churning the
+  // UI-thread mapper scheduler. Keying on the primitives the worklet reads keeps
+  // each mapper stable across renders.
   const animatedCircleProps = useAnimatedProps(() => {
     const frac = range > 0 ? (progress.value - minValue) / range : 0;
     return { strokeDashoffset: circumference * (1 - frac) };
-  });
+  }, [range, minValue, circumference]);
+  // Drive the linear fill with a `scaleX` transform anchored to the left edge —
+  // NOT an animated percentage `width`. On Fabric / Reanimated 4 an animated
+  // layout prop (percentage width) updates the sharedValue every frame but does
+  // not reliably commit to layout, so the bar's *static* mount value paints but
+  // the per-frame sweep does not — the value reaches 100 (the bound variable +
+  // any `eq max` checkmark update fine) while the bar stays visually empty. A
+  // transform is GPU-driven, commits every frame, and has no such limitation.
   const animatedFillStyle = useAnimatedStyle(() => {
     const frac = range > 0 ? (progress.value - minValue) / range : 0;
-    return { width: `${frac * 100}%` };
-  });
+    const clamped = frac < 0 ? 0 : frac > 1 ? 1 : frac;
+    return { transform: [{ scaleX: clamped }] };
+  }, [range, minValue]);
 
   const containerStyle = {
     alignSelf: props.alignSelf,
@@ -279,7 +319,13 @@ export const ProgressIndicatorElementComponent = ({ element, ctx }: Props): Reac
       >
         <Animated.View
           style={[
-            { height: "100%", backgroundColor: color, borderRadius: props.borderRadius ?? barHeight / 2 },
+            {
+              width: "100%",
+              height: "100%",
+              backgroundColor: color,
+              borderRadius: props.borderRadius ?? barHeight / 2,
+              transformOrigin: "left",
+            },
             animatedFillStyle,
           ]}
         />

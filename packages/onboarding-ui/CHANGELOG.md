@@ -9,6 +9,33 @@ here.
 
 ---
 
+## [1.44.5] - 2026-06-16
+
+### Fixed
+
+- **Staggered autoplay `ProgressIndicator` loader bars no longer reset to
+  empty.** When several `autoplay` linear bars ran on one screen (e.g. a
+  "curating your profile…" loader), bars that finished early painted empty while
+  only the last-finishing bar stayed filled — even though every bar's bound
+  variable correctly reached its max (so `renderWhen: eq max` checkmarks stayed
+  visible, exposing the desync). Cause: each autoplay bar wrote its bound
+  variable on every animation step (~20×/s), and every `setVariable` re-rendered
+  all ComposableScreen variable consumers; on Fabric / Reanimated 4 that
+  re-render storm reverted the already-settled animated fill of sibling bars.
+  Fixes:
+  - Autoplay bars now write the bound variable only at the sweep **boundaries**
+    (start / completion) instead of on every step, eliminating the re-render
+    storm. The live numeric `%` is still rendered natively via `showLabel`.
+    (A consumer interpolating the variable mid-sweep with `{{var}}` now sees it
+    jump min→max — use `showLabel` for a live readout.)
+  - The linear fill is driven by a left-anchored `scaleX` transform instead of
+    an animated percentage `width`, which commits reliably on Fabric.
+  - Autoplay progress is seeded from the bound variable on mount, so a completed
+    bar is restored to full if the screen subtree remounts.
+  - Added dependency arrays to the animated worklets to avoid mapper churn.
+
+---
+
 ## [1.44.4] - 2026-06-16
 
 ### Fixed

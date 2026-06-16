@@ -9,6 +9,24 @@ here.
 
 ---
 
+## [1.44.4] - 2026-06-16
+
+### Fixed
+
+- **Empty / null `fontFamily` now falls back to the theme default.** A text
+  element (`Text`, `Button`, `Input`, `RadioGroup`, `CheckboxGroup`,
+  `WheelPicker`, `AnimatedText`, rich-text spans) that provided no usable font
+  only fell back to `theme.typography.defaultFontFamily` when `fontFamily` was
+  `undefined` or `"inherit"`. The CMS emits an **empty string** (`""`) or
+  `null` for "no font selected", which slipped through
+  `resolveInheritedFontFamily` unchanged — a falsy family then reached
+  `resolveFontFamily`, which returns `undefined` (system font) and silently
+  ignored the configured default. `resolveInheritedFontFamily` now treats any
+  falsy value (`""` / `null` / `undefined`) as well as `"inherit"` as "use the
+  theme default".
+
+---
+
 ## [1.44.3] - 2026-06-16
 
 ### Changed

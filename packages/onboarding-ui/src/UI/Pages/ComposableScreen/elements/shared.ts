@@ -64,12 +64,17 @@ export const buildShadowStyle = (p: ShadowStyleInput) => {
 };
 
 // Resolve element fontFamily against theme `typography.defaultFontFamily`.
-// Returns the theme default when element omits fontFamily or sets it to "inherit".
+// Returns the theme default when the element provides no usable font — i.e. it
+// omits fontFamily (`undefined`), sets it to `"inherit"`, or leaves it empty
+// (`""` / `null`). The CMS emits an empty string / null for "no font selected",
+// so those must fall back to the configured default too — otherwise a falsy
+// family reaches `resolveFontFamily`, which returns `undefined` (system font)
+// and silently ignores the theme default.
 export const resolveInheritedFontFamily = (
-  elementFontFamily: string | undefined,
+  elementFontFamily: string | null | undefined,
   themeDefault: string | undefined
 ): string | undefined => {
-  if (elementFontFamily === undefined || elementFontFamily === "inherit") {
+  if (!elementFontFamily || elementFontFamily === "inherit") {
     return themeDefault;
   }
   return elementFontFamily;

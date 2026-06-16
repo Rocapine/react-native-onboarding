@@ -8,6 +8,24 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.44.3] - 2026-06-16
+
+### Fixed
+
+- **Production no longer gets pinned to the offline fallback.** The production
+  onboarding query was cache-first with `staleTime: Infinity`: it returned the
+  AsyncStorage cache and **never called the edge function again**, and it cached
+  whatever `getSteps` returned — including the offline fallback. So a single
+  first-launch fetch failure (timeout / offline / cold-start) cached the
+  fallback and pinned every subsequent launch to it, while the device stopped
+  hitting the studio entirely. The query now (1) **never caches the fallback**
+  (detected via the `ONBS-Onboarding-Id: "fallback"` header), so a bad launch
+  self-heals on the next start, and (2) uses **stale-while-revalidate** — it
+  serves the cache for an instant first paint while refreshing from the network
+  in the background, so studio re-deploys propagate and a stale cache recovers.
+
+---
+
 ## [1.44.2] - 2026-06-15
 
 ### Fixed

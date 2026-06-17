@@ -19,13 +19,14 @@ Install `@rocapine/react-native-onboarding-ui` and render steps with `Onboarding
    npm install @rocapine/react-native-onboarding-ui@$PLUGIN_VERSION
    ```
 4. This plugin authors ComposableScreen exclusively. Install peer deps based on the UIElements the flow uses (probe step JSON if present, else install the common set):
-   - Lottie elements → `npm install lottie-react-native`
-   - Rive elements → `npm install rive-react-native`
-   - Video elements → `npm install expo-video`
-   - Skia visuals → `npm install @shopify/react-native-skia`
-   - Linear gradients → `npm install expo-linear-gradient`
-   - DatePicker → `npm install @react-native-community/datetimepicker`
-   - WheelPicker → `npm install @react-native-picker/picker`
+   - **Always install** (core UI animations) → `npx expo install react-native-reanimated` — use `npx expo install` (not `npm install`) so Expo resolves a version compatible with the app's React Native version
+   - Lottie elements → `npx expo install lottie-react-native`
+   - Rive elements → `npx expo install rive-react-native`
+   - Video elements → `npx expo install expo-video`
+   - Skia visuals → `npx expo install @shopify/react-native-skia`
+   - Linear gradients → `npx expo install expo-linear-gradient`
+   - DatePicker → `npx expo install @react-native-community/datetimepicker`
+   - WheelPicker → `npx expo install @react-native-picker/picker`
    - Inputs (always recommended) → already included in RN core
 4. Wire `OnboardingPage` inside the screen that consumes `useOnboardingQuestions`:
 

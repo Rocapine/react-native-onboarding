@@ -56,6 +56,13 @@ export function collectElementDefaults(
         }
         break;
       }
+      case "Slider": {
+        const name = el.props.variableName;
+        if (name && el.props.defaultValue !== undefined) {
+          out[name] = { value: String(el.props.defaultValue), kind: "float" };
+        }
+        break;
+      }
       case "DatePicker": {
         const name = el.props.variableName;
         if (name && el.props.defaultValue !== undefined) {

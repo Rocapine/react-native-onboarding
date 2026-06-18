@@ -9,6 +9,20 @@ here.
 
 ---
 
+## [1.45.0] - 2026-06-18
+
+### Added
+
+- **`Slider` element renderer** — renders a continuous numeric slider that
+  reads/seeds/writes its bound variable as a float. Backed by the new optional
+  peer dep `@react-native-community/slider`; degrades to an empty box when the
+  dep is absent (mirrors `GradientBox`'s silent fallback). Track/thumb tints
+  default to the theme `primary` / `neutral.low`. Wired into `renderElement`
+  (dispatch + `PRESS_HANDLED_TYPES`, since it owns its gesture) and
+  `collectElementDefaults` (first-render default seed).
+
+---
+
 ## [1.44.7] - 2026-06-18
 
 ### Fixed

@@ -58,12 +58,17 @@ export const KeyboardAvoidingViewElementComponent = ({ element, ctx }: Props): R
     opacity: p.opacity,
   };
 
+  // When gradient is present the outer GradientBox carries the box layout
+  // (containerStyle) and the inner KAV fills it — but only force `flex: 1` when
+  // the box is explicitly sized. A content-sized box must stay content-sized,
+  // else `flex: 1` grabs the parent's full main-axis (screen-fill in a ZStack).
+  const fillsParent = p.height != null || p.flex != null || p.flexGrow != null;
   const kav = (
     <KeyboardAvoidingView
       behavior={p.behavior ?? defaultBehavior()}
       keyboardVerticalOffset={p.keyboardVerticalOffset ?? 0}
       enabled={p.enabled ?? true}
-      style={hasGradient ? { flex: 1 } : containerStyle}
+      style={hasGradient ? { flex: fillsParent ? 1 : p.flex } : containerStyle}
     >
       {ctx.renderChildren(element.children, "YStack")}
     </KeyboardAvoidingView>

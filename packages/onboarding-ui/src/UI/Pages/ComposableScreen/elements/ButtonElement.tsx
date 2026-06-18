@@ -163,6 +163,13 @@ export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElem
     : (eff.borderColor ?? theme.colors.primary);
 
   const hasGradient = isFilled && !isDisabled && !!eff.backgroundGradient;
+  // Gradient path nests GradientBox + Pressable inside the outer box. Those
+  // inner views must only `flex: 1` to fill an explicitly-sized button (height
+  // or flex set). Otherwise the button is content-sized (like the non-gradient
+  // path) and a `flex: 1` inner view would grab the parent's full main-axis —
+  // blowing the button up to fill the screen inside a ZStack/flex container.
+  const gradientFillsParent =
+    eff.height != null || eff.flex != null || eff.flexGrow != null;
   const borderRadius = eff.borderRadius ?? 90;
   const inheritedFontFamily = resolveInheritedFontFamily(
     eff.fontFamily,
@@ -244,7 +251,7 @@ export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElem
             borderWidth: isOutlined ? (eff.borderWidth ?? 1) : (eff.borderWidth ?? 0),
             borderColor: isOutlined ? outlinedBorderColor : eff.borderColor,
             overflow: "hidden",
-            flex: 1,
+            flex: gradientFillsParent ? 1 : undefined,
           }}
         >
           <Pressable
@@ -253,7 +260,7 @@ export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElem
             onPressOut={onPressOut}
             disabled={isDisabled}
             style={{
-              flex: 1,
+              flex: gradientFillsParent ? 1 : undefined,
               padding: eff.padding,
               paddingVertical: eff.paddingVertical ?? (eff.padding != null ? undefined : 14),
               paddingHorizontal: eff.paddingHorizontal ?? (eff.padding != null ? undefined : 24),

@@ -9,6 +9,15 @@ here.
 
 ---
 
+## [1.44.6] - 2026-06-18
+
+### Changed
+
+- Version sync with `@rocapine/react-native-onboarding@1.44.6` (asset
+  prefetch/preload now works for `ComposableScreen` steps). No UI changes.
+
+---
+
 ## [1.44.5] - 2026-06-16
 
 ### Fixed

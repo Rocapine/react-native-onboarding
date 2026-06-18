@@ -1045,7 +1045,13 @@ A freehand drawing surface (signature, doodle, annotation). The user draws with 
 | `strokeColor` | `string` | Pen color; defaults to `theme.colors.text.primary` |
 | `strokeWidth` | `number` (> 0) | Pen width in px; defaults to `2` |
 | `backgroundColor` | `string` | Canvas fill (also painted into the exported image); defaults to `theme.colors.neutral.lowest` |
-| `clearable` | `boolean` | Show a clear (✕) button once drawn; defaults to `true` |
+| `clearable` | `boolean` | Show a clear button once drawn; defaults to `true` |
+| `clearButtonPosition` | `"top-left" \| "top-right" \| "bottom-left" \| "bottom-right"` | Corner the clear button sits in; defaults to `"top-right"` |
+| `clearButtonOffset` | `number` | Distance (px) from the two nearest edges; defaults to `8` |
+| `clearButtonSize` | `number` | Clear button diameter in px; defaults to `32` (glyph scales to half) |
+| `clearButtonColor` | `string` | Clear button background; defaults to `theme.colors.neutral.higher` |
+| `clearButtonIconColor` | `string` | Clear button glyph color; defaults to `theme.colors.text.opposite` |
+| `clearButtonLabel` | `string` | Clear button glyph/label; defaults to `"✕"` |
 | `imageFormat` | `"png" \| "jpeg"` | Encode format for `imageVariableName`; defaults to `"png"` |
 | All `BaseBoxProps` | — | `width`, `height` (defaults to `200`), `borderWidth` (default `2`), `borderRadius` (default `16`), `borderColor` (default `theme.colors.primary`), `margin*`, `padding*`, `alignSelf`, `opacity`, etc. |
 

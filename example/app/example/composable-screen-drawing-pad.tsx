@@ -46,6 +46,13 @@ export default function ComposableScreenDrawingPadExample() {
                 height: 220,
                 borderRadius: 16,
                 clearable: true,
+                // Customized clear button: bottom-right corner, larger, branded.
+                clearButtonPosition: 'bottom-right' as const,
+                clearButtonOffset: 12,
+                clearButtonSize: 40,
+                clearButtonColor: '#007AFF',
+                clearButtonIconColor: '#ffffff',
+                clearButtonLabel: '⟲',
               },
             },
             {

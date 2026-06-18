@@ -35,6 +35,12 @@ export type DrawingPadElementProps = BaseBoxProps & {
   strokeWidth?: number;
   backgroundColor?: string;
   clearable?: boolean;
+  clearButtonPosition?: "top-left" | "top-right" | "bottom-left" | "bottom-right";
+  clearButtonOffset?: number;
+  clearButtonSize?: number;
+  clearButtonColor?: string;
+  clearButtonIconColor?: string;
+  clearButtonLabel?: string;
   imageFormat?: "png" | "jpeg";
 };
 
@@ -45,6 +51,12 @@ export const DrawingPadElementPropsSchema = BaseBoxPropsSchema.extend({
   strokeWidth: z.number().positive().optional(),
   backgroundColor: z.string().optional(),
   clearable: z.boolean().optional(),
+  clearButtonPosition: z.enum(["top-left", "top-right", "bottom-left", "bottom-right"]).optional(),
+  clearButtonOffset: z.number().min(0).optional(),
+  clearButtonSize: z.number().positive().optional(),
+  clearButtonColor: z.string().optional(),
+  clearButtonIconColor: z.string().optional(),
+  clearButtonLabel: z.string().optional(),
   imageFormat: z.enum(["png", "jpeg"]).optional(),
 });
 
@@ -71,6 +83,23 @@ export const DrawingPadElementComponent = ({ element, ctx }: Props): React.React
   const backgroundColor = props.backgroundColor ?? theme.colors.neutral.lowest;
   const clearable = props.clearable ?? true;
   const imageFormat = props.imageFormat ?? "png";
+
+  // Clear button: position (corner + edge offset) and style are customizable.
+  const clearPosition = props.clearButtonPosition ?? "top-right";
+  const clearOffset = props.clearButtonOffset ?? 8;
+  const clearSize = props.clearButtonSize ?? 32;
+  const clearButtonStyle = {
+    position: "absolute" as const,
+    [clearPosition.startsWith("top") ? "top" : "bottom"]: clearOffset,
+    [clearPosition.endsWith("left") ? "left" : "right"]: clearOffset,
+    zIndex: 1,
+    width: clearSize,
+    height: clearSize,
+    borderRadius: clearSize / 2,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    backgroundColor: props.clearButtonColor ?? theme.colors.neutral.higher,
+  };
 
   const currentPath = useRef<any>(null);
   // pathsRef is the source of truth (read synchronously in gesture callbacks);
@@ -220,11 +249,19 @@ export const DrawingPadElementComponent = ({ element, ctx }: Props): React.React
       <GestureHandlerRootView style={styles.fill}>
         {clearable && hasDrawing && (
           <TouchableOpacity
-            style={[styles.clearButton, { backgroundColor: theme.colors.neutral.higher }]}
+            style={clearButtonStyle}
             onPress={handleClear}
             activeOpacity={0.8}
           >
-            <Text style={[styles.clearButtonText, { color: theme.colors.text.opposite }]}>✕</Text>
+            <Text
+              style={{
+                fontSize: Math.round(clearSize * 0.5),
+                fontWeight: "400",
+                color: props.clearButtonIconColor ?? theme.colors.text.opposite,
+              }}
+            >
+              {props.clearButtonLabel ?? "✕"}
+            </Text>
           </TouchableOpacity>
         )}
         <GestureDetector gesture={panGesture}>
@@ -250,20 +287,5 @@ export const DrawingPadElementComponent = ({ element, ctx }: Props): React.React
 const styles = StyleSheet.create({
   fill: {
     flex: 1,
-  },
-  clearButton: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    zIndex: 1,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  clearButtonText: {
-    fontSize: 16,
-    fontWeight: "400",
   },
 });

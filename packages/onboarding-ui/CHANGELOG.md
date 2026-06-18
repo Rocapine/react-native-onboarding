@@ -19,7 +19,10 @@ here.
   bound variable(s): an SVG path string (`variableName`) via `path.toSVGString()`
   and/or a base64 image data URI (`imageVariableName`) rendered off an offscreen
   Skia surface. Supports `strokeColor`, `strokeWidth`, `backgroundColor`,
-  `clearable` (clear ✕ button), `imageFormat`, and all `BaseBoxProps`. Requires
+  `clearable`, `imageFormat`, a fully customizable clear button
+  (`clearButtonPosition` (top/bottom × left/right), `clearButtonOffset`,
+  `clearButtonSize`, `clearButtonColor`, `clearButtonIconColor`,
+  `clearButtonLabel`), and all `BaseBoxProps`. Requires
   the optional peer dependency `@shopify/react-native-skia` (throws an explicit
   install error when absent). Wired into `renderElement` and added to
   `PRESS_HANDLED_TYPES` (owns its own gesture).

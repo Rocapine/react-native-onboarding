@@ -250,7 +250,7 @@ Each override is a `Partial` of the overridable Button props: `BaseBoxProps` (in
 | `Rive` | `url: string` | `source` |
 | `RadioGroup` / `CheckboxGroup` | `items: [{label,value}]` | `options` |
 | `WheelPicker` | exactly one of `items: [{label,value}]` or `range: {min,max,step?,unit?}` | both `items` + `range`, or neither |
-| `DrawingPad` | `variableName` (SVG path string) and/or `imageVariableName` (base64 data URI); `strokeColor`, `strokeWidth` (>0, default 2), `backgroundColor`, `clearable` (default true), `imageFormat: "png"\|"jpeg"` (default `"png"`); needs `@shopify/react-native-skia` | `value`, `paths` |
+| `DrawingPad` | `variableName` (SVG path string) and/or `imageVariableName` (base64 data URI); `strokeColor`, `strokeWidth` (>0, default 2), `backgroundColor`, `clearable` (default true), `imageFormat: "png"\|"jpeg"` (default `"png"`); clear-button styling: `clearButtonPosition` (4 corners, default `"top-right"`), `clearButtonOffset`, `clearButtonSize`, `clearButtonColor`, `clearButtonIconColor`, `clearButtonLabel`; needs `@shopify/react-native-skia` | `value`, `paths` |
 | `Slider` | `variableName`, `min`/`max`/`step` (numbers), `defaultValue` (number); writes a float | string `min`/`max`; `items` (it's continuous, not discrete) |
 | `Button` | `actions: [...]`, `disabledWhen` | `action`, `disabled` |
 | `SafeAreaView` | `edges: ["top","bottom"]` or `{ top: "additive" }` | `{ top: "always" }` |

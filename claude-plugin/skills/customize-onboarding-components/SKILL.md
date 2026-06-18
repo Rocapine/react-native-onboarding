@@ -46,7 +46,8 @@ Every styled UIElement (`Button`, `RadioGroup`, `CheckboxGroup`, `Input`, `Wheel
 - captures the drawing into a variable: `variableName` → SVG path string; `imageVariableName` → base64 image data URI (set either or both)
 - `strokeColor` (pen; defaults to `theme.colors.text.primary`), `strokeWidth` (>0, default 2)
 - `backgroundColor` (canvas fill, also painted into the exported image; defaults to `theme.colors.neutral.lowest`)
-- `clearable` (clear ✕ button; default true), `imageFormat` (`"png" | "jpeg"`, default `"png"`)
+- `clearable` (show clear button; default true), `imageFormat` (`"png" | "jpeg"`, default `"png"`)
+- clear button: `clearButtonPosition` (`"top-left"|"top-right"|"bottom-left"|"bottom-right"`, default `"top-right"`), `clearButtonOffset` (edge distance px, default 8), `clearButtonSize` (diameter px, default 32), `clearButtonColor` (bg; defaults to `theme.colors.neutral.higher`), `clearButtonIconColor` (glyph; defaults to `theme.colors.text.opposite`), `clearButtonLabel` (glyph/text, default `"✕"`)
 - box defaults: `height` 200, `borderWidth` 2, `borderRadius` 16, `borderColor` = `theme.colors.primary`
 
 `Slider` (continuous numeric input bound to a variable; needs `@react-native-community/slider`):

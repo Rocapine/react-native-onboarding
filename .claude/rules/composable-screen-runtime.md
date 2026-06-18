@@ -66,6 +66,10 @@ Default `overflow: hidden`. Carousel `left-align` carouselType needs `visible` f
 
 `GradientBox` silently falls back to plain `View` if `expo-linear-gradient` not installed. If `backgroundGradient` appears unrendered, check peer dep first.
 
+## Gradient render path must size like the non-gradient path
+
+A `backgroundGradient` forks the renderer into a gradient branch that nests content inside `<GradientBox>` — the outer wrapper carries the box layout (`flex`/`height`/etc.) and an **inner** view fills it. The trap: the inner view used a hardcoded `flex: 1`, but the non-gradient path is content-sized. When the box has no explicit `height`/`flex`, the outer wrapper is content-sized too, so the inner `flex: 1` instead grabs the **parent's** full main-axis — inside a `ZStack`/flex container the element balloons to fill the whole screen (v1.44.7 bug: gradient `Button`/`SafeAreaView`/`KeyboardAvoidingView`/`ScrollView`). Gate any inner fill on an explicit size: `const fillsParent = p.height != null || p.flex != null || p.flexGrow != null;` then `flex: fillsParent ? 1 : p.flex` (or `: undefined`). Rule: **the gradient and non-gradient branches must produce identical layout** for the same props — diff them whenever you touch a renderer's gradient fork (`flex`, padding, `alignSelf`, width/height defaults should not differ).
+
 ## Font hook rule (Text-rendering elements)
 
 ```ts

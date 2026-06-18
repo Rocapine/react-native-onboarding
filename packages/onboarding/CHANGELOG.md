@@ -6,6 +6,10 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ## [Unreleased]
 
+---
+
+## [1.46.0] - 2026-06-18
+
 ### Added
 
 - New `DrawingPad` ComposableScreen `UIElement` type (type + Zod schema). A

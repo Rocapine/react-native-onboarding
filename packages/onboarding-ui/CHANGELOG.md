@@ -7,6 +7,10 @@ here.
 
 ## [Unreleased]
 
+---
+
+## [1.46.0] - 2026-06-18
+
 ### Added
 
 - `DrawingPad` ComposableScreen element renderer — a freehand drawing /

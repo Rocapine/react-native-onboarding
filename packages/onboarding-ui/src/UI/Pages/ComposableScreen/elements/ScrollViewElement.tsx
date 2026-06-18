@@ -59,6 +59,11 @@ export const ScrollViewElementComponent = ({ element, ctx }: Props): React.React
   const p = element.props;
   const hasGradient = !!p.backgroundGradient;
   const horizontal = p.horizontal === true;
+  // Gradient path: outer GradientBox carries the box layout (containerStyle),
+  // inner ScrollView fills it — but only force `flex: 1` when the box is
+  // explicitly sized, else a content-sized ScrollView grabs the parent's full
+  // main-axis (screen-fill in a ZStack/flex container).
+  const fillsParent = p.height != null || p.flex != null || p.flexGrow != null;
 
   const containerStyle = {
     flex: p.flex,
@@ -109,7 +114,7 @@ export const ScrollViewElementComponent = ({ element, ctx }: Props): React.React
       alwaysBounceHorizontal={p.alwaysBounceHorizontal}
       contentInset={p.contentInset}
       keyboardShouldPersistTaps={p.keyboardShouldPersistTaps ?? "handled"}
-      style={hasGradient ? { flex: 1 } : containerStyle}
+      style={hasGradient ? { flex: fillsParent ? 1 : p.flex } : containerStyle}
       contentContainerStyle={contentContainerStyle}
     >
       {ctx.renderChildren(element.children, horizontal ? "XScroll" : "YStack")}

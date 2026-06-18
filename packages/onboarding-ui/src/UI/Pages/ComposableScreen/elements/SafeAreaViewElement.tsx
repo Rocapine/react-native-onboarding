@@ -64,8 +64,14 @@ export const SafeAreaViewElementComponent = ({ element, ctx }: Props): React.Rea
     opacity: p.opacity,
   };
 
+  // When gradient is present the outer GradientBox carries the box layout
+  // (frameStyle) and the inner SafeAreaView fills it — but only force `flex: 1`
+  // when the box is explicitly sized (height/flex). A content-sized box must
+  // stay content-sized, else `flex: 1` grabs the parent's full main-axis (e.g.
+  // inside a ZStack the element fills the whole screen).
+  const fillsParent = p.height != null || p.flex != null || p.flexGrow != null;
   const safeAreaStyle = {
-    flex: hasGradient ? 1 : p.flex,
+    flex: hasGradient && fillsParent ? 1 : p.flex,
     padding: p.padding,
     paddingHorizontal: p.paddingHorizontal,
     paddingVertical: p.paddingVertical,

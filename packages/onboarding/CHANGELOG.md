@@ -8,6 +8,15 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.44.7] - 2026-06-18
+
+### Changed
+
+- Version sync with `@rocapine/react-native-onboarding-ui@1.44.7` (gradient
+  elements no longer fill the screen). No headless changes.
+
+---
+
 ## [1.44.6] - 2026-06-18
 
 ### Fixed

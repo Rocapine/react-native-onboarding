@@ -372,6 +372,37 @@ export const onboardingExample = {
                 },
               },
               {
+                // DrawingPad — freehand signature/drawing surface. On each
+                // completed stroke it serializes the drawing into variables:
+                // `signature` (SVG path string) + `signatureImage` (base64 PNG
+                // data URI). Requires @shopify/react-native-skia.
+                id: "signature-pad",
+                type: "DrawingPad",
+                props: {
+                  variableName: "signature",
+                  imageVariableName: "signatureImage",
+                  strokeWidth: 3,
+                  height: 180,
+                  borderRadius: 16,
+                  marginVertical: 8,
+                  clearable: true,
+                },
+              },
+              {
+                // Confirmation shown once the pad has been drawn on —
+                // demonstrates reading the DrawingPad's SVG variable.
+                id: "signature-confirm",
+                type: "Text",
+                renderWhen: { variable: "signature", operator: "is_not_empty" },
+                props: {
+                  content: "Signature captured ✓",
+                  fontSize: 14,
+                  textAlign: "center",
+                  opacity: 0.6,
+                  marginVertical: 4,
+                },
+              },
+              {
                 // Inline rich text — `content` as an array of styled spans.
                 // Each span inherits the parent Text style and overrides only
                 // what it sets (here: weight, color, underline).

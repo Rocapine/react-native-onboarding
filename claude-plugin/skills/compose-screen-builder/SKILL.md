@@ -48,6 +48,7 @@ Then apply the polish layer from `../create-step-json/references/screen-patterns
 | `RadioGroup` / `CheckboxGroup` | Bound to a variable |
 | `DatePicker` | Date input bound to a variable |
 | `WheelPicker` | Scrolling wheel selector bound to a variable (needs `@react-native-picker/picker`) |
+| `DrawingPad` | Freehand draw/signature canvas; serializes to a variable (`variableName` → SVG path string; `imageVariableName` → base64 image data URI). Needs `@shopify/react-native-skia` |
 | `Slider` | Continuous numeric input bound to a variable (stored as a float). Props: `min` (0), `max` (1), `step` (0 = continuous), `defaultValue`, `minimumTrackTintColor`, `maximumTrackTintColor`, `thumbTintColor`. Needs optional `@react-native-community/slider`; degrades to an empty box when absent |
 | `Carousel` | Inline horizontal pager |
 | `ProgressIndicator` | Linear / circular progress bar; static `value`, bound `variableName`, or `autoplay` animation. `minValue`/`maxValue` set the range (default 0–100) for an animated count-up; `step` snaps label/variable, `labelSuffix` replaces `%` |
@@ -107,13 +108,13 @@ Worked example (Image with static tilt, entrance/exit, and a continuous pulse):
 { "id": "card", "type": "YStack", "props": { "padding": 16, "borderRadius": 12, "onPress": [{ "type": "setVariable", "name": "plan", "value": "pro" }, "continue"] }, "children": [ … ] }
 ```
 
-Runtime **ignores `onPress`** on elements that already own a tap/focus/scroll gesture: `Button` (use `actions`), `RadioGroup`, `CheckboxGroup`, `DatePicker`, `Input`, `WheelPicker`, `Slider`. The schema still accepts it there (it's on `BaseBoxProps`), so don't rely on it for those — wire selection/continue via their own props instead.
+Runtime **ignores `onPress`** on elements that already own a tap/focus/scroll gesture: `Button` (use `actions`), `RadioGroup`, `CheckboxGroup`, `DatePicker`, `Input`, `WheelPicker`, `DrawingPad`, `Slider`. The schema still accepts it there (it's on `BaseBoxProps`), so don't rely on it for those — wire selection/continue via their own props instead.
 
 ## Variables
 
 **There is no `payload.variables` map.** Variables live at runtime in the headless provider's variables store. They are populated by:
 
-- This screen's `Input` / `RadioGroup` / `CheckboxGroup` / `DatePicker` / `WheelPicker` / `Slider` `variableName` prop
+- This screen's `Input` / `RadioGroup` / `CheckboxGroup` / `DatePicker` / `WheelPicker` / `Slider` `variableName` prop (and `DrawingPad`'s `variableName` / `imageVariableName`)
 - Prior ComposableScreen steps' bound element captures
 - `Button.actions` containing a `setVariable` action: `{ "type": "setVariable", "name": "counter", "value": "{{counter}} + 1", "valueMode": "expression" }`
 
@@ -249,6 +250,7 @@ Each override is a `Partial` of the overridable Button props: `BaseBoxProps` (in
 | `Rive` | `url: string` | `source` |
 | `RadioGroup` / `CheckboxGroup` | `items: [{label,value}]` | `options` |
 | `WheelPicker` | exactly one of `items: [{label,value}]` or `range: {min,max,step?,unit?}` | both `items` + `range`, or neither |
+| `DrawingPad` | `variableName` (SVG path string) and/or `imageVariableName` (base64 data URI); `strokeColor`, `strokeWidth` (>0, default 2), `backgroundColor`, `clearable` (default true), `imageFormat: "png"\|"jpeg"` (default `"png"`); clear-button styling: `clearButtonPosition` (4 corners, default `"top-right"`), `clearButtonOffset`, `clearButtonSize`, `clearButtonColor`, `clearButtonIconColor`, `clearButtonLabel`; needs `@shopify/react-native-skia` | `value`, `paths` |
 | `Slider` | `variableName`, `min`/`max`/`step` (numbers), `defaultValue` (number); writes a float | string `min`/`max`; `items` (it's continuous, not discrete) |
 | `Button` | `actions: [...]`, `disabledWhen` | `action`, `disabled` |
 | `SafeAreaView` | `edges: ["top","bottom"]` or `{ top: "additive" }` | `{ top: "always" }` |

@@ -9,6 +9,26 @@ here.
 
 ---
 
+## [1.46.0] - 2026-06-18
+
+### Added
+
+- `DrawingPad` ComposableScreen element renderer — a freehand drawing /
+  signature canvas. Captures multi-stroke input via `react-native-gesture-handler`
+  and Skia paths; on each completed stroke it serializes the drawing into the
+  bound variable(s): an SVG path string (`variableName`) via `path.toSVGString()`
+  and/or a base64 image data URI (`imageVariableName`) rendered off an offscreen
+  Skia surface. Supports `strokeColor`, `strokeWidth`, `backgroundColor`,
+  `clearable`, `imageFormat`, a fully customizable clear button
+  (`clearButtonPosition` (top/bottom × left/right), `clearButtonOffset`,
+  `clearButtonSize`, `clearButtonColor`, `clearButtonIconColor`,
+  `clearButtonLabel`), and all `BaseBoxProps`. Requires
+  the optional peer dependency `@shopify/react-native-skia` (throws an explicit
+  install error when absent). Wired into `renderElement` and added to
+  `PRESS_HANDLED_TYPES` (owns its own gesture).
+
+---
+
 ## [1.45.0] - 2026-06-18
 
 ### Added

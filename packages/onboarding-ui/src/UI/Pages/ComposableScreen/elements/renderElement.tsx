@@ -27,6 +27,7 @@ import { ScrollViewElementComponent } from "./ScrollViewElement";
 import { KeyboardAvoidingViewElementComponent } from "./KeyboardAvoidingViewElement";
 import { ProgressIndicatorElementComponent } from "./ProgressIndicatorElement";
 import { AnimatedTextElementComponent } from "./AnimatedTextElement";
+import { DrawingPadElementComponent } from "./DrawingPadElement";
 import { SliderElementComponent } from "./SliderElement";
 import { AnimatedBox } from "./AnimatedBox";
 
@@ -41,6 +42,7 @@ const PRESS_HANDLED_TYPES = new Set<UIElement["type"]>([
   "DatePicker",
   "Input",
   "WheelPicker",
+  "DrawingPad",
   "Slider",
 ]);
 
@@ -142,6 +144,10 @@ export const renderElement = (
 
   if (element.type === "AnimatedText") {
     return <AnimatedTextElementComponent key={element.id} element={element} ctx={ctx} />;
+  }
+
+  if (element.type === "DrawingPad") {
+    return <DrawingPadElementComponent key={element.id} element={element} ctx={ctx} />;
   }
 
   if (element.type === "Slider") {

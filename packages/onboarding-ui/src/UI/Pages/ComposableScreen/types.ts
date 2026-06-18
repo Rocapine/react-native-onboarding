@@ -41,6 +41,10 @@ import {
   type AnimatedTextElementProps,
   AnimatedTextElementPropsSchema,
 } from "./elements/AnimatedTextElement";
+import {
+  type DrawingPadElementProps,
+  DrawingPadElementPropsSchema,
+} from "./elements/DrawingPadElement";
 import { type SliderElementProps, SliderElementPropsSchema } from "./elements/SliderElement";
 
 export type { BaseBoxProps } from "./elements/BaseBoxProps";
@@ -76,6 +80,7 @@ export type {
 } from "./elements/KeyboardAvoidingViewElement";
 export type { ProgressIndicatorElementProps, ProgressEasing } from "./elements/ProgressIndicatorElement";
 export type { AnimatedTextElementProps } from "./elements/AnimatedTextElement";
+export type { DrawingPadElementProps } from "./elements/DrawingPadElement";
 export type { SliderElementProps } from "./elements/SliderElement";
 
 // UIElement union — must live here (not in elements/) to avoid circular deps
@@ -241,6 +246,13 @@ export type UIElement =
       renderWhen?: LeafCondition | ConditionGroup;
       type: "AnimatedText";
       props: AnimatedTextElementProps;
+    }
+  | {
+      id: string;
+      name?: string;
+      renderWhen?: LeafCondition | ConditionGroup;
+      type: "DrawingPad";
+      props: DrawingPadElementProps;
     }
   | {
       id: string;
@@ -417,6 +429,13 @@ export const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
       renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
       type: z.literal("AnimatedText"),
       props: AnimatedTextElementPropsSchema,
+    }),
+    z.object({
+      id: z.string(),
+      name: z.string().optional(),
+      renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
+      type: z.literal("DrawingPad"),
+      props: DrawingPadElementPropsSchema,
     }),
     z.object({
       id: z.string(),

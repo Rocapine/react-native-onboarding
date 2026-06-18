@@ -9,6 +9,23 @@ here.
 
 ---
 
+## [1.44.7] - 2026-06-18
+
+### Fixed
+
+- **`backgroundGradient` on `Button` (and other elements) no longer blows the
+  element up to fill the screen.** The gradient render path nested the content
+  inside `<GradientBox style={{ flex: 1 }}>` with an inner `flex: 1` view, while
+  the non-gradient path was content-sized. In a `ZStack`/flex container that
+  `flex: 1` grabbed the parent's full main-axis, so a gradient `Button` (or
+  `SafeAreaView`/`KeyboardAvoidingView`/`ScrollView`) expanded to the whole
+  screen. The inner `flex: 1` is now gated behind an explicit
+  `height`/`flex`/`flexGrow`, so a content-sized element stays content-sized
+  with or without a gradient. Affected renderers: `ButtonElement`,
+  `SafeAreaViewElement`, `KeyboardAvoidingViewElement`, `ScrollViewElement`.
+
+---
+
 ## [1.44.6] - 2026-06-18
 
 ### Changed

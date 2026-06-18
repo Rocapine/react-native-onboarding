@@ -76,6 +76,29 @@ jobs:
         working-directory: ${{ matrix.dir }}
         run: npm publish --access public
 
+      - name: Notify Slack
+        if: steps.check.outputs.should_publish == 'true' && env.SLACK_WEBHOOK_URL != ''
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          PKG: ${{ matrix.name }}
+          DIR: ${{ matrix.dir }}
+          VERSION: ${{ steps.check.outputs.local }}
+          PREV: ${{ steps.check.outputs.published }}
+        run: |
+          HEADER=":package: Published *$PKG* \`$VERSION\` (was \`$PREV\`)  •  <https://www.npmjs.com/package/$PKG/v/$VERSION|npm>  •  <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|commit>"
+          # Extract this version's changelog body, drop blank edges, render ### headings as bold.
+          NOTES=$(awk "/^## \[?$VERSION\]?/{flag=1;next}/^## /{flag=0}flag" "$DIR/CHANGELOG.md" \
+            | grep -v '^---$' \
+            | sed 's/^### \(.*\)/*\1*/' \
+            | awk 'NF{f=1} f{a[++n]=$0} END{while(n>0 && a[n]=="")n--; for(i=1;i<=n;i++)print a[i]}')
+          if [ -n "$NOTES" ]; then
+            TEXT=$(printf '%s\n\n%s' "$HEADER" "$NOTES")
+          else
+            TEXT="$HEADER"
+          fi
+          jq -n --arg t "$TEXT" '{text: $t}' \
+            | curl -sf -X POST -H 'Content-type: application/json' -d @- "$SLACK_WEBHOOK_URL"
+
       - name: Tag + GitHub Release
         if: steps.check.outputs.should_publish == 'true' && matrix.dir == 'packages/onboarding'
         env:

@@ -70,9 +70,21 @@ export const SliderElementComponent = ({ element, ctx }: Props): React.ReactElem
     }
   }, [props.variableName, props.defaultValue, persisted]);
 
+  // The native slider emits raw float32 values (e.g. 0.10000000149011612).
+  // Snap to the step grid and trim the float noise so the stored/displayed
+  // value is clean ("0.1", not the float32 artifact).
+  const cleanValue = (n: number): number => {
+    if (props.step && props.step > 0) {
+      const snapped = min + Math.round((n - min) / props.step) * props.step;
+      const decimals = (String(props.step).split(".")[1] ?? "").length;
+      return parseFloat(snapped.toFixed(decimals));
+    }
+    return parseFloat(n.toFixed(4));
+  };
+
   const handleChange = (next: number) => {
     if (props.variableName) {
-      setVariable(props.variableName, { value: String(next), kind: "float" });
+      setVariable(props.variableName, { value: String(cleanValue(next)), kind: "float" });
     }
   };
 

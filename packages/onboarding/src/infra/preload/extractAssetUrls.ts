@@ -52,7 +52,8 @@ const pushMediaSource = (out: AssetRef[], media: any): void => {
 };
 
 // Walk a ComposableScreen UIElement tree. Asset-bearing element types pull their
-// url/source prop; container types recurse into `props.children`.
+// url/source prop; container types recurse into the top-level `children` array
+// (sibling of `props`, per the UIElement schema — NOT `props.children`).
 const walkElement = (out: AssetRef[], element: any): void => {
   if (!element || typeof element !== "object") return;
   const props = element.props ?? {};
@@ -75,8 +76,8 @@ const walkElement = (out: AssetRef[], element: any): void => {
       break;
   }
 
-  if (Array.isArray(props.children)) {
-    for (const child of props.children) walkElement(out, child);
+  if (Array.isArray(element.children)) {
+    for (const child of element.children) walkElement(out, child);
   }
 };
 

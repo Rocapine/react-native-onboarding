@@ -403,14 +403,14 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 - Any screen that doesn't fit a pre-built type
 
 **Key features:**
-- Recursive element tree (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `Text`, `RichText`, `Image`, `Lottie`, `Rive`, `Icon`, `Video`, `Input`, `RadioGroup`, `CheckboxGroup`, `Button`, `DatePicker`, `WheelPicker`, `ProgressIndicator`, `AnimatedText`, `Carousel`)
+- Recursive element tree (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `Text`, `RichText`, `Image`, `Lottie`, `Rive`, `Icon`, `Video`, `Input`, `RadioGroup`, `CheckboxGroup`, `Button`, `DatePicker`, `WheelPicker`, `Slider`, `ProgressIndicator`, `AnimatedText`, `Carousel`)
 - Full flexbox layout support
 - Border, radius, overflow, and opacity control
 - Dimension constraints (`width`, `height`, `min/max`)
 - Spacing with both `padding` and `margin`
 - Text color defaults to `theme.colors.text.primary`
-- Lottie, Rive, Video, DatePicker, and WheelPicker as optional peer deps — graceful fallback if not installed
-- **Variable context** — `Input`, `RadioGroup`, `CheckboxGroup`, `DatePicker`, and `WheelPicker` elements write into shared state; `Text` elements interpolate those values with `{{variableName}}` expressions
+- Lottie, Rive, Video, DatePicker, WheelPicker, and Slider as optional peer deps — graceful fallback if not installed
+- **Variable context** — `Input`, `RadioGroup`, `CheckboxGroup`, `DatePicker`, `WheelPicker`, and `Slider` elements write into shared state; `Text` elements interpolate those values with `{{variableName}}` expressions
 - **Conditional rendering** — every UIElement accepts `renderWhen?: LeafCondition | ConditionGroup`; the renderer skips the element and its subtree when the condition is false
 
 **Element types:**
@@ -433,6 +433,7 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 | `Carousel` | Horizontal slides | — | `react-native-reanimated-carousel` |
 | `DatePicker` | Native date/time picker | — | `@react-native-community/datetimepicker` |
 | `WheelPicker` | Native scrolling wheel selector | — | `@react-native-picker/picker` |
+| `Slider` | Continuous numeric slider | — | `@react-native-community/slider` |
 | `ProgressIndicator` | Linear bar / circular ring | — | — |
 | `AnimatedText` | Count-up number (UI-thread, native `TextInput`) | — | — |
 | `Lottie` | `LottieView` | — | `lottie-react-native` |
@@ -501,7 +502,7 @@ Every UIElement also inherits an optional `onPress: ButtonAction[]` from `BaseBo
 }
 ```
 
-Runtime **ignores `onPress`** on elements that already own a tap / focus / scroll gesture: `Button` (use `actions`), `RadioGroup`, `CheckboxGroup`, `DatePicker`, `Input`, `WheelPicker`. The schema still accepts it everywhere (it lives on `BaseBoxProps`), so wire selection / continue through those elements' own props instead.
+Runtime **ignores `onPress`** on elements that already own a tap / focus / scroll / drag gesture: `Button` (use `actions`), `RadioGroup`, `CheckboxGroup`, `DatePicker`, `Input`, `WheelPicker`, `Slider`. The schema still accepts it everywhere (it lives on `BaseBoxProps`), so wire selection / continue through those elements' own props instead.
 
 **Stack props (`YStack` / `XStack`):**
 
@@ -960,6 +961,29 @@ Renders a scrolling wheel selector (native iOS wheel / Android dropdown) bound t
 npx expo install @react-native-picker/picker
 ```
 
+**Slider props:**
+
+Renders a continuous numeric slider bound to a variable. The selected value is stored as a **float string** (`kind: "float"`) in the variable — read it back downstream with a `{{variableName}}` expression or a `renderWhen` condition.
+
+| Prop | Type | Notes |
+|------|------|-------|
+| `variableName` | `string` | Context key — the current value is written to shared `composableVariables` as a float string (`value`) |
+| `defaultValue` | `number` | Initial value; defaults to `min` (else `0`). Seeds the variable on mount if `variableName` is set |
+| `min` | `number` | Minimum value; defaults to `0` |
+| `max` | `number` | Maximum value; defaults to `1` |
+| `step` | `number` | Step increment; `0` (default) means continuous |
+| `minimumTrackTintColor` | `string` | Color of the filled (left) portion of the track; defaults to `theme.colors.primary` |
+| `maximumTrackTintColor` | `string` | Color of the remaining (right) portion of the track |
+| `thumbTintColor` | `string` | Color of the draggable thumb |
+| `disabled` | `boolean` | Disables interaction |
+| All `BaseBoxProps` | — | `width`, `height`, `margin*`, `padding*`, `alignSelf`, `opacity`, etc. |
+
+**Dependencies:** `@react-native-community/slider` (optional peer dep — the element degrades to an empty box when it is not installed)
+
+```bash
+npx expo install @react-native-community/slider
+```
+
 **ProgressIndicator props:**
 
 Renders a linear bar or circular ring. By default the value range is 0–100 (a percentage), but `minValue`/`maxValue` let it represent any range — e.g. an **animated count-up** from 0 to N. The value can be static (`value`), bound to a variable (`variableName`), or animated on mount (`autoplay`). To show the count-up as plain text, set `autoplay` + `variableName`, then read `{{var}}` in a `Text` element (`mode: "expression"`) — the variable carries the real value, no math needed.
@@ -1042,7 +1066,7 @@ npx expo install react-native-reanimated-carousel
 
 **Variable context**
 
-`Input`, `RadioGroup`, `CheckboxGroup`, `DatePicker`, and `WheelPicker` elements write into a shared `composableVariables` map stored in `OnboardingProgressContext`. This state persists across navigation between `ComposableScreen` steps, so values collected on an early screen are available on later screens.
+`Input`, `RadioGroup`, `CheckboxGroup`, `DatePicker`, `WheelPicker`, and `Slider` elements write into a shared `composableVariables` map stored in `OnboardingProgressContext`. This state persists across navigation between `ComposableScreen` steps, so values collected on an early screen are available on later screens.
 
 Each entry is a structured object `{ value: string; label?: string }`:
 
@@ -1053,6 +1077,7 @@ Each entry is a structured object `{ value: string; label?: string }`:
 | `CheckboxGroup` | `JSON.stringify(string[])` of selected values | Comma-joined display labels (e.g. `"Health, Fitness"`) |
 | `DatePicker` | ISO 8601 string (e.g. `"1990-01-01T00:00:00.000Z"`) | Locale-formatted date (e.g. `"Jan 1, 1990"`) |
 | `WheelPicker` | Selected item value (e.g. `"70"`) | Selected item label (e.g. `"70 kg"`) |
+| `Slider` | Current value as a float string (e.g. `"0.5"`) | — |
 
 `Text` elements with `mode: "expression"` interpolate `{{variableName}}` patterns in their `content` string from that map. The renderer prefers `label` over `value` when both are present. If a key has no value yet, the pattern is replaced with an empty string.
 
@@ -1166,7 +1191,7 @@ error; a unary operator ignores any `value`.
 
 Element-level defaults (`Carousel.defaultIndex`, `RadioGroup.defaultValue`,
 `CheckboxGroup.defaultValues`, `Input.defaultValue`,
-`DatePicker.defaultValue`, `WheelPicker.defaultValue`) are overlaid onto the variable map
+`DatePicker.defaultValue`, `WheelPicker.defaultValue`, `Slider.defaultValue`) are overlaid onto the variable map
 synchronously on first render — so `renderWhen` and `{{var}}`
 interpolation see defaults from the very first frame, before any user
 interaction.
@@ -1395,7 +1420,7 @@ If `expo-video` is not installed, the element renders a placeholder view with an
 }
 ```
 
-**Dependencies:** None for `YStack`, `XStack`, `ZStack`, `Text`, `Image`, `Icon`, `Input`, `RadioGroup`, `CheckboxGroup`, `Button`, `ProgressIndicator`. The optional `haptic` prop on `Button` / `RadioGroup` / `CheckboxGroup` uses `expo-haptics` (optional peer dep) — it silently no-ops if not installed, so no dependency is required unless you opt into haptics. `SafeAreaView` requires `react-native-safe-area-context` (already a peer dep of `@rocapine/react-native-onboarding-ui`). See the Carousel, Lottie, Rive, Video, DatePicker, and WheelPicker sections above for elements with peer deps.
+**Dependencies:** None for `YStack`, `XStack`, `ZStack`, `Text`, `Image`, `Icon`, `Input`, `RadioGroup`, `CheckboxGroup`, `Button`, `ProgressIndicator`. The optional `haptic` prop on `Button` / `RadioGroup` / `CheckboxGroup` uses `expo-haptics` (optional peer dep) — it silently no-ops if not installed, so no dependency is required unless you opt into haptics. `SafeAreaView` requires `react-native-safe-area-context` (already a peer dep of `@rocapine/react-native-onboarding-ui`). See the Carousel, Lottie, Rive, Video, DatePicker, WheelPicker, and Slider sections above for elements with peer deps.
 
 ---
 

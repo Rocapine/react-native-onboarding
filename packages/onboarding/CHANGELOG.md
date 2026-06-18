@@ -18,6 +18,29 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.45.0] - 2026-06-18
+
+### Added
+
+- **`Slider` ComposableScreen UIElement** — a continuous numeric input bound to
+  a variable. Value is stored as a stringified float (`kind: "float"`) so
+  expressions/conditions coerce it numerically. Props: `variableName`,
+  `defaultValue` (number), `min` (0), `max` (1), `step` (0 = continuous), plus
+  `minimumTrackTintColor` / `maximumTrackTintColor` / `thumbTintColor` and
+  `disabled`. Schema refines `min <= max`. Exposed via `SliderElementProps` and
+  the `UIElement` union / `UIElementSchema`.
+
+---
+
+## [1.44.7] - 2026-06-18
+
+### Changed
+
+- Version sync with `@rocapine/react-native-onboarding-ui@1.44.7` (gradient
+  elements no longer fill the screen). No headless changes.
+
+---
+
 ## [1.44.6] - 2026-06-18
 
 ### Fixed

@@ -14,7 +14,7 @@ Run probe from `../onboarding-best-practices/references/inspect-target-app.md`. 
 
 ## Tier 1 — Match via props (default path)
 
-Every styled UIElement (`Button`, `RadioGroup`, `CheckboxGroup`, `Input`, `WheelPicker`, `DrawingPad`, `Text`, container stacks) accepts the full visual surface as props. Wire them all from the Design Profile and the result is indistinguishable from a native-host component.
+Every styled UIElement (`Button`, `RadioGroup`, `CheckboxGroup`, `Input`, `WheelPicker`, `DrawingPad`, `Slider`, `Text`, container stacks) accepts the full visual surface as props. Wire them all from the Design Profile and the result is indistinguishable from a native-host component.
 
 `Button`:
 - `variant: "filled" | "outlined" | "ghost"`
@@ -48,6 +48,11 @@ Every styled UIElement (`Button`, `RadioGroup`, `CheckboxGroup`, `Input`, `Wheel
 - `backgroundColor` (canvas fill, also painted into the exported image; defaults to `theme.colors.neutral.lowest`)
 - `clearable` (clear ✕ button; default true), `imageFormat` (`"png" | "jpeg"`, default `"png"`)
 - box defaults: `height` 200, `borderWidth` 2, `borderRadius` 16, `borderColor` = `theme.colors.primary`
+
+`Slider` (continuous numeric input bound to a variable; needs `@react-native-community/slider`):
+- `minimumTrackTintColor` (filled portion; defaults to `theme.colors.primary`), `maximumTrackTintColor` (remaining track), `thumbTintColor`
+- value: `defaultValue` (defaults to `min`, else 0), `min` (default 0), `max` (default 1), `step` (0 = continuous; default 0)
+- `disabled`
 
 `ProgressIndicator` (`variant: "linear" | "circular"`):
 - `color` (progress fill; defaults to `theme.colors.primary`), `trackColor` (defaults to `theme.colors.neutral.lower`)

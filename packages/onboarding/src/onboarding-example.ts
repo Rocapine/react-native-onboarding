@@ -681,6 +681,30 @@ export const onboardingExample = {
                 },
               },
               {
+                id: "hero-slider",
+                type: "Slider",
+                props: {
+                  variableName: "intensity",
+                  defaultValue: 0.5,
+                  min: 0,
+                  max: 1,
+                  step: 0.1,
+                  marginVertical: 8,
+                },
+              },
+              {
+                id: "intensity-display",
+                type: "Text",
+                props: {
+                  content: "Intensity: {{intensity}}",
+                  mode: "expression",
+                  fontSize: 14,
+                  textAlign: "center",
+                  opacity: 0.6,
+                  marginVertical: 4,
+                },
+              },
+              {
                 id: "hero-checkbox",
                 type: "CheckboxGroup",
                 props: {

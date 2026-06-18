@@ -28,6 +28,7 @@ import { KeyboardAvoidingViewElementComponent } from "./KeyboardAvoidingViewElem
 import { ProgressIndicatorElementComponent } from "./ProgressIndicatorElement";
 import { AnimatedTextElementComponent } from "./AnimatedTextElement";
 import { DrawingPadElementComponent } from "./DrawingPadElement";
+import { SliderElementComponent } from "./SliderElement";
 import { AnimatedBox } from "./AnimatedBox";
 
 // Element types that own their own press / focus / scroll handling. The generic
@@ -42,6 +43,7 @@ const PRESS_HANDLED_TYPES = new Set<UIElement["type"]>([
   "Input",
   "WheelPicker",
   "DrawingPad",
+  "Slider",
 ]);
 
 export const renderElement = (
@@ -146,6 +148,10 @@ export const renderElement = (
 
   if (element.type === "DrawingPad") {
     return <DrawingPadElementComponent key={element.id} element={element} ctx={ctx} />;
+  }
+
+  if (element.type === "Slider") {
+    return <SliderElementComponent key={element.id} element={element} ctx={ctx} />;
   }
 
     return null;

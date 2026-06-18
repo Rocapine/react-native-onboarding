@@ -45,6 +45,7 @@ import {
   type DrawingPadElementProps,
   DrawingPadElementPropsSchema,
 } from "./elements/DrawingPadElement";
+import { type SliderElementProps, SliderElementPropsSchema } from "./elements/SliderElement";
 
 export type { BaseBoxProps } from "./elements/BaseBoxProps";
 export { BaseBoxPropsSchema } from "./elements/BaseBoxProps";
@@ -80,6 +81,7 @@ export type {
 export type { ProgressIndicatorElementProps, ProgressEasing } from "./elements/ProgressIndicatorElement";
 export type { AnimatedTextElementProps } from "./elements/AnimatedTextElement";
 export type { DrawingPadElementProps } from "./elements/DrawingPadElement";
+export type { SliderElementProps } from "./elements/SliderElement";
 
 // UIElement union — must live here (not in elements/) to avoid circular deps
 // because the Stack variant's children: UIElement[] references itself.
@@ -251,6 +253,13 @@ export type UIElement =
       renderWhen?: LeafCondition | ConditionGroup;
       type: "DrawingPad";
       props: DrawingPadElementProps;
+    }
+  | {
+      id: string;
+      name?: string;
+      renderWhen?: LeafCondition | ConditionGroup;
+      type: "Slider";
+      props: SliderElementProps;
     };
 
 // The `Text` variant, extracted so `RichText` can restrict its children to
@@ -427,6 +436,13 @@ export const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
       renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
       type: z.literal("DrawingPad"),
       props: DrawingPadElementPropsSchema,
+    }),
+    z.object({
+      id: z.string(),
+      name: z.string().optional(),
+      renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
+      type: z.literal("Slider"),
+      props: SliderElementPropsSchema,
     }),
   ])
 );

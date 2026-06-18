@@ -596,6 +596,32 @@ export default function ComposableScreenExample() {
                 marginVertical: 4,
               },
             },
+            // Slider element — numeric value bound to a variable
+            {
+              id: 'hero-slider',
+              type: 'Slider' as const,
+              props: {
+                variableName: 'intensity',
+                defaultValue: 0.5,
+                min: 0,
+                max: 1,
+                step: 0.1,
+                marginVertical: 8,
+              },
+            },
+            // Expression text — shows slider value
+            {
+              id: 'intensity-display',
+              type: 'Text' as const,
+              props: {
+                content: 'Intensity: {{intensity}}',
+                mode: 'expression' as const,
+                fontSize: 14,
+                textAlign: 'center' as const,
+                opacity: 0.7,
+                marginVertical: 4,
+              },
+            },
             // Checkbox group element
             {
               id: 'hero-checkbox',

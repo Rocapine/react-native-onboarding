@@ -8,6 +8,20 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.44.6] - 2026-06-18
+
+### Fixed
+
+- Asset prefetch/preload now works for `ComposableScreen` steps. The element
+  tree walker in `extractAssetUrls` recursed into `props.children`, but the
+  `UIElement` schema stores `children` as a top-level sibling of `props`, so
+  container recursion never fired — every nested `Image`/`Video`/`Lottie`/`Rive`
+  asset was skipped (composable screens always wrap content in
+  `SafeAreaView`/`ScrollView`/stacks). Now recurses into `element.children`, so
+  nested assets warm the cache as intended.
+
+---
+
 ## [1.44.5] - 2026-06-16
 
 ### Changed

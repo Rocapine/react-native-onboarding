@@ -38,17 +38,15 @@ describe("extractAssetUrls — ComposableScreen element tree", () => {
         elements: [
           {
             type: "YStack",
-            props: {
-              children: [
-                { type: "Image", props: { url: "https://cdn/a.png" } },
-                {
-                  type: "ScrollView",
-                  props: {
-                    children: [{ type: "Video", props: { url: "https://cdn/deep.mp4" } }],
-                  },
-                },
-              ],
-            },
+            props: {},
+            children: [
+              { type: "Image", props: { url: "https://cdn/a.png" } },
+              {
+                type: "ScrollView",
+                props: {},
+                children: [{ type: "Video", props: { url: "https://cdn/deep.mp4" } }],
+              },
+            ],
           },
         ],
       },

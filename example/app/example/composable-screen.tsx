@@ -679,6 +679,34 @@ export default function ComposableScreenExample() {
                 marginVertical: 4,
               },
             },
+            // DrawingPad element — freehand signature/drawing. Serializes to
+            // `signature` (SVG path) + `signatureImage` (base64 PNG data URI).
+            {
+              id: 'hero-drawing-pad',
+              type: 'DrawingPad' as const,
+              props: {
+                variableName: 'signature',
+                imageVariableName: 'signatureImage',
+                strokeWidth: 3,
+                height: 180,
+                borderRadius: 16,
+                marginVertical: 8,
+                clearable: true,
+              },
+            },
+            // Confirmation — shown once the pad has been drawn on
+            {
+              id: 'signature-confirm',
+              type: 'Text' as const,
+              renderWhen: { variable: 'signature', operator: 'is_not_empty' as const },
+              props: {
+                content: 'Signature captured ✓',
+                fontSize: 14,
+                textAlign: 'center' as const,
+                opacity: 0.7,
+                marginVertical: 4,
+              },
+            },
             // Carousel element
             {
               id: 'hero-carousel',

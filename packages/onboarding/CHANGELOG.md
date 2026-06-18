@@ -6,6 +6,16 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- New `DrawingPad` ComposableScreen `UIElement` type (type + Zod schema). A
+  freehand drawing / signature surface that serializes the captured drawing
+  into runtime variable(s): `variableName` receives an SVG path string,
+  `imageVariableName` receives a base64 image data URI. Props: `strokeColor`,
+  `strokeWidth`, `backgroundColor`, `clearable`, `imageFormat` (`"png"|"jpeg"`),
+  plus all `BaseBoxProps`. The renderer (UI package) requires the optional peer
+  dependency `@shopify/react-native-skia`.
+
 ---
 
 ## [1.44.6] - 2026-06-18

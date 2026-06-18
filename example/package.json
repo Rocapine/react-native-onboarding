@@ -31,6 +31,7 @@
     "@react-native-picker/picker": "2.11.4",
     "@rocapine/react-native-onboarding": "file:../packages/onboarding",
     "@rocapine/react-native-onboarding-ui": "file:../packages/onboarding-ui",
+    "@shopify/react-native-skia": "2.4.18",
     "@tanstack/react-query": "^5.90.2",
     "expo": "^56.0.0",
     "expo-constants": "~56.0.16",

@@ -44,10 +44,11 @@ Run: `npx tsx scripts/_validate-composable.ts "$(cat step.json)"`
    - `Lottie.props.source` is a string; `Rive.props.url` is a string
    - `RadioGroup.props.items` / `CheckboxGroup.props.items` is `[{label, value}]` (NOT `options`)
    - `WheelPicker.props` provides exactly one of `items: [{label, value}]` (unique values) or `range: {min, max, step?, unit?}` — both or neither is a schema error; `defaultValue` (if present) must match an available item value
+   - `DrawingPad.props` — all props optional: `variableName` / `imageVariableName` (strings; the SVG and base64-image targets), `strokeColor`/`backgroundColor` (strings), `strokeWidth` (if present, `> 0`), `clearable` (boolean), `imageFormat` (if present, `"png"|"jpeg"`). Needs the `@shopify/react-native-skia` peer dep — mandatory for this element. Not a container — must NOT have `children`
    - `ProgressIndicator.props.variant` (if present) is `"linear"|"circular"`; `easing` (if present) is `"linear"|"ease-in"|"ease-out"|"ease-in-out"`; `value`/`initialValue`/`minValue`/`maxValue` are numbers (NO fixed range — runtime-clamped to `[minValue, maxValue]`, default 0–100; so a count-up to N uses `minValue:0, maxValue:N`); `step` (if present) is `> 0`; `labelSuffix` is a string (default `"%"`); `duration`/`delay`/`thickness`/`size` are non-negative numbers; `autoplay`/`loop`/`showLabel` are booleans. Not a container — must NOT have `children`
    - `AnimatedText.props.to` is REQUIRED (number); `from` (default 0), `duration`/`delay` (non-negative), `easing` (`"linear"|"ease-in"|"ease-out"|"ease-in-out"`), `autoplay`/`loop` (booleans), `decimals` (integer `≥ 0`), `thousandsSeparator` (string, default `","`) + text styling. It renders the number only and never writes a variable — `variableName` is NOT a prop. Not a container — must NOT have `children`
    - `Button.props.actions` is an array; entries are `"continue"` or `{type:"custom",function,variables?}` or `{type:"setVariable",name,value,valueMode?,kind?,arrayOp?}` (`valueMode` ∈ `"literal"|"expression"`; `kind` ∈ `"int"|"float"|"string"`; `arrayOp` ∈ `"append"|"remove"|"toggle"` — multi-select set op on a JSON-encoded `string[]` (CheckboxGroup) variable, `kind` ignored when present — all three action shapes are the `ButtonAction` union in the headless schema, `common.types.ts`, re-exported from `ButtonElement.ts`)
-   - `props.onPress` (any element — it's a `BaseBoxProps` field) is a `ButtonAction[]` with the same entry shapes as `Button.props.actions`. Schema-valid on every element; runtime ignores it on the elements that own their own gesture (`Button` — use `actions`; `RadioGroup`, `CheckboxGroup`, `DatePicker`, `Input`, `WheelPicker`) — warn if seen there, error only on a malformed action entry
+   - `props.onPress` (any element — it's a `BaseBoxProps` field) is a `ButtonAction[]` with the same entry shapes as `Button.props.actions`. Schema-valid on every element; runtime ignores it on the elements that own their own gesture (`Button` — use `actions`; `RadioGroup`, `CheckboxGroup`, `DatePicker`, `Input`, `WheelPicker`, `DrawingPad`) — warn if seen there, error only on a malformed action entry
    - `Button.props.disabledWhen` (NOT `disabled`) is a valid `LeafCondition` or `ConditionGroup`
    - **Gating sanity (warning, not schema error)**: a `disabledWhen` / `renderWhen` condition should reference a variable captured on the SAME screen (this screen's `variableName` elements or `setVariable` actions) or a deliberate upstream capture. A CTA gated on a variable this screen never touches is almost always a copy-paste bug (seen in production: picker CTAs gated on a stale `goals` variable from an earlier screen) — flag it.
    - `Button.props.pressedStyle` / `disabledStyle` (if present) are objects — `Partial` of overridable Button props; must NOT nest `pressedStyle`/`disabledStyle`. `transitionDurationMs` is a non-negative number.
@@ -65,7 +66,7 @@ Run: `npx tsx scripts/_validate-composable.ts "$(cat step.json)"`
      - `nextStep.defaultTargetStepId` is a string and references a real step `id` in the flow.
      - Every `branches[].targetStepId` is a string and references a real step `id` in the flow.
      - Every `branches[].condition` is `null` (unconditional catch-all) OR a valid `LeafCondition` / `ConditionGroup`.
-     - Every variable referenced in a `branches[].condition` is captured upstream (by an Input / RadioGroup / CheckboxGroup / DatePicker / WheelPicker `variableName` or a `setVariable` action) — warn if not.
+     - Every variable referenced in a `branches[].condition` is captured upstream (by an Input / RadioGroup / CheckboxGroup / DatePicker / WheelPicker / DrawingPad `variableName` (or `imageVariableName`) or a `setVariable` action) — warn if not.
      - For multi-step flows, every step except the terminal one must define an explicit `defaultTargetStepId` (auto-link convention).
 5. Report ALL errors at once with path + reason. Don't stop on first.
 
@@ -95,6 +96,7 @@ Run: `npx tsx scripts/_validate-composable.ts "$(cat step.json)"`
 - `SafeAreaView.props.edges: { top: "always" }` — invalid edge mode. Use `["top","bottom"]` or `"off" | "additive" | "maximum"`.
 - `Lottie.source: { localPathId }` instead of string URL.
 - `RadioGroup` / `CheckboxGroup` / `Input` / `DatePicker` / `WheelPicker` without `variableName` — element renders but variable never captured.
+- `DrawingPad` with neither `variableName` nor `imageVariableName` — pad renders but the drawing is never captured. Also: `strokeWidth` ≤ 0, `imageFormat` outside `"png"|"jpeg"`, or `children` present (not a container).
 - Nested `SafeAreaView`.
 - `nextStep.defaultTargetStepId` referencing nonexistent step ID.
 - `nextStep: null` on a non-terminal step in a multi-step flow (relies on implicit array-order linking; prefer explicit `defaultTargetStepId`).

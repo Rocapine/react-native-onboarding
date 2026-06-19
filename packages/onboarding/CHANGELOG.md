@@ -8,6 +8,14 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.49.0] - 2026-06-19
+
+### Added
+
+- **ComposableScreen `Carousel` element — more dot controls.** New props `activeDotWidth`, `activeDotHeight` (active-dot size; default to `dotWidth`/`dotHeight` when unset), `dotsPosition` (`"top"` | `"bottom"`, default `"bottom"`), and `dotsMarginBottom` (default `0`). Complements the existing `dotColor`/`activeDotColor`/`dotWidth`/`dotHeight`/`dotsGap`/`dotsMarginTop`.
+
+---
+
 ## [1.48.0] - 2026-06-19
 
 ### Added

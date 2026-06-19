@@ -18,8 +18,12 @@ export type CarouselElementProps = BaseBoxProps & {
   activeDotColor?: string;
   dotWidth?: number;
   dotHeight?: number;
+  activeDotWidth?: number;
+  activeDotHeight?: number;
   dotsGap?: number;
+  dotsPosition?: "top" | "bottom";
   dotsMarginTop?: number;
+  dotsMarginBottom?: number;
   defaultIndex?: number | null;
   variableName?: string;
 };
@@ -34,8 +38,12 @@ export const CarouselElementPropsSchema = BaseBoxPropsSchema.extend({
   activeDotColor: z.string().optional(),
   dotWidth: z.number().nonnegative().optional().default(20),
   dotHeight: z.number().nonnegative().optional().default(4),
+  activeDotWidth: z.number().nonnegative().optional(),
+  activeDotHeight: z.number().nonnegative().optional(),
   dotsGap: z.number().nonnegative().optional().default(8),
+  dotsPosition: z.enum(["top", "bottom"]).optional().default("bottom"),
   dotsMarginTop: z.number().optional().default(12),
+  dotsMarginBottom: z.number().optional().default(0),
   defaultIndex: z.number().int().nonnegative().nullable().optional(),
   variableName: z.string().min(1).optional(),
 });
@@ -153,15 +161,45 @@ export function CarouselElementComponent({ element, ctx }: Props): React.ReactEl
 
   const dotW = props.dotWidth ?? 20;
   const dotH = props.dotHeight ?? 4;
+  const activeDotW = props.activeDotWidth ?? dotW;
+  const activeDotH = props.activeDotHeight ?? dotH;
   const dotsGap = props.dotsGap ?? 8;
   const dotsMarginTop = props.dotsMarginTop ?? 12;
+  const dotsMarginBottom = props.dotsMarginBottom ?? 0;
+  const dotsPosition = props.dotsPosition ?? "bottom";
   const dotBg = props.dotColor ?? theme.colors.neutral.low;
   const activeDotBg = props.activeDotColor ?? theme.colors.primary;
 
   const ready = !!size && size.width > 0 && size.height > 0;
 
+  const pagination = (props.showDots ?? true) ? (
+    <Pagination.Basic
+      progress={progress}
+      data={children}
+      dotStyle={{
+        width: dotW,
+        height: dotH,
+        borderRadius: dotH / 2,
+        backgroundColor: dotBg,
+      }}
+      activeDotStyle={{
+        width: activeDotW,
+        height: activeDotH,
+        borderRadius: activeDotH / 2,
+        overflow: "hidden",
+        backgroundColor: activeDotBg,
+      }}
+      containerStyle={{ gap: dotsGap, marginTop: dotsMarginTop, marginBottom: dotsMarginBottom }}
+      horizontal
+      onPress={(index: number) => {
+        ref.current?.scrollTo({ count: index - progress.value, animated: true });
+      }}
+    />
+  ) : null;
+
   return (
     <GradientBox gradient={props.backgroundGradient} style={containerStyle}>
+      {dotsPosition === "top" && pagination}
       <View style={{ flex: 1 }} onLayout={onLayout}>
         {ready && (
           <Carousel
@@ -190,27 +228,7 @@ export function CarouselElementComponent({ element, ctx }: Props): React.ReactEl
           />
         )}
       </View>
-      {(props.showDots ?? true) && (
-        <Pagination.Basic
-          progress={progress}
-          data={children}
-          dotStyle={{
-            width: dotW,
-            height: dotH,
-            borderRadius: dotH / 2,
-            backgroundColor: dotBg,
-          }}
-          activeDotStyle={{
-            overflow: "hidden",
-            backgroundColor: activeDotBg,
-          }}
-          containerStyle={{ gap: dotsGap, marginTop: dotsMarginTop }}
-          horizontal
-          onPress={(index: number) => {
-            ref.current?.scrollTo({ count: index - progress.value, animated: true });
-          }}
-        />
-      )}
+      {dotsPosition === "bottom" && pagination}
     </GradientBox>
   );
 }

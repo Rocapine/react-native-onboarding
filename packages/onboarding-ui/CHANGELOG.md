@@ -9,6 +9,14 @@ here.
 
 ---
 
+## [1.48.0] - 2026-06-19
+
+### Added
+
+- **Carousel pagination dots are now customizable** — the `Carousel` renderer reads `payload.pagination` to control dot colors, inactive/active width & height, gap, vertical placement (`position: "top" | "bottom"`), and top/bottom margins, and can hide the dots entirely (`show: false`). Defaults reproduce the previous hardcoded styling.
+
+---
+
 ## [1.47.0] - 2026-06-19
 
 ### Changed

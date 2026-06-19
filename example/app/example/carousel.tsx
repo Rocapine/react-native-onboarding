@@ -39,6 +39,18 @@ export default function CarouselExample() {
         subtitle: "Stay motivated and reach new heights",
       },
     ],
+    pagination: {
+      activeDotColor: "#E76F51",
+      dotColor: "#E9C46A",
+      dotWidth: 10,
+      dotHeight: 10,
+      activeDotWidth: 32,
+      activeDotHeight: 10,
+      gap: 12,
+      position: "bottom",
+      marginTop: 16,
+      marginBottom: 24,
+    },
   } satisfies OnboardingUI.CarouselStepType["payload"];
 
   const step = {

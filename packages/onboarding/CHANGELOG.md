@@ -8,6 +8,13 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.49.1] - 2026-06-19
+
+### Changed
+- Version parity bump — no headless SDK changes. Released alongside the UI fix for ComposableScreen Carousel active dot sizing.
+
+---
+
 ## [1.49.0] - 2026-06-19
 
 ### Added

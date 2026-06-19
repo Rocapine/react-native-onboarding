@@ -750,11 +750,13 @@ Plain-text children are automatically split into **one item per word** so the ro
 
 | Prop | Type | Notes |
 |------|------|-------|
-| `items` | `Array<{ label?: string; value: string; subLabel?: string }>` | **Required** — list of options. `label` is optional (omit for a sub-label-only row); `value` is required; `subLabel` is an optional secondary line under the label |
+| `items` | `Array<{ label?: string; value: string; subLabel?: string; image?: ItemImage }>` | **Required** — list of options. `label` is optional (omit for a sub-label-only row); `value` is required; `subLabel` is an optional secondary line under the label; `image` is an optional thumbnail stacked above the label (see `ItemImage` below) |
 | `variableName` | `string` | Context key — selected entry (value + label) is written to shared `composableVariables` |
 | `defaultValue` | `string` | Pre-selects the matching item on mount; also written to context |
 | `direction` | `"vertical" \| "horizontal"` | Layout direction; defaults to `"vertical"` |
 | `gap` | `number` | Space between items; defaults to `8` |
+| `itemAlignItems` | `"flex-start" \| "center" \| "flex-end" \| "stretch"` | Cross-axis alignment of each item's contents (tick ↔ content column, and image ↔ label inside it); defaults to `"center"` |
+| `itemGap` | `number` | Spacing (px) between an item's inner pieces: tick ↔ content, and image ↔ text inside the content column; defaults to `12` |
 | `itemBackgroundColor` | `string` | Unselected item background; defaults to `"transparent"` |
 | `itemSelectedBackgroundColor` | `string` | Selected item background; defaults to `primary + 15% opacity` |
 | `itemBorderColor` | `string` | Unselected item border; defaults to `theme.colors.neutral.low` |
@@ -797,11 +799,13 @@ Plain-text children are automatically split into **one item per word** so the ro
 
 | Prop | Type | Notes |
 |------|------|-------|
-| `items` | `Array<{ label?: string; value: string; subLabel?: string }>` | **Required** — values must be unique. `label` is optional (omit for a sub-label-only row); `subLabel` is an optional secondary line under the label |
+| `items` | `Array<{ label?: string; value: string; subLabel?: string; image?: ItemImage }>` | **Required** — values must be unique. `label` is optional (omit for a sub-label-only row); `subLabel` is an optional secondary line under the label; `image` is an optional thumbnail stacked above the label (see `ItemImage` below) |
 | `variableName` | `string` | Context key — selected values stored as `JSON.stringify(string[])`, label as comma-joined display names |
 | `defaultValues` | `string[]` | Pre-selects matching items on mount; must reference valid item values |
 | `direction` | `"vertical" \| "horizontal"` | Layout direction; defaults to `"vertical"` |
 | `gap` | `number` | Space between items; defaults to `8` |
+| `itemAlignItems` | `"flex-start" \| "center" \| "flex-end" \| "stretch"` | Cross-axis alignment of each item's contents (tick ↔ content column, and image ↔ label inside it); defaults to `"center"` |
+| `itemGap` | `number` | Spacing (px) between an item's inner pieces: tick ↔ content, and image ↔ text inside the content column; defaults to `12` |
 | `itemBackgroundColor` | `string` | Unselected item background; defaults to `"transparent"` |
 | `itemSelectedBackgroundColor` | `string` | Selected item background; defaults to `primary + 10% opacity` |
 | `itemBorderColor` | `string` | Unselected item border; defaults to `theme.colors.neutral.low` |
@@ -839,6 +843,16 @@ Plain-text children are automatically split into **one item per word** so the ro
 | `padding` / `paddingHorizontal` / `paddingVertical` | `number` | |
 | `borderWidth` / `borderRadius` / `borderColor` | `number \| string` | Container border |
 | `opacity` | `number` | |
+
+**`ItemImage`** (per-item `image` on RadioGroup / CheckboxGroup) — an optional thumbnail rendered on top of the label/sub-label in a vertical column (image → label → subLabel):
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `url` | `string` | **Required** — image URL. `.svg` URLs render via `react-native-svg`; rasters via `expo-image` (when installed) or RN `Image` |
+| `width` / `height` | `number` | Image size in px |
+| `aspectRatio` | `number` | Width:height ratio (use with one of `width`/`height`) |
+| `resizeMode` | `"cover" \| "contain" \| "stretch" \| "center"` | Defaults to `"contain"` |
+| `borderRadius` | `number` | Rounded corners (clipped) |
 
 **Button props:**
 

@@ -9,6 +9,15 @@ here.
 
 ---
 
+## [1.51.0] - 2026-06-19
+
+### Added
+
+- **ComposableScreen `RadioGroup` / `CheckboxGroup` — per-item image.** Each item can carry an optional `image` (`{ url, width?, height?, aspectRatio?, resizeMode?, borderRadius? }`) rendered above the label/sub-label as a column (image → label → subLabel). SVG URLs render via `react-native-svg`; rasters via `expo-image` (when installed) or RN `Image`. Image rendering helpers were extracted into a shared `imageSource` module reused by `ImageElement` and both groups.
+- **ComposableScreen `RadioGroup` / `CheckboxGroup` — `itemAlignItems` + `itemGap`.** `itemAlignItems` (`"flex-start" | "center" | "flex-end" | "stretch"`, default `"center"`) sets the cross-axis alignment of each item's contents — including letting the tick top-align with multi-line / image content. `itemGap` (default `12`) sets the spacing between an item's inner pieces (tick ↔ content, image ↔ text), replacing the previously hardcoded `12px`. When both are unset, existing layouts render unchanged.
+
+---
+
 ## [1.50.1] - 2026-06-19
 
 ### Fixed

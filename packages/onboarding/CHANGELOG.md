@@ -8,6 +8,15 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.51.0] - 2026-06-19
+
+### Added
+
+- **`RadioGroup` / `CheckboxGroup` per-item `image`.** Each `items[]` entry accepts an optional `image: { url, width?, height?, aspectRatio?, resizeMode?, borderRadius? }`, rendered above the label/sub-label as a column (image → label → subLabel). Validated in both step schemas (empty `url` and invalid `resizeMode` rejected).
+- **`RadioGroup` / `CheckboxGroup` item layout props.** New group-level `itemAlignItems` (`"flex-start" | "center" | "flex-end" | "stretch"`, default `"center"`) controls the cross-axis alignment of each item's contents, and `itemGap` (number, default `12`) controls the spacing between an item's inner pieces (tick ↔ content, image ↔ text).
+
+---
+
 ## [1.50.1] - 2026-06-19
 
 ### Changed

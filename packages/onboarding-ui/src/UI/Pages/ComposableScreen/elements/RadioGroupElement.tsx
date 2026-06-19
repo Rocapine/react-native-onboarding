@@ -7,6 +7,7 @@ import { UIElement } from "../types";
 import { RenderContext, dim, resolveInheritedFontFamily, buildShadowStyle } from "./shared";
 import { GradientBox } from "./GradientBox";
 import { triggerHaptic, type HapticStyle } from "./haptics";
+import { type ResizeMode, renderImageSource } from "./imageSource";
 
 export type RadioGroupElementProps = BaseBoxProps & {
   variableName?: string;
@@ -14,13 +15,27 @@ export type RadioGroupElementProps = BaseBoxProps & {
   haptic?: HapticStyle;
   gap?: number;
   direction?: "vertical" | "horizontal";
+  itemAlignItems?: "flex-start" | "center" | "flex-end" | "stretch";
+  itemGap?: number;
   showTick?: boolean;
   tickPosition?: "start" | "end";
   tickColor?: string;
   tickSelectedColor?: string;
   tickBorderRadius?: number;
   tickSize?: number;
-  items: Array<{ label?: string; value: string; subLabel?: string }>;
+  items: Array<{
+    label?: string;
+    value: string;
+    subLabel?: string;
+    image?: {
+      url: string;
+      width?: number;
+      height?: number;
+      aspectRatio?: number;
+      resizeMode?: ResizeMode;
+      borderRadius?: number;
+    };
+  }>;
   itemBackgroundColor?: string;
   itemSelectedBackgroundColor?: string;
   itemBorderColor?: string;
@@ -55,13 +70,27 @@ export const RadioGroupElementPropsSchema = BaseBoxPropsSchema.extend({
   haptic: z.enum(["none", "light", "medium", "heavy", "soft", "rigid"]).optional(),
   gap: z.number().optional(),
   direction: z.enum(["vertical", "horizontal"]).optional(),
+  itemAlignItems: z.enum(["flex-start", "center", "flex-end", "stretch"]).optional(),
+  itemGap: z.number().min(0).optional(),
   showTick: z.boolean().optional(),
   tickPosition: z.enum(["start", "end"]).optional(),
   tickColor: z.string().optional(),
   tickSelectedColor: z.string().optional(),
   tickBorderRadius: z.number().min(0).optional(),
   tickSize: z.number().min(1).optional(),
-  items: z.array(z.object({ label: z.string().trim().optional(), value: z.string().trim().min(1, "item value must not be empty"), subLabel: z.string().trim().optional() })).min(1, "items must not be empty"),
+  items: z.array(z.object({
+    label: z.string().trim().optional(),
+    value: z.string().trim().min(1, "item value must not be empty"),
+    subLabel: z.string().trim().optional(),
+    image: z.object({
+      url: z.string().min(1, "image url must not be empty"),
+      width: z.number().min(0).optional(),
+      height: z.number().min(0).optional(),
+      aspectRatio: z.number().optional(),
+      resizeMode: z.enum(["cover", "contain", "stretch", "center"]).optional(),
+      borderRadius: z.number().min(0).optional(),
+    }).optional(),
+  })).min(1, "items must not be empty"),
   itemBackgroundColor: z.string().optional(),
   itemSelectedBackgroundColor: z.string().optional(),
   itemBorderColor: z.string().optional(),
@@ -187,6 +216,17 @@ export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement
         const innerDotSize = tickSize / 2;
         const hasLabel = !!item.label;
         const hasSubLabel = !!item.subLabel;
+        const itemGap = element.props.itemGap ?? 12;
+
+        const imageNode = item.image
+          ? renderImageSource(item.image.url, item.image.resizeMode ?? "contain", {
+              width: item.image.width,
+              height: item.image.height,
+              aspectRatio: item.image.aspectRatio,
+              borderRadius: item.image.borderRadius,
+              overflow: "hidden",
+            })
+          : null;
 
         const tickNode = element.props.showTick !== false ? (
           <View
@@ -213,8 +253,8 @@ export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement
           </View>
         ) : null;
 
-        const textNode = (hasLabel || hasSubLabel) ? (
-          <View style={{ flexShrink: 1, gap: hasLabel && hasSubLabel ? 2 : 0 }}>
+        const textBlock = (hasLabel || hasSubLabel) ? (
+          <View style={{ gap: hasLabel && hasSubLabel ? 2 : 0 }}>
             {hasLabel && (
               <Text
                 style={{
@@ -248,6 +288,22 @@ export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement
           </View>
         ) : null;
 
+        // Image + label + sub-label stack as a column (image on top). Wrapped so
+        // the item row treats it as one flex child (tick ↔ content). When the prop
+        // is unset, alignItems stays "stretch" → labels left-align exactly as before.
+        const contentNode = (imageNode || textBlock) ? (
+          <View
+            style={{
+              flexShrink: 1,
+              gap: itemGap,
+              alignItems: element.props.itemAlignItems ?? "stretch",
+            }}
+          >
+            {imageNode}
+            {textBlock}
+          </View>
+        ) : null;
+
         const tickAtEnd = element.props.tickPosition === "end";
 
         return (
@@ -260,9 +316,9 @@ export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement
             accessibilityLabel={item.label ?? item.subLabel ?? item.value}
             style={{
               flexDirection: "row",
-              alignItems: "center",
+              alignItems: element.props.itemAlignItems ?? "center",
               justifyContent: tickAtEnd ? "space-between" : undefined,
-              gap: tickNode && textNode ? 12 : 0,
+              gap: tickNode && contentNode ? itemGap : 0,
               backgroundColor: bgColor,
               borderRadius: element.props.itemBorderRadius ?? 8,
               borderWidth: element.props.itemBorderWidth ?? 1,
@@ -279,8 +335,8 @@ export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement
               }),
             }}
           >
-            {tickAtEnd ? textNode : tickNode}
-            {tickAtEnd ? tickNode : textNode}
+            {tickAtEnd ? contentNode : tickNode}
+            {tickAtEnd ? tickNode : contentNode}
           </TouchableOpacity>
         );
       })}

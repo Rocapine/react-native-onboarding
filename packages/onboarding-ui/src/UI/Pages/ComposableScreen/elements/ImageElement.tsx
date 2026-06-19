@@ -1,21 +1,12 @@
 import React from "react";
 import { z } from "zod";
-import { Image as RNImage, View } from "react-native";
+import { View } from "react-native";
 import { SvgUri } from "react-native-svg";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
 import { RenderContext, buildShadowStyle, dim } from "./shared";
 import { GradientBox } from "./GradientBox";
-
-// expo-image decodes webp/avif reliably across platforms (RN's built-in Image is
-// flaky for webp on iOS). Optional peer dep — fall back to RN Image when absent,
-// mirroring GradientBox's expo-linear-gradient handling.
-let ExpoImage: React.ComponentType<any> | null = null;
-try {
-  ExpoImage = require("expo-image").Image;
-} catch {
-  // expo-image not installed — RN Image fallback below
-}
+import { SVG_ASPECT, isSvgUrl, renderRaster } from "./imageSource";
 
 export type ImageElementProps = BaseBoxProps & {
   url: string;
@@ -31,45 +22,6 @@ export const ImageElementPropsSchema = BaseBoxPropsSchema.extend({
   resizeMode: z.enum(["cover", "contain", "stretch", "center"]).optional(),
   blurRadius: z.number().min(0).optional(),
 });
-
-type ResizeMode = "cover" | "contain" | "stretch" | "center";
-
-// RN resizeMode → expo-image contentFit.
-const CONTENT_FIT: Record<ResizeMode, "cover" | "contain" | "fill" | "none"> = {
-  cover: "cover",
-  contain: "contain",
-  stretch: "fill",
-  center: "none",
-};
-
-// RN resizeMode → SVG preserveAspectRatio (SvgUri has no resizeMode).
-const SVG_ASPECT: Record<ResizeMode, string> = {
-  cover: "xMidYMid slice",
-  contain: "xMidYMid meet",
-  center: "xMidYMid meet",
-  stretch: "none",
-};
-
-// SVGs need react-native-svg's SvgUri — RN/expo Image can't decode SVG XML. Auto
-// -detected by file extension (query-string / hash tolerant) so existing payloads
-// with `.svg` URLs just work, no schema change.
-const isSvgUrl = (url: string): boolean =>
-  url.split(/[?#]/)[0].toLowerCase().endsWith(".svg");
-
-// Pick expo-image when installed (better webp/avif), else RN Image. resizeMode
-// passes through unchanged on RN; maps to contentFit on expo-image. `blurRadius`
-// is a native prop on both — undefined leaves the image sharp.
-const renderRaster = (
-  url: string,
-  resizeMode: ResizeMode | undefined,
-  style: any,
-  blurRadius?: number
-): React.ReactElement =>
-  ExpoImage ? (
-    <ExpoImage source={url} contentFit={CONTENT_FIT[resizeMode ?? "cover"]} blurRadius={blurRadius} style={style} />
-  ) : (
-    <RNImage source={{ uri: url }} resizeMode={resizeMode} blurRadius={blurRadius} style={style} />
-  );
 
 type ImageUIElement = Extract<UIElement, { type: "Image" }>;
 

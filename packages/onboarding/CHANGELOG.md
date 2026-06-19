@@ -8,6 +8,14 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.50.0] - 2026-06-19
+
+### Added
+
+- **ComposableScreen `RadioGroup` / `CheckboxGroup` — tick + sub-label customization.** New tick props `tickPosition` (`"start"` | `"end"`, default `"start"`), `tickColor`, `tickSelectedColor`, `tickBorderRadius` (default: radio `tickSize / 2` full circle, checkbox `4`), and `tickSize` (tick diameter / box side in px, default `20` — radio's inner dot and checkbox's ✓ glyph scale with it). Each item now accepts an optional `subLabel` (secondary line) with state-aware styling: `itemSubLabelColor`, `itemSelectedSubLabelColor`, `itemSubLabelFontSize`, `itemSubLabelFontWeight`, `itemSubLabelFontFamily`, `itemSubLabelFontStyle`. Item `label` is now optional — when a label or sub-label is absent no gap is rendered.
+
+---
+
 ## [1.49.1] - 2026-06-19
 
 ### Changed

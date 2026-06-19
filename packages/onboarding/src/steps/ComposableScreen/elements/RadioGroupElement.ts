@@ -10,7 +10,17 @@ export type RadioGroupElementProps = BaseBoxProps & {
   gap?: number;
   direction?: "vertical" | "horizontal";
   showTick?: boolean;
-  items: Array<{ label: string; value: string }>;
+  /** Tick (radio circle) placement relative to the label. Defaults to "start". */
+  tickPosition?: "start" | "end";
+  /** Tick color when the item is unselected (border + dot). Defaults to theme neutral. */
+  tickColor?: string;
+  /** Tick color when the item is selected (border + dot). Defaults to theme primary. */
+  tickSelectedColor?: string;
+  /** Corner radius of the tick element. Defaults to tickSize/2 (full circle). */
+  tickBorderRadius?: number;
+  /** Diameter of the tick element in px. Inner dot scales with it. Defaults to 20. */
+  tickSize?: number;
+  items: Array<{ label?: string; value: string; subLabel?: string }>;
   itemBackgroundColor?: string;
   itemSelectedBackgroundColor?: string;
   itemBorderColor?: string;
@@ -23,6 +33,13 @@ export type RadioGroupElementProps = BaseBoxProps & {
   itemFontWeight?: string;
   itemFontFamily?: string;
   itemFontStyle?: "normal" | "italic";
+  /** Sub-label (secondary line) style. Mirrors the label props but for items[].subLabel. */
+  itemSubLabelColor?: string;
+  itemSelectedSubLabelColor?: string;
+  itemSubLabelFontSize?: number;
+  itemSubLabelFontWeight?: string;
+  itemSubLabelFontFamily?: string;
+  itemSubLabelFontStyle?: "normal" | "italic";
   itemPadding?: number;
   itemPaddingHorizontal?: number;
   itemPaddingVertical?: number;
@@ -41,7 +58,12 @@ export const RadioGroupElementPropsSchema = BaseBoxPropsSchema.extend({
   gap: z.number().optional(),
   direction: z.enum(["vertical", "horizontal"]).optional(),
   showTick: z.boolean().optional(),
-  items: z.array(z.object({ label: z.string().trim().min(1, "item label must not be empty"), value: z.string().trim().min(1, "item value must not be empty") })).min(1, "items must not be empty"),
+  tickPosition: z.enum(["start", "end"]).optional(),
+  tickColor: z.string().optional(),
+  tickSelectedColor: z.string().optional(),
+  tickBorderRadius: z.number().min(0).optional(),
+  tickSize: z.number().min(1).optional(),
+  items: z.array(z.object({ label: z.string().trim().optional(), value: z.string().trim().min(1, "item value must not be empty"), subLabel: z.string().trim().optional() })).min(1, "items must not be empty"),
   itemBackgroundColor: z.string().optional(),
   itemSelectedBackgroundColor: z.string().optional(),
   itemBorderColor: z.string().optional(),
@@ -54,6 +76,12 @@ export const RadioGroupElementPropsSchema = BaseBoxPropsSchema.extend({
   itemFontWeight: z.string().optional(),
   itemFontFamily: z.string().optional(),
   itemFontStyle: z.enum(["normal", "italic"]).optional(),
+  itemSubLabelColor: z.string().optional(),
+  itemSelectedSubLabelColor: z.string().optional(),
+  itemSubLabelFontSize: z.number().optional(),
+  itemSubLabelFontWeight: z.string().optional(),
+  itemSubLabelFontFamily: z.string().optional(),
+  itemSubLabelFontStyle: z.enum(["normal", "italic"]).optional(),
   itemPadding: z.number().optional(),
   itemPaddingHorizontal: z.number().optional(),
   itemPaddingVertical: z.number().optional(),

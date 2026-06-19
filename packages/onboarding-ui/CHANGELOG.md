@@ -9,6 +9,14 @@ here.
 
 ---
 
+## [1.50.0] - 2026-06-19
+
+### Added
+
+- **ComposableScreen `RadioGroup` / `CheckboxGroup` renderers — tick + sub-label customization.** Tick placement honors `tickPosition` (`"start"`/`"end"`); tick color/radius/size come from `tickColor` / `tickSelectedColor` / `tickBorderRadius` / `tickSize` per selection state (`tickSize` default `20` — radio's inner dot and checkbox's ✓ glyph fontSize/lineHeight scale with it; radio `tickBorderRadius` defaults to `tickSize / 2`). Items render an optional `subLabel` line (own font + color resolved once via `useResolvedFontStyle`, state-aware via `itemSubLabel*` / `itemSelectedSubLabelColor`). Item `label` is optional; the tick↔text and label↔sub-label gaps collapse when a line is absent. Accessibility label falls back `label → subLabel → value`.
+
+---
+
 ## [1.49.1] - 2026-06-19
 
 ### Fixed

@@ -32,7 +32,13 @@ Every styled UIElement (`Button`, `RadioGroup`, `CheckboxGroup`, `Input`, `Wheel
 - `itemPadding`, `itemPaddingVertical`, `itemPaddingHorizontal`
 - `itemShadowColor`, `itemShadowOffset: {width,height}`, `itemShadowOpacity`, `itemShadowRadius`, `itemElevation` — per-item drop shadow (lone `itemShadowColor` defaults opacity `1` / radius `4`)
 - `showTick` — show/hide the radio circle (checkbox box) indicator. Default: `true`
+- `tickPosition: "start" | "end"` — tick placement relative to the label. Default: `"start"`
+- `tickColor`, `tickSelectedColor`, `tickBorderRadius` — tick element styling per state (radius default: radio `tickSize/2`, checkbox `4`)
+- `tickSize` — tick diameter (radio) / box side (checkbox) in px; inner dot/checkmark scales with it. Default: `20`
+- per-item `subLabel` (secondary line) styling: `itemSubLabelColor`, `itemSelectedSubLabelColor`, `itemSubLabelFontSize`, `itemSubLabelFontWeight`, `itemSubLabelFontFamily`, `itemSubLabelFontStyle`
 - `haptic: "none" | "light" | "medium" | "heavy" | "soft" | "rigid"` — tactile feedback on select/toggle (opt-in; needs optional `expo-haptics`)
+
+Items are `{ label?, value, subLabel? }`: `label` is optional (omit for a sub-label-only row — no gap is added when a line is absent), `value` required, `subLabel` an optional secondary line.
 
 `Input`:
 - `backgroundColor`, `color`, `placeholderColor`, `borderRadius`

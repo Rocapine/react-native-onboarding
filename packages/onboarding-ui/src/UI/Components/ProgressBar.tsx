@@ -7,7 +7,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ChevronLeft } from "lucide-react-native";
-import { useRouter } from "expo-router";
+import { useOnboardingNavigation } from "@rocapine/react-native-onboarding";
 import { defaultTheme, Theme } from "../Theme";
 
 interface ProgressBarProps {
@@ -26,6 +26,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   isProgressBarVisible = true,
 }) => {
   const animated = true;
+  const { useRouter } = useOnboardingNavigation();
   const router = useRouter();
   const { top } = useSafeAreaInsets();
 
@@ -62,7 +63,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
           <View style={styles.backButtonSection}>
             {router.canGoBack() && (
               <TouchableOpacity
-                onPress={() => router.back()}
+                onPress={() => router.goBack()}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 style={styles.backButton}
               >

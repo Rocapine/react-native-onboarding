@@ -44,6 +44,9 @@ export {
 } from "./steps/ComposableScreen/types";
 // Hooks and providers
 export * from "./infra";
+// Navigation adapter (dependency-injected navigation)
+export type { OnboardingNavigationAdapter } from "./infra/navigation/types";
+export { expoRouterAdapter } from "./infra/navigation/expoRouterAdapter";
 // Branching
 export { resolveNextStepNumber } from "./resolveNextStepNumber";
 export { evaluateCondition, evaluateLeaf, isConditionGroup } from "./evaluateCondition";

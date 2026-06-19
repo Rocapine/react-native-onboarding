@@ -37,6 +37,7 @@
   "peerDependencies": {
     "expo-font": "*",
     "expo-image": "*",
+    "expo-router": ">=3.0.0",
     "react": "*",
     "react-native": "*"
   },
@@ -45,6 +46,9 @@
       "optional": true
     },
     "expo-image": {
+      "optional": true
+    },
+    "expo-router": {
       "optional": true
     }
   },

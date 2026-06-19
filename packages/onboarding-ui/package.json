@@ -88,6 +88,9 @@
     "expo-haptics": {
       "optional": true
     },
+    "expo-router": {
+      "optional": true
+    },
     "expo-image": {
       "optional": true
     },

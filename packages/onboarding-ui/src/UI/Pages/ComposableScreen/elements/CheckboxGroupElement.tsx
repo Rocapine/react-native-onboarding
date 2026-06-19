@@ -15,7 +15,12 @@ export type CheckboxGroupElementProps = BaseBoxProps & {
   gap?: number;
   direction?: "vertical" | "horizontal";
   showTick?: boolean;
-  items: Array<{ label: string; value: string }>;
+  tickPosition?: "start" | "end";
+  tickColor?: string;
+  tickSelectedColor?: string;
+  tickBorderRadius?: number;
+  tickSize?: number;
+  items: Array<{ label?: string; value: string; subLabel?: string }>;
   itemBackgroundColor?: string;
   itemSelectedBackgroundColor?: string;
   itemBorderColor?: string;
@@ -28,6 +33,12 @@ export type CheckboxGroupElementProps = BaseBoxProps & {
   itemFontWeight?: string;
   itemFontFamily?: string;
   itemFontStyle?: "normal" | "italic";
+  itemSubLabelColor?: string;
+  itemSelectedSubLabelColor?: string;
+  itemSubLabelFontSize?: number;
+  itemSubLabelFontWeight?: string;
+  itemSubLabelFontFamily?: string;
+  itemSubLabelFontStyle?: "normal" | "italic";
   itemPadding?: number;
   itemPaddingHorizontal?: number;
   itemPaddingVertical?: number;
@@ -45,7 +56,12 @@ export const CheckboxGroupElementPropsSchema = BaseBoxPropsSchema.extend({
   gap: z.number().optional(),
   direction: z.enum(["vertical", "horizontal"]).optional(),
   showTick: z.boolean().optional(),
-  items: z.array(z.object({ label: z.string().trim().min(1, "item label must not be empty"), value: z.string().trim().min(1, "item value must not be empty") })).min(1, "items must not be empty"),
+  tickPosition: z.enum(["start", "end"]).optional(),
+  tickColor: z.string().optional(),
+  tickSelectedColor: z.string().optional(),
+  tickBorderRadius: z.number().min(0).optional(),
+  tickSize: z.number().min(1).optional(),
+  items: z.array(z.object({ label: z.string().trim().optional(), value: z.string().trim().min(1, "item value must not be empty"), subLabel: z.string().trim().optional() })).min(1, "items must not be empty"),
   itemBackgroundColor: z.string().optional(),
   itemSelectedBackgroundColor: z.string().optional(),
   itemBorderColor: z.string().optional(),
@@ -58,6 +74,12 @@ export const CheckboxGroupElementPropsSchema = BaseBoxPropsSchema.extend({
   itemFontWeight: z.string().optional(),
   itemFontFamily: z.string().optional(),
   itemFontStyle: z.enum(["normal", "italic"]).optional(),
+  itemSubLabelColor: z.string().optional(),
+  itemSelectedSubLabelColor: z.string().optional(),
+  itemSubLabelFontSize: z.number().optional(),
+  itemSubLabelFontWeight: z.string().optional(),
+  itemSubLabelFontFamily: z.string().optional(),
+  itemSubLabelFontStyle: z.enum(["normal", "italic"]).optional(),
   itemPadding: z.number().optional(),
   itemPaddingHorizontal: z.number().optional(),
   itemPaddingVertical: z.number().optional(),
@@ -104,6 +126,12 @@ export const CheckboxGroupComponent = ({ element, ctx }: Props): React.ReactElem
     element.props.itemFontWeight,
     element.props.itemFontStyle
   );
+  // Sub-label typography resolved once too (hooks must run unconditionally).
+  const resolvedSubLabelFont = useResolvedFontStyle(
+    resolveInheritedFontFamily(element.props.itemSubLabelFontFamily ?? element.props.itemFontFamily, theme.typography.defaultFontFamily),
+    element.props.itemSubLabelFontWeight,
+    element.props.itemSubLabelFontStyle
+  );
 
   useEffect(() => {
     if (element.props.variableName && element.props.defaultValues && selectedValues === undefined) {
@@ -115,7 +143,7 @@ export const CheckboxGroupComponent = ({ element, ctx }: Props): React.ReactElem
     }
   }, [element.props.variableName, element.props.defaultValues, element.props.items, selectedValues]);
 
-  const handleToggle = (value: string, label: string) => {
+  const handleToggle = (value: string, label?: string) => {
     if (!element.props.variableName) return;
     triggerHaptic(element.props.haptic);
     const current: string[] = selectedValues ?? [];
@@ -163,6 +191,80 @@ export const CheckboxGroupComponent = ({ element, ctx }: Props): React.ReactElem
         const borderColor = isSelected
           ? (element.props.itemSelectedBorderColor ?? theme.colors.primary)
           : (element.props.itemBorderColor ?? theme.colors.neutral.low);
+        const tickColor = isSelected
+          ? (element.props.tickSelectedColor ?? theme.colors.primary)
+          : (element.props.tickColor ?? theme.colors.neutral.medium);
+        const subLabelColor = isSelected
+          ? (element.props.itemSelectedSubLabelColor ?? element.props.itemSubLabelColor ?? textColor)
+          : (element.props.itemSubLabelColor ?? theme.colors.text.secondary);
+        const tickSize = element.props.tickSize ?? 20;
+        const hasLabel = !!item.label;
+        const hasSubLabel = !!item.subLabel;
+
+        const tickNode = element.props.showTick !== false ? (
+          <View
+            style={{
+              width: tickSize,
+              height: tickSize,
+              borderRadius: element.props.tickBorderRadius ?? 4,
+              borderWidth: 2,
+              borderColor: tickColor,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: isSelected ? tickColor : "transparent",
+            }}
+          >
+            {isSelected && (
+              <Text
+                style={{
+                  color: "#fff",
+                  fontSize: tickSize * 0.6,
+                  fontWeight: "700",
+                  lineHeight: tickSize * 0.7,
+                }}
+              >
+                ✓
+              </Text>
+            )}
+          </View>
+        ) : null;
+
+        const textNode = (hasLabel || hasSubLabel) ? (
+          <View style={{ flexShrink: 1, gap: hasLabel && hasSubLabel ? 2 : 0 }}>
+            {hasLabel && (
+              <Text
+                style={{
+                  color: textColor,
+                  fontSize: element.props.itemFontSize ?? theme.typography.textStyles.body.fontSize,
+                  fontWeight: resolvedFont.resolvedToVariant
+                    ? undefined
+                    : ((element.props.itemFontWeight as any) ?? theme.typography.textStyles.body.fontWeight),
+                  fontFamily: resolvedFont.fontFamily,
+                  fontStyle: element.props.itemFontStyle,
+                }}
+              >
+                {item.label}
+              </Text>
+            )}
+            {hasSubLabel && (
+              <Text
+                style={{
+                  color: subLabelColor,
+                  fontSize: element.props.itemSubLabelFontSize ?? theme.typography.textStyles.caption.fontSize,
+                  fontWeight: resolvedSubLabelFont.resolvedToVariant
+                    ? undefined
+                    : ((element.props.itemSubLabelFontWeight as any) ?? theme.typography.textStyles.caption.fontWeight),
+                  fontFamily: resolvedSubLabelFont.fontFamily,
+                  fontStyle: element.props.itemSubLabelFontStyle,
+                }}
+              >
+                {item.subLabel}
+              </Text>
+            )}
+          </View>
+        ) : null;
+
+        const tickAtEnd = element.props.tickPosition === "end";
 
         return (
           <TouchableOpacity
@@ -171,11 +273,11 @@ export const CheckboxGroupComponent = ({ element, ctx }: Props): React.ReactElem
             onPress={() => handleToggle(item.value, item.label)}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: isSelected }}
-            accessibilityLabel={item.label}
+            accessibilityLabel={item.label ?? item.subLabel ?? item.value}
             style={{
               flexDirection: "row",
               alignItems: "center",
-              gap: 12,
+              gap: tickNode && textNode ? 12 : 0,
               backgroundColor: bgColor,
               borderRadius: element.props.itemBorderRadius ?? 8,
               borderWidth: element.props.itemBorderWidth ?? 1,
@@ -192,47 +294,8 @@ export const CheckboxGroupComponent = ({ element, ctx }: Props): React.ReactElem
               }),
             }}
           >
-            {element.props.showTick !== false && (
-              <View
-                style={{
-                  width: 20,
-                  height: 20,
-                  borderRadius: 4,
-                  borderWidth: 2,
-                  borderColor: isSelected ? theme.colors.primary : theme.colors.neutral.medium,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  backgroundColor: isSelected ? theme.colors.primary : "transparent",
-                }}
-              >
-                {isSelected && (
-                  <Text
-                    style={{
-                      color: "#fff",
-                      fontSize: 12,
-                      fontWeight: "700",
-                      lineHeight: 14,
-                    }}
-                  >
-                    ✓
-                  </Text>
-                )}
-              </View>
-            )}
-            <Text
-              style={{
-                flexShrink: 1,
-                color: textColor,
-                fontSize: element.props.itemFontSize ?? theme.typography.textStyles.body.fontSize,
-                fontWeight: resolvedFont.resolvedToVariant
-                  ? undefined
-                  : ((element.props.itemFontWeight as any) ?? theme.typography.textStyles.body.fontWeight),
-                fontFamily: resolvedFont.fontFamily,
-                fontStyle: element.props.itemFontStyle,
-              }}
-            >
-              {item.label}
-            </Text>
+            {tickAtEnd ? textNode : tickNode}
+            {tickAtEnd ? tickNode : textNode}
           </TouchableOpacity>
         );
       })}

@@ -750,7 +750,7 @@ Plain-text children are automatically split into **one item per word** so the ro
 
 | Prop | Type | Notes |
 |------|------|-------|
-| `items` | `Array<{ label: string; value: string }>` | **Required** — list of options |
+| `items` | `Array<{ label?: string; value: string; subLabel?: string }>` | **Required** — list of options. `label` is optional (omit for a sub-label-only row); `value` is required; `subLabel` is an optional secondary line under the label |
 | `variableName` | `string` | Context key — selected entry (value + label) is written to shared `composableVariables` |
 | `defaultValue` | `string` | Pre-selects the matching item on mount; also written to context |
 | `direction` | `"vertical" \| "horizontal"` | Layout direction; defaults to `"vertical"` |
@@ -764,10 +764,21 @@ Plain-text children are automatically split into **one item per word** so the ro
 | `itemColor` | `string` | Unselected label color; defaults to `theme.colors.text.primary` |
 | `itemSelectedColor` | `string` | Selected label color; defaults to `theme.colors.primary` |
 | `showTick` | `boolean` | Show/hide the radio circle indicator. When `false`, the label and selected background/border still render. Defaults to `true` |
+| `tickPosition` | `"start" \| "end"` | Tick placement relative to the label; defaults to `"start"` |
+| `tickColor` | `string` | Tick color (border + dot) when unselected; defaults to `theme.colors.neutral.medium` |
+| `tickSelectedColor` | `string` | Tick color (border + dot) when selected; defaults to `theme.colors.primary` |
+| `tickBorderRadius` | `number` | Corner radius of the tick element; defaults to `tickSize / 2` (full circle) |
+| `tickSize` | `number` | Diameter of the tick circle in px; the inner dot scales with it; defaults to `20` |
 | `haptic` | `"none" \| "light" \| "medium" \| "heavy" \| "soft" \| "rigid"` | Tactile feedback fired on selection. Maps to expo-haptics `ImpactFeedbackStyle`. Opt-in — omit or `"none"` for no feedback. Requires the optional `expo-haptics` peer dep (no-op if not installed) |
 | `itemFontSize` | `number` | |
 | `itemFontWeight` | `string` | |
 | `itemFontFamily` | `string` | |
+| `itemSubLabelColor` | `string` | Sub-label color when unselected; defaults to `theme.colors.text.secondary` |
+| `itemSelectedSubLabelColor` | `string` | Sub-label color when selected; falls back to `itemSubLabelColor` then the selected label color |
+| `itemSubLabelFontSize` | `number` | Defaults to the `caption` text-style size |
+| `itemSubLabelFontWeight` | `string` | |
+| `itemSubLabelFontFamily` | `string` | Falls back to `itemFontFamily`, then the theme font |
+| `itemSubLabelFontStyle` | `"normal" \| "italic"` | |
 | `itemPadding` | `number` | Defaults to `12` when no `itemPaddingHorizontal`/`Vertical` is set |
 | `itemPaddingHorizontal` / `itemPaddingVertical` | `number` | |
 | `itemShadowColor` | `string` | Per-item iOS drop shadow color. Setting only this defaults `itemShadowOpacity` to `1`, `itemShadowRadius` to `4` |
@@ -786,7 +797,7 @@ Plain-text children are automatically split into **one item per word** so the ro
 
 | Prop | Type | Notes |
 |------|------|-------|
-| `items` | `Array<{ label: string; value: string }>` | **Required** — list of options; values must be unique |
+| `items` | `Array<{ label?: string; value: string; subLabel?: string }>` | **Required** — values must be unique. `label` is optional (omit for a sub-label-only row); `subLabel` is an optional secondary line under the label |
 | `variableName` | `string` | Context key — selected values stored as `JSON.stringify(string[])`, label as comma-joined display names |
 | `defaultValues` | `string[]` | Pre-selects matching items on mount; must reference valid item values |
 | `direction` | `"vertical" \| "horizontal"` | Layout direction; defaults to `"vertical"` |
@@ -800,10 +811,21 @@ Plain-text children are automatically split into **one item per word** so the ro
 | `itemColor` | `string` | Unselected label color; defaults to `theme.colors.text.primary` |
 | `itemSelectedColor` | `string` | Selected label color; defaults to `theme.colors.primary` |
 | `showTick` | `boolean` | Show/hide the checkbox box indicator. When `false`, the label and selected background/border still render. Defaults to `true` |
+| `tickPosition` | `"start" \| "end"` | Tick placement relative to the label; defaults to `"start"` |
+| `tickColor` | `string` | Tick border color when unselected; defaults to `theme.colors.neutral.medium` |
+| `tickSelectedColor` | `string` | Tick border + fill color when selected; defaults to `theme.colors.primary` |
+| `tickBorderRadius` | `number` | Corner radius of the tick element; defaults to `4` |
+| `tickSize` | `number` | Side length of the tick box in px; the checkmark scales with it; defaults to `20` |
 | `haptic` | `"none" \| "light" \| "medium" \| "heavy" \| "soft" \| "rigid"` | Tactile feedback fired on toggle. Maps to expo-haptics `ImpactFeedbackStyle`. Opt-in — omit or `"none"` for no feedback. Requires the optional `expo-haptics` peer dep (no-op if not installed) |
 | `itemFontSize` | `number` | |
 | `itemFontWeight` | `string` | |
 | `itemFontFamily` | `string` | |
+| `itemSubLabelColor` | `string` | Sub-label color when unselected; defaults to `theme.colors.text.secondary` |
+| `itemSelectedSubLabelColor` | `string` | Sub-label color when selected; falls back to `itemSubLabelColor` then the selected label color |
+| `itemSubLabelFontSize` | `number` | Defaults to the `caption` text-style size |
+| `itemSubLabelFontWeight` | `string` | |
+| `itemSubLabelFontFamily` | `string` | Falls back to `itemFontFamily`, then the theme font |
+| `itemSubLabelFontStyle` | `"normal" \| "italic"` | |
 | `itemPadding` | `number` | Defaults to `12` when no `itemPaddingHorizontal`/`Vertical` is set |
 | `itemPaddingHorizontal` / `itemPaddingVertical` | `number` | |
 | `itemShadowColor` | `string` | Per-item iOS drop shadow color. Setting only this defaults `itemShadowOpacity` to `1`, `itemShadowRadius` to `4` |

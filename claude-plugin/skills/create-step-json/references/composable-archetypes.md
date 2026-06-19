@@ -193,9 +193,12 @@ Branded welcome. Hero media + tight value prop + primary CTA. No progress bar. W
       "itemFontWeight": "<DP.fontWeights.medium>",
       "itemPaddingVertical": 18,
       "itemPaddingHorizontal": 20,
+      "tickPosition": "end",
+      "itemSubLabelColor": "<DP.text.secondary>",
+      "itemSubLabelFontSize": 13,
       "items": [
-        { "label": "Lose weight", "value": "lose" },
-        { "label": "Build muscle", "value": "muscle" },
+        { "label": "Lose weight", "value": "lose", "subLabel": "Shed body fat sustainably" },
+        { "label": "Build muscle", "value": "muscle", "subLabel": "Gain strength and size" },
         { "label": "Maintain", "value": "maintain" },
         { "label": "Just exploring", "value": "explore" }
       ]

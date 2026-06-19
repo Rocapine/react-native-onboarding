@@ -173,7 +173,7 @@ export function CarouselElementComponent({ element, ctx }: Props): React.ReactEl
   const ready = !!size && size.width > 0 && size.height > 0;
 
   const pagination = (props.showDots ?? true) ? (
-    <Pagination.Basic
+    <Pagination.Custom
       progress={progress}
       data={children}
       dotStyle={{
@@ -186,7 +186,6 @@ export function CarouselElementComponent({ element, ctx }: Props): React.ReactEl
         width: activeDotW,
         height: activeDotH,
         borderRadius: activeDotH / 2,
-        overflow: "hidden",
         backgroundColor: activeDotBg,
       }}
       containerStyle={{ gap: dotsGap, marginTop: dotsMarginTop, marginBottom: dotsMarginBottom }}

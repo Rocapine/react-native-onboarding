@@ -8,6 +8,8 @@ import { ComposableVariableEntry } from "../../steps/ComposableScreen/types";
 import { FontLoaderGate } from "./FontLoader";
 import { extractAssetUrls } from "../preload/extractAssetUrls";
 import { preloadAssets } from "../preload/preloadAssets";
+import { OnboardingNavigationAdapter } from "../navigation/types";
+import { expoRouterAdapter } from "../navigation/expoRouterAdapter";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -41,6 +43,13 @@ interface OnboardingProviderProps {
    * Defaults to `null`.
    */
   fontsFallback?: React.ReactNode;
+  /**
+   * Navigation adapter used for back navigation (ProgressBar back button) and
+   * the per-step focus effect. Defaults to an expo-router-backed adapter that
+   * degrades to a no-op when expo-router is not installed. Inject your own to
+   * support a different navigation library. Must be a stable reference.
+   */
+  navigation?: OnboardingNavigationAdapter;
 }
 
 interface OnboardingDataGateProps {
@@ -93,6 +102,7 @@ export const OnboardingProvider = ({
   customAudienceParams = {},
   customActions = {},
   fontsFallback,
+  navigation = expoRouterAdapter,
 }: OnboardingProviderProps) => {
   const [activeStep, setActiveStep] = useState({
     number: 0,
@@ -125,6 +135,7 @@ export const OnboardingProvider = ({
           setVariable,
           getVariables,
           customActions,
+          navigation,
         }}
       >
         <OnboardingDataGate
@@ -155,6 +166,7 @@ export const OnboardingProgressContext = createContext<{
   setVariable: (name: string, value: any) => void;
   getVariables: () => Record<string, any>;
   customActions: CustomActions;
+  navigation: OnboardingNavigationAdapter;
 }>({
   activeStep: { number: 0, displayProgressHeader: false },
   setActiveStep: () => { },
@@ -169,4 +181,5 @@ export const OnboardingProgressContext = createContext<{
   setVariable: () => { },
   getVariables: () => ({}),
   customActions: {},
+  navigation: expoRouterAdapter,
 });

@@ -1,6 +1,5 @@
 import { useCallback, useContext } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { useFocusEffect } from "expo-router";
 import { OnboardingProgressContext } from "../provider/OnboardingProvider";
 import { getOnboardingQuery } from "../queries/getOnboarding.query";
 import { BaseStepType, Onboarding, OnboardingMetadata } from "../../types";
@@ -27,6 +26,7 @@ export const useOnboardingStep = <
     setActiveStep,
     setTotalSteps,
     setOnboarding,
+    navigation,
   } = useContext(OnboardingProgressContext);
 
   // Build query with config from context
@@ -41,7 +41,7 @@ export const useOnboardingStep = <
   const steps = data.steps;
   const onboardingMetadata = data.metadata;
 
-  useFocusEffect(
+  navigation.useFocusEffect(
     useCallback(() => {
       const currentStep = steps[stepNumber - 1];
       setActiveStep({

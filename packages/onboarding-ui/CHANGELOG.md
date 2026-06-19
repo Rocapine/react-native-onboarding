@@ -9,6 +9,14 @@ here.
 
 ---
 
+## [1.47.0] - 2026-06-19
+
+### Changed
+
+- **`ProgressBar` no longer imports `expo-router`** — its back button now uses the navigation adapter from `useOnboardingNavigation()` (`canGoBack()` / `goBack()`). `expo-router` is now an optional peer dependency; existing expo-router apps keep the same behavior with no changes, and other navigation libraries work by injecting a `navigation` adapter into `OnboardingProvider`.
+
+---
+
 ## [1.46.0] - 2026-06-18
 
 ### Added

@@ -27,6 +27,7 @@ Install `@rocapine/react-native-onboarding-ui` and render steps with `Onboarding
    - DatePicker → `npm install @react-native-community/datetimepicker`
    - WheelPicker → `npm install @react-native-picker/picker`
    - Inputs (always recommended) → already included in RN core
+   - Navigation back button → `expo-router` (optional peer; used automatically if installed). Non-expo-router apps inject an adapter instead — see **Back navigation** below.
 4. Wire `OnboardingPage` inside the screen that consumes `useOnboardingQuestions`:
 
 ```tsx
@@ -77,7 +78,27 @@ import { lightTokens, darkTokens } from "@rocapine/react-native-onboarding-ui";
 
 ## Back navigation
 
-`OnboardingProvider` auto-injects progress bar; back button appears when `router.canGoBack()`. Control with `router.push` vs `router.replace` in `onContinue`.
+`OnboardingProvider` auto-injects the progress bar. Its back button is driven by an **injectable navigation adapter** — the SDK no longer hard-depends on `expo-router`.
+
+- **expo-router apps (default):** nothing to do. `expo-router` is an optional peer dep; when present the default adapter binds to it automatically — the back button appears when `router.canGoBack()`. Control with `router.push` vs `router.replace` in `onContinue`.
+- **Other navigation libs (react-navigation, custom):** install nothing extra and inject an adapter into `OnboardingProvider`:
+
+  ```tsx
+  import type { OnboardingNavigationAdapter } from "@rocapine/react-native-onboarding";
+  import { useNavigation } from "@react-navigation/native";
+
+  const navigation: OnboardingNavigationAdapter = {
+    useFocusEffect: (effect) => useFocusEffect(useCallback(effect, [effect])), // @react-navigation/native
+    useRouter: () => {
+      const nav = useNavigation();
+      return { canGoBack: () => nav.canGoBack(), goBack: () => nav.goBack() };
+    },
+  };
+
+  <OnboardingProvider /* ...config */ navigation={navigation} />
+  ```
+
+  The adapter must be a stable reference (define it at module scope). If neither expo-router nor an adapter is provided, navigation no-ops and the back button stays hidden.
 
 ## Verification
 

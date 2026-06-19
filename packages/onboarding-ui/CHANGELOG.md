@@ -9,6 +9,13 @@ here.
 
 ---
 
+## [1.49.1] - 2026-06-19
+
+### Fixed
+- **ComposableScreen Carousel active dot sizing** — `activeDotWidth` / `activeDotHeight` had no visual effect because the renderer used `Pagination.Basic`, which sizes every dot from `dotStyle` (clipped via `overflow: hidden`) and never applies `activeDotStyle` width/height (active resizing is an unimplemented TODO in `react-native-reanimated-carousel`). Switched to `Pagination.Custom`, which interpolates width/height/borderRadius/backgroundColor between active and inactive dots, so active dot sizing now renders.
+
+---
+
 ## [1.49.0] - 2026-06-19
 
 ### Added

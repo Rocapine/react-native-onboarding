@@ -72,7 +72,7 @@ One variable drives both the carousel position and which CTA renders — one scr
 ```json
 { "id": "pager", "type": "Carousel", "props": {
     "carouselType": "normal", "loop": false, "variableName": "welcomePage",
-    "showDots": true, "dotColor": "#E5E5E5", "activeDotColor": "#000000", "dotWidth": 8, "dotHeight": 8
+    "showDots": true, "dotColor": "#E5E5E5", "activeDotColor": "#000000", "dotWidth": 8, "dotHeight": 8, "activeDotWidth": 24, "activeDotHeight": 8, "dotsPosition": "bottom"
   }, "children": [ /* 5 slides */ ] },
 
 { "id": "cta-start", "type": "Button",

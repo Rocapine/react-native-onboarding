@@ -1086,7 +1086,14 @@ npx expo install @shopify/react-native-skia
 | `autoPlay` | `boolean` | Auto-advance slides; defaults to `false` |
 | `autoPlayInterval` | `number` | Milliseconds between auto-advances; defaults to `3000` |
 | `loop` | `boolean` | Loop back to first slide after last; defaults to `true` |
-| `showDots` | `boolean` | Show `Pagination.Basic` pill dots below carousel; defaults to `true` |
+| `showDots` | `boolean` | Show `Pagination.Basic` pill dots; defaults to `true` |
+| `dotColor` | `string` | Inactive dot color; defaults to `theme.colors.neutral.low` |
+| `activeDotColor` | `string` | Active dot color; defaults to `theme.colors.primary` |
+| `dotWidth` / `dotHeight` | `number` | Inactive dot size; default `20` / `4` |
+| `activeDotWidth` / `activeDotHeight` | `number` | Active dot size; default to `dotWidth` / `dotHeight` when unset |
+| `dotsGap` | `number` | Gap between dots; defaults to `8` |
+| `dotsPosition` | `"top" \| "bottom"` | Render dot row above or below the carousel; defaults to `"bottom"` |
+| `dotsMarginTop` / `dotsMarginBottom` | `number` | Dot-row margins; default `12` / `0` |
 | `height` | `number` | Slide height in dp; defaults to `220` |
 | `width` | `number` | Slide width; defaults to `useWindowDimensions().width` (overridden for `stack` and `left-align`) |
 | `borderRadius` | `number` | Applied to each slide's inner `View` |

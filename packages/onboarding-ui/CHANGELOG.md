@@ -9,6 +9,14 @@ here.
 
 ---
 
+## [1.49.0] - 2026-06-19
+
+### Added
+
+- **ComposableScreen `Carousel` element dots now support active-dot sizing and placement.** The renderer applies `activeDotWidth`/`activeDotHeight` to `Pagination.Basic`'s active dot, renders the dot row above or below the carousel via `dotsPosition`, and honors `dotsMarginBottom`. Defaults preserve the prior look (active dot = inactive size, dots below, no bottom margin).
+
+---
+
 ## [1.48.0] - 2026-06-19
 
 ### Added

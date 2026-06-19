@@ -562,6 +562,9 @@ OS-permission / integration ask (notifications, HealthKit, …) as a designed sc
       "showDots": true,
       "dotColor": "<DP.border.subtle>",
       "activeDotColor": "<DP.brand.primary>",
+      "activeDotWidth": 24,
+      "activeDotHeight": 8,
+      "dotsPosition": "bottom",
       "defaultIndex": 0,
       "variableName": "carouselPage",
       "height": 480

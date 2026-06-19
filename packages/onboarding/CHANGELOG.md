@@ -8,6 +8,18 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.47.0] - 2026-06-19
+
+### Added
+
+- **Injectable navigation** — new `OnboardingNavigationAdapter` type, default `expoRouterAdapter`, and `useOnboardingNavigation()` hook. `OnboardingProvider` accepts an optional `navigation` prop to plug in any navigation library (react-navigation, custom) instead of `expo-router`.
+
+### Changed
+
+- **`expo-router` is now an optional peer dependency** (was a hidden hard import). When installed it is used automatically; otherwise inject a `navigation` adapter. `useOnboardingStep` calls `navigation.useFocusEffect` instead of importing `expo-router` directly. Existing expo-router apps require no changes.
+
+---
+
 ## [1.46.0] - 2026-06-18
 
 ### Added

@@ -22,6 +22,7 @@ Install `@rocapine/react-native-onboarding` and wire `OnboardingProvider` + `use
    # peer deps already in most RN apps:
    npm install @tanstack/react-query @react-native-async-storage/async-storage
    ```
+   Navigation is dependency-injected: `expo-router` is an **optional** peer used automatically when installed (drives the per-step focus effect + progress-bar back button). Non-expo-router apps install nothing extra and pass a `navigation` adapter to `OnboardingProvider` — see the `setup-ui-sdk` skill's **Back navigation** section.
 4. Ask for required config (or accept from skill args):
    - `projectId` — Rocapine Studio project ID
    - `platform` — `ios | android | web`

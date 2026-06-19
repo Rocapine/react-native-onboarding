@@ -9,6 +9,14 @@ here.
 
 ---
 
+## [1.50.1] - 2026-06-19
+
+### Fixed
+
+- **ComposableScreen `RadioGroup` / `CheckboxGroup` — tick not pinned to edge with `tickPosition: "end"`.** The item row had no `justifyContent`, so the label and tick clumped together on the left instead of the tick sitting at the right edge of the full-width card. Items now apply `justifyContent: "space-between"` when `tickPosition === "end"`, distributing the label to the left and the tick to the right edge. `tickPosition: "start"` (default) is unchanged.
+
+---
+
 ## [1.50.0] - 2026-06-19
 
 ### Added

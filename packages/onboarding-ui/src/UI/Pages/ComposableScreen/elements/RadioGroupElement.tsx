@@ -261,6 +261,7 @@ export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement
             style={{
               flexDirection: "row",
               alignItems: "center",
+              justifyContent: tickAtEnd ? "space-between" : undefined,
               gap: tickNode && textNode ? 12 : 0,
               backgroundColor: bgColor,
               borderRadius: element.props.itemBorderRadius ?? 8,

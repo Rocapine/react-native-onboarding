@@ -8,6 +8,14 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.50.1] - 2026-06-19
+
+### Changed
+
+- **Version parity bump.** No functional changes to the headless SDK; released alongside `@rocapine/react-native-onboarding-ui` 1.50.1 (UI-only `RadioGroup` / `CheckboxGroup` tick-at-end layout fix).
+
+---
+
 ## [1.50.0] - 2026-06-19
 
 ### Added

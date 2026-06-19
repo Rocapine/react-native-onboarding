@@ -28,10 +28,52 @@ type ContentProps = {
 
 const CarouselRendererBase = ({ step, onContinue, theme = defaultTheme }: ContentProps) => {
   const validatedData = CarouselStepTypeSchema.parse(step);
-  const { screens } = validatedData.payload;
+  const { screens, pagination } = validatedData.payload;
   const { width } = useWindowDimensions();
   const scrollViewRef = useRef<ScrollView>(null);
   const [currentPage, setCurrentPage] = useState(0);
+
+  // Resolve pagination config — `pagination` is optional, so fall back to the
+  // original hardcoded look when absent (keeps existing onboardings unchanged).
+  const dots = {
+    show: pagination?.show ?? true,
+    dotColor: pagination?.dotColor ?? theme.colors.neutral.lower,
+    activeDotColor: pagination?.activeDotColor ?? theme.colors.primary,
+    dotWidth: pagination?.dotWidth ?? 8,
+    dotHeight: pagination?.dotHeight ?? 8,
+    activeDotWidth: pagination?.activeDotWidth ?? 24,
+    activeDotHeight: pagination?.activeDotHeight ?? 8,
+    gap: pagination?.gap ?? 8,
+    position: pagination?.position ?? "bottom",
+    marginTop: pagination?.marginTop ?? 20,
+    marginBottom: pagination?.marginBottom ?? 20,
+  };
+
+  const indicators = dots.show ? (
+    <View
+      style={[
+        styles.indicatorContainer,
+        { gap: dots.gap, marginTop: dots.marginTop, marginBottom: dots.marginBottom },
+      ]}
+    >
+      {screens.map((_, index) => {
+        const isActive = index === currentPage;
+        const dotW = isActive ? dots.activeDotWidth : dots.dotWidth;
+        const dotH = isActive ? dots.activeDotHeight : dots.dotHeight;
+        return (
+          <View
+            key={index}
+            style={{
+              width: dotW,
+              height: dotH,
+              borderRadius: dotH / 2,
+              backgroundColor: isActive ? dots.activeDotColor : dots.dotColor,
+            }}
+          />
+        );
+      })}
+    </View>
+  ) : null;
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const newPage = Math.round(event.nativeEvent.contentOffset.x / width);
@@ -72,6 +114,7 @@ const CarouselRendererBase = ({ step, onContinue, theme = defaultTheme }: Conten
       }}
     >
       <View style={styles.container}>
+        {dots.position === "top" && indicators}
         <ScrollView
           ref={scrollViewRef}
           horizontal
@@ -87,20 +130,7 @@ const CarouselRendererBase = ({ step, onContinue, theme = defaultTheme }: Conten
         </ScrollView>
 
         {/* Page Indicators */}
-        <View style={styles.indicatorContainer}>
-          {screens.map((_, index) => (
-            <View
-              key={index}
-              style={[
-                styles.indicator,
-                {
-                  backgroundColor: index === currentPage ? theme.colors.primary : theme.colors.neutral.lower
-                },
-                index === currentPage && styles.indicatorActive,
-              ]}
-            />
-          ))}
-        </View>
+        {dots.position === "bottom" && indicators}
       </View>
     </OnboardingTemplate>
     </SafeAreaView>
@@ -198,16 +228,7 @@ const styles = StyleSheet.create({
   indicatorContainer: {
     flexDirection: "row",
     justifyContent: "center",
-    gap: 8,
-    paddingVertical: 20,
-  },
-  indicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  indicatorActive: {
-    width: 24,
+    alignItems: "center",
   },
 });
 

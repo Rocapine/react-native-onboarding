@@ -138,8 +138,25 @@ Multi-slide horizontal pagination with page indicators.
     description?: string;
     media?: MediaSource;
   }>;
+  pagination?: {
+    show?: boolean;            // default true
+    dotColor?: string;         // default theme.colors.neutral.lower
+    activeDotColor?: string;   // default theme.colors.primary
+    dotWidth?: number;         // default 8
+    dotHeight?: number;        // default 8
+    activeDotWidth?: number;   // default 24
+    activeDotHeight?: number;  // default 8
+    gap?: number;              // default 8
+    position?: "top" | "bottom"; // default "bottom" — dots above or below content
+    marginTop?: number;        // default 20
+    marginBottom?: number;     // default 20
+  };
 }
 ```
+
+The `pagination` object is optional — omit it to keep the default dot styling. All
+sub-fields are optional and individually defaulted, so you can override just the
+ones you need (e.g. only `activeDotColor` and `position`).
 
 **Example:**
 ```typescript

@@ -8,6 +8,14 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.48.0] - 2026-06-19
+
+### Added
+
+- **Carousel pagination dot customization** — the `Carousel` step payload accepts an optional `pagination` object: `show`, `dotColor`, `activeDotColor`, `dotWidth`, `dotHeight`, `activeDotWidth`, `activeDotHeight`, `gap`, `position` (`"top"` | `"bottom"`), `marginTop`, `marginBottom`. All fields optional; omitting `pagination` keeps the previous default look.
+
+---
+
 ## [1.47.0] - 2026-06-19
 
 ### Added

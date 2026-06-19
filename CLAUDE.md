@@ -66,6 +66,8 @@ After modifying `packages/`, run `npm run build` (or relevant workspace build) b
 | `Loader` | Sequential animated progress bars using React Native `Animated` (NOT Reanimated); optional "Did you know?" carousel |
 | `Question` | Q&A with single/multi-select; supports custom answer button/list components |
 
+**Page-type payload schema changes** (e.g. `Carousel`) touch the headless schema (`packages/onboarding/src/steps/{Type}/types.ts`) AND a re-declared UI mirror (`packages/onboarding-ui/src/UI/Pages/{Type}/types.ts`) — keep field sets identical (drift won't be caught by TS). Such changes also mirror into onboarding-studio: `shared/onbaording-step.schema.ts` (Zod) + `OnboardingSteps/{Type}/{Type}.form.tsx` (editor). Studio's bundled SDK type lags publish — type new payload fields from studio's own schema (`z.infer`), not the SDK type.
+
 ### ProgressBar
 
 - **Automatically included in `OnboardingProvider`** — never add it manually in individual screens
@@ -175,6 +177,8 @@ In onboarding-studio, update:
 ```
 
 ## Publishing Workflow
+
+Bump `claude-plugin/.claude-plugin/plugin.json` `version` to match the SDK packages on each release (it tracks the SDK version).
 
 ```bash
 # Patch release for both packages

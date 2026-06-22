@@ -1,5 +1,6 @@
 import React from "react";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useOnboardingHeaderHeight } from "@rocapine/react-native-onboarding";
 import { z } from "zod";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { GradientBox } from "./GradientBox";
@@ -39,9 +40,38 @@ type Props = {
   ctx: RenderContext;
 };
 
+/**
+ * Does this element apply the top safe-area inset itself? Plain SafeAreaView
+ * defaults to all edges when `edges` is omitted; otherwise top is active when
+ * the array includes "top" or the object's `top` mode isn't "off".
+ */
+const appliesTopEdge = (
+  edges: SafeAreaViewElementProps["edges"]
+): boolean => {
+  if (edges == null) return true;
+  if (Array.isArray(edges)) return edges.includes("top");
+  return edges.top != null && edges.top !== "off";
+};
+
 export const SafeAreaViewElementComponent = ({ element, ctx }: Props): React.ReactElement => {
   const p = element.props;
   const hasGradient = !!p.backgroundGradient;
+
+  // Offset content below the host-rendered ProgressBar (absolute-positioned, so
+  // it doesn't take layout space). `headerHeight` is the bar's full footprint
+  // incl. the top inset it spans. When this SafeAreaView already applies the top
+  // inset, only add the overlap beyond it (headerHeight - inset); otherwise add
+  // the whole footprint. 0 when the bar is hidden. NOTE: only the screen's
+  // top-most SafeAreaView should carry this — a nested top-edge SafeAreaView
+  // would double-offset (same caveat as nesting safe-area insets in general).
+  const { headerHeight } = useOnboardingHeaderHeight();
+  const insets = useSafeAreaInsets();
+  const headerOffset =
+    headerHeight === 0
+      ? 0
+      : appliesTopEdge(p.edges)
+        ? Math.max(0, headerHeight - insets.top)
+        : headerHeight;
   const frameStyle = {
     flex: p.flex,
     flexShrink: p.flexShrink,
@@ -70,11 +100,17 @@ export const SafeAreaViewElementComponent = ({ element, ctx }: Props): React.Rea
   // stay content-sized, else `flex: 1` grabs the parent's full main-axis (e.g.
   // inside a ZStack the element fills the whole screen).
   const fillsParent = p.height != null || p.flex != null || p.flexGrow != null;
+  // Stack the bar offset on top of the author's existing top padding. paddingTop
+  // is more specific than padding/paddingVertical, so re-add the base it shadows.
+  const baseTopPadding = p.padding ?? p.paddingVertical;
   const safeAreaStyle = {
     flex: hasGradient && fillsParent ? 1 : p.flex,
     padding: p.padding,
     paddingHorizontal: p.paddingHorizontal,
     paddingVertical: p.paddingVertical,
+    ...(headerOffset > 0
+      ? { paddingTop: headerOffset + (baseTopPadding ?? 0) }
+      : null),
   };
 
   if (hasGradient) {

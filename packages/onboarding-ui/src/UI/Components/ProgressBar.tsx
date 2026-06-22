@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { View, StyleSheet, TouchableOpacity } from "react-native";
+import { View, StyleSheet, TouchableOpacity, LayoutChangeEvent } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -7,7 +7,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ChevronLeft } from "lucide-react-native";
-import { useOnboardingNavigation } from "@rocapine/react-native-onboarding";
+import { useOnboardingNavigation, useOnboardingHeaderHeight } from "@rocapine/react-native-onboarding";
 import { defaultTheme, Theme } from "../Theme";
 
 interface ProgressBarProps {
@@ -29,6 +29,18 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   const { useRouter } = useOnboardingNavigation();
   const router = useRouter();
   const { top } = useSafeAreaInsets();
+  const { setHeaderHeight } = useOnboardingHeaderHeight();
+
+  // Publish the bar's real measured footprint so step content can offset below
+  // it instead of guessing. Reset to 0 when hidden (the View unmounts, so
+  // onLayout never fires a 0 on its own).
+  useEffect(() => {
+    if (!isProgressBarVisible) setHeaderHeight(0);
+  }, [isProgressBarVisible, setHeaderHeight]);
+
+  const onContainerLayout = (e: LayoutChangeEvent) => {
+    setHeaderHeight(e.nativeEvent.layout.height);
+  };
 
   const height = 12
   // Use Reanimated shared value for smooth animations
@@ -57,7 +69,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
 
   return (
     isProgressBarVisible && (
-      <View style={[styles.container, { paddingTop: top }]}>
+      <View style={[styles.container, { paddingTop: top }]} onLayout={onContainerLayout}>
         <View style={styles.progressBarContainer}>
           {/* Left section: Back button */}
           <View style={styles.backButtonSection}>

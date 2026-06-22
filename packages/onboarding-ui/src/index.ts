@@ -30,5 +30,8 @@ export * from "./UI/ErrorBoundary";
 // Provider
 export { OnboardingProgressProvider, OnboardingProgressContext } from "./UI/Provider/OnboardingProgressProvider";
 
+// Hooks
+export * from "./UI/hooks";
+
 // UI-specific types
 export * from "./UI/types";

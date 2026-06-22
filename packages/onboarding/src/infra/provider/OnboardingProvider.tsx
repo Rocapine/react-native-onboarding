@@ -109,6 +109,13 @@ export const OnboardingProvider = ({
     displayProgressHeader: false,
   });
   const [totalSteps, setTotalSteps] = useState(0);
+  // Measured pixel height of the host-rendered ProgressBar/header (incl. the top
+  // safe-area inset it spans). Published by `<ProgressBar>` via onLayout so step
+  // content can offset below it without hardcoding a guessed height. 0 when hidden.
+  const [headerHeight, setHeaderHeightState] = useState(0);
+  const setHeaderHeight = useCallback((height: number) => {
+    setHeaderHeightState((prev) => (prev === height ? prev : height));
+  }, []);
   const [onboarding, setOnboarding] = useState<Onboarding<OnboardingStepType> | null>(null);
   const [variables, setVariables] = useState<Record<string, any>>({});
   const variablesRef = useRef<Record<string, any>>(variables);
@@ -126,6 +133,8 @@ export const OnboardingProvider = ({
           setActiveStep,
           totalSteps,
           setTotalSteps,
+          headerHeight,
+          setHeaderHeight,
           client,
           locale,
           customAudienceParams,
@@ -157,6 +166,8 @@ export const OnboardingProgressContext = createContext<{
   setActiveStep: (step: { number: number; displayProgressHeader: boolean }) => void;
   totalSteps: number;
   setTotalSteps: (steps: number) => void;
+  headerHeight: number;
+  setHeaderHeight: (height: number) => void;
   client: OnboardingStudioClient;
   locale: string;
   customAudienceParams: Record<string, any>;
@@ -172,6 +183,8 @@ export const OnboardingProgressContext = createContext<{
   setActiveStep: () => { },
   totalSteps: 0,
   setTotalSteps: () => { },
+  headerHeight: 0,
+  setHeaderHeight: () => { },
   client: new OnboardingStudioClient('', {}),
   locale: "en",
   customAudienceParams: {},

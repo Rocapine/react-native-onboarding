@@ -1,6 +1,6 @@
 import { useCallback, useContext, useMemo } from "react";
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from "react-native";
-import { OnboardingProgressContext as HeadlessProgressContext } from "@rocapine/react-native-onboarding";
+import { OnboardingProgressContext as HeadlessProgressContext, useOnboardingHeaderHeight } from "@rocapine/react-native-onboarding";
 import { ComposableScreenStepType, ComposableScreenStepTypeSchema, UIElement } from "./types";
 import { withErrorBoundary } from "../../ErrorBoundary";
 import { OnboardingTemplate } from "../../Templates/OnboardingTemplate";
@@ -19,6 +19,7 @@ type ContentProps = {
 
 const ComposableScreenRendererBase = ({ step, onContinue, keyboardVerticalOffset }: ContentProps) => {
   const { theme } = useTheme();
+  const { headerHeight } = useOnboardingHeaderHeight();
   const validatedData = useMemo(() => ComposableScreenStepTypeSchema.parse(step), [step]);
   const { elements } = validatedData.payload;
   const { composableVariables, setComposableVariable } = useContext(OnboardingProgressContext);
@@ -72,7 +73,7 @@ const ComposableScreenRendererBase = ({ step, onContinue, keyboardVerticalOffset
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={keyboardVerticalOffset ?? 0}
+        keyboardVerticalOffset={keyboardVerticalOffset ?? headerHeight}
       >
         <View style={styles.flex}>
           {elements.map((element) => renderElement(element, ctx))}

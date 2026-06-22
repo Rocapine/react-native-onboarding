@@ -3,6 +3,7 @@ import { OnboardingStepType } from "../types";
 import { getTextStyle } from "../Theme/helpers";
 import { Theme } from "../Theme/types";
 import { defaultTheme } from "../Theme/defaultTheme";
+import { useProgressHeaderInset } from "../hooks/useProgressHeaderInset";
 import * as LucideIcons from "lucide-react-native";
 
 function lucideIconLookupKeys(raw: string): string[] {
@@ -61,6 +62,9 @@ export const OnboardingTemplate = ({
   theme = defaultTheme,
   disableTopPadding = false,
 }: OnboardingTemplateProps) => {
+  // Real measured ProgressBar overlap (below the safe-area inset the page's own
+  // SafeAreaView already applies). Replaces the old hardcoded `40` guess.
+  const headerInset = useProgressHeaderInset();
   return (
     <View
       style={[
@@ -68,7 +72,7 @@ export const OnboardingTemplate = ({
         {
           backgroundColor: theme.colors.neutral.lowest,
           paddingTop:
-            disableTopPadding || !step.displayProgressHeader ? 0 : 40,
+            disableTopPadding || !step.displayProgressHeader ? 0 : headerInset,
         },
       ]}
     >

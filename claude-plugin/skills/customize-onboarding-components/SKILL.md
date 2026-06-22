@@ -36,9 +36,11 @@ Every styled UIElement (`Button`, `RadioGroup`, `CheckboxGroup`, `Input`, `Wheel
 - `tickColor`, `tickSelectedColor`, `tickBorderRadius` — tick element styling per state (radius default: radio `tickSize/2`, checkbox `4`)
 - `tickSize` — tick diameter (radio) / box side (checkbox) in px; inner dot/checkmark scales with it. Default: `20`
 - per-item `subLabel` (secondary line) styling: `itemSubLabelColor`, `itemSelectedSubLabelColor`, `itemSubLabelFontSize`, `itemSubLabelFontWeight`, `itemSubLabelFontFamily`, `itemSubLabelFontStyle`
+- `itemAlignItems: "flex-start" | "center" | "flex-end" | "stretch"` — cross-axis alignment of each item's contents (tick ↔ content column, and image ↔ label inside it). Default: `"center"`
+- `itemGap` — spacing (px) between an item's inner pieces: tick ↔ content, and image ↔ text inside the content column. Default: `12`
 - `haptic: "none" | "light" | "medium" | "heavy" | "soft" | "rigid"` — tactile feedback on select/toggle (opt-in; needs optional `expo-haptics`)
 
-Items are `{ label?, value, subLabel? }`: `label` is optional (omit for a sub-label-only row — no gap is added when a line is absent), `value` required, `subLabel` an optional secondary line.
+Items are `{ label?, value, subLabel?, image? }`: `label` is optional (omit for a sub-label-only row — no gap is added when a line is absent), `value` required, `subLabel` an optional secondary line, `image` an optional `{ url, width?, height?, aspectRatio?, resizeMode?, borderRadius? }` stacked above the label as a column (image → label → subLabel).
 
 `Input`:
 - `backgroundColor`, `color`, `placeholderColor`, `borderRadius`

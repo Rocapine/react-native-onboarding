@@ -9,6 +9,10 @@ export type CheckboxGroupElementProps = BaseBoxProps & {
   haptic?: HapticStyle;
   gap?: number;
   direction?: "vertical" | "horizontal";
+  /** Cross-axis alignment of each item's contents (tick ↔ content column). Defaults to "center". */
+  itemAlignItems?: "flex-start" | "center" | "flex-end" | "stretch";
+  /** Spacing (px) between an item's inner pieces: tick ↔ content, and image ↔ text within the content column. Defaults to 12. */
+  itemGap?: number;
   showTick?: boolean;
   /** Tick (checkbox box) placement relative to the label. Defaults to "start". */
   tickPosition?: "start" | "end";
@@ -20,7 +24,20 @@ export type CheckboxGroupElementProps = BaseBoxProps & {
   tickBorderRadius?: number;
   /** Side length of the tick box in px. Checkmark scales with it. Defaults to 20. */
   tickSize?: number;
-  items: Array<{ label?: string; value: string; subLabel?: string }>;
+  /** Optional per-item image, stacked above the label/sub-label (image → label → subLabel column). */
+  items: Array<{
+    label?: string;
+    value: string;
+    subLabel?: string;
+    image?: {
+      url: string;
+      width?: number;
+      height?: number;
+      aspectRatio?: number;
+      resizeMode?: "cover" | "contain" | "stretch" | "center";
+      borderRadius?: number;
+    };
+  }>;
   itemBackgroundColor?: string;
   itemSelectedBackgroundColor?: string;
   itemBorderColor?: string;
@@ -57,13 +74,27 @@ export const CheckboxGroupElementPropsSchema = BaseBoxPropsSchema.extend({
   haptic: HapticStyleSchema.optional(),
   gap: z.number().optional(),
   direction: z.enum(["vertical", "horizontal"]).optional(),
+  itemAlignItems: z.enum(["flex-start", "center", "flex-end", "stretch"]).optional(),
+  itemGap: z.number().min(0).optional(),
   showTick: z.boolean().optional(),
   tickPosition: z.enum(["start", "end"]).optional(),
   tickColor: z.string().optional(),
   tickSelectedColor: z.string().optional(),
   tickBorderRadius: z.number().min(0).optional(),
   tickSize: z.number().min(1).optional(),
-  items: z.array(z.object({ label: z.string().trim().optional(), value: z.string().trim().min(1, "item value must not be empty"), subLabel: z.string().trim().optional() })).min(1, "items must not be empty"),
+  items: z.array(z.object({
+    label: z.string().trim().optional(),
+    value: z.string().trim().min(1, "item value must not be empty"),
+    subLabel: z.string().trim().optional(),
+    image: z.object({
+      url: z.string().min(1, "image url must not be empty"),
+      width: z.number().min(0).optional(),
+      height: z.number().min(0).optional(),
+      aspectRatio: z.number().optional(),
+      resizeMode: z.enum(["cover", "contain", "stretch", "center"]).optional(),
+      borderRadius: z.number().min(0).optional(),
+    }).optional(),
+  })).min(1, "items must not be empty"),
   itemBackgroundColor: z.string().optional(),
   itemSelectedBackgroundColor: z.string().optional(),
   itemBorderColor: z.string().optional(),

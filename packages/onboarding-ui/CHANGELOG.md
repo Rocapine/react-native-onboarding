@@ -9,6 +9,14 @@ here.
 
 ---
 
+## [1.51.2] - 2026-06-22
+
+### Fixed
+
+- **ComposableScreen `RadioGroup` / `CheckboxGroup` — container honors `flex` / `flexGrow` / `flexShrink`.** The group container style threaded only `width`/`height`, so `flex:1` on a group was a no-op — groups sized to content and image-grid columns rendered unequal. The container now applies `flex`/`flexGrow`/`flexShrink` from `BaseBoxProps`, so a `flex:1` group fills its parent and image grids get fluid, equal-width columns without fixed-percentage widths.
+
+---
+
 ## [1.51.1] - 2026-06-22
 
 ### Fixed

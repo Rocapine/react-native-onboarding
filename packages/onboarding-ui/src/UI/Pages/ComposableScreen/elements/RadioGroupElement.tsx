@@ -253,8 +253,14 @@ export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement
           </View>
         ) : null;
 
+        // Match text line alignment to itemAlignItems so multi-line label/subLabel
+        // center (or right-align) instead of always reading left.
+        const itemTextAlign: "left" | "center" | "right" =
+          element.props.itemAlignItems === "center" ? "center" :
+          element.props.itemAlignItems === "flex-end" ? "right" : "left";
+
         const textBlock = (hasLabel || hasSubLabel) ? (
-          <View style={{ gap: hasLabel && hasSubLabel ? 2 : 0 }}>
+          <View style={{ gap: hasLabel && hasSubLabel ? 2 : 0, alignSelf: "stretch" }}>
             {hasLabel && (
               <Text
                 style={{
@@ -265,6 +271,7 @@ export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement
                     : ((element.props.itemFontWeight as any) ?? theme.typography.textStyles.body.fontWeight),
                   fontFamily: resolvedFont.fontFamily,
                   fontStyle: element.props.itemFontStyle,
+                  textAlign: itemTextAlign,
                 }}
               >
                 {item.label}
@@ -280,6 +287,7 @@ export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement
                     : ((element.props.itemSubLabelFontWeight as any) ?? theme.typography.textStyles.caption.fontWeight),
                   fontFamily: resolvedSubLabelFont.fontFamily,
                   fontStyle: element.props.itemSubLabelFontStyle,
+                  textAlign: itemTextAlign,
                 }}
               >
                 {item.subLabel}
@@ -295,6 +303,8 @@ export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement
           <View
             style={{
               flexShrink: 1,
+              flexGrow: 1,
+              alignSelf: "stretch",
               gap: itemGap,
               alignItems: element.props.itemAlignItems ?? "stretch",
             }}

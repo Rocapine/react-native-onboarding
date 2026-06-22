@@ -9,6 +9,14 @@ here.
 
 ---
 
+## [1.51.1] - 2026-06-22
+
+### Fixed
+
+- **ComposableScreen `RadioGroup` / `CheckboxGroup` — centered label/subLabel.** With `itemAlignItems: "center"` (or `"flex-end"`), the label/sub-label now actually center (or right-align) within the item card. The content wrapper was content-width with no grow, so the item row pinned it left and `itemAlignItems` only centered within that narrow block; it now `flexGrow:1` + `alignSelf:"stretch"` to fill the card. Label/sub-label `<Text>` also gain a matching `textAlign` so multi-line copy aligns instead of reading left. Default (no `itemAlignItems`) still left-aligns.
+
+---
+
 ## [1.51.0] - 2026-06-19
 
 ### Added

@@ -8,6 +8,14 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.51.2] - 2026-06-22
+
+### Changed
+
+- **Version parity bump.** No headless SDK changes; released to stay in lockstep with `@rocapine/react-native-onboarding-ui` 1.51.2 (UI-only fix: RadioGroup/CheckboxGroup container now honors `flex`/`flexGrow`/`flexShrink`).
+
+---
+
 ## [1.51.1] - 2026-06-22
 
 ### Changed

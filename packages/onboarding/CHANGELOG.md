@@ -8,6 +8,14 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.53.0] - 2026-06-22
+
+### Added
+
+- **`DatePicker.format` prop** — optional `Intl.DateTimeFormatOptions` subset (`weekday`, `year`, `month`, `day`, `hour`, `minute`, `second`, `hour12`, `hourCycle`, `dateStyle`, `timeStyle`) on the `DatePicker` element schema (`DateTimeFormatOptionsSchema` / `DateTimeFormatOptions`), controlling how the picker's stored/displayed label is formatted across `date`/`time`/`datetime` modes. Lets authors choose 12h vs 24h, day/month/year style, etc. (e.g. `{ hour: "2-digit", minute: "2-digit", hour12: false }` → `"14:30"`). Omit for the previous default medium-style label. Note: Intl throws if `dateStyle`/`timeStyle` is combined with component fields — don't mix them (schema does not enforce).
+
+---
+
 ## [1.52.0] - 2026-06-22
 
 ### Added

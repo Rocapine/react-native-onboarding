@@ -62,6 +62,7 @@ Run: `npx tsx scripts/_validate-composable.ts "$(cat step.json)"`
      - `effect` (continuous loop, NOT a builder name): `{ preset, duration?, delay?, easing?, loop?, minScale?, maxScale?, minOpacity?, degrees? }`. `preset` ∈ `"pulse"|"fade"|"rotate"|"shimmer"|"bounce"`.
      - `easing` (where present) ∈ `"linear"|"ease-in"|"ease-out"|"ease-in-out"`; `spring` is `{ damping?, stiffness?, mass? }` (numbers); `duration`/`delay` non-negative numbers. `spring` wins over `easing` when both present.
    - `SafeAreaView.props.edges` is an array of `"top"|"right"|"bottom"|"left"` OR an object with edge mode `"off"|"additive"|"maximum"` — NEVER `"always"`
+   - `DatePicker.props.format` (optional) is an `Intl.DateTimeFormatOptions` subset object — `weekday`/`month` (`"long"|"short"|"narrow"`, month also `"numeric"|"2-digit"`), `year`/`day`/`hour`/`minute`/`second` (`"numeric"|"2-digit"`), `hour12` (boolean), `hourCycle` (`"h11"|"h12"|"h23"|"h24"`), `dateStyle`/`timeStyle` (`"full"|"long"|"medium"|"short"`). Schema-valid but **warn if `dateStyle`/`timeStyle` is combined with component fields** (`hour`/`day`/etc.) — Intl throws at runtime
    - **Flow-level chain integrity (when input is an array of steps)**:
      - Every non-terminal step has `nextStep: { defaultTargetStepId, branches }`. Terminal step has `nextStep: null`. Flag steps that rely on `null` linear fallback in the middle of a flow as a warning ("implicit linear link — prefer explicit defaultTargetStepId").
      - `nextStep.defaultTargetStepId` is a string and references a real step `id` in the flow.

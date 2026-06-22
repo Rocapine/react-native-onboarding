@@ -18,6 +18,38 @@ const isDateStringOrNow = (s: string) => s === "now" || !isNaN(Date.parse(s));
 const resolveDate = (s?: string): Date | undefined =>
   s === undefined ? undefined : s === "now" ? new Date() : new Date(s);
 
+// Subset of Intl.DateTimeFormatOptions used to format the displayed/stored
+// label. Mirror of the headless DateTimeFormatOptions (kept self-contained —
+// UI mirrors don't import headless internals). NOTE: Intl throws if
+// dateStyle/timeStyle is combined with component fields (hour/day/etc.).
+export type DateTimeFormatOptions = {
+  weekday?: "long" | "short" | "narrow";
+  year?: "numeric" | "2-digit";
+  month?: "numeric" | "2-digit" | "long" | "short" | "narrow";
+  day?: "numeric" | "2-digit";
+  hour?: "numeric" | "2-digit";
+  minute?: "numeric" | "2-digit";
+  second?: "numeric" | "2-digit";
+  hour12?: boolean;
+  hourCycle?: "h11" | "h12" | "h23" | "h24";
+  dateStyle?: "full" | "long" | "medium" | "short";
+  timeStyle?: "full" | "long" | "medium" | "short";
+};
+
+export const DateTimeFormatOptionsSchema = z.object({
+  weekday: z.enum(["long", "short", "narrow"]).optional(),
+  year: z.enum(["numeric", "2-digit"]).optional(),
+  month: z.enum(["numeric", "2-digit", "long", "short", "narrow"]).optional(),
+  day: z.enum(["numeric", "2-digit"]).optional(),
+  hour: z.enum(["numeric", "2-digit"]).optional(),
+  minute: z.enum(["numeric", "2-digit"]).optional(),
+  second: z.enum(["numeric", "2-digit"]).optional(),
+  hour12: z.boolean().optional(),
+  hourCycle: z.enum(["h11", "h12", "h23", "h24"]).optional(),
+  dateStyle: z.enum(["full", "long", "medium", "short"]).optional(),
+  timeStyle: z.enum(["full", "long", "medium", "short"]).optional(),
+});
+
 export type DatePickerElementProps = BaseBoxProps & {
   variableName?: string;
   defaultValue?: string;
@@ -28,6 +60,7 @@ export type DatePickerElementProps = BaseBoxProps & {
   textColor?: string;
   accentColor?: string;
   locale?: string;
+  format?: DateTimeFormatOptions;
 };
 
 export const DatePickerElementPropsSchema = BaseBoxPropsSchema.extend({
@@ -40,6 +73,7 @@ export const DatePickerElementPropsSchema = BaseBoxPropsSchema.extend({
   textColor: z.string().optional(),
   accentColor: z.string().optional(),
   locale: z.string().optional(),
+  format: DateTimeFormatOptionsSchema.optional(),
 });
 
 type DatePickerUIElement = Extract<UIElement, { type: "DatePicker" }>;
@@ -49,14 +83,24 @@ type Props = {
   ctx: RenderContext;
 };
 
-function formatDate(date: Date, mode: "date" | "time" | "datetime"): string {
+function formatDate(
+  date: Date,
+  mode: "date" | "time" | "datetime",
+  format?: DateTimeFormatOptions,
+  locale?: string,
+): string {
+  if (format) {
+    if (mode === "time") return date.toLocaleTimeString(locale, format);
+    if (mode === "datetime") return date.toLocaleString(locale, format);
+    return date.toLocaleDateString(locale, format);
+  }
   if (mode === "time") {
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return date.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
   }
   if (mode === "datetime") {
-    return date.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+    return date.toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" });
   }
-  return date.toLocaleDateString([], { dateStyle: "medium" });
+  return date.toLocaleDateString(locale, { dateStyle: "medium" });
 }
 
 export const DatePickerElementComponent = ({ element, ctx }: Props): React.ReactElement => {
@@ -87,10 +131,10 @@ export const DatePickerElementComponent = ({ element, ctx }: Props): React.React
       seededVariableRef.current = props.variableName;
       setVariable(props.variableName, {
         value: initialDate.toISOString(),
-        label: formatDate(initialDate, mode),
+        label: formatDate(initialDate, mode, props.format, props.locale),
       });
     }
-  }, [props.variableName, persistedValue, initialDate, mode, setVariable]);
+  }, [props.variableName, persistedValue, initialDate, mode, props.format, props.locale, setVariable]);
 
   const handleChange = (_event: DateTimePickerEvent, selected?: Date) => {
     if (!selected) return;
@@ -98,7 +142,7 @@ export const DatePickerElementComponent = ({ element, ctx }: Props): React.React
     if (props.variableName) {
       setVariable(props.variableName, {
         value: selected.toISOString(),
-        label: formatDate(selected, mode),
+        label: formatDate(selected, mode, props.format, props.locale),
       });
     }
   };
@@ -157,7 +201,7 @@ export const DatePickerElementComponent = ({ element, ctx }: Props): React.React
               fontFamily: labelFontFamily,
             }}
           >
-            {formatDate(date, mode)}
+            {formatDate(date, mode, props.format, props.locale)}
           </Text>
           <Text style={{ color: theme.colors.text.tertiary, fontSize: 16 }}>›</Text>
         </Pressable>

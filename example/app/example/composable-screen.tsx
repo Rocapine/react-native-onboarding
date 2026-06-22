@@ -677,6 +677,8 @@ export default function ComposableScreenExample() {
                 mode: 'date' as const,
                 display: 'spinner' as const,
                 maximumDate: 'now',
+                // Custom label format: "1 January 1990" instead of default "Jan 1, 1990"
+                format: { day: 'numeric' as const, month: 'long' as const, year: 'numeric' as const },
                 marginVertical: 8,
               },
             },
@@ -686,6 +688,33 @@ export default function ComposableScreenExample() {
               type: 'Text' as const,
               props: {
                 content: 'Birth date: {{birthdate}}',
+                mode: 'expression' as const,
+                fontSize: 14,
+                textAlign: 'center' as const,
+                opacity: 0.7,
+                marginVertical: 4,
+              },
+            },
+            // Time picker element — 24h label format
+            {
+              id: 'hero-time-picker',
+              type: 'DatePicker' as const,
+              props: {
+                variableName: 'wakeTime',
+                defaultValue: '1990-01-01T07:30:00.000Z',
+                mode: 'time' as const,
+                display: 'spinner' as const,
+                // 24h label (e.g. "07:30") via hour12: false
+                format: { hour: '2-digit' as const, minute: '2-digit' as const, hour12: false },
+                marginVertical: 8,
+              },
+            },
+            // Expression text — shows selected time
+            {
+              id: 'waketime-display',
+              type: 'Text' as const,
+              props: {
+                content: 'Wake time: {{wakeTime}}',
                 mode: 'expression' as const,
                 fontSize: 14,
                 textAlign: 'center' as const,

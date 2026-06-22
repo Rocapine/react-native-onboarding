@@ -756,6 +756,8 @@ export const onboardingExample = {
                   mode: "date",
                   display: "spinner",
                   maximumDate: "now", // resolves to current date at render time
+                  // Custom label format: "1 January 1990" instead of default "Jan 1, 1990"
+                  format: { day: "numeric", month: "long", year: "numeric" },
                   marginVertical: 8,
                 },
               },
@@ -764,6 +766,31 @@ export const onboardingExample = {
                 type: "Text",
                 props: {
                   content: "Birth date: {{birthdate}}",
+                  mode: "expression",
+                  fontSize: 14,
+                  textAlign: "center",
+                  opacity: 0.6,
+                  marginVertical: 4,
+                },
+              },
+              {
+                id: "hero-time-picker",
+                type: "DatePicker",
+                props: {
+                  variableName: "wakeTime",
+                  defaultValue: "1990-01-01T07:30:00.000Z",
+                  mode: "time",
+                  display: "spinner",
+                  // 24h label (e.g. "07:30") via hour12: false
+                  format: { hour: "2-digit", minute: "2-digit", hour12: false },
+                  marginVertical: 8,
+                },
+              },
+              {
+                id: "waketime-display",
+                type: "Text",
+                props: {
+                  content: "Wake time: {{wakeTime}}",
                   mode: "expression",
                   fontSize: 14,
                   textAlign: "center",

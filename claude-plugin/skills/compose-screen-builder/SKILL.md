@@ -46,7 +46,7 @@ Then apply the polish layer from `../create-step-json/references/screen-patterns
 | `Input` | Text input bound to a variable |
 | `Button` | Triggers a `ButtonAction` (continue, setVariable, custom) |
 | `RadioGroup` / `CheckboxGroup` | Bound to a variable |
-| `DatePicker` | Date input bound to a variable |
+| `DatePicker` | Date/time input bound to a variable; `mode` (`date`/`time`/`datetime`), `format` (Intl options subset → label format, e.g. `{hour:"2-digit",minute:"2-digit",hour12:false}` for 24h) |
 | `WheelPicker` | Scrolling wheel selector bound to a variable (needs `@react-native-picker/picker`) |
 | `DrawingPad` | Freehand draw/signature canvas; serializes to a variable (`variableName` → SVG path string; `imageVariableName` → base64 image data URI). Needs `@shopify/react-native-skia` |
 | `Slider` | Continuous numeric input bound to a variable (stored as a float). Props: `min` (0), `max` (1), `step` (0 = continuous), `defaultValue`, `minimumTrackTintColor`, `maximumTrackTintColor`, `thumbTintColor`. Needs optional `@react-native-community/slider`; degrades to an empty box when absent |

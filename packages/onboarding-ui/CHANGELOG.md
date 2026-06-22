@@ -9,6 +9,18 @@ here.
 
 ---
 
+## [1.53.0] - 2026-06-22
+
+### Added
+
+- **Configurable `DatePicker` label format** — the `DatePicker` renderer now honors the new `format` prop (`Intl.DateTimeFormatOptions` subset), passing it to the `toLocale*String` call matching `mode` so the Android trigger text and the stored variable `label` reflect the author's chosen format (12h/24h, day/month/year style, etc.). Falls back to the existing medium-style defaults when `format` is omitted.
+
+### Fixed
+
+- **`DatePicker` label now respects `locale`** — the label formatter previously ignored the `locale` prop (always used the device default); it is now threaded into `formatDate`, so the displayed/stored label localizes alongside the native picker.
+
+---
+
 ## [1.52.0] - 2026-06-22
 
 ### Added

@@ -971,7 +971,8 @@ See [Custom Actions](./customization/custom-actions.mdx) for the full handler si
 | `display` | `"default" \| "spinner" \| "calendar" \| "clock" \| "compact" \| "inline"` | Platform-specific display style; iOS defaults to `"spinner"`, Android defaults to `"default"` |
 | `textColor` | `string` | Picker text color; defaults to `theme.colors.text.primary` |
 | `accentColor` | `string` | Picker accent/highlight color; defaults to `theme.colors.primary` |
-| `locale` | `string` | BCP 47 locale tag (e.g. `"fr-FR"`) |
+| `locale` | `string` | BCP 47 locale tag (e.g. `"fr-FR"`) — applied to both the native picker and the formatted label |
+| `format` | `object` | `Intl.DateTimeFormatOptions` subset controlling the displayed/stored **label** (not the native wheel): `weekday`, `year`, `month`, `day`, `hour`, `minute`, `second` (`"numeric" \| "2-digit"`, plus `"long" \| "short" \| "narrow"` for `weekday`/`month`), `hour12` (`boolean`), `hourCycle` (`"h11" \| "h12" \| "h23" \| "h24"`), `dateStyle`/`timeStyle` (`"full" \| "long" \| "medium" \| "short"`). Forwarded to `toLocaleTimeString`/`toLocaleString`/`toLocaleDateString` per `mode`. e.g. `{ "hour": "2-digit", "minute": "2-digit", "hour12": false }` → `"14:30"`. **Don't combine `dateStyle`/`timeStyle` with component fields** (`hour`/`day`/…) — Intl throws. Omit for the default medium-style label |
 | `alignSelf` | `"auto" \| "flex-start" \| "flex-end" \| "center" \| "stretch" \| "baseline"` | |
 | `width` / `height` | `number` | Container dimensions |
 | `margin` / `marginHorizontal` / `marginVertical` | `number` | |

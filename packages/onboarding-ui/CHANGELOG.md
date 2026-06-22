@@ -14,6 +14,7 @@ here.
 ### Fixed
 
 - **ComposableScreen `RadioGroup` / `CheckboxGroup` — centered label/subLabel.** With `itemAlignItems: "center"` (or `"flex-end"`), the label/sub-label now actually center (or right-align) within the item card. The content wrapper was content-width with no grow, so the item row pinned it left and `itemAlignItems` only centered within that narrow block; it now `flexGrow:1` + `alignSelf:"stretch"` to fill the card. Label/sub-label `<Text>` also gain a matching `textAlign` so multi-line copy aligns instead of reading left. Default (no `itemAlignItems`) still left-aligns.
+- **ComposableScreen `RadioGroup` / `CheckboxGroup` — container honors `flex` / `flexGrow` / `flexShrink`.** The group container style threaded only `width`/`height`, so `flex:1` on a group was a no-op — groups sized to content and columns rendered unequal. The container now applies `flex`/`flexGrow`/`flexShrink` from `BaseBoxProps`, so a `flex:1` group fills its parent and image grids get fluid, equal-width columns without fixed-percentage widths.
 
 ---
 

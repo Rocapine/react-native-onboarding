@@ -8,6 +8,14 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.52.0] - 2026-06-22
+
+### Added
+
+- **`headerHeight` + `setHeaderHeight` on `OnboardingProgressContext`, and the `useOnboardingHeaderHeight` hook.** The host-rendered `ProgressBar` is absolute-positioned, so its real footprint (top safe-area inset + bar + padding) was never available to step content. The bar now measures itself and publishes `headerHeight` (its full pixel footprint, including the inset it spans; `0` when hidden) so content can offset below it instead of guessing a fixed height. Consumers that already apply the top inset themselves should add only `headerHeight - insets.top` to avoid double-counting.
+
+---
+
 ## [1.51.2] - 2026-06-22
 
 ### Changed

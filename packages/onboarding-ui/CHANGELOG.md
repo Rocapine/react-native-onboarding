@@ -9,6 +9,24 @@ here.
 
 ---
 
+## [1.52.0] - 2026-06-22
+
+### Added
+
+- **`useProgressHeaderInset` hook.** Returns the ProgressBar overlap a screen must add below its own top safe-area inset (`headerHeight - insets.top`, clamped to 0; naturally 0 when the bar is hidden). Built on the new headless `useOnboardingHeaderHeight`.
+
+### Changed
+
+- **`ProgressBar` self-measures and publishes its height.** It now reports its real footprint via `onLayout` into the headless context (and resets to 0 when hidden), so step content can lay out below it without a hardcoded guess. Host apps need no change — they already render `<ProgressBar/>`.
+- **`OnboardingTemplate` uses the measured header inset.** The hardcoded `paddingTop: 40` (when `displayProgressHeader`) is replaced by the real measured overlap, fixing over/under-padding on devices whose status-bar inset differs from the old guess.
+- **ComposableScreen `KeyboardAvoidingView` offset.** `keyboardVerticalOffset` now defaults to the measured `headerHeight` instead of `0`.
+
+### Fixed
+
+- **`SafeAreaView` element now accounts for the ProgressBar.** A ComposableScreen `SafeAreaView` previously applied only the device top inset, so the bar (which sits above it) overlapped content. It now adds the bar overlap to its top padding — subtracting the device inset when it applies the `top` edge itself (no double-count), or adding the full footprint when it doesn't. Only the screen's top-most `SafeAreaView` should carry this (a nested top-edge one would double-offset).
+
+---
+
 ## [1.51.2] - 2026-06-22
 
 ### Fixed

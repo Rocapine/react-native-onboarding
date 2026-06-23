@@ -475,15 +475,19 @@ The SDK handles assets automatically. If you see this error:
 
 **Solution:**
 
-Clear the AsyncStorage cache:
+Invalidate the in-memory React Query cache:
 
 ```typescript
 import { useQueryClient } from "@tanstack/react-query";
 
 const queryClient = useQueryClient();
+queryClient.invalidateQueries({ queryKey: ["onboardingQuestions"] });
+```
 
-// Invalidate cache
-queryClient.invalidateQueries({ queryKey: ["onboardingSteps"] });
+If you pinned a version with a custom `cacheKey`, the payload is also persisted in AsyncStorage with **no background revalidation** — clear the persisted copy too so the next launch refetches:
+
+```typescript
+await client.clearCache();
 ```
 
 ---

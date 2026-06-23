@@ -264,7 +264,10 @@ new OnboardingStudioClient(
   options?: {
     appVersion?: string;
     isSandbox?: boolean;
-    platform?: "ios" | "android";
+    baseUrl?: string;
+    fallbackOnboarding?: Onboarding;
+    timeout?: number;
+    cacheKey?: string;
   }
 )
 ```
@@ -274,9 +277,12 @@ new OnboardingStudioClient(
 | Param | Type | Default | Description |
 |-------|------|---------|-------------|
 | `projectId` | `string` | **Required** | Your Rocapine project ID |
-| `options.appVersion` | `string` | - | Your app version |
-| `options.isSandbox` | `boolean` | `false` | Enable sandbox mode |
-| `options.platform` | `"ios" \| "android"` | Auto-detected | Platform identifier |
+| `options.appVersion` | `string` | - | Your app version (sent to the CMS for version targeting) |
+| `options.isSandbox` | `boolean` | `false` | Enable sandbox/draft mode (always fetches fresh, never caches) |
+| `options.baseUrl` | `string` | Rocapine prod | Override the CMS endpoint (testing/self-host) |
+| `options.fallbackOnboarding` | `Onboarding` | - | Payload returned on fetch failure (never cached) |
+| `options.timeout` | `number` | - | Fetch timeout in ms |
+| `options.cacheKey` | `string` | - | Custom cache key. Persists the payload under `rocapine-onboarding-sdk-{cacheKey}` **cache-first with no background revalidation** (a pinned version survives across launches until you `clearCache()`). Omit for the default key with stale-while-revalidate. See [Caching Strategy](./core-concepts#caching-strategy). |
 
 #### Methods
 
@@ -289,6 +295,14 @@ const { steps, headers } = await client.getSteps({
   locale: "en",
   onboardingId: "abc-123",
 });
+```
+
+**clearCache()**
+
+Removes this client's cached onboarding payload from AsyncStorage (the key derived from `options.cacheKey`, or the default key). The next query mount or app launch is then a cache miss and refetches. To force an in-session refetch as well, also invalidate the React Query key `["onboardingQuestions", ...]`.
+
+```typescript
+await client.clearCache();
 ```
 
 ---

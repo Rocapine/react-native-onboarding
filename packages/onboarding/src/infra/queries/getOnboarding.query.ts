@@ -2,8 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { OnboardingStudioClient } from "../../OnboardingStudioClient";
 import { BaseStepType, Onboarding, OnboardingMetadata } from "../../types";
 import type { UseQueryOptions } from "@tanstack/react-query";
-
-const cacheKey = "rocapine-onboarding-studio";
+import { getOnboardingCacheKey } from "./cacheKey";
 
 export const getOnboardingQuery = <StepType extends BaseStepType>(
   client: OnboardingStudioClient,
@@ -17,11 +16,17 @@ export const getOnboardingQuery = <StepType extends BaseStepType>(
       client.projectId,
       client.options.isSandbox,
       client.options.baseUrl,
+      client.options.cacheKey,
       locale,
       JSON.stringify(customAudienceParams),
     ],
     queryFn: async (): Promise<Onboarding<StepType>> => {
       const isProduction = !(client?.options?.isSandbox || false);
+      // A custom key opts into app-controlled caching: persist cache-first
+      // with NO background revalidation, so a pinned version survives across
+      // launches. The default key keeps stale-while-revalidate.
+      const hasCustomKey = Boolean(client.options.cacheKey);
+      const cacheKey = getOnboardingCacheKey(client.options.cacheKey);
 
       // Fetches the live payload, pushes it to the provider, and caches it —
       // but NEVER caches the offline fallback. Caching the fallback (with
@@ -55,9 +60,11 @@ export const getOnboardingQuery = <StepType extends BaseStepType>(
         return fetchAndCache();
       }
 
-      // Production: stale-while-revalidate. Serve the cached payload instantly
-      // (fast first paint, offline-resilient) AND refresh from the network in
-      // the background, so studio re-deploys propagate and a stale cache heals.
+      // Production: serve the cached payload instantly (fast first paint,
+      // offline-resilient). With the default key this is stale-while-revalidate
+      // (also refresh in the background so studio re-deploys propagate and a
+      // stale cache heals). With a custom key it's persist-only — no background
+      // refetch — so a pinned version is never swapped out from under the host.
       let cached: Onboarding<StepType> | null = null;
       try {
         const cachedData = await AsyncStorage.getItem(cacheKey);
@@ -68,12 +75,14 @@ export const getOnboardingQuery = <StepType extends BaseStepType>(
 
       if (cached) {
         setOnboarding && setOnboarding(cached);
-        // Background revalidation — updates the cache + provider state when a
-        // fresh real payload arrives. Errors are swallowed: the cache already
-        // painted, so an offline revalidation must not surface as a query error.
-        void fetchAndCache().catch((error) => {
-          console.warn("Background onboarding revalidation failed:", error);
-        });
+        if (!hasCustomKey) {
+          // Background revalidation — updates the cache + provider state when a
+          // fresh real payload arrives. Errors are swallowed: the cache already
+          // painted, so an offline revalidation must not surface as a query error.
+          void fetchAndCache().catch((error) => {
+            console.warn("Background onboarding revalidation failed:", error);
+          });
+        }
         return cached;
       }
 

@@ -9,6 +9,14 @@ here.
 
 ---
 
+## [1.54.0] - 2026-06-23
+
+### Changed
+
+- **Version parity bump.** No UI changes; released in lockstep with `@rocapine/react-native-onboarding` 1.54.0 (headless `cacheKey` option + `clearCache()`).
+
+---
+
 ## [1.53.0] - 2026-06-22
 
 ### Added

@@ -24,6 +24,16 @@ export type OnboardingStudioClientOptions<
   baseUrl?: string;
   fallbackOnboarding?: Onboarding<StepType>;
   timeout?: number;
+  /**
+   * Optional custom cache key. When provided, the fetched onboarding is
+   * persisted under `"rocapine-onboarding-sdk-{cacheKey}"` and served
+   * **cache-first with no background revalidation** — the pinned version stays
+   * put across launches until the host refetches (see
+   * `OnboardingStudioClient.clearCache`). Omit for the default key
+   * (`"rocapine-onboarding-studio"`) with stale-while-revalidate caching.
+   * Ignored in sandbox mode (which always fetches fresh).
+   */
+  cacheKey?: string;
 };
 
 export type OnboardingOptions = {

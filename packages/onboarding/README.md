@@ -14,7 +14,7 @@ releases.
 - 🔄 **CMS-Driven** - Update onboarding flows remotely without app releases
 - 📱 **React Native** - Works with Expo and bare React Native projects
 - 🎯 **Type-Safe** - Full TypeScript support with runtime validation
-- 💾 **Offline Support** - Built-in caching with AsyncStorage
+- 💾 **Offline Support** - Built-in AsyncStorage caching; stale-while-revalidate by default, or pin a version with a custom `cacheKey`
 - 🎭 **Themeable** - Customizable colors, typography, and styling
 - 🔧 **Extensible** - Three levels of customization from theme tokens to
   complete renderer overrides

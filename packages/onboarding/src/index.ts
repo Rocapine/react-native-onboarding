@@ -2,6 +2,11 @@
 export { OnboardingStudioClient } from "./OnboardingStudioClient";
 export * from "./types";
 export * from "./onboarding-example";
+// Cache key helper (advanced/host use — e.g. to read/clear the persisted key)
+export {
+  getOnboardingCacheKey,
+  DEFAULT_ONBOARDING_CACHE_KEY,
+} from "./infra/queries/cacheKey";
 // ComposableScreen types (Button actions, variable entry, etc.)
 export type {
   ButtonAction,

@@ -8,6 +8,14 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.54.0] - 2026-06-23
+
+### Added
+
+- **`cacheKey` client option + `OnboardingStudioClient.clearCache()`** — opt into app-controlled cache persistence. With no `cacheKey` (default), production caching is unchanged: stale-while-revalidate under `"rocapine-onboarding-studio"` (serve cache-first, heal in the background). Passing `cacheKey` persists the payload under `"rocapine-onboarding-sdk-{cacheKey}"` and serves it **cache-first with no background revalidation**, so a pinned version survives across launches and is never swapped out mid-flow — useful for resumable onboardings. The host triggers a refetch via the new `clearCache()` (removes the client's namespaced key; pair with invalidating the `["onboardingQuestions", …]` React Query key for an in-session refetch). The cache key is also part of the React Query key now, so clients with different keys no longer dedupe. Sandbox mode still always fetches fresh. Helpers `getOnboardingCacheKey` / `DEFAULT_ONBOARDING_CACHE_KEY` are exported.
+
+---
+
 ## [1.53.0] - 2026-06-22
 
 ### Added

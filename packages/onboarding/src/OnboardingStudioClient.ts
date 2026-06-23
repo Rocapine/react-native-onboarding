@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { OnboardingStepType } from "./steps/types";
 import {
   Onboarding,
@@ -7,6 +8,7 @@ import {
   UserDefinedParams,
   BaseStepType,
 } from "./types";
+import { getOnboardingCacheKey } from "./infra/queries/cacheKey";
 
 import { Platform } from "react-native";
 
@@ -22,6 +24,17 @@ export class OnboardingStudioClient {
     this.baseUrl =
       options.baseUrl ||
       "https://takbcvjljqialzqyksic.supabase.co/functions/v1";
+  }
+
+  /**
+   * Removes this client's cached onboarding payload from AsyncStorage (the key
+   * derived from `options.cacheKey`, or the default key). The next query mount
+   * or app launch is then a cache miss and refetches. To force an in-session
+   * refetch as well, also invalidate the React Query key
+   * `["onboardingQuestions", ...]`.
+   */
+  async clearCache(): Promise<void> {
+    await AsyncStorage.removeItem(getOnboardingCacheKey(this.options.cacheKey));
   }
 
   async getSteps<StepType extends BaseStepType = OnboardingStepType>(

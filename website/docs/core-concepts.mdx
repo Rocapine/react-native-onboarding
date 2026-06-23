@@ -152,22 +152,35 @@ This gives you complete control over the UI while still benefiting from the SDK'
 
 ### AsyncStorage Cache
 
-The SDK uses AsyncStorage to cache onboarding steps for offline access.
+The SDK uses AsyncStorage to cache the onboarding payload for offline access. The caching mode depends on whether you pass a `cacheKey` to the client.
 
-**Cache Behavior:**
-- Steps are cached after successful fetch
-- Cache is checked before network requests
-- Stale data triggers background refresh
-- Cache persists across app restarts
+**Default key** (`cacheKey` omitted) — stale-while-revalidate, under `rocapine-onboarding-studio`:
+- The payload is cached after a successful fetch (the offline fallback is never cached).
+- On launch the cache is served instantly, then refreshed from the network in the background, so studio re-deploys propagate and a stale cache heals.
+- Best for "always show the latest published onboarding."
+
+**Custom key** (`cacheKey: "..."`) — persist-first, under `rocapine-onboarding-sdk-{cacheKey}`:
+- The payload is served cache-first with **no background revalidation** — a pinned version stays put across launches and is never swapped out mid-flow.
+- The host owns when to refetch: call `client.clearCache()` (or rotate the `cacheKey` value), and the next launch is a cache miss that fetches fresh.
+- Best for resumable flows where a user mid-onboarding must keep the version they started.
+
+Sandbox mode (`isSandbox: true`) ignores caching entirely and always fetches fresh.
+
+```typescript
+// Pin the started version; refetch only when the app decides to.
+const client = new OnboardingStudioClient(projectId, { cacheKey: "v2" });
+// ...later, to allow a fresh fetch on next launch:
+await client.clearCache();
+```
 
 **Cache Invalidation:**
-You can manually invalidate the cache:
+To force an in-session refetch (in addition to `clearCache()` clearing the persisted copy), invalidate the React Query key:
 
 ```typescript
 import { useQueryClient } from "@tanstack/react-query";
 
 const queryClient = useQueryClient();
-queryClient.invalidateQueries({ queryKey: ["onboardingSteps"] });
+queryClient.invalidateQueries({ queryKey: ["onboardingQuestions"] });
 ```
 
 ## Progress Tracking

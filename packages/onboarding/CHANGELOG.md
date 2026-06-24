@@ -8,6 +8,14 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.55.0] - 2026-06-24
+
+### Added
+
+- **Dependency-injected `OnboardingLogger` + typed event spec** — an analytics surface for the headless SDK. Pass a `logger` to `OnboardingProvider` to receive `OnboardingEvent`s at the SDK's choke points; defaults to a no-op (no behaviour change until a host opts in). Events are a discriminated union keyed on `name`, each carrying the onboarding identity (`onboardingId` / `onboardingName` / `audienceId` / `audienceName` / `locale` / `draft`, sourced from the `ONBS-*` response headers) so analytics can be correlated back in Onboarding Studio: `onboarding_started` (fired once per payload), `step_shown` (fired on every step focus, carrying the live `answers` snapshot of collected variables + the step's `customPayload`), and `onboarding_completed` (host-fired via the new `useOnboardingLogger()` hook — there is no SDK-internal end-of-flow choke point). New exports: `OnboardingLogger`, `OnboardingEvent` (+ `OnboardingStartedEvent` / `StepShownEvent` / `OnboardingCompletedEvent` / `OnboardingEventBase` / `OnboardingEventIdentity` / `OnboardingEventStep`), `noopLogger`, `metadataToIdentity`, and `useOnboardingLogger`. A future analytics adapter (e.g. Amplitude) just implements `OnboardingLogger`. No new dependencies.
+
+---
+
 ## [1.54.0] - 2026-06-23
 
 ### Added

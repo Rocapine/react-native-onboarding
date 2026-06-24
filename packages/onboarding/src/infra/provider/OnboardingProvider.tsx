@@ -10,6 +10,8 @@ import { extractAssetUrls } from "../preload/extractAssetUrls";
 import { preloadAssets } from "../preload/preloadAssets";
 import { OnboardingNavigationAdapter } from "../navigation/types";
 import { expoRouterAdapter } from "../navigation/expoRouterAdapter";
+import { OnboardingLogger, metadataToIdentity } from "../logging/types";
+import { noopLogger } from "../logging/noopLogger";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -50,6 +52,14 @@ interface OnboardingProviderProps {
    * support a different navigation library. Must be a stable reference.
    */
   navigation?: OnboardingNavigationAdapter;
+  /**
+   * Analytics logger invoked at the SDK's event choke points (`onboarding_started`,
+   * `step_shown`). Inject an implementation (e.g. an Amplitude adapter) to forward
+   * events to a backend; defaults to a no-op so nothing is emitted until a host
+   * opts in. Use `useOnboardingLogger()` to fire host-driven events
+   * (`onboarding_completed`, custom). Must be a stable reference.
+   */
+  logger?: OnboardingLogger;
 }
 
 interface OnboardingDataGateProps {
@@ -58,6 +68,7 @@ interface OnboardingDataGateProps {
   customAudienceParams: Record<string, any>;
   setOnboarding: (onboarding: Onboarding<OnboardingStepType>) => void;
   fontsFallback?: React.ReactNode;
+  logger: OnboardingLogger;
   children: React.ReactNode;
 }
 
@@ -67,6 +78,7 @@ const OnboardingDataGate = ({
   customAudienceParams,
   setOnboarding,
   fontsFallback,
+  logger,
   children,
 }: OnboardingDataGateProps) => {
   const { data, error } = useQuery<Onboarding<OnboardingStepType>>(
@@ -84,6 +96,19 @@ const OnboardingDataGate = ({
     preloadedRef.current = data;
     preloadAssets(extractAssetUrls(data));
   }, [data]);
+
+  // Fire `onboarding_started` exactly once per payload, once the data is available.
+  const startedRef = useRef<Onboarding<OnboardingStepType> | null>(null);
+  useEffect(() => {
+    if (!data || startedRef.current === data) return;
+    startedRef.current = data;
+    logger.track({
+      name: "onboarding_started",
+      ...metadataToIdentity(data.metadata),
+      stepsLength: data.steps.length,
+      timestamp: Date.now(),
+    });
+  }, [data, logger]);
 
   if (error) throw error;
   if (!data) return <>{fontsFallback ?? null}</>;
@@ -103,6 +128,7 @@ export const OnboardingProvider = ({
   customActions = {},
   fontsFallback,
   navigation = expoRouterAdapter,
+  logger = noopLogger,
 }: OnboardingProviderProps) => {
   const [activeStep, setActiveStep] = useState({
     number: 0,
@@ -145,6 +171,7 @@ export const OnboardingProvider = ({
           getVariables,
           customActions,
           navigation,
+          logger,
         }}
       >
         <OnboardingDataGate
@@ -153,6 +180,7 @@ export const OnboardingProvider = ({
           customAudienceParams={customAudienceParams}
           setOnboarding={setOnboarding}
           fontsFallback={fontsFallback}
+          logger={logger}
         >
           {children}
         </OnboardingDataGate>
@@ -178,6 +206,7 @@ export const OnboardingProgressContext = createContext<{
   getVariables: () => Record<string, any>;
   customActions: CustomActions;
   navigation: OnboardingNavigationAdapter;
+  logger: OnboardingLogger;
 }>({
   activeStep: { number: 0, displayProgressHeader: false },
   setActiveStep: () => { },
@@ -195,4 +224,5 @@ export const OnboardingProgressContext = createContext<{
   getVariables: () => ({}),
   customActions: {},
   navigation: expoRouterAdapter,
+  logger: noopLogger,
 });

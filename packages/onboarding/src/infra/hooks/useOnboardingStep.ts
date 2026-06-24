@@ -4,6 +4,7 @@ import { OnboardingProgressContext } from "../provider/OnboardingProvider";
 import { getOnboardingQuery } from "../queries/getOnboarding.query";
 import { BaseStepType, Onboarding, OnboardingMetadata } from "../../types";
 import { OnboardingStepType } from "../../steps/types";
+import { metadataToIdentity } from "../logging/types";
 
 export const useOnboardingStep = <
   StepType extends BaseStepType = OnboardingStepType
@@ -27,6 +28,8 @@ export const useOnboardingStep = <
     setTotalSteps,
     setOnboarding,
     navigation,
+    logger,
+    getVariables,
   } = useContext(OnboardingProgressContext);
 
   // Build query with config from context
@@ -49,7 +52,34 @@ export const useOnboardingStep = <
         displayProgressHeader: currentStep?.displayProgressHeader ?? true,
       });
       setTotalSteps(steps.length);
-    }, [stepNumber, steps, setActiveStep, setTotalSteps])
+
+      if (currentStep) {
+        logger.track({
+          name: "step_shown",
+          ...metadataToIdentity(onboardingMetadata),
+          step: {
+            id: currentStep.id,
+            type: currentStep.type,
+            name: currentStep.name,
+            number: stepNumber,
+          },
+          totalSteps: steps.length,
+          isLastStep: stepNumber >= steps.length,
+          displayProgressHeader: currentStep.displayProgressHeader ?? true,
+          answers: getVariables(),
+          customPayload: currentStep.customPayload,
+          timestamp: Date.now(),
+        });
+      }
+    }, [
+      stepNumber,
+      steps,
+      setActiveStep,
+      setTotalSteps,
+      logger,
+      getVariables,
+      onboardingMetadata,
+    ])
   );
 
   const step = steps[stepNumber - 1];

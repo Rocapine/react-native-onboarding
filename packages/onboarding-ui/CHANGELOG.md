@@ -9,6 +9,14 @@ here.
 
 ---
 
+## [1.55.0] - 2026-06-24
+
+### Changed
+
+- Version bump to track the headless SDK release. No UI changes — the `OnboardingLogger` analytics surface added in this release lives entirely in `@rocapine/react-native-onboarding`.
+
+---
+
 ## [1.54.0] - 2026-06-23
 
 ### Changed

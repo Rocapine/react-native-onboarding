@@ -550,7 +550,7 @@ Runtime **ignores `onPress`** on elements that already own a tap / focus / scrol
 | `margin` / `marginHorizontal` / `marginVertical` | `number` | |
 | `flex` / `flexShrink` / `flexGrow` | `number` | Apply to the `ZStack` itself within a parent flex container |
 | `alignSelf` | `"auto" \| "flex-start" \| "flex-end" \| "center" \| "stretch" \| "baseline"` | |
-| `backgroundColor` / `backgroundGradient` | `string` / `GradientBackground` | |
+| `backgroundColor` / `backgroundGradient` | `string` / `GradientBackground` | Gradient is **linear** `{ type:"linear", from, to, stops }` (`from`/`to` are edges: `"top"`, `"bottom"`, `"left"`, `"right"`, `"topLeft"`…) **or** **radial** `{ type:"radial", center?, radius?, stops }` (`center` `{x,y}` in 0–1 box fractions, default `{0.5,0.5}`; `radius` a 0–1 fraction, default `0.75`). Each `stop` is `{ color, position? }` (`position` 0–1). Linear needs `expo-linear-gradient` (optional); radial uses `react-native-svg` (bundled) |
 | `borderWidth` / `borderRadius` / `borderColor` | `number \| string` | |
 | `overflow` | `"hidden" \| "visible" \| "scroll"` | Use `"hidden"` to clip overflowing children to rounded corners |
 | `opacity` | `number` | |

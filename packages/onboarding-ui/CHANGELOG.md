@@ -9,6 +9,14 @@ here.
 
 ---
 
+## [1.55.0] - 2026-06-25
+
+### Added
+
+- **Radial `backgroundGradient`** — `GradientBox` now renders a `{ type: "radial", center?, radius?, stops }` gradient via `react-native-svg` (a bundled dep, always available — unlike linear, which needs the optional `expo-linear-gradient`). `center` defaults to `{ 0.5, 0.5 }` and `radius` to `0.75` (both 0–1 box fractions, `objectBoundingBox` units → ellipse on a non-square box). Stops without an explicit `position` are distributed evenly. The radial branch sizes to its content identically to the linear / plain-View paths.
+
+---
+
 ## [1.54.0] - 2026-06-23
 
 ### Changed

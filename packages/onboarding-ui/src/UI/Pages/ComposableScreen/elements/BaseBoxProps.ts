@@ -23,7 +23,16 @@ export type LinearGradientConfig = {
   stops: GradientStop[];
 };
 
-export type GradientBackground = LinearGradientConfig;
+export type RadialGradientConfig = {
+  type: "radial";
+  // Center of the gradient as 0..1 fractions of the box (default { x: 0.5, y: 0.5 }).
+  center?: { x: number; y: number };
+  // Radius as a fraction of the box (objectBoundingBox units, default 0.75).
+  radius?: number;
+  stops: GradientStop[];
+};
+
+export type GradientBackground = LinearGradientConfig | RadialGradientConfig;
 
 const GradientEdgeSchema = z.enum(["top", "bottom", "left", "right", "topLeft", "topRight", "bottomLeft", "bottomRight"]);
 
@@ -37,6 +46,12 @@ export const GradientBackgroundSchema = z.discriminatedUnion("type", [
     type: z.literal("linear"),
     from: GradientEdgeSchema,
     to: GradientEdgeSchema,
+    stops: z.array(GradientStopSchema).min(2, "gradient requires at least 2 stops"),
+  }),
+  z.object({
+    type: z.literal("radial"),
+    center: z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) }).optional(),
+    radius: z.number().positive().optional(),
     stops: z.array(GradientStopSchema).min(2, "gradient requires at least 2 stops"),
   }),
 ]);

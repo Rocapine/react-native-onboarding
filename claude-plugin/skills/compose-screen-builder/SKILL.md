@@ -58,7 +58,9 @@ Authoritative prop shapes: `packages/onboarding/src/steps/ComposableScreen/eleme
 
 ## BaseBoxProps (every element)
 
-`width`, `height`, `flex`, `padding{Top,Right,Bottom,Left,Horizontal,Vertical}`, `margin*`, `gap`, `alignItems`, `justifyContent`, `backgroundColor`, `borderRadius`, `borderWidth`, `borderColor`, `aspectRatio`, `background: GradientBackground`.
+`width`, `height`, `flex`, `padding{Top,Right,Bottom,Left,Horizontal,Vertical}`, `margin*`, `gap`, `alignItems`, `justifyContent`, `backgroundColor`, `borderRadius`, `borderWidth`, `borderColor`, `aspectRatio`, `backgroundGradient: GradientBackground`.
+
+**`backgroundGradient`** is **linear** `{ type:"linear", from, to, stops }` (`from`/`to` are edges — `"top"`/`"bottom"`/`"left"`/`"right"`/`"topLeft"`/`"topRight"`/`"bottomLeft"`/`"bottomRight"`) **or** **radial** `{ type:"radial", center?:{x,y}, radius?, stops }` (`center` in 0–1 box fractions, default `{0.5,0.5}`; `radius` a 0–1 fraction, default `0.75`). Each `stop` = `{ color, position? }` (`position` 0–1). Linear renders via `expo-linear-gradient` (optional — falls back to a plain View when absent); radial via `react-native-svg` (bundled, always available).
 
 **Shadow (all elements):** `shadowColor`, `shadowOffset: { width, height }`, `shadowOpacity` (0–1), `shadowRadius`, `elevation` (Android). Currently only the `Button` renderer applies these; schema accepts them on every element.
 

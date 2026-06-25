@@ -1017,6 +1017,38 @@ export const onboardingExample = {
                 ],
               },
               {
+                id: "radial-gradient-card",
+                type: "YStack",
+                props: {
+                  padding: 20,
+                  gap: 8,
+                  borderRadius: 16,
+                  overflow: "hidden",
+                  marginVertical: 4,
+                  backgroundGradient: {
+                    type: "radial",
+                    center: { x: 0.5, y: 0.4 },
+                    radius: 0.8,
+                    stops: [
+                      { color: "#FF6584", position: 0 },
+                      { color: "#6C63FF", position: 1 },
+                    ],
+                  },
+                },
+                children: [
+                  {
+                    id: "radial-gradient-card-title",
+                    type: "Text",
+                    props: { content: "Radial gradient", fontSize: 15, fontWeight: "700", color: "#fff" },
+                  },
+                  {
+                    id: "radial-gradient-card-body",
+                    type: "Text",
+                    props: { content: "center → edge", fontSize: 12, color: "#fff", opacity: 0.85 },
+                  },
+                ],
+              },
+              {
                 id: "gradient-button",
                 type: "Button",
                 props: {

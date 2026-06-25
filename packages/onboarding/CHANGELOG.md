@@ -8,6 +8,14 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.55.0] - 2026-06-25
+
+### Added
+
+- **Radial `backgroundGradient`** — `GradientBackground` is now a discriminated union of `linear` and `radial`. A radial gradient is `{ type: "radial", center?: { x, y }, radius?, stops }`: `center` is in 0–1 box fractions (default `{ 0.5, 0.5 }`), `radius` is a 0–1 box fraction (default `0.75`), and each `stop` is `{ color, position? }` (same as linear). Available on every element via `BaseBoxProps`. Existing linear gradients are unchanged.
+
+---
+
 ## [1.54.0] - 2026-06-23
 
 ### Added

@@ -541,7 +541,7 @@ Runtime **ignores `onPress`** on elements that already own a tap / focus / scrol
 
 **ZStack props:**
 
-`ZStack` accepts only the `BaseBoxProps` subset listed below. Flex/flow props such as `gap`, `alignItems`, `justifyContent`, and `flexWrap` are **not** honored — children are absolutely positioned, so flex layout does not apply.
+`ZStack` accepts the `BaseBoxProps` subset listed below, plus `justifyContent` / `alignItems`, which anchor each layer's content-sized box within the full-bleed stack (e.g. a floating bottom CTA with `justifyContent: "flex-end"`). Flow props such as `gap` and `flexWrap` are **not** honored — children are absolutely positioned, so flex *flow* layout does not apply.
 
 | Prop | Type | Notes |
 |------|------|-------|
@@ -554,9 +554,11 @@ Runtime **ignores `onPress`** on elements that already own a tap / focus / scrol
 | `borderWidth` / `borderRadius` / `borderColor` | `number \| string` | |
 | `overflow` | `"hidden" \| "visible" \| "scroll"` | Use `"hidden"` to clip overflowing children to rounded corners |
 | `opacity` | `number` | |
+| `justifyContent` | `"flex-start" \| "center" \| "flex-end" \| "space-between" \| "space-around"` | Anchors each **content-sized** layer along the vertical axis. A layer that fills (`flex`/`height`) ignores it. Default `"flex-start"` (top) |
+| `alignItems` | `"flex-start" \| "center" \| "flex-end" \| "stretch" \| "baseline"` | Anchors each content-sized layer horizontally. Default `"stretch"` |
 
 :::note ZStack behavior
-Children are layered in declaration order: first child = bottom, last child = top. Each child is wrapped in `position: "absolute"` filling the container, so flex props on `ZStack` itself (`gap`, `alignItems`, `justifyContent`) have no effect — instead control the layout of each layer's content via the layer's own props (e.g. wrap content in a `YStack` with `justifyContent: "flex-end"` to anchor it to the bottom).
+Children are layered in declaration order: first child = bottom, last child = top. Each child is wrapped in `position: "absolute"` filling the container. `justifyContent` / `alignItems` on the `ZStack` position each layer's content-sized box within that fill (so a content-height bottom CTA can float over scrollable content with `justifyContent: "flex-end"`); a layer that fills via `flex`/`height` ignores them. `gap` and `flexWrap` still have no effect.
 
 The wrapper for each child uses `pointerEvents="box-none"`, so touches pass through transparent regions to layers underneath.
 :::

@@ -9,6 +9,14 @@ here.
 
 ---
 
+## [1.55.1] - 2026-06-26
+
+### Added
+
+- **`ZStack` `justifyContent` / `alignItems`** — anchor each content-sized layer within the full-bleed stack. A layer that fills (`flex`/`height`) ignores them; the per-child wrapper stays `box-none`, so a content-height bottom CTA can float over a scrollable layer (`justifyContent: "flex-end"`) while the scroll behind it keeps receiving touches. Defaults (`flex-start` / `stretch`) preserve prior behavior.
+
+---
+
 ## [1.55.0] - 2026-06-25
 
 ### Added

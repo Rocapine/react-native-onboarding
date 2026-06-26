@@ -8,6 +8,14 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.55.1] - 2026-06-26
+
+### Added
+
+- **`ZStack` `justifyContent` / `alignItems`** — the `ZStack` element schema now accepts these enums to anchor each content-sized layer within the stack (e.g. a floating bottom CTA with `justifyContent: "flex-end"`). Additive; defaults preserve prior top/stretch layering.
+
+---
+
 ## [1.55.0] - 2026-06-25
 
 ### Added

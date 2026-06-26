@@ -214,6 +214,56 @@ export default function ComposableScreenZStackExample() {
                 },
               ],
             },
+            // Floating bottom CTA over scroll — ZStack justifyContent anchors the
+            // content-height button layer to the bottom; box-none wrapper lets
+            // the scroll layer behind it stay interactive.
+            {
+              id: 'float-label',
+              type: 'Text',
+              props: { content: 'Floating bottom CTA (justifyContent)', fontSize: 15, fontWeight: '600' },
+            },
+            {
+              id: 'float-zstack',
+              type: 'ZStack',
+              props: {
+                height: 220,
+                borderRadius: 16,
+                overflow: 'hidden',
+                backgroundColor: '#F2F2F7',
+                justifyContent: 'flex-end',
+              },
+              children: [
+                {
+                  id: 'float-scroll',
+                  type: 'ScrollView',
+                  props: { flex: 1, showsVerticalScrollIndicator: false },
+                  children: [
+                    {
+                      id: 'float-content',
+                      type: 'YStack',
+                      props: { gap: 8, padding: 16, paddingVertical: 16 },
+                      children: Array.from({ length: 8 }).map((_, i) => ({
+                        id: `float-row-${i}`,
+                        type: 'Text' as const,
+                        props: { content: `Scrollable row ${i + 1} — content passes behind the button`, fontSize: 14 },
+                      })),
+                    },
+                  ],
+                },
+                {
+                  id: 'float-cta',
+                  type: 'YStack',
+                  props: { padding: 12, width: '100%' },
+                  children: [
+                    {
+                      id: 'float-btn',
+                      type: 'Button',
+                      props: { label: 'Unlock', variant: 'filled', width: '100%', actions: ['continue'] },
+                    },
+                  ],
+                },
+              ],
+            },
           ],
         },
       ],

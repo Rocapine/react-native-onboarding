@@ -1,8 +1,7 @@
 import React from "react";
 import { z } from "zod";
 import { View } from "react-native";
-import Animated, * as Reanimated from "react-native-reanimated";
-import {
+import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withRepeat,
@@ -28,7 +27,7 @@ import {
   resolveInheritedFontFamily,
   RichTextStyleContext,
 } from "./shared";
-import { EASING_MAP } from "./buildAnimation";
+import { buildEntering } from "./buildAnimation";
 
 // Mirror of the headless TypewriterTextElement schema. Kept in lockstep with
 // packages/onboarding/src/steps/ComposableScreen/elements/TypewriterTextElement.ts —
@@ -101,29 +100,29 @@ type Group =
   | { kind: "word"; chars: CharItem[] }
   | { kind: "space"; item: CharItem };
 
-const isWhitespace = (ch: string): boolean => /\s/.test(ch);
-
-// Split into word groups + standalone whitespace items, tagging each character
-// with its absolute index so the stagger is continuous across word boundaries.
-// Words stay in a non-wrapping inner row (chars never break mid-word); spaces are
-// their own items in the outer wrapping row, so wrapping happens between words.
+// Split into word groups separated by a single space item. Any run of whitespace
+// (incl. newlines/tabs) collapses to ONE separator and leading/trailing whitespace
+// is dropped — so `textAlign:"center"` isn't thrown off by stray spaces and a "\n"
+// doesn't become a stranded invisible flex item (it can't render as a line break in
+// a wrap row anyway). Each char carries an absolute index `i` so the per-char
+// stagger stays continuous across the inter-word spaces.
+// Words stay in a non-wrapping inner row (chars never break mid-word); the space
+// items live in the outer wrapping row, so wrapping happens between words.
 const buildGroups = (text: string): Group[] => {
+  const words = text.trim().split(/\s+/).filter((w) => w.length > 0);
   const groups: Group[] = [];
-  let buf: CharItem[] = [];
-  Array.from(text).forEach((ch, i) => {
-    if (isWhitespace(ch)) {
-      if (buf.length) {
-        groups.push({ kind: "word", chars: buf });
-        buf = [];
-      }
-      groups.push({ kind: "space", item: { ch, i } });
-    } else {
-      buf.push({ ch, i });
-    }
+  let i = 0;
+  words.forEach((word, wi) => {
+    if (wi > 0) groups.push({ kind: "space", item: { ch: " ", i: i++ } });
+    groups.push({ kind: "word", chars: Array.from(word).map((ch) => ({ ch, i: i++ })) });
   });
-  if (buf.length) groups.push({ kind: "word", chars: buf });
   return groups;
 };
+
+// Reading-order flat list of the same characters (cursor mode renders these
+// directly). Derived from groups so both modes split identically — counted once.
+const flattenGroups = (groups: Group[]): CharItem[] =>
+  groups.flatMap((g) => (g.kind === "space" ? [g.item] : g.chars));
 
 /**
  * Typewriter text: reveals its content one character at a time. Each character
@@ -176,14 +175,24 @@ export const TypewriterTextElementComponent = ({ element, ctx, parentType }: Pro
   const resolvedFont = useResolvedFontStyle(inheritedFontFamily, fontWeight, fontStyle);
 
   const text = p.mode === "expression" ? interpolate(p.content, variables) : p.content;
+  // Split once: hold-layout mode renders `groups` (word rows), cursor mode renders
+  // the flat list. `charCount` drives the loop period and the cursor typing clock.
   const groups = buildGroups(text);
+  const chars = flattenGroups(groups);
+  const charCount = chars.length;
 
   const loop = p.loop ?? false;
   const loopDelay = p.loopDelay ?? 1200;
-  const charCount = Array.from(text).length;
-  // Wall-clock for one full reveal: lead-in + last char's stagger offset + its
-  // own animation. Used as the loop period (plus the inter-cycle pause).
-  const revealDuration = delay + Math.max(0, charCount - 1) * stagger + duration;
+  // Wall-clock for one reveal, used as the loop re-key period (plus the pause).
+  // Cursor mode: the typing interval finishes at ~delay + charCount*stagger.
+  // Hold-layout: the last char's entering *starts* at delay + (charCount-1)*stagger;
+  // add a settle window for its animation. A spring has no fixed duration (it
+  // ignores `duration` and settles later), so budget a generous fixed settle so the
+  // loop doesn't remount characters mid-spring.
+  const settleMs = p.spring ? 900 : duration;
+  const revealDuration = p.cursor
+    ? delay + charCount * stagger
+    : delay + Math.max(0, charCount - 1) * stagger + settleMs;
 
   // `loop`: bump a generation counter so the characters re-key and remount,
   // re-firing their entering animations. Fires once per (reveal + pause), i.e.
@@ -237,28 +246,20 @@ export const TypewriterTextElementComponent = ({ element, ctx, parentType }: Pro
     };
   }, [p.cursor, gen, charCount, stagger, delay]);
 
-  // Resolve the reanimated entering builder by name (same convention as
-  // buildAnimation.ts). Unknown/typo preset → undefined → characters render with
-  // no animation (forward-compat with reanimated version mismatches).
-  const Builder = (Reanimated as unknown as Record<string, any>)[preset];
-
-  // Entering builder: duration → delay → spring|easing. Spring wins over easing
-  // (matches reanimated + the rest of the schema).
-  const buildEntering = (delayMs: number): any => {
-    if (!Builder) return undefined;
-    let b = Builder.duration(duration).delay(delayMs);
-    if (p.spring) {
-      b = b.springify();
-      if (p.spring.damping != null) b = b.damping(p.spring.damping);
-      if (p.spring.stiffness != null) b = b.stiffness(p.spring.stiffness);
-      if (p.spring.mass != null) b = b.mass(p.spring.mass);
-    } else if (p.easing) {
-      b = b.easing(EASING_MAP[p.easing]);
-    }
-    return b;
-  };
+  // Per-character entering builder. Delegates to buildAnimation.ts's `buildEntering`
+  // (the shared home for preset resolution + spring/easing mutual-exclusion +
+  // unknown-preset → undefined), passing the per-char delay through the standard
+  // `EnteringAnimation` shape so this stays in lockstep with element-level motion.
+  const enteringWithDelay = (delayMs: number): any =>
+    buildEntering({
+      preset,
+      duration,
+      delay: delayMs,
+      easing: p.easing,
+      spring: p.spring,
+    });
   // Hold-layout mode staggers via the builder's own delay (delay + i*stagger).
-  const enteringFor = (charIndex: number): any => buildEntering(delay + charIndex * stagger);
+  const enteringFor = (charIndex: number): any => enteringWithDelay(delay + charIndex * stagger);
 
   const charStyle = {
     fontSize,
@@ -311,11 +312,10 @@ export const TypewriterTextElementComponent = ({ element, ctx, parentType }: Pro
   // timing already supplies the stagger). Flat (not word-grouped): a caret line is
   // typically short; word integrity matters less than the caret hugging the text.
   if (p.cursor) {
-    const chars = Array.from(text);
     return (
       <View style={containerStyle}>
-        {chars.slice(0, typed).map((ch, i) => (
-          <Animated.Text key={`${gen}-${i}`} entering={buildEntering(0)} style={charStyle}>
+        {chars.slice(0, typed).map(({ ch, i }) => (
+          <Animated.Text key={`${gen}-${i}`} entering={enteringWithDelay(0)} style={charStyle}>
             {ch}
           </Animated.Text>
         ))}

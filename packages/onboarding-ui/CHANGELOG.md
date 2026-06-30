@@ -9,6 +9,14 @@ here.
 
 ---
 
+## [1.56.0] - 2026-06-30
+
+### Added
+
+- **`TypewriterText` renderer** — reveals text character-by-character with a staggered `react-native-reanimated` entering animation. Each character is a real `Animated.Text` flex item (not an inline span, so transform-based presets like `FadeInDown` work); in the default hold-layout mode characters are grouped by word (no mid-word breaks) and hold their layout from frame 0 (no reflow), revealed via per-char entering delay. `cursor` mode switches to a true progressive typewriter — characters mount one per `stagger` so the line grows left-to-right and a blinking caret follows the last typed character. `loop` replays the reveal by re-keying the characters each cycle. Font resolution via `useResolvedFontStyle` (called once); `textAlign` maps to row justification.
+
+---
+
 ## [1.55.1] - 2026-06-26
 
 ### Added

@@ -17,14 +17,80 @@ export default function ComposableScreenLayoutExample() {
     payload: {
       elements: [
         {
-          id: 'root',
-          type: 'YStack',
-          props: { gap: 24, padding: 24 },
+          id: 'safe-root',
+          type: 'SafeAreaView',
+          props: { edges: ['top', 'bottom'], flex: 1 },
           children: [
+            {
+              id: 'root',
+              type: 'YStack',
+              props: { gap: 24, padding: 24 },
+              children: [
             {
               id: 'section-title',
               type: 'Text',
               props: { content: 'Text & Layout', fontSize: 22, fontWeight: '700', textAlign: 'center' },
+            },
+            {
+              // TypewriterText demos — all looping (repeat mode).
+              id: 'typewriter-demos',
+              type: 'YStack',
+              props: { gap: 16 },
+              children: [
+                {
+                  // Classic typewriter: chars fade in left-to-right + blinking caret.
+                  id: 'typewriter-cursor',
+                  type: 'TypewriterText' as const,
+                  props: {
+                    content: 'Type. Reveal. Repeat.',
+                    preset: 'FadeIn' as const,
+                    duration: 1,
+                    stagger: 70,
+                    cursor: true,
+                    cursorChar: '|',
+                    loop: true,
+                    loopDelay: 1200,
+                    fontSize: 20,
+                    fontWeight: '700' as const,
+                    textAlign: 'center' as const,
+                  },
+                },
+                {
+                  // FadeInDown stagger, looping.
+                  id: 'typewriter-fadedown',
+                  type: 'TypewriterText' as const,
+                  props: {
+                    content: 'Welcome to your journey',
+                    preset: 'FadeInDown' as const,
+                    duration: 400,
+                    stagger: 45,
+                    easing: 'ease-out' as const,
+                    loop: true,
+                    loopDelay: 1200,
+                    fontSize: 18,
+                    fontWeight: '600' as const,
+                    textAlign: 'center' as const,
+                  },
+                },
+                {
+                  // ZoomIn pop, looping.
+                  id: 'typewriter-zoom',
+                  type: 'TypewriterText' as const,
+                  props: {
+                    content: 'Build onboarding fast',
+                    preset: 'ZoomIn' as const,
+                    duration: 350,
+                    stagger: 55,
+                    spring: { damping: 12, stiffness: 140 },
+                    loop: true,
+                    loopDelay: 1200,
+                    fontSize: 18,
+                    fontWeight: '600' as const,
+                    textAlign: 'center' as const,
+                    color: '#007AFF',
+                  },
+                },
+              ],
             },
             {
               id: 'heading1',
@@ -165,6 +231,8 @@ export default function ComposableScreenLayoutExample() {
                     opacity: 0.7,
                   },
                 },
+              ],
+            },
               ],
             },
           ],

@@ -27,7 +27,7 @@ Search in this order; stop at first hit:
 For each found file, classify:
 - screen component (default export, returns JSX)
 - navigator config (registers screens in order)
-- shared component (Button wrapper, AnimatedText, etc.)
+- shared component (Button wrapper, AnimatedText, TypewriterText, etc.)
 
 Resolve screen ordering from the navigator config or directory file order (Expo Router file-based routing).
 

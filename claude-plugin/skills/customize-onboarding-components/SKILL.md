@@ -76,6 +76,13 @@ Items are `{ label?, value, subLabel?, image? }`: `label` is optional (omit for 
 - text styling: `fontSize`, `fontWeight`, `fontFamily`, `fontStyle`, `color` (defaults to `theme.colors.text.primary`), `textAlign`, `letterSpacing`, `lineHeight`
 - renders the number only — compose static labels as sibling `Text`; use it instead of an `autoplay` `ProgressIndicator` bound to a variable when you only need an animated number (avoids the per-step re-render storm)
 
+`TypewriterText` (reveals text one character at a time, staggered entering animation per char):
+- value: `content` (required) / `mode` (`"plain"` default | `"expression"` for `{{var}}` interpolation, applied before splitting into chars)
+- reveal: `preset` (entering preset applied per character, default `"FadeInDown"`), `duration` (per-char length, default 400), `delay` (lead-in before the first char, default 0), `stagger` (gap between consecutive chars — the typewriter knob, default 45), `easing` (default `"ease-out"`, ignored when `spring` set), `spring` (`{damping?, stiffness?, mass?}` — reanimated `.springify()`, wins over `easing`)
+- repeat / caret: `loop` (replay the reveal on a loop, default false), `loopDelay` (pause ms between cycles, default 1200), `cursor` (blinking typewriter caret after the text, default false), `cursorChar` (caret glyph, default `"|"`)
+- text styling: `fontSize`, `fontWeight`, `fontFamily`, `fontStyle`, `color` (defaults to `theme.colors.text.primary`), `textAlign` (maps to row justification), `letterSpacing`, `lineHeight`
+- distinct from the whole-block `animation.entering` (fades the string at once) and from `AnimatedText` (an animated number); wraps by whole words (chars never break mid-word)
+
 `Text`:
 - `fontFamily`, `fontSize`, `fontWeight`, `fontStyle`, `color`, `lineHeight`, `letterSpacing`, `textAlign`
 

@@ -12,6 +12,7 @@ import {
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
 import { RenderContext, buildShadowStyle, dim, resolveInheritedFontFamily } from "./shared";
+import { useVariables } from "./VariablesContext";
 import { GradientBox } from "./GradientBox";
 import { triggerHaptic, type HapticStyle } from "./haptics";
 import {
@@ -109,8 +110,9 @@ type Props = {
 
 export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElement => {
   const { theme } = ctx;
+  const { flatVariables } = useVariables();
   const isDisabled = element.props.disabledWhen
-    ? evaluateCondition(element.props.disabledWhen, ctx.flatVariables)
+    ? evaluateCondition(element.props.disabledWhen, flatVariables)
     : false;
   const [isPressed, setIsPressed] = useState(false);
 

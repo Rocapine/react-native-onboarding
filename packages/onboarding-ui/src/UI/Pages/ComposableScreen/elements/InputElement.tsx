@@ -5,6 +5,7 @@ import { useResolvedFontStyle } from "@rocapine/react-native-onboarding";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
 import { RenderContext, dim, resolveInheritedFontFamily } from "./shared";
+import { useVariables } from "./VariablesContext";
 
 export type InputElementProps = BaseBoxProps & {
   variableName?: string;
@@ -64,7 +65,8 @@ type Props = {
 };
 
 export const InputElementComponent = ({ element, ctx }: Props): React.ReactElement => {
-  const { theme, variables, setVariable } = ctx;
+  const { theme, setVariable } = ctx;
+  const { variables } = useVariables();
   const persistedValue = element.props.variableName ? variables[element.props.variableName]?.value : undefined;
   const [value, setValue] = useState(persistedValue ?? element.props.defaultValue ?? "");
 

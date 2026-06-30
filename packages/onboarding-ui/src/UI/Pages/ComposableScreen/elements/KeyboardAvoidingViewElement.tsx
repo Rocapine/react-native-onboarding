@@ -4,7 +4,7 @@ import { z } from "zod";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { GradientBox } from "./GradientBox";
 import { UIElement } from "../types";
-import { RenderContext, dim } from "./shared";
+import { RenderContext, dim, areElementPropsEqual } from "./shared";
 
 export type KeyboardAvoidingBehavior = "padding" | "height" | "position";
 
@@ -29,7 +29,7 @@ type Props = {
 
 const defaultBehavior = (): KeyboardAvoidingBehavior => (Platform.OS === "ios" ? "padding" : "height");
 
-export const KeyboardAvoidingViewElementComponent = ({ element, ctx }: Props): React.ReactElement => {
+const KeyboardAvoidingViewElementComponentBase = ({ element, ctx }: Props): React.ReactElement => {
   const p = element.props;
   const hasGradient = !!p.backgroundGradient;
 
@@ -84,3 +84,5 @@ export const KeyboardAvoidingViewElementComponent = ({ element, ctx }: Props): R
 
   return kav;
 };
+
+export const KeyboardAvoidingViewElementComponent = React.memo(KeyboardAvoidingViewElementComponentBase, areElementPropsEqual);

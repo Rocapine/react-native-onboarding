@@ -4,7 +4,9 @@ import { Text } from "react-native";
 import { useResolvedFontStyle } from "@rocapine/react-native-onboarding";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
-import { RenderContext, interpolate, dim, resolveInheritedFontFamily, RichTextStyleContext } from "./shared";
+import { RenderContext, areElementPropsEqual, interpolate, dim, resolveInheritedFontFamily, RichTextStyleContext } from "./shared";
+import { useVariables } from "./VariablesContext";
+import type { ComposableVariableEntry } from "../../../Provider/OnboardingProgressProvider";
 import { GradientBox } from "./GradientBox";
 
 export type TextSpan = {
@@ -121,8 +123,11 @@ type Props = {
   parentType?: "XStack" | "YStack" | "ZStack" | "RichText" | "XScroll";
 };
 
-export const TextElementComponent = ({ element, ctx, parentType }: Props): React.ReactElement => {
-  const { theme, variables } = ctx;
+// Shared implementation. `variables` is injected by the two memo wrappers below —
+// plain Text gets an empty map (never reads it); expression Text gets the live
+// map via useVariables so `{{var}}` interpolation re-renders on writes.
+const TextElementBase = ({ element, ctx, parentType, variables }: Props & { variables: Record<string, ComposableVariableEntry> }): React.ReactElement => {
+  const { theme } = ctx;
   const p = element.props;
   // Text-style defaults inherited from a parent `RichText` container (empty when
   // this Text isn't inside one). Element props always win over inherited values.
@@ -225,3 +230,22 @@ export const TextElementComponent = ({ element, ctx, parentType }: Props): React
 
   return textNode;
 };
+
+const EMPTY_VARS: Record<string, ComposableVariableEntry> = {};
+
+// Plain Text never reads variables → fully static; memo-skips on every write.
+export const PlainTextElementComponent = React.memo(
+  (props: Props): React.ReactElement => <TextElementBase {...props} variables={EMPTY_VARS} />,
+  areElementPropsEqual
+);
+PlainTextElementComponent.displayName = "PlainTextElementComponent";
+
+// Expression Text interpolates `{{var}}` → subscribes to variable writes.
+export const ExpressionTextElementComponent = React.memo(
+  (props: Props): React.ReactElement => {
+    const { variables } = useVariables();
+    return <TextElementBase {...props} variables={variables} />;
+  },
+  areElementPropsEqual
+);
+ExpressionTextElementComponent.displayName = "ExpressionTextElementComponent";

@@ -6,6 +6,7 @@ import { z } from "zod";
 import type { UIElement } from "../types";
 import { useResolvedFontFamily } from "@rocapine/react-native-onboarding";
 import { dim, type RenderContext } from "./shared";
+import { useVariables } from "./VariablesContext";
 import { GradientBox } from "./GradientBox";
 
 // The literal "now" resolves to the current date/time at render time.
@@ -104,7 +105,8 @@ function formatDate(
 }
 
 export const DatePickerElementComponent = ({ element, ctx }: Props): React.ReactElement => {
-  const { theme, variables, setVariable } = ctx;
+  const { theme, setVariable } = ctx;
+  const { variables } = useVariables();
   const { props } = element;
   // Trigger label honors the theme default font (Android shows a custom Text trigger).
   const labelFontFamily = useResolvedFontFamily(theme.typography.defaultFontFamily, undefined);

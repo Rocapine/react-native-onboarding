@@ -27,6 +27,7 @@ import {
   resolveInheritedFontFamily,
   RichTextStyleContext,
 } from "./shared";
+import { useVariables } from "./VariablesContext";
 import { buildEntering } from "./buildAnimation";
 
 // Mirror of the headless TypewriterTextElement schema. Kept in lockstep with
@@ -149,7 +150,8 @@ const flattenGroups = (groups: Group[]): CharItem[] =>
  * `backgroundGradient`, explicit line breaks.
  */
 export const TypewriterTextElementComponent = ({ element, ctx, parentType }: Props): React.ReactElement => {
-  const { theme, variables } = ctx;
+  const { theme } = ctx;
+  const { variables } = useVariables();
   const p = element.props;
 
   const preset: EnteringPreset = p.preset ?? "FadeInDown";

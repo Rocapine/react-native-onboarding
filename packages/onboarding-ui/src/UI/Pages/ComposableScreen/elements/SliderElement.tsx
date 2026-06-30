@@ -4,6 +4,7 @@ import { View } from "react-native";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
 import { RenderContext, dim, buildShadowStyle } from "./shared";
+import { useVariables } from "./VariablesContext";
 import { GradientBox } from "./GradientBox";
 
 // Optional peer dep — host app installs @react-native-community/slider only when
@@ -52,7 +53,8 @@ type Props = {
 };
 
 export const SliderElementComponent = ({ element, ctx }: Props): React.ReactElement => {
-  const { theme, variables, setVariable } = ctx;
+  const { theme, setVariable } = ctx;
+  const { variables } = useVariables();
   const { props } = element;
 
   const min = props.min ?? 0;

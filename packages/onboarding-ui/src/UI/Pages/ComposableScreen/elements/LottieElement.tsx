@@ -3,7 +3,7 @@ import { z } from "zod";
 import { Text, StyleSheet } from "react-native";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
-import { RenderContext, dim } from "./shared";
+import { RenderContext, dim, areElementPropsEqual } from "./shared";
 import { getTextStyle } from "../../../Theme/helpers";
 import { GradientBox } from "./GradientBox";
 
@@ -41,7 +41,7 @@ type Props = {
   ctx: RenderContext;
 };
 
-export const LottieElementComponent = ({ element, ctx }: Props): React.ReactElement => {
+const LottieElementComponentBase = ({ element, ctx }: Props): React.ReactElement => {
   const { theme } = ctx;
   const wrapperStyle = {
     flex: element.props.flex,
@@ -93,6 +93,8 @@ export const LottieElementComponent = ({ element, ctx }: Props): React.ReactElem
     </GradientBox>
   );
 };
+
+export const LottieElementComponent = React.memo(LottieElementComponentBase, areElementPropsEqual);
 
 const styles = StyleSheet.create({
   fill: {

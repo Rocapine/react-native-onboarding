@@ -3,10 +3,11 @@ import { Pressable } from "react-native";
 import { evaluateCondition } from "@rocapine/react-native-onboarding";
 import { UIElement } from "../types";
 import { BaseBoxProps } from "./BaseBoxProps";
-import { RenderContext } from "./shared";
+import { RenderContext, areElementPropsEqual } from "./shared";
+import { useVariables } from "./VariablesContext";
 import { runActions } from "./runActions";
 import { StackElementComponent } from "./StackElement";
-import { TextElementComponent } from "./TextElement";
+import { PlainTextElementComponent, ExpressionTextElementComponent } from "./TextElement";
 import { RichTextElementComponent } from "./RichTextElement";
 import { ImageElementComponent } from "./ImageElement";
 import { ProgressiveBlurImageElementComponent } from "./ProgressiveBlurImageElement";
@@ -32,6 +33,8 @@ import { DrawingPadElementComponent } from "./DrawingPadElement";
 import { SliderElementComponent } from "./SliderElement";
 import { AnimatedBox } from "./AnimatedBox";
 
+type ParentType = "XStack" | "YStack" | "ZStack" | "RichText" | "XScroll";
+
 // Element types that own their own press / focus / scroll handling. The generic
 // `onPress` (BaseBoxProps) is NOT wired for these — Button/RadioGroup/Checkbox/
 // DatePicker already dispatch actions or selections; Input/WheelPicker would have
@@ -47,24 +50,30 @@ const PRESS_HANDLED_TYPES = new Set<UIElement["type"]>([
   "Slider",
 ]);
 
-export const renderElement = (
+// Pure builder: dispatch element type → concrete renderer, then apply the generic
+// onPress (Pressable) and motion (AnimatedBox) wrappers. Reads NO variables — the
+// renderWhen gate lives in `GatedElement`. Wrapped by the memoized `ElementHost` /
+// `GatedElement` below, so it only re-runs when its host re-renders (theme or
+// structure change), NOT on every variable write.
+const renderConcrete = (
   element: UIElement,
   ctx: RenderContext,
-  parentType?: "XStack" | "YStack" | "ZStack" | "RichText" | "XScroll"
+  parentType?: ParentType
 ): React.ReactNode => {
-  if (element.renderWhen) {
-    if (!evaluateCondition(element.renderWhen, ctx.flatVariables)) return null;
-  }
-
   // Dispatch to the concrete element renderer. Captured into `node` so a single
-  // AnimatedBox wrapper can apply animation/transform to any of the 15 types.
+  // AnimatedBox wrapper can apply animation/transform to any of the types.
   const node = ((): React.ReactNode => {
   if (element.type === "YStack" || element.type === "XStack") {
     return <StackElementComponent key={element.id} element={element} ctx={ctx} parentType={parentType} />;
   }
 
   if (element.type === "Text") {
-    return <TextElementComponent key={element.id} element={element} ctx={ctx} parentType={parentType} />;
+    // Plain Text never reads variables → fully static (memo-skips on writes).
+    // Expression Text interpolates `{{var}}` → subscribes via useVariables.
+    const TextComp = element.props.mode === "expression"
+      ? ExpressionTextElementComponent
+      : PlainTextElementComponent;
+    return <TextComp key={element.id} element={element} ctx={ctx} parentType={parentType} />;
   }
 
   if (element.type === "RichText") {
@@ -222,4 +231,53 @@ export const renderElement = (
   }
 
   return content;
+};
+
+type HostProps = {
+  element: UIElement;
+  ctx: RenderContext;
+  parentType?: ParentType;
+};
+
+// Memoized wrapper for every non-gated element. This is what stops the
+// whole-tree re-render storm: when the Renderer (or a re-rendering ancestor)
+// re-runs on a variable write, `ElementHost` skips because element / ctx /
+// parentType are referentially equal, so `renderConcrete` — and the entire
+// subtree it produces, including the onPress / motion wrappers — is preserved.
+// Components that genuinely depend on variables subscribe via `useVariables()`
+// and re-render independently (context propagation bypasses React.memo).
+const ElementHost = React.memo(
+  ({ element, ctx, parentType }: HostProps) => <>{renderConcrete(element, ctx, parentType)}</>,
+  areElementPropsEqual
+);
+ElementHost.displayName = "ElementHost";
+
+// Memoized wrapper for elements carrying `renderWhen`. It subscribes to variables
+// so its condition re-evaluates on every write — and because that subscription is
+// its own, a memoized (non-re-rendering) ancestor does not block it. Renders the
+// concrete element through the SAME `renderConcrete` path, so key + onPress +
+// motion wrappers are identical whether or not the element is gated. Mounting
+// stays stable (keyed by element.id by `renderElement`); only the gated child
+// toggles, matching the prior single-gating-point behavior.
+const GatedElement = React.memo(
+  ({ element, ctx, parentType }: HostProps) => {
+    const { flatVariables } = useVariables();
+    if (element.renderWhen && !evaluateCondition(element.renderWhen, flatVariables)) {
+      return null;
+    }
+    return <>{renderConcrete(element, ctx, parentType)}</>;
+  },
+  areElementPropsEqual
+);
+GatedElement.displayName = "GatedElement";
+
+export const renderElement = (
+  element: UIElement,
+  ctx: RenderContext,
+  parentType?: ParentType
+): React.ReactNode => {
+  if (element.renderWhen) {
+    return <GatedElement key={element.id} element={element} ctx={ctx} parentType={parentType} />;
+  }
+  return <ElementHost key={element.id} element={element} ctx={ctx} parentType={parentType} />;
 };

@@ -4,6 +4,7 @@ import { evaluateCondition } from "@rocapine/react-native-onboarding";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
 import { RenderContext, dim, interpolate, RichTextStyleContext, InheritedTextStyle } from "./shared";
+import { useVariables } from "./VariablesContext";
 import { GradientBox } from "./GradientBox";
 
 // Mirror of the headless RichTextElement schema. Kept in lockstep with
@@ -102,6 +103,7 @@ const isFlowingText = (child: TextChild): boolean => {
  */
 export const RichTextElementComponent = ({ element, ctx, parentType }: Props): React.ReactElement => {
   const p = element.props;
+  const { variables, flatVariables } = useVariables();
 
   const inheritedTextStyle: InheritedTextStyle = {
     fontSize: p.fontSize,
@@ -120,11 +122,11 @@ export const RichTextElementComponent = ({ element, ctx, parentType }: Props): R
   // and are gated by renderElement.
   const expanded: UIElement[] = [];
   for (const child of element.children) {
-    if (child.renderWhen && !evaluateCondition(child.renderWhen, ctx.flatVariables)) continue;
+    if (child.renderWhen && !evaluateCondition(child.renderWhen, flatVariables)) continue;
 
     if (isFlowingText(child)) {
       const raw = child.props.content as string;
-      const text = child.props.mode === "expression" ? interpolate(raw, ctx.variables) : raw;
+      const text = child.props.mode === "expression" ? interpolate(raw, variables) : raw;
       const tokens = text.split(/(\s+)/).filter((t) => t.length > 0);
       tokens.forEach((tok, i) => {
         expanded.push({

@@ -16,6 +16,7 @@ import Svg, { Circle } from "react-native-svg";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
 import { RenderContext, dim } from "./shared";
+import { useVariables } from "./VariablesContext";
 import { EASING_MAP } from "./buildAnimation";
 
 export type ProgressEasing = "linear" | "ease-in" | "ease-out" | "ease-in-out";
@@ -83,7 +84,8 @@ type Props = {
 };
 
 export const ProgressIndicatorElementComponent = ({ element, ctx }: Props): React.ReactElement => {
-  const { theme, variables, setVariable } = ctx;
+  const { theme, setVariable } = ctx;
+  const { variables } = useVariables();
   const { props } = element;
 
   const variant = props.variant ?? "linear";

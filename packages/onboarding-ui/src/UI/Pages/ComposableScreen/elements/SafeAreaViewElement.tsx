@@ -5,7 +5,7 @@ import { z } from "zod";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { GradientBox } from "./GradientBox";
 import { UIElement } from "../types";
-import { RenderContext, dim } from "./shared";
+import { RenderContext, dim, areElementPropsEqual } from "./shared";
 
 export type SafeAreaEdge = "top" | "right" | "bottom" | "left";
 export type SafeAreaEdgeMode = "off" | "additive" | "maximum";
@@ -53,7 +53,7 @@ const appliesTopEdge = (
   return edges.top != null && edges.top !== "off";
 };
 
-export const SafeAreaViewElementComponent = ({ element, ctx }: Props): React.ReactElement => {
+const SafeAreaViewElementComponentBase = ({ element, ctx }: Props): React.ReactElement => {
   const p = element.props;
   const hasGradient = !!p.backgroundGradient;
 
@@ -133,3 +133,5 @@ export const SafeAreaViewElementComponent = ({ element, ctx }: Props): React.Rea
     </SafeAreaView>
   );
 };
+
+export const SafeAreaViewElementComponent = React.memo(SafeAreaViewElementComponentBase, areElementPropsEqual);

@@ -5,6 +5,7 @@ import { useResolvedFontStyle } from "@rocapine/react-native-onboarding";
 import { BaseBoxProps, BaseBoxPropsSchema, type ShadowOffset, ShadowOffsetSchema } from "./BaseBoxProps";
 import type { UIElement } from "../types";
 import { dim, resolveInheritedFontFamily, buildShadowStyle, type RenderContext } from "./shared";
+import { useVariables } from "./VariablesContext";
 import { GradientBox } from "./GradientBox";
 import { triggerHaptic, type HapticStyle } from "./haptics";
 import { type ResizeMode, renderImageSource } from "./imageSource";
@@ -140,7 +141,8 @@ type Props = {
 };
 
 export const CheckboxGroupComponent = ({ element, ctx }: Props): React.ReactElement => {
-  const { theme, variables, setVariable } = ctx;
+  const { theme, setVariable } = ctx;
+  const { variables } = useVariables();
   // The variable stores a JSON-serialised string[] to stay compatible with the string-based variable system.
   const rawValue = element.props.variableName ? variables[element.props.variableName]?.value : undefined;
   const selectedValues: string[] | undefined = (() => {

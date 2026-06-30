@@ -8,6 +8,15 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.56.0] - 2026-06-30
+
+### Added
+
+- **`TypewriterText` UIElement** — new ComposableScreen element that reveals its `content` string one character at a time (per-char delay = `delay + charIndex * stagger`). Props: `content` (required), `mode` (`plain`/`expression`), `preset` (entering preset, default `FadeInDown`), `duration` (400), `delay` (0), `stagger` (45), `easing`, `spring` (wins over `easing`), `loop` + `loopDelay` (repeat mode), `cursor` + `cursorChar` (blinking caret), plus the standard text-style props and all `BaseBoxProps`. Distinct from the whole-block `animation.entering` and from `AnimatedText` (number counter). Leaf, non-interactive.
+- **Exported `EnteringPresetSchema` / `AnimationEasingSchema` / `SpringConfigSchema`** from `BaseBoxProps` so element schemas can reuse the entering-preset enum without duplicating it.
+
+---
+
 ## [1.55.1] - 2026-06-26
 
 ### Added

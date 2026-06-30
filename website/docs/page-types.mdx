@@ -420,7 +420,7 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 - Any screen that doesn't fit a pre-built type
 
 **Key features:**
-- Recursive element tree (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `Text`, `RichText`, `Image`, `Lottie`, `Rive`, `Icon`, `Video`, `Input`, `RadioGroup`, `CheckboxGroup`, `Button`, `DatePicker`, `WheelPicker`, `DrawingPad`, `Slider`, `ProgressIndicator`, `AnimatedText`, `Carousel`)
+- Recursive element tree (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `Text`, `RichText`, `Image`, `Lottie`, `Rive`, `Icon`, `Video`, `Input`, `RadioGroup`, `CheckboxGroup`, `Button`, `DatePicker`, `WheelPicker`, `DrawingPad`, `Slider`, `ProgressIndicator`, `AnimatedText`, `TypewriterText`, `Carousel`)
 - Full flexbox layout support
 - Border, radius, overflow, and opacity control
 - Dimension constraints (`width`, `height`, `min/max`)
@@ -454,6 +454,7 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 | `Slider` | Continuous numeric slider | — | `@react-native-community/slider` |
 | `ProgressIndicator` | Linear bar / circular ring | — | — |
 | `AnimatedText` | Count-up number (UI-thread, native `TextInput`) | — | — |
+| `TypewriterText` | Character-by-character text reveal (staggered entering) | — | — |
 | `Lottie` | `LottieView` | — | `lottie-react-native` |
 | `Rive` | `<Rive>` | — | `rive-react-native` |
 | `Video` | `<VideoView>` | — | `expo-video` |
@@ -1086,6 +1087,29 @@ Animates a number from `from` to `to` and renders it as formatted text. The anim
 | `decimals` | `number` (int ≥ 0) | Decimal places in the displayed number; defaults to `0` |
 | `thousandsSeparator` | `string` | Grouping separator for the integer part (e.g. `1,028,709`); defaults to `","`. Set `""` to disable grouping |
 | `fontSize` / `fontWeight` / `fontFamily` / `fontStyle` / `color` / `textAlign` / `letterSpacing` / `lineHeight` | — | Text styling, same as `Text` (`color` defaults to `theme.colors.text.primary`) |
+| All `BaseBoxProps` | — | `width`, `height`, `margin*`, `padding*`, `alignSelf`, `opacity`, etc. |
+
+**Dependencies:** None (uses `react-native-reanimated`, already required by the UI package)
+
+**TypewriterText props:**
+
+Reveals its `content` string **one character at a time** — each character mounts its own `react-native-reanimated` entering animation, with a per-character delay of `delay + charIndex * stagger`. This is the classic typewriter / staggered-headline reveal. It is distinct from the whole-block `animation.entering` every element has (which fades the entire string in at once) and from `AnimatedText` (which animates a number, not a reveal). It renders text only and never writes a variable; text wraps by whole words (characters never break mid-word).
+
+| Prop | Type | Notes |
+|------|------|-------|
+| `content` | `string` | **Required.** Text to reveal. In `mode: "expression"`, `{{variable}}` interpolation runs before the text is split into characters. Plain string only (no spans) |
+| `mode` | `"plain" \| "expression"` | `expression` enables `{{var}}` interpolation; defaults to `"plain"` |
+| `preset` | entering preset | Reanimated entering preset applied per character (same set as `animation.entering.preset`: `FadeIn`/`FadeInUp`/`FadeInDown`/`SlideIn*`/`ZoomIn*`/`BounceIn*`/`FlipIn*`/etc.); defaults to `"FadeInDown"` |
+| `duration` | `number` | Per-character animation length in ms; defaults to `400` |
+| `delay` | `number` | Lead-in in ms before the **first** character animates; defaults to `0` |
+| `stagger` | `number` | Gap in ms between consecutive characters — the typewriter knob; defaults to `45` |
+| `easing` | `"linear" \| "ease-in" \| "ease-out" \| "ease-in-out"` | Defaults to `"ease-out"`; ignored when `spring` is set |
+| `spring` | `{ damping?, stiffness?, mass? }` | Reanimated `.springify()` config; wins over `easing` when present |
+| `loop` | `boolean` | Replay the reveal on a loop (remounts the characters each cycle); defaults to `false` |
+| `loopDelay` | `number` | Pause in ms between loop cycles (only when `loop`); defaults to `1200` |
+| `cursor` | `boolean` | Show a blinking typewriter caret after the text; defaults to `false` |
+| `cursorChar` | `string` | Caret glyph when `cursor` is on; defaults to `"\|"` |
+| `fontSize` / `fontWeight` / `fontFamily` / `fontStyle` / `color` / `textAlign` / `letterSpacing` / `lineHeight` | — | Text styling, same as `Text` (`textAlign` maps to row justification) |
 | All `BaseBoxProps` | — | `width`, `height`, `margin*`, `padding*`, `alignSelf`, `opacity`, etc. |
 
 **Dependencies:** None (uses `react-native-reanimated`, already required by the UI package)

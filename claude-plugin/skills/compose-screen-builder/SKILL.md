@@ -53,6 +53,7 @@ Then apply the polish layer from `../create-step-json/references/screen-patterns
 | `Carousel` | Inline horizontal pager |
 | `ProgressIndicator` | Linear / circular progress bar; static `value`, bound `variableName`, or `autoplay` animation. `minValue`/`maxValue` set the range (default 0–100) for an animated count-up; `step` snaps label/variable, `labelSuffix` replaces `%` |
 | `AnimatedText` | Number that count-animates `from`→`to` on the UI thread (native TextInput) — **zero re-renders, no variable write**. The performant way to show an animated stat ("+1,028,709 members"); pair a static label as a sibling `Text`. `decimals`/`thousandsSeparator` format the number |
+| `TypewriterText` | Reveals its `content` string one character at a time, each char mounting its own reanimated entering animation (`preset`); per-char delay = `delay + charIndex * stagger`. The staggered-headline reveal — distinct from the whole-block `animation.entering` (fades the string at once) and from `AnimatedText` (an animated number). `stagger` is the typewriter knob; wraps by whole words. Leaf, non-interactive |
 
 Authoritative prop shapes: `packages/onboarding/src/steps/ComposableScreen/elements/*.ts`.
 
@@ -259,6 +260,7 @@ Each override is a `Partial` of the overridable Button props: `BaseBoxProps` (in
 | `Input` | `textAlign`, `keyboardType`, `autoCapitalize`, `maxLength`, `autoFocus` | `suffix`, `alignment` |
 | `ProgressIndicator` | `variant: "linear"\|"circular"`, `value`, `variableName`, `autoplay`, `minValue`/`maxValue` (default 0–100), `step`, `labelSuffix`, `duration`, `delay`, `easing` | `progress`, `percent`, `type` |
 | `AnimatedText` | `to` (required), `from` (default 0), `duration`, `delay`, `easing`, `autoplay`, `loop`, `decimals`, `thousandsSeparator` (default `","`) + text styling (`fontSize`/`fontWeight`/`color`/`textAlign`/…) | `variableName` (it never writes a variable — use a sibling expression `Text` if downstream needs the value) |
+| `TypewriterText` | `content` (required string), `mode` (`"plain"`/`"expression"`, default `plain`), `preset` (default `"FadeInDown"`), `duration` (400), `delay` (0), `stagger` (45), `easing`, `spring: {damping?,stiffness?,mass?}` (wins over `easing`), `loop` (false) + `loopDelay` (1200) for repeat mode, `cursor` (false) + `cursorChar` (`"\|"`) for a blinking caret + text styling (`fontSize`/`fontWeight`/`color`/`textAlign`/…) | `children` (leaf); spans in `content` |
 | Stacks / Carousel | `children` at element top-level | `children` inside `props` |
 
 ## Anti-patterns

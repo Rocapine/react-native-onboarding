@@ -80,7 +80,7 @@ export const ShadowOffsetSchema = z.object({
 // Reuses the easing-name convention from ProgressIndicatorElement.
 export type AnimationEasing = "linear" | "ease-in" | "ease-out" | "ease-in-out";
 
-const AnimationEasingSchema = z.enum(["linear", "ease-in", "ease-out", "ease-in-out"]);
+export const AnimationEasingSchema = z.enum(["linear", "ease-in", "ease-out", "ease-in-out"]);
 
 // Mirrors reanimated's `.springify(config)` — only the fields it accepts.
 // When `spring` is present it wins over `easing` (matches reanimated semantics).
@@ -90,7 +90,7 @@ export type SpringConfig = {
   mass?: number;
 };
 
-const SpringConfigSchema = z.object({
+export const SpringConfigSchema = z.object({
   damping: z.number().positive().optional(),
   stiffness: z.number().positive().optional(),
   mass: z.number().positive().optional(),
@@ -110,7 +110,7 @@ export type EnteringPreset =
   | "PinwheelIn"
   | "LightSpeedInLeft" | "LightSpeedInRight";
 
-const EnteringPresetSchema = z.enum([
+export const EnteringPresetSchema = z.enum([
   "FadeIn", "FadeInUp", "FadeInDown", "FadeInLeft", "FadeInRight",
   "SlideInUp", "SlideInDown", "SlideInLeft", "SlideInRight",
   "ZoomIn", "ZoomInRotate", "ZoomInUp", "ZoomInDown", "ZoomInLeft", "ZoomInRight",

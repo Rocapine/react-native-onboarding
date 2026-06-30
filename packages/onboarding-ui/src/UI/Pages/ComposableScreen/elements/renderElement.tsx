@@ -27,6 +27,7 @@ import { ScrollViewElementComponent } from "./ScrollViewElement";
 import { KeyboardAvoidingViewElementComponent } from "./KeyboardAvoidingViewElement";
 import { ProgressIndicatorElementComponent } from "./ProgressIndicatorElement";
 import { AnimatedTextElementComponent } from "./AnimatedTextElement";
+import { TypewriterTextElementComponent } from "./TypewriterTextElement";
 import { DrawingPadElementComponent } from "./DrawingPadElement";
 import { SliderElementComponent } from "./SliderElement";
 import { AnimatedBox } from "./AnimatedBox";
@@ -144,6 +145,10 @@ export const renderElement = (
 
   if (element.type === "AnimatedText") {
     return <AnimatedTextElementComponent key={element.id} element={element} ctx={ctx} />;
+  }
+
+  if (element.type === "TypewriterText") {
+    return <TypewriterTextElementComponent key={element.id} element={element} ctx={ctx} parentType={parentType} />;
   }
 
   if (element.type === "DrawingPad") {

@@ -34,6 +34,7 @@ import {
 } from "./elements/KeyboardAvoidingViewElement";
 import { type ProgressIndicatorElementProps, ProgressIndicatorElementPropsSchema } from "./elements/ProgressIndicatorElement";
 import { type AnimatedTextElementProps, AnimatedTextElementPropsSchema } from "./elements/AnimatedTextElement";
+import { type TypewriterTextElementProps, TypewriterTextElementPropsSchema } from "./elements/TypewriterTextElement";
 import { type DrawingPadElementProps, DrawingPadElementPropsSchema } from "./elements/DrawingPadElement";
 import { type SliderElementProps, SliderElementPropsSchema } from "./elements/SliderElement";
 
@@ -88,6 +89,7 @@ export type {
 } from "./elements/KeyboardAvoidingViewElement";
 export type { ProgressIndicatorElementProps, ProgressEasing } from "./elements/ProgressIndicatorElement";
 export type { AnimatedTextElementProps } from "./elements/AnimatedTextElement";
+export type { TypewriterTextElementProps } from "./elements/TypewriterTextElement";
 export type { DrawingPadElementProps } from "./elements/DrawingPadElement";
 export type { SliderElementProps } from "./elements/SliderElement";
 
@@ -276,6 +278,13 @@ type UIElement =
       id: string;
       name?: string;
       renderWhen?: LeafCondition | ConditionGroup;
+      type: "TypewriterText";
+      props: TypewriterTextElementProps;
+    }
+  | {
+      id: string;
+      name?: string;
+      renderWhen?: LeafCondition | ConditionGroup;
       type: "DrawingPad";
       props: DrawingPadElementProps;
     }
@@ -454,6 +463,13 @@ const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
       renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
       type: z.literal("AnimatedText"),
       props: AnimatedTextElementPropsSchema,
+    }),
+    z.object({
+      id: z.string(),
+      name: z.string().optional(),
+      renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
+      type: z.literal("TypewriterText"),
+      props: TypewriterTextElementPropsSchema,
     }),
     z.object({
       id: z.string(),

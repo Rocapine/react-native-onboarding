@@ -325,6 +325,23 @@ export const onboardingExample = {
                 },
               },
               {
+                // TypewriterText: reveals the headline one character at a time,
+                // each char a staggered FadeInDown entering animation.
+                id: "typewriter-headline",
+                type: "TypewriterText",
+                props: {
+                  content: "Welcome to your journey",
+                  preset: "FadeInDown",
+                  duration: 400,
+                  stagger: 45,
+                  easing: "ease-out",
+                  fontSize: 24,
+                  fontWeight: "700",
+                  textAlign: "center",
+                  marginVertical: 8,
+                },
+              },
+              {
                 id: "hero-video",
                 type: "Video",
                 props: {

@@ -6,6 +6,7 @@ import Carousel, { Pagination, ICarouselInstance } from "react-native-reanimated
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import type { UIElement } from "../types";
 import { dim, type RenderContext } from "./shared";
+import { useVariables } from "./VariablesContext";
 import { GradientBox } from "./GradientBox";
 
 export type CarouselElementProps = BaseBoxProps & {
@@ -59,6 +60,7 @@ type Props = {
 
 export function CarouselElementComponent({ element, ctx }: Props): React.ReactElement {
   const { theme } = ctx;
+  const { variables } = useVariables();
   const { props, children } = element;
   const progress = useSharedValue<number>(0);
   const ref = useRef<ICarouselInstance>(null);
@@ -67,7 +69,7 @@ export function CarouselElementComponent({ element, ctx }: Props): React.ReactEl
   const carouselType = props.carouselType ?? "normal";
 
   const variableName = props.variableName;
-  const variableValue = variableName ? ctx.variables[variableName]?.value : undefined;
+  const variableValue = variableName ? variables[variableName]?.value : undefined;
   const childrenCount = children.length;
   const clampIndex = (n: number) => Math.max(0, Math.min(n, Math.max(0, childrenCount - 1)));
 

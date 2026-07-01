@@ -3,7 +3,7 @@ import { z } from "zod";
 import { Text, StyleSheet } from "react-native";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
-import { RenderContext, dim } from "./shared";
+import { RenderContext, dim, areElementPropsEqual } from "./shared";
 import { getTextStyle } from "../../../Theme/helpers";
 import { GradientBox } from "./GradientBox";
 
@@ -66,7 +66,7 @@ type Props = {
   ctx: RenderContext;
 };
 
-export const VideoElementRenderer = ({ element, ctx }: Props): React.ReactElement => {
+const VideoElementRendererBase = ({ element, ctx }: Props): React.ReactElement => {
   const { theme } = ctx;
   const wrapperStyle = {
     flex: element.props.flex,
@@ -112,6 +112,8 @@ export const VideoElementRenderer = ({ element, ctx }: Props): React.ReactElemen
     </GradientBox>
   );
 };
+
+export const VideoElementRenderer = React.memo(VideoElementRendererBase, areElementPropsEqual);
 
 const styles = StyleSheet.create({
   fill: {

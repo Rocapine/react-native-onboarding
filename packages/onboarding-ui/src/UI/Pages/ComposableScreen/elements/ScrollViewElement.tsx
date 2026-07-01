@@ -4,7 +4,7 @@ import { z } from "zod";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { GradientBox } from "./GradientBox";
 import { UIElement } from "../types";
-import { RenderContext, dim } from "./shared";
+import { RenderContext, dim, areElementPropsEqual } from "./shared";
 
 export type ScrollViewContentInset = {
   top?: number;
@@ -55,7 +55,7 @@ type Props = {
   ctx: RenderContext;
 };
 
-export const ScrollViewElementComponent = ({ element, ctx }: Props): React.ReactElement => {
+const ScrollViewElementComponentBase = ({ element, ctx }: Props): React.ReactElement => {
   const p = element.props;
   const hasGradient = !!p.backgroundGradient;
   const horizontal = p.horizontal === true;
@@ -131,3 +131,5 @@ export const ScrollViewElementComponent = ({ element, ctx }: Props): React.React
 
   return scroll;
 };
+
+export const ScrollViewElementComponent = React.memo(ScrollViewElementComponentBase, areElementPropsEqual);

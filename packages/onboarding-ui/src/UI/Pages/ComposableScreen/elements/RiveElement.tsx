@@ -3,7 +3,7 @@ import { z } from "zod";
 import { View, Text, StyleSheet } from "react-native";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
-import { RenderContext, dim } from "./shared";
+import { RenderContext, dim, areElementPropsEqual } from "./shared";
 import { getTextStyle } from "../../../Theme/helpers";
 
 export type RiveElementProps = BaseBoxProps & {
@@ -54,7 +54,7 @@ type Props = {
   ctx: RenderContext;
 };
 
-export const RiveElementRenderer = ({ element, ctx }: Props): React.ReactElement => {
+const RiveElementRendererBase = ({ element, ctx }: Props): React.ReactElement => {
   const { theme } = ctx;
   const p = element.props;
   // rive-react-native doesn't report artboard intrinsic to JS, so a Rive view
@@ -110,6 +110,8 @@ export const RiveElementRenderer = ({ element, ctx }: Props): React.ReactElement
     </View>
   );
 };
+
+export const RiveElementRenderer = React.memo(RiveElementRendererBase, areElementPropsEqual);
 
 const styles = StyleSheet.create({
   fill: {

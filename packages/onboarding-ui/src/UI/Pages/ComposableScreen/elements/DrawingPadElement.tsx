@@ -15,7 +15,7 @@ import {
 } from "react-native-gesture-handler";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
-import { RenderContext, dim } from "./shared";
+import { RenderContext, dim, areElementPropsEqual } from "./shared";
 
 // Lazy-load Skia (optional peer dep). Both the live canvas and the SVG/PNG
 // serialization depend on it, so the element is unusable without it — throw an
@@ -67,7 +67,7 @@ type Props = {
   ctx: RenderContext;
 };
 
-export const DrawingPadElementComponent = ({ element, ctx }: Props): React.ReactElement => {
+const DrawingPadElementComponentBase = ({ element, ctx }: Props): React.ReactElement => {
   const { theme, setVariable } = ctx;
   const { props } = element;
 
@@ -283,6 +283,8 @@ export const DrawingPadElementComponent = ({ element, ctx }: Props): React.React
     </View>
   );
 };
+
+export const DrawingPadElementComponent = React.memo(DrawingPadElementComponentBase, areElementPropsEqual);
 
 const styles = StyleSheet.create({
   fill: {

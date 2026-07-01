@@ -3,7 +3,7 @@ import { View } from "react-native";
 import { z } from "zod";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
-import { RenderContext, dim, buildShadowStyle } from "./shared";
+import { RenderContext, dim, buildShadowStyle, areElementPropsEqual } from "./shared";
 import { GradientBox } from "./GradientBox";
 
 export type ZStackElementProps = BaseBoxProps & {
@@ -22,7 +22,7 @@ type Props = {
   ctx: RenderContext;
 };
 
-export const ZStackElementComponent = ({ element, ctx }: Props): React.ReactElement => {
+const ZStackElementComponentBase = ({ element, ctx }: Props): React.ReactElement => {
   const p = element.props;
   return (
     <GradientBox
@@ -78,3 +78,5 @@ export const ZStackElementComponent = ({ element, ctx }: Props): React.ReactElem
     </GradientBox>
   );
 };
+
+export const ZStackElementComponent = React.memo(ZStackElementComponentBase, areElementPropsEqual);

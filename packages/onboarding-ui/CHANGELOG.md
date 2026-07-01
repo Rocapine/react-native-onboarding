@@ -9,6 +9,18 @@ here.
 
 ---
 
+## [1.57.0] - 2026-07-01
+
+### Changed
+
+- **ComposableScreen no longer re-renders the whole element tree on every variable write.** The `RenderContext` is split into a stable slice (theme, setVariable, onContinue, customActions, renderChildren) passed by identity-compared props and a volatile `VariablesContext` consumed via `useVariables()`. Element components are memoized and dispatch flows through a memoized `ElementHost` (non-gated) / `GatedElement` (`renderWhen`), so a write (Input keystroke, Carousel page change, `ProgressIndicator` autoplay tick) now re-renders only the components that actually read that variable. Purely internal — no schema or API change.
+
+### Fixed
+
+- **In-flight animations no longer reset when an unrelated variable changes.** The prior full-tree re-render churned the `react-native-reanimated` mapper graph, visibly resetting running animations on sibling elements mid-sweep; memoization isolates each write to its consumers.
+
+---
+
 ## [1.56.0] - 2026-06-30
 
 ### Added

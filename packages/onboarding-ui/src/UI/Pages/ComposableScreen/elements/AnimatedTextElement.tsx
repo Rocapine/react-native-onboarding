@@ -12,7 +12,7 @@ import Animated, {
 import { useResolvedFontStyle } from "@rocapine/react-native-onboarding";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
-import { RenderContext, dim, resolveInheritedFontFamily, RichTextStyleContext } from "./shared";
+import { RenderContext, dim, resolveInheritedFontFamily, RichTextStyleContext, areElementPropsEqual } from "./shared";
 import { EASING_MAP } from "./buildAnimation";
 
 type AnimatedEasing = "linear" | "ease-in" | "ease-out" | "ease-in-out";
@@ -72,7 +72,7 @@ type Props = {
   ctx: RenderContext;
 };
 
-export const AnimatedTextElementComponent = ({ element, ctx }: Props): React.ReactElement => {
+const AnimatedTextElementComponentBase = ({ element, ctx }: Props): React.ReactElement => {
   const { theme } = ctx;
   const p = element.props;
 
@@ -189,3 +189,5 @@ export const AnimatedTextElementComponent = ({ element, ctx }: Props): React.Rea
     />
   );
 };
+
+export const AnimatedTextElementComponent = React.memo(AnimatedTextElementComponentBase, areElementPropsEqual);

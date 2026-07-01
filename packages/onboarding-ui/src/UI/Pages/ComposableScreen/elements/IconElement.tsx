@@ -2,7 +2,7 @@ import React from "react";
 import { z } from "zod";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
-import { RenderContext, dim } from "./shared";
+import { RenderContext, dim, areElementPropsEqual } from "./shared";
 import { GradientBox } from "./GradientBox";
 
 export type IconElementProps = BaseBoxProps & {
@@ -32,7 +32,7 @@ type Props = {
   ctx: RenderContext;
 };
 
-export const IconElementComponent = ({ element, ctx }: Props): React.ReactElement => {
+const IconElementComponentBase = ({ element, ctx }: Props): React.ReactElement => {
   const { theme } = ctx;
   const icons = require("lucide-react-native");
   const IconComp = icons[element.props.name] as React.ComponentType<{
@@ -83,3 +83,5 @@ export const IconElementComponent = ({ element, ctx }: Props): React.ReactElemen
     </GradientBox>
   );
 };
+
+export const IconElementComponent = React.memo(IconElementComponentBase, areElementPropsEqual);

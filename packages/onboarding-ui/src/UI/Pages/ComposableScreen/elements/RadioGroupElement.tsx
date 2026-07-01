@@ -5,6 +5,7 @@ import { useResolvedFontStyle } from "@rocapine/react-native-onboarding";
 import { BaseBoxProps, BaseBoxPropsSchema, type ShadowOffset, ShadowOffsetSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
 import { RenderContext, dim, resolveInheritedFontFamily, buildShadowStyle } from "./shared";
+import { useVariables } from "./VariablesContext";
 import { GradientBox } from "./GradientBox";
 import { triggerHaptic, type HapticStyle } from "./haptics";
 import { type ResizeMode, renderImageSource } from "./imageSource";
@@ -136,7 +137,8 @@ type Props = {
 };
 
 export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement => {
-  const { theme, variables, setVariable } = ctx;
+  const { theme, setVariable } = ctx;
+  const { variables } = useVariables();
   const selectedValue = element.props.variableName ? variables[element.props.variableName]?.value : undefined;
 
   // Resolve item typography once (group-level props apply to every item). Falls

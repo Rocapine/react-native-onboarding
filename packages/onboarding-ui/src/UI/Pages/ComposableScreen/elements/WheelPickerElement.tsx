@@ -3,6 +3,7 @@ import { View, Text } from "react-native";
 import { resolveWheelPickerItems, useResolvedFontFamily } from "@rocapine/react-native-onboarding";
 import { UIElement } from "../types";
 import { RenderContext, dim, resolveInheritedFontFamily } from "./shared";
+import { useVariables } from "./VariablesContext";
 
 // Lazy load Picker - only needed for WheelPicker elements, peer dep is optional.
 let PickerComponent: any;
@@ -22,7 +23,8 @@ type Props = {
 };
 
 export const WheelPickerElementComponent = ({ element, ctx }: Props): React.ReactElement => {
-  const { theme, variables, setVariable } = ctx;
+  const { theme, setVariable } = ctx;
+  const { variables } = useVariables();
   const { props } = element;
 
   const items = useMemo(() => resolveWheelPickerItems(props), [props]);

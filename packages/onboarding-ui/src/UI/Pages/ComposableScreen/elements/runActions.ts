@@ -30,7 +30,10 @@ export async function runActions(
   actions: ButtonAction[],
   ctx: RenderContext
 ): Promise<void> {
-  const { onContinue, setVariable, customActions, variables } = ctx;
+  const { onContinue, setVariable, customActions, getVariables } = ctx;
+  // Read live variables at press time (NOT a render-time snapshot) so actions
+  // always act on the current values.
+  const variables = getVariables();
 
   for (const act of actions) {
     if (act === "continue") {

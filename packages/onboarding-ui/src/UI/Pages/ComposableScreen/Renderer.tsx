@@ -1,4 +1,4 @@
-import { useCallback, useContext, useMemo } from "react";
+import { useCallback, useContext, useMemo, useRef } from "react";
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from "react-native";
 import { OnboardingProgressContext as HeadlessProgressContext, useOnboardingHeaderHeight } from "@rocapine/react-native-onboarding";
 import { ComposableScreenStepType, ComposableScreenStepTypeSchema, UIElement } from "./types";
@@ -8,6 +8,7 @@ import { OnboardingProgressContext, ComposableVariableEntry } from "../../Provid
 import { useTheme } from "../../Theme/useTheme";
 import { RenderContext } from "./elements/shared";
 import { renderElement } from "./elements/renderElement";
+import { VariablesContext } from "./elements/VariablesContext";
 import { collectElementDefaults } from "./elements/collectDefaults";
 
 type ContentProps = {
@@ -50,18 +51,54 @@ const ComposableScreenRendererBase = ({ step, onContinue, keyboardVerticalOffset
     [effectiveVariables]
   );
 
-  const renderChildren = (children: UIElement[], parentType: "XStack" | "YStack" | "ZStack" | "RichText" | "XScroll") =>
-    children.map((child) => renderElement(child, ctx, parentType));
+  // Live snapshot of the merged variables for press-time action evaluation
+  // (runActions). A ref so `getVariables` keeps a stable identity — that keeps
+  // `ctx` stable across variable writes — while always returning the latest map.
+  const effectiveVariablesRef = useRef(effectiveVariables);
+  effectiveVariablesRef.current = effectiveVariables;
+  const getVariables = useCallback(() => effectiveVariablesRef.current, []);
 
-  const ctx: RenderContext = {
-    theme,
-    variables: effectiveVariables,
-    flatVariables,
-    setVariable: setVariableAndSync,
-    onContinue,
-    customActions,
-    renderChildren,
-  };
+  // `onContinue` is a caller-supplied prop — the one otherwise-unstable ctx input.
+  // Ref-stash it so `ctx` keeps a stable identity even if a host re-renders this
+  // screen on every variable write (a fresh onContinue would make a new ctx →
+  // every ElementHost fails the identity check → full-tree re-render returns).
+  const onContinueRef = useRef(onContinue);
+  onContinueRef.current = onContinue;
+  const stableOnContinue = useCallback(() => onContinueRef.current(), []);
+
+  // `renderChildren` must stay referentially stable so `ctx` does not change on
+  // every render (a new `ctx` would defeat the element-level memoization). It
+  // reads the current `ctx` from a ref to break the ctx ⇄ renderChildren cycle.
+  const ctxRef = useRef<RenderContext>(undefined as unknown as RenderContext);
+  const renderChildren = useCallback(
+    (children: UIElement[], parentType: "XStack" | "YStack" | "ZStack" | "RichText" | "XScroll") =>
+      children.map((child) => renderElement(child, ctxRef.current, parentType)),
+    []
+  );
+
+  // Stable across variable writes: every dependency is stable (theme from
+  // useTheme; the rest are useCallback'd). It changes only on a theme switch, so
+  // memoized elements skip re-render on writes but still pick up theme changes.
+  const ctx: RenderContext = useMemo(
+    () => ({
+      theme,
+      getVariables,
+      setVariable: setVariableAndSync,
+      onContinue: stableOnContinue,
+      customActions,
+      renderChildren,
+    }),
+    [theme, getVariables, setVariableAndSync, stableOnContinue, customActions, renderChildren]
+  );
+  ctxRef.current = ctx;
+
+  // The volatile slice. A write changes this value and re-renders only its
+  // consumers (variable-reading leaves + renderWhen-gated elements) via
+  // `useVariables()`; everything else is memoized and skipped.
+  const variablesValue = useMemo(
+    () => ({ variables: effectiveVariables, flatVariables }),
+    [effectiveVariables, flatVariables]
+  );
 
   return (
     <OnboardingTemplate
@@ -76,7 +113,9 @@ const ComposableScreenRendererBase = ({ step, onContinue, keyboardVerticalOffset
         keyboardVerticalOffset={keyboardVerticalOffset ?? headerHeight}
       >
         <View style={styles.flex}>
-          {elements.map((element) => renderElement(element, ctx))}
+          <VariablesContext.Provider value={variablesValue}>
+            {elements.map((element) => renderElement(element, ctx))}
+          </VariablesContext.Provider>
         </View>
       </KeyboardAvoidingView>
     </OnboardingTemplate>

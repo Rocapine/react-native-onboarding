@@ -11,7 +11,7 @@ import Animated, {
 import { BaseBoxProps, BaseBoxPropsSchema, GradientEdge } from "./BaseBoxProps";
 import type { AnimationEasing, GradientBackground } from "./BaseBoxProps";
 import { UIElement } from "../types";
-import { RenderContext, dim } from "./shared";
+import { RenderContext, dim, areElementPropsEqual } from "./shared";
 import { GradientBox } from "./GradientBox";
 import { EASING_MAP } from "./buildAnimation";
 
@@ -261,7 +261,7 @@ class ProgressiveBlurBoundary extends React.Component<
   }
 }
 
-export const ProgressiveBlurImageElementComponent = ({ element }: Props): React.ReactElement => {
+const ProgressiveBlurImageElementComponentBase = ({ element }: Props): React.ReactElement => {
   const p = element.props;
 
   // Delayed fade-in of the blur layer over the always-visible sharp base. Hooks
@@ -389,3 +389,5 @@ export const ProgressiveBlurImageElementComponent = ({ element }: Props): React.
     </ProgressiveBlurBoundary>
   );
 };
+
+export const ProgressiveBlurImageElementComponent = React.memo(ProgressiveBlurImageElementComponentBase, areElementPropsEqual);

@@ -4,7 +4,7 @@ import { View } from "react-native";
 import { SvgUri } from "react-native-svg";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
-import { RenderContext, buildShadowStyle, dim } from "./shared";
+import { RenderContext, buildShadowStyle, dim, areElementPropsEqual } from "./shared";
 import { GradientBox } from "./GradientBox";
 import { SVG_ASPECT, isSvgUrl, renderRaster } from "./imageSource";
 
@@ -30,7 +30,7 @@ type Props = {
   ctx: RenderContext;
 };
 
-export const ImageElementComponent = ({ element }: Props): React.ReactElement => {
+const ImageElementComponentBase = ({ element }: Props): React.ReactElement => {
   const p = element.props;
   const isSvg = isSvgUrl(p.url);
   const hasShadow = p.shadowColor != null || p.elevation != null;
@@ -133,3 +133,5 @@ export const ImageElementComponent = ({ element }: Props): React.ReactElement =>
 
   return renderRaster(p.url, p.resizeMode, simpleStyle, p.blurRadius);
 };
+
+export const ImageElementComponent = React.memo(ImageElementComponentBase, areElementPropsEqual);

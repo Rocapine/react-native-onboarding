@@ -7,22 +7,35 @@ import type { BaseBoxProps } from "./BaseBoxProps";
 
 export type RenderContext = {
   theme: Theme;
-  variables: Record<string, ComposableVariableEntry>;
-  // Variables flattened to primitives (entry.value), memoized once per render in
-  // Renderer. renderWhen / evaluateCondition want primitives; computing this per
-  // element rebuilt the object on every tree re-render (e.g. each autoplay
-  // ProgressIndicator step writes a variable → full re-render).
-  flatVariables: Record<string, unknown>;
+  // Live read of the merged variable map (elementDefaults ⊕ composableVariables)
+  // for press-time action evaluation (runActions). Stable identity backed by a
+  // ref in the Renderer, so onPress handlers read the LATEST values without the
+  // ctx (and every memoized element holding it) changing on each write. Reactive
+  // reads for rendering go through `useVariables()` (VariablesContext), NOT here.
+  getVariables: () => Record<string, ComposableVariableEntry>;
   setVariable: (key: string, entry: ComposableVariableEntry) => void;
   onContinue: () => void;
   customActions: CustomActions;
   renderChildren: (elements: UIElement[], parentType: "XStack" | "YStack" | "ZStack" | "RichText" | "XScroll") => React.ReactNode;
 };
 
+// Shared `React.memo` comparator for element components. `element` is
+// referentially stable (from the memoized parsed step), `parentType` is a string,
+// and `ctx` is stable across variable writes (it changes only on a theme switch),
+// so this skips re-render on every write. Variable-reading components additionally
+// subscribe via `useVariables()`, which re-renders them regardless of this
+// comparator (context propagation bypasses React.memo).
+export const areElementPropsEqual = (
+  a: { element: unknown; parentType?: unknown; ctx?: unknown },
+  b: { element: unknown; parentType?: unknown; ctx?: unknown }
+): boolean =>
+  a.element === b.element && a.parentType === b.parentType && a.ctx === b.ctx;
+
 // Text-style defaults a `RichText` container hands down to its child `Text`
 // elements. A `<View>` doesn't propagate text style to nested `<Text>`, so the
-// RichText renderer publishes these via context and `TextElementComponent`
-// merges them under its own props (child always wins). Empty default ({}) means
+// RichText renderer publishes these via context and the Text element renderer
+// (PlainText/ExpressionText) merges them under its own props (child always wins).
+// Empty default ({}) means
 // Text elements outside a RichText behave unchanged.
 export type InheritedTextStyle = {
   fontSize?: number;

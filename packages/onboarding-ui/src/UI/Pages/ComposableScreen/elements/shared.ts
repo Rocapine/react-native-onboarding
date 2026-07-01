@@ -33,8 +33,9 @@ export const areElementPropsEqual = (
 
 // Text-style defaults a `RichText` container hands down to its child `Text`
 // elements. A `<View>` doesn't propagate text style to nested `<Text>`, so the
-// RichText renderer publishes these via context and `TextElementComponent`
-// merges them under its own props (child always wins). Empty default ({}) means
+// RichText renderer publishes these via context and the Text element renderer
+// (PlainText/ExpressionText) merges them under its own props (child always wins).
+// Empty default ({}) means
 // Text elements outside a RichText behave unchanged.
 export type InheritedTextStyle = {
   fontSize?: number;

@@ -58,6 +58,14 @@ const ComposableScreenRendererBase = ({ step, onContinue, keyboardVerticalOffset
   effectiveVariablesRef.current = effectiveVariables;
   const getVariables = useCallback(() => effectiveVariablesRef.current, []);
 
+  // `onContinue` is a caller-supplied prop — the one otherwise-unstable ctx input.
+  // Ref-stash it so `ctx` keeps a stable identity even if a host re-renders this
+  // screen on every variable write (a fresh onContinue would make a new ctx →
+  // every ElementHost fails the identity check → full-tree re-render returns).
+  const onContinueRef = useRef(onContinue);
+  onContinueRef.current = onContinue;
+  const stableOnContinue = useCallback(() => onContinueRef.current(), []);
+
   // `renderChildren` must stay referentially stable so `ctx` does not change on
   // every render (a new `ctx` would defeat the element-level memoization). It
   // reads the current `ctx` from a ref to break the ctx ⇄ renderChildren cycle.
@@ -76,11 +84,11 @@ const ComposableScreenRendererBase = ({ step, onContinue, keyboardVerticalOffset
       theme,
       getVariables,
       setVariable: setVariableAndSync,
-      onContinue,
+      onContinue: stableOnContinue,
       customActions,
       renderChildren,
     }),
-    [theme, getVariables, setVariableAndSync, onContinue, customActions, renderChildren]
+    [theme, getVariables, setVariableAndSync, stableOnContinue, customActions, renderChildren]
   );
   ctxRef.current = ctx;
 

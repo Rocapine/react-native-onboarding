@@ -8,6 +8,14 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.57.0] - 2026-07-01
+
+### Changed
+
+- Version bump to stay in lockstep with `@rocapine/react-native-onboarding-ui` 1.57.0 (ComposableScreen render-performance refactor lives in the UI package). No functional changes to the headless SDK.
+
+---
+
 ## [1.56.0] - 2026-06-30
 
 ### Added

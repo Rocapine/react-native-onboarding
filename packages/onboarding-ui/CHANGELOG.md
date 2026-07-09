@@ -9,6 +9,14 @@ here.
 
 ---
 
+## [1.57.2] - 2026-07-09
+
+### Fixed
+
+- **ComposableScreen no longer flashes a grey band between the content and the keyboard (ROC-2984 finding #2).** The root `KeyboardAvoidingView` had no background, so the keyboard-height padding it inserts on keyboard open (`behavior:"padding"` on iOS) exposed the grey `OnboardingTemplate` container (theme `neutral.lowest`) behind it. The renderer now paints that padding region with the step's own outermost element background (`elements[0].props.backgroundColor`) — but only when that first element is a full-bleed, unconditional root (`flex` or `height:"100%"`, no `renderWhen`), so a content-sized, gated, or decorative first element can't overpaint the themeable page. Purely additive — a true no-op otherwise (the themeable page background still shows through), with no change to keyboard-avoidance behavior or the public API. Known gap: a root whose background is a `backgroundGradient` (no solid `backgroundColor`) is not yet covered — the band can still appear there.
+
+---
+
 ## [1.57.1] - 2026-07-09
 
 ### Fixed

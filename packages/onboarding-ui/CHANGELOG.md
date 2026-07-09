@@ -7,6 +7,14 @@ here.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Threshold-based loaders animate smoothly again (`renderWhen` reacts to a sweeping `ProgressIndicator`).** A stepped loader — one `ProgressIndicator` (`autoplay`) driving sibling checkmarks via `renderWhen` thresholds (e.g. `loaderProgress gte 33`) — previously stayed on the first step for the whole sweep and then flipped every step to done at once. That was because the boundary-only variable write (the [1.57.0] re-render fix) means the store variable only changes at `0`/`max`, so the intermediate thresholds never fired. The autoplay `ProgressIndicator` now also publishes its live sweep as a screen-scoped animated value, and a `renderWhen` that depends solely on that variable is evaluated from the live value **on the UI thread**, flipping only its own node as each threshold is crossed. The store write stays boundary-only, so the re-render fix is fully preserved.
+
+### Added (internal)
+
+- `AnimatedVariablesContext` — a stable, screen-scoped registry of animated variables (reanimated `SharedValue`s published by autoplay `ProgressIndicator`s). Separates ephemeral screen-animation state from durable "concept" variables in the store. Internal to `ComposableScreen`; no schema or public API change. Conditions that mix variables, nest groups, or use non-numeric operators are unaffected and still evaluate against the store.
+
 ---
 
 ## [1.57.0] - 2026-07-01

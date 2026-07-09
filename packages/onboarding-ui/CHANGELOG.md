@@ -9,6 +9,14 @@ here.
 
 ---
 
+## [1.57.3] - 2026-07-09
+
+### Fixed
+
+- **Bordered, rounded `Image` elements now fill their frame with no white corner gap (ROC-2984 finding #1).** When an `Image` has a shadow and/or `backgroundGradient`, it renders through a wrapper `View` that paints the border while the raster image fills the content box inside it. The inner image was clipped to the *outer* `borderRadius`, over-rounding its corners relative to the border's concentric inner edge (radius = outer − `borderWidth`) and leaving a white gap at the corners — most visible on the `week-good` / `week-bad` option photos (`borderRadius: 24`, `borderWidth: 2`). The inner image is now clipped to the concentric inner radius (`max(0, borderRadius − borderWidth)`) so its corners sit flush inside the frame. Images with no `borderRadius` are unchanged, and the shadow-bearing wrapper is left un-clipped (adding `overflow:hidden` there would clip the iOS shadow — the reason the wrapper/inner split exists).
+
+---
+
 ## [1.57.2] - 2026-07-09
 
 ### Fixed

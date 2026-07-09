@@ -1,6 +1,6 @@
 {
   "name": "react-native-onboarding",
-  "version": "1.57.2",
+  "version": "1.57.3",
   "description": "End-to-end workflow for building and updating Rocapine Onboarding Studio flows: author step JSON, integrate the headless + UI SDKs, customize theme/components, and review onboarding quality.",
   "author": {
     "name": "Rocapine",

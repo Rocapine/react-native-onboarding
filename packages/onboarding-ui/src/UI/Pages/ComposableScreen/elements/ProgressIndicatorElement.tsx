@@ -17,6 +17,7 @@ import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
 import { RenderContext, dim } from "./shared";
 import { useVariables } from "./VariablesContext";
+import { useAnimatedVariables } from "./AnimatedVariablesContext";
 import { EASING_MAP } from "./buildAnimation";
 
 export type ProgressEasing = "linear" | "ease-in" | "ease-out" | "ease-in-out";
@@ -86,6 +87,7 @@ type Props = {
 export const ProgressIndicatorElementComponent = ({ element, ctx }: Props): React.ReactElement => {
   const { theme, setVariable } = ctx;
   const { variables } = useVariables();
+  const animatedVariables = useAnimatedVariables();
   const { props } = element;
 
   const variant = props.variant ?? "linear";
@@ -144,6 +146,19 @@ export const ProgressIndicatorElementComponent = ({ element, ctx }: Props): Reac
     }
   };
   const writesVariable = autoplay && !!variableName;
+
+  // Publish the live sweep as a screen-scoped animated variable so `renderWhen`
+  // consumers on this screen can evaluate threshold conditions against it on the
+  // UI thread (see GatedElement) — WITHOUT the store writes that the boundary-only
+  // guard above deliberately avoids. Only an autoplay producer registers; a
+  // bound/static bar is a store consumer, not a live animator. Purely additive:
+  // the boundary store writes above are unchanged.
+  useEffect(() => {
+    if (!writesVariable || !variableName) return;
+    animatedVariables.register(variableName, progress);
+    return () => animatedVariables.unregister(variableName);
+  }, [writesVariable, variableName, animatedVariables, progress]);
+
   // The dependency array is REQUIRED. Without it reanimated tears down and
   // rebuilds this mapper on EVERY render, resetting `prev` to undefined and
   // defeating the `snapped === prev` guard so the JS callback over-fires.

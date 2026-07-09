@@ -7,9 +7,25 @@ here.
 
 ## [Unreleased]
 
+---
+
+## [1.57.2] - 2026-07-09
+
 ### Fixed
 
 - **ComposableScreen no longer flashes a grey band between the content and the keyboard (ROC-2984 finding #2).** The root `KeyboardAvoidingView` had no background, so the keyboard-height padding it inserts on keyboard open (`behavior:"padding"` on iOS) exposed the grey `OnboardingTemplate` container (theme `neutral.lowest`) behind it. The renderer now paints that padding region with the step's own outermost element background (`elements[0].props.backgroundColor`) — but only when that first element is a full-bleed, unconditional root (`flex` or `height:"100%"`, no `renderWhen`), so a content-sized, gated, or decorative first element can't overpaint the themeable page. Purely additive — a true no-op otherwise (the themeable page background still shows through), with no change to keyboard-avoidance behavior or the public API. Known gap: a root whose background is a `backgroundGradient` (no solid `backgroundColor`) is not yet covered — the band can still appear there.
+
+---
+
+## [1.57.1] - 2026-07-09
+
+### Fixed
+
+- **Threshold-based loaders animate smoothly again (`renderWhen` reacts to a sweeping `ProgressIndicator`).** A stepped loader — one `ProgressIndicator` (`autoplay`) driving sibling checkmarks via `renderWhen` thresholds (e.g. `loaderProgress gte 33`) — previously stayed on the first step for the whole sweep and then flipped every step to done at once. That was because the boundary-only variable write (the [1.57.0] re-render fix) means the store variable only changes at `0`/`max`, so the intermediate thresholds never fired. The autoplay `ProgressIndicator` now also publishes its live sweep as a screen-scoped animated value, and a `renderWhen` that depends solely on that variable is evaluated from the live value **on the UI thread**, flipping only its own node as each threshold is crossed. The store write stays boundary-only, so the re-render fix is fully preserved.
+
+### Added (internal)
+
+- `AnimatedVariablesContext` — a stable, screen-scoped registry of animated variables (reanimated `SharedValue`s published by autoplay `ProgressIndicator`s). Separates ephemeral screen-animation state from durable "concept" variables in the store. Internal to `ComposableScreen`; no schema or public API change. Conditions that mix variables, nest groups, or use non-numeric operators are unaffected and still evaluate against the store.
 
 ---
 

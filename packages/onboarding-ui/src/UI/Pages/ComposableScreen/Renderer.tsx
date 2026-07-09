@@ -9,6 +9,7 @@ import { useTheme } from "../../Theme/useTheme";
 import { RenderContext } from "./elements/shared";
 import { renderElement } from "./elements/renderElement";
 import { VariablesContext } from "./elements/VariablesContext";
+import { AnimatedVariablesContext, useAnimatedVariablesRegistry } from "./elements/AnimatedVariablesContext";
 import { collectElementDefaults } from "./elements/collectDefaults";
 
 type ContentProps = {
@@ -128,6 +129,11 @@ const ComposableScreenRendererBase = ({ step, onContinue, keyboardVerticalOffset
     [rootBackgroundColor]
   );
 
+  // Stable per-screen registry of animated variables (autoplay ProgressIndicator
+  // sweeps). Its identity never changes, so this provider never re-renders its
+  // consumers — registration is broadcast through per-name listeners instead.
+  const animatedVariables = useAnimatedVariablesRegistry();
+
   return (
     <OnboardingTemplate
       step={validatedData}
@@ -141,9 +147,11 @@ const ComposableScreenRendererBase = ({ step, onContinue, keyboardVerticalOffset
         keyboardVerticalOffset={keyboardVerticalOffset ?? headerHeight}
       >
         <View style={styles.flex}>
-          <VariablesContext.Provider value={variablesValue}>
-            {elements.map((element) => renderElement(element, ctx))}
-          </VariablesContext.Provider>
+          <AnimatedVariablesContext.Provider value={animatedVariables}>
+            <VariablesContext.Provider value={variablesValue}>
+              {elements.map((element) => renderElement(element, ctx))}
+            </VariablesContext.Provider>
+          </AnimatedVariablesContext.Provider>
         </View>
       </KeyboardAvoidingView>
     </OnboardingTemplate>

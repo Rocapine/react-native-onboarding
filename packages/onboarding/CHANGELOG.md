@@ -8,6 +8,18 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.57.2] - 2026-07-09
+
+- No headless changes — version kept in lockstep with `@rocapine/react-native-onboarding-ui` 1.57.2 (ComposableScreen keyboard-avoiding background fix).
+
+---
+
+## [1.57.1] - 2026-07-09
+
+- No headless changes — version kept in lockstep with `@rocapine/react-native-onboarding-ui` 1.57.1 (ComposableScreen loader `renderWhen` fix).
+
+---
+
 ## [1.57.0] - 2026-07-01
 
 ### Changed

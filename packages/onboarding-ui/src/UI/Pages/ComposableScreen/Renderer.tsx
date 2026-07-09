@@ -101,6 +101,34 @@ const ComposableScreenRendererBase = ({ step, onContinue, keyboardVerticalOffset
     [effectiveVariables, flatVariables]
   );
 
+  // ROC-2984 finding #2: the root KeyboardAvoidingView has no background, so the
+  // keyboard-height padding it inserts when the keyboard opens (behavior:"padding"
+  // on iOS) exposes the grey OnboardingTemplate container (theme neutral.lowest)
+  // behind it — a grey band between the step's content and the keyboard. Paint
+  // that padding region with the step's own outermost background so the band
+  // matches the step instead of the template. Undefined when the step declares no
+  // root background → falls back to the stable styles.flex ref (a true no-op that
+  // preserves the intended themeable page background for steps that want it).
+  //
+  // Only adopt it when the first element is a full-bleed, UNCONDITIONAL root that
+  // actually covers the screen (flex, or height:"100%"; no renderWhen). Painting
+  // the flex:1 KAV with the color of a content-sized / gated / decorative first
+  // element would overpaint the themeable page background — even with the keyboard
+  // closed — so those cases stay a no-op and keep the template background.
+  const rootElement = elements[0];
+  const rootIsFullBleed =
+    !!rootElement &&
+    !rootElement.renderWhen &&
+    (rootElement.props.flex != null || rootElement.props.height === "100%");
+  const rootBackgroundColor = rootIsFullBleed ? rootElement.props.backgroundColor : undefined;
+  const keyboardAvoidingStyle = useMemo(
+    () =>
+      rootBackgroundColor
+        ? [styles.flex, { backgroundColor: rootBackgroundColor }]
+        : styles.flex,
+    [rootBackgroundColor]
+  );
+
   // Stable per-screen registry of animated variables (autoplay ProgressIndicator
   // sweeps). Its identity never changes, so this provider never re-renders its
   // consumers — registration is broadcast through per-name listeners instead.
@@ -114,7 +142,7 @@ const ComposableScreenRendererBase = ({ step, onContinue, keyboardVerticalOffset
       disableTopPadding
     >
       <KeyboardAvoidingView
-        style={styles.flex}
+        style={keyboardAvoidingStyle}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={keyboardVerticalOffset ?? headerHeight}
       >

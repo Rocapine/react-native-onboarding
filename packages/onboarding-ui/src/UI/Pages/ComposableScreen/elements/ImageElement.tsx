@@ -70,6 +70,9 @@ const ImageElementComponentBase = ({ element }: Props): React.ReactElement => {
     // inner edge (radius = outer − borderWidth), leaving a white gap at the
     // corners. Subtract the border width so the image's rounded corners sit flush
     // inside the frame. No border radius (undefined) → leave undefined (unchanged).
+    // NOTE: only the border is accounted for, not `padding` — a border + padding +
+    // rounded combo (unusual on a photo) would inset the image past this radius and
+    // reintroduce a smaller corner gap; not handled deliberately.
     const innerBorderRadius =
       p.borderRadius != null
         ? Math.max(0, p.borderRadius - (p.borderWidth ?? 0))

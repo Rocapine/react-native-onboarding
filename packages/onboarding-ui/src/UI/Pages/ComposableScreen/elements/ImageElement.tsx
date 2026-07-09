@@ -64,6 +64,16 @@ const ImageElementComponentBase = ({ element }: Props): React.ReactElement => {
       paddingVertical: p.paddingVertical,
       ...(shadowStyle ?? {}),
     };
+    // The wrapper paints the border, so the inner image fills the *content box*
+    // (inset by borderWidth on every side). Clipping the image to the outer
+    // `borderRadius` over-rounds its corners relative to the border's concentric
+    // inner edge (radius = outer − borderWidth), leaving a white gap at the
+    // corners. Subtract the border width so the image's rounded corners sit flush
+    // inside the frame. No border radius (undefined) → leave undefined (unchanged).
+    const innerBorderRadius =
+      p.borderRadius != null
+        ? Math.max(0, p.borderRadius - (p.borderWidth ?? 0))
+        : undefined;
     // Inner content fills the wrapper (which carries layout + corner clip).
     const innerImage = isSvg ? (
       <SvgUri
@@ -76,7 +86,7 @@ const ImageElementComponentBase = ({ element }: Props): React.ReactElement => {
       renderRaster(p.url, p.resizeMode, {
         width: "100%",
         height: "100%",
-        borderRadius: p.borderRadius,
+        borderRadius: innerBorderRadius,
         overflow: (p.overflow ?? "hidden") as any,
       }, p.blurRadius)
     );

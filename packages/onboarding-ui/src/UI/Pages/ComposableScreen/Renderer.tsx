@@ -100,6 +100,23 @@ const ComposableScreenRendererBase = ({ step, onContinue, keyboardVerticalOffset
     [effectiveVariables, flatVariables]
   );
 
+  // ROC-2984 finding #2: the root KeyboardAvoidingView has no background, so the
+  // keyboard-height padding it inserts when the keyboard opens (behavior:"padding"
+  // on iOS) exposes the grey OnboardingTemplate container (theme neutral.lowest)
+  // behind it — a grey band between the step's content and the keyboard. Paint
+  // that padding region with the step's own outermost background so the band
+  // matches the step instead of the template. Undefined when the step declares no
+  // root background → falls back to the stable styles.flex ref (a true no-op that
+  // preserves the intended themeable page background for steps that want it).
+  const rootBackgroundColor = elements[0]?.props.backgroundColor;
+  const keyboardAvoidingStyle = useMemo(
+    () =>
+      rootBackgroundColor
+        ? [styles.flex, { backgroundColor: rootBackgroundColor }]
+        : styles.flex,
+    [rootBackgroundColor]
+  );
+
   return (
     <OnboardingTemplate
       step={validatedData}
@@ -108,7 +125,7 @@ const ComposableScreenRendererBase = ({ step, onContinue, keyboardVerticalOffset
       disableTopPadding
     >
       <KeyboardAvoidingView
-        style={styles.flex}
+        style={keyboardAvoidingStyle}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={keyboardVerticalOffset ?? headerHeight}
       >

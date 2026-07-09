@@ -1,13 +1,13 @@
 import React from "react";
 import { Pressable } from "react-native";
-import { runOnJS, useAnimatedReaction, type SharedValue } from "react-native-reanimated";
+import { runOnJS, useAnimatedReaction, useSharedValue, type SharedValue } from "react-native-reanimated";
 import { evaluateCondition } from "@rocapine/react-native-onboarding";
 import { UIElement } from "../types";
 import { BaseBoxProps } from "./BaseBoxProps";
 import { RenderContext, areElementPropsEqual } from "./shared";
 import { useVariables } from "./VariablesContext";
 import { useAnimatedVariables } from "./AnimatedVariablesContext";
-import { buildAnimatedGatePlan, type AnimatedGatePlan } from "./animatedGate";
+import { buildAnimatedGatePlan, evalAnimatedNode } from "./animatedGate";
 import { runActions } from "./runActions";
 import { StackElementComponent } from "./StackElement";
 import { PlainTextElementComponent, ExpressionTextElementComponent } from "./TextElement";
@@ -255,98 +255,65 @@ const ElementHost = React.memo(
 );
 ElementHost.displayName = "ElementHost";
 
-// Store-backed gate (default): subscribes to variables so its condition
-// re-evaluates on every write — and because that subscription is its own, a
-// memoized (non-re-rendering) ancestor does not block it. Renders the concrete
-// element through the SAME `renderConcrete` path, so key + onPress + motion
-// wrappers are identical whether or not the element is gated. This is the original
-// renderWhen behavior; used for every condition except one driven solely by a
-// live animated variable.
-const StoreGatedElement = React.memo(
-  ({ element, ctx, parentType }: HostProps) => {
-    const { flatVariables } = useVariables();
-    if (element.renderWhen && !evaluateCondition(element.renderWhen, flatVariables)) {
-      return null;
-    }
-    return <>{renderConcrete(element, ctx, parentType)}</>;
-  },
-  areElementPropsEqual
-);
-StoreGatedElement.displayName = "StoreGatedElement";
-
-type AnimatedGateProps = HostProps & { plan: AnimatedGatePlan; sv: SharedValue<number> };
-
-// UI-thread gate: evaluates a single-numeric-variable condition from the live
-// SharedValue on the UI thread and flips a LOCAL mount state only when the boolean
-// result changes. It never reads the variable store, so it does NOT re-render on
-// store writes — and the producer keeps writing the store only at its 0/max
-// boundaries. This is what lets a threshold loader animate (checkmarks light up as
-// the bar sweeps past 33 / 67 / 100) while preserving the boundary-only-write perf
-// fix: the per-frame value stays on the UI thread and re-renders only this node,
-// once, each time its own threshold is crossed.
-const AnimatedGatedElement = ({ element, ctx, parentType, plan, sv }: AnimatedGateProps) => {
-  const { node } = plan;
-  // Seed with the same evaluator the store path uses, against the live value, so
-  // the first paint matches the store gate this just replaced.
-  const [shown, setShown] = React.useState(() =>
-    element.renderWhen ? evaluateCondition(element.renderWhen, { [plan.variable]: sv.value }) : true
-  );
-  useAnimatedReaction(
-    () => {
-      "worklet";
-      const cmp = (p: number, op: string, raw: number | string): boolean => {
-        const v = typeof raw === "string" ? parseFloat(raw) : raw;
-        if (op === "gt") return p > v;
-        if (op === "lt") return p < v;
-        if (op === "gte") return p >= v;
-        if (op === "lte") return p <= v;
-        if (op === "eq") return Math.round(p) === v;
-        if (op === "neq") return Math.round(p) !== v;
-        return false;
-      };
-      const p = sv.value;
-      if (node.kind === "leaf") return cmp(p, node.op, node.value);
-      if (node.logic === "and") {
-        for (let i = 0; i < node.leaves.length; i++) {
-          if (!cmp(p, node.leaves[i].op, node.leaves[i].value)) return false;
-        }
-        return true;
-      }
-      for (let i = 0; i < node.leaves.length; i++) {
-        if (cmp(p, node.leaves[i].op, node.leaves[i].value)) return true;
-      }
-      return false;
-    },
-    (result, previous) => {
-      if (result !== previous) runOnJS(setShown)(result);
-    },
-    [node, sv]
-  );
-  return shown ? <>{renderConcrete(element, ctx, parentType)}</> : null;
-};
-
-// Dispatcher for `renderWhen` elements. Computes the animated-gate plan once and,
-// if the referenced variable is being animated on this screen (a producer has
-// registered a SharedValue for it), routes to the UI-thread gate; otherwise to the
-// store-backed gate. It does NOT subscribe to variables itself, so a normal
-// (non-animated) gated element behaves exactly as before via StoreGatedElement.
+// Gate for `renderWhen` elements. A SINGLE component (not a store-vs-animated
+// component-type swap), so the gated subtree keeps a stable identity: when a gate
+// switches onto the UI-thread path as its producer registers, `renderConcrete`'s
+// output is NOT remounted — no replayed entrance animation, no reset transient
+// state. It subscribes to the store so its condition re-evaluates on writes, and
+// resolves any animated SharedValue for its variable.
+//
+// If that variable is being animated on this screen, visibility is driven from the
+// live value on the UI thread via `useAnimatedReaction` (flipping local state only
+// as thresholds are crossed) — the store is never written, so the boundary-only
+// write (and its perf win) is preserved. Otherwise it evaluates against the store,
+// exactly like the original gate. The animated seed comes from the same store
+// evaluation, and the ProgressIndicator seeds the store with the value the sweep
+// starts from, so the seed matches the first animated frame — no flicker when the
+// gate switches paths.
 const GatedElement = React.memo(
   ({ element, ctx, parentType }: HostProps) => {
+    const { flatVariables } = useVariables();
     const plan = React.useMemo(() => buildAnimatedGatePlan(element.renderWhen), [element]);
     const registry = useAnimatedVariables();
-    const [sv, setSv] = React.useState<SharedValue<number> | undefined>(() =>
+
+    // The producer's SharedValue for this variable, if one animates it here.
+    // Seeded synchronously (producer earlier in tree order) and updated via the
+    // registry listener (producer that registers later) — both orderings resolve.
+    const [animatedSv, setAnimatedSv] = React.useState<SharedValue<number> | undefined>(() =>
       plan ? registry.get(plan.variable) : undefined
     );
     React.useEffect(() => {
       if (!plan) return;
-      setSv(registry.get(plan.variable));
-      return registry.subscribe(plan.variable, () => setSv(registry.get(plan.variable)));
+      setAnimatedSv(registry.get(plan.variable));
+      return registry.subscribe(plan.variable, () => setAnimatedSv(registry.get(plan.variable)));
     }, [plan, registry]);
 
-    if (plan && sv) {
-      return <AnimatedGatedElement element={element} ctx={ctx} parentType={parentType} plan={plan} sv={sv} />;
-    }
-    return <StoreGatedElement element={element} ctx={ctx} parentType={parentType} />;
+    const node = plan?.node;
+    const isAnimated = !!node && !!animatedSv;
+    // Stable placeholder so the reaction hook is unconditional before a producer
+    // resolves; the worklet returns a constant while not animated, so it never
+    // churns state on the placeholder.
+    const fallbackSv = useSharedValue(0);
+    const sv = animatedSv ?? fallbackSv;
+
+    // Local visibility for the animated path, seeded from the store evaluation (see
+    // the flicker note above) and updated by the reaction as thresholds are crossed.
+    const [animatedShown, setAnimatedShown] = React.useState(() =>
+      element.renderWhen ? evaluateCondition(element.renderWhen, flatVariables) : true
+    );
+    useAnimatedReaction(
+      () => (isAnimated && node ? evalAnimatedNode(node, sv.value) : true),
+      (result, previous) => {
+        if (isAnimated && result !== previous) runOnJS(setAnimatedShown)(result);
+      },
+      [node, sv, isAnimated]
+    );
+
+    const visible = isAnimated
+      ? animatedShown
+      : !element.renderWhen || evaluateCondition(element.renderWhen, flatVariables);
+
+    return visible ? <>{renderConcrete(element, ctx, parentType)}</> : null;
   },
   areElementPropsEqual
 );

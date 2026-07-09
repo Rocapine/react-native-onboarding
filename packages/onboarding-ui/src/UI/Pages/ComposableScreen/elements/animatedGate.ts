@@ -68,3 +68,39 @@ export const buildAnimatedGatePlan = (
   if (variable === null) return null;
   return { variable, node: { kind: "group", logic: renderWhen.logic, leaves } };
 };
+
+// Evaluate a plan node against a live numeric value. Declared as a reanimated
+// worklet so the SAME function runs both on the UI thread (inside the gate's
+// `useAnimatedReaction`, to detect threshold crossings) and on the JS thread
+// (during render, to decide visibility from the current value) — guaranteeing the
+// two never disagree.
+//
+// `eq`/`neq` compare the rounded value (`Math.round(p) === n`), NOT the exact
+// string compare the store-backed `evaluateCondition` uses. A continuous sweep
+// never lands exactly on an integer threshold mid-flight, so exact-equality would
+// never fire; they agree at rest, where an autoplay bar settles precisely on an
+// integer boundary. All other operators are plain numeric comparisons.
+export const evalAnimatedNode = (node: AnimatedGateNode, p: number): boolean => {
+  "worklet";
+  const cmp = (op: Operator, raw: number | string): boolean => {
+    const v = typeof raw === "string" ? parseFloat(raw) : raw;
+    if (op === "gt") return p > v;
+    if (op === "lt") return p < v;
+    if (op === "gte") return p >= v;
+    if (op === "lte") return p <= v;
+    if (op === "eq") return Math.round(p) === v;
+    if (op === "neq") return Math.round(p) !== v;
+    return false;
+  };
+  if (node.kind === "leaf") return cmp(node.op, node.value);
+  if (node.logic === "and") {
+    for (let i = 0; i < node.leaves.length; i++) {
+      if (!cmp(node.leaves[i].op, node.leaves[i].value)) return false;
+    }
+    return true;
+  }
+  for (let i = 0; i < node.leaves.length; i++) {
+    if (cmp(node.leaves[i].op, node.leaves[i].value)) return true;
+  }
+  return false;
+};

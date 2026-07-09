@@ -77,6 +77,7 @@ export const useAnimatedVariablesRegistry = (): AnimatedVariablesRegistry => {
         set.add(listener);
         return () => {
           set!.delete(listener);
+          if (set!.size === 0) listeners.delete(name);
         };
       },
     };

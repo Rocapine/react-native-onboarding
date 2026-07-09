@@ -9,6 +9,14 @@ here.
 
 ---
 
+## [1.57.4] - 2026-07-09
+
+### Fixed
+
+- **Onboarding images no longer flash / re-decode every time they're shown.** `Image` and `ProgressiveBlurImage` rendered through expo-image with no `cachePolicy`, so it used the default `"disk"` — memory-less, meaning every time an image view mounted (each step navigation) it re-read and re-decoded from disk, producing a blank-then-pop flash. Both render sites now use `cachePolicy="memory-disk"`, keeping the decoded bitmap in memory (with disk fallback) for instant re-display. Pairs with the headless `preloadAssets` change so prefetched images are warmed into memory, not just disk.
+
+---
+
 ## [1.57.3] - 2026-07-09
 
 ### Fixed

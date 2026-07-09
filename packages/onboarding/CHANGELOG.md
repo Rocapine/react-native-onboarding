@@ -8,6 +8,14 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.57.4] - 2026-07-09
+
+### Fixed
+
+- **`preloadAssets` now prefetches images into the memory cache.** The batched `Image.prefetch(urls)` call passed no `cachePolicy`, so expo-image warmed only the `"disk"` cache — the first on-screen decode still flashed. It now prefetches with `"memory-disk"`, matching the render-side `cachePolicy` (onboarding-ui 1.57.4), so preloaded images are ready in memory.
+
+---
+
 ## [1.57.3] - 2026-07-09
 
 - No headless changes — version kept in lockstep with `@rocapine/react-native-onboarding-ui` 1.57.3 (ComposableScreen bordered-image corner fix).

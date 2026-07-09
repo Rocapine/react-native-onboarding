@@ -46,7 +46,12 @@ export const renderRaster = (
   blurRadius?: number
 ): React.ReactElement =>
   ExpoImage ? (
-    <ExpoImage source={url} contentFit={CONTENT_FIT[resizeMode ?? "cover"]} blurRadius={blurRadius} style={style} />
+    // `cachePolicy="memory-disk"` keeps the decoded bitmap in memory (with a disk
+    // fallback), so re-displaying an image (e.g. navigating back to a step) is
+    // instant instead of re-decoding from disk and flashing. expo-image's default
+    // is `"disk"` (memory-less) — see preloadAssets, which prefetches with the
+    // same policy so the warm cache is in memory too.
+    <ExpoImage source={url} contentFit={CONTENT_FIT[resizeMode ?? "cover"]} blurRadius={blurRadius} cachePolicy="memory-disk" style={style} />
   ) : (
     <RNImage source={{ uri: url }} resizeMode={resizeMode} blurRadius={blurRadius} style={style} />
   );

@@ -6,7 +6,9 @@ declare const __DEV__: boolean;
 // expo-image (optional peer dep) gives reliable cross-platform image caching.
 // Require-guarded exactly like onboarding-ui's ImageElement — fall back to RN
 // Image.prefetch when absent.
-let ExpoImage: { prefetch?: (urls: string | string[]) => Promise<unknown> } | null = null;
+let ExpoImage: {
+  prefetch?: (urls: string | string[], cachePolicy?: string) => Promise<unknown>;
+} | null = null;
 try {
   ExpoImage = require("expo-image").Image;
 } catch {
@@ -72,7 +74,10 @@ export const preloadAssets = (assets: AssetRef[]): void => {
   if (imageUrls.length > 0) {
     try {
       if (ExpoImage?.prefetch) {
-        Promise.resolve(ExpoImage.prefetch(imageUrls)).catch(() => {});
+        // Prefetch into the memory cache (with disk fallback), matching the
+        // render-side cachePolicy — otherwise expo-image's default "disk"-only
+        // prefetch warms disk but the first on-screen decode still flashes.
+        Promise.resolve(ExpoImage.prefetch(imageUrls, "memory-disk")).catch(() => {});
       } else {
         for (const url of imageUrls) {
           Promise.resolve(RNImage.prefetch(url)).catch(() => {});

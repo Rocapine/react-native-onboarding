@@ -1,10 +1,13 @@
 import React from "react";
 import { Pressable } from "react-native";
+import { runOnJS, useAnimatedReaction, useSharedValue, type SharedValue } from "react-native-reanimated";
 import { evaluateCondition } from "@rocapine/react-native-onboarding";
 import { UIElement } from "../types";
 import { BaseBoxProps } from "./BaseBoxProps";
 import { RenderContext, areElementPropsEqual } from "./shared";
 import { useVariables } from "./VariablesContext";
+import { useAnimatedVariables } from "./AnimatedVariablesContext";
+import { buildAnimatedGatePlan, evalAnimatedNode } from "./animatedGate";
 import { runActions } from "./runActions";
 import { StackElementComponent } from "./StackElement";
 import { PlainTextElementComponent, ExpressionTextElementComponent } from "./TextElement";
@@ -252,20 +255,65 @@ const ElementHost = React.memo(
 );
 ElementHost.displayName = "ElementHost";
 
-// Memoized wrapper for elements carrying `renderWhen`. It subscribes to variables
-// so its condition re-evaluates on every write — and because that subscription is
-// its own, a memoized (non-re-rendering) ancestor does not block it. Renders the
-// concrete element through the SAME `renderConcrete` path, so key + onPress +
-// motion wrappers are identical whether or not the element is gated. Mounting
-// stays stable (keyed by element.id by `renderElement`); only the gated child
-// toggles, matching the prior single-gating-point behavior.
+// Gate for `renderWhen` elements. A SINGLE component (not a store-vs-animated
+// component-type swap), so the gated subtree keeps a stable identity: when a gate
+// switches onto the UI-thread path as its producer registers, `renderConcrete`'s
+// output is NOT remounted — no replayed entrance animation, no reset transient
+// state. It subscribes to the store so its condition re-evaluates on writes, and
+// resolves any animated SharedValue for its variable.
+//
+// If that variable is being animated on this screen, visibility is driven from the
+// live value on the UI thread via `useAnimatedReaction` (flipping local state only
+// as thresholds are crossed) — the store is never written, so the boundary-only
+// write (and its perf win) is preserved. Otherwise it evaluates against the store,
+// exactly like the original gate. The animated seed comes from the same store
+// evaluation, and the ProgressIndicator seeds the store with the value the sweep
+// starts from, so the seed matches the first animated frame — no flicker when the
+// gate switches paths.
 const GatedElement = React.memo(
   ({ element, ctx, parentType }: HostProps) => {
     const { flatVariables } = useVariables();
-    if (element.renderWhen && !evaluateCondition(element.renderWhen, flatVariables)) {
-      return null;
-    }
-    return <>{renderConcrete(element, ctx, parentType)}</>;
+    const plan = React.useMemo(() => buildAnimatedGatePlan(element.renderWhen), [element]);
+    const registry = useAnimatedVariables();
+
+    // The producer's SharedValue for this variable, if one animates it here.
+    // Seeded synchronously (producer earlier in tree order) and updated via the
+    // registry listener (producer that registers later) — both orderings resolve.
+    const [animatedSv, setAnimatedSv] = React.useState<SharedValue<number> | undefined>(() =>
+      plan ? registry.get(plan.variable) : undefined
+    );
+    React.useEffect(() => {
+      if (!plan) return;
+      setAnimatedSv(registry.get(plan.variable));
+      return registry.subscribe(plan.variable, () => setAnimatedSv(registry.get(plan.variable)));
+    }, [plan, registry]);
+
+    const node = plan?.node;
+    const isAnimated = !!node && !!animatedSv;
+    // Stable placeholder so the reaction hook is unconditional before a producer
+    // resolves; the worklet returns a constant while not animated, so it never
+    // churns state on the placeholder.
+    const fallbackSv = useSharedValue(0);
+    const sv = animatedSv ?? fallbackSv;
+
+    // Local visibility for the animated path, seeded from the store evaluation (see
+    // the flicker note above) and updated by the reaction as thresholds are crossed.
+    const [animatedShown, setAnimatedShown] = React.useState(() =>
+      element.renderWhen ? evaluateCondition(element.renderWhen, flatVariables) : true
+    );
+    useAnimatedReaction(
+      () => (isAnimated && node ? evalAnimatedNode(node, sv.value) : true),
+      (result, previous) => {
+        if (isAnimated && result !== previous) runOnJS(setAnimatedShown)(result);
+      },
+      [node, sv, isAnimated]
+    );
+
+    const visible = isAnimated
+      ? animatedShown
+      : !element.renderWhen || evaluateCondition(element.renderWhen, flatVariables);
+
+    return visible ? <>{renderConcrete(element, ctx, parentType)}</> : null;
   },
   areElementPropsEqual
 );

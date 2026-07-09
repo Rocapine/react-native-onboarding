@@ -108,7 +108,18 @@ const ComposableScreenRendererBase = ({ step, onContinue, keyboardVerticalOffset
   // matches the step instead of the template. Undefined when the step declares no
   // root background → falls back to the stable styles.flex ref (a true no-op that
   // preserves the intended themeable page background for steps that want it).
-  const rootBackgroundColor = elements[0]?.props.backgroundColor;
+  //
+  // Only adopt it when the first element is a full-bleed, UNCONDITIONAL root that
+  // actually covers the screen (flex, or height:"100%"; no renderWhen). Painting
+  // the flex:1 KAV with the color of a content-sized / gated / decorative first
+  // element would overpaint the themeable page background — even with the keyboard
+  // closed — so those cases stay a no-op and keep the template background.
+  const rootElement = elements[0];
+  const rootIsFullBleed =
+    !!rootElement &&
+    !rootElement.renderWhen &&
+    (rootElement.props.flex != null || rootElement.props.height === "100%");
+  const rootBackgroundColor = rootIsFullBleed ? rootElement.props.backgroundColor : undefined;
   const keyboardAvoidingStyle = useMemo(
     () =>
       rootBackgroundColor

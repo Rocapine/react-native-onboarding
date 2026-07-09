@@ -137,7 +137,9 @@ const renderRaster = (
   blurRadius?: number
 ): React.ReactElement =>
   ExpoImage ? (
-    <ExpoImage source={url} contentFit={CONTENT_FIT[resizeMode ?? "cover"]} blurRadius={blurRadius} style={style} />
+    // memory-disk cache: keep the decoded image in memory so re-displays are
+    // instant (no disk re-decode flash). Matches imageSource.tsx / preloadAssets.
+    <ExpoImage source={url} contentFit={CONTENT_FIT[resizeMode ?? "cover"]} blurRadius={blurRadius} cachePolicy="memory-disk" style={style} />
   ) : (
     <RNImage source={{ uri: url }} resizeMode={resizeMode} blurRadius={blurRadius} style={style} />
   );

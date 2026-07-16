@@ -1183,8 +1183,10 @@ export default function ComposableScreenExample() {
             },
             // Custom action writes a variable — the `pickPlan` handler
             // (registered in app/_layout.tsx) receives a `setVariable` setter and
-            // toggles `plan`. The Text below reacts via {{interpolation}}, and the
-            // renderWhen-gated line appears only once plan === "pro".
+            // toggles `planTier`. The Text below reacts via {{interpolation}}
+            // (needs mode: "expression"), and the renderWhen-gated line appears
+            // only once planTier === "pro". Uses its own variable name so it stays
+            // independent of the `plan` RadioGroup demo above.
             {
               id: 'custom-setvar-heading',
               type: 'Text' as const,
@@ -1200,28 +1202,29 @@ export default function ComposableScreenExample() {
               id: 'pick-plan-button',
               type: 'Button' as const,
               props: {
-                label: 'Toggle plan (custom action)',
+                label: 'Toggle plan tier (custom action)',
                 variant: 'outlined' as const,
                 marginVertical: 4,
-                // `variables: ['plan']` forwards the current value so the handler
+                // `variables: ['planTier']` forwards the current value so the handler
                 // can toggle it. No "continue" → we stay on-screen to watch it change.
-                actions: [{ type: 'custom' as const, function: 'pickPlan', variables: ['plan'] }],
+                actions: [{ type: 'custom' as const, function: 'pickPlan', variables: ['planTier'] }],
               },
             },
             {
-              id: 'plan-readout',
+              id: 'plan-tier-readout',
               type: 'Text' as const,
               props: {
-                content: 'Current plan: {{plan}}',
+                content: 'Current tier: {{planTier}}',
+                mode: 'expression' as const,
                 fontSize: 14,
                 textAlign: 'center' as const,
                 marginVertical: 4,
               },
             },
             {
-              id: 'plan-pro-badge',
+              id: 'plan-tier-pro-badge',
               renderWhen: {
-                variable: 'plan',
+                variable: 'planTier',
                 operator: 'eq' as const,
                 value: 'pro',
               },

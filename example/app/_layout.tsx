@@ -70,13 +70,13 @@ function OnboardingProviderWithLocale() {
         // then react via {{interpolation}} / renderWhen, and a following
         // "continue" can branch on it.
         pickPlan: async ({ variables, setVariable }) => {
-          const next = variables.plan?.value === "pro" ? "free" : "pro";
-          setVariable("plan", {
+          const next = variables.planTier?.value === "pro" ? "free" : "pro";
+          setVariable("planTier", {
             value: next,
             label: next === "pro" ? "Pro" : "Free",
             kind: "string",
           });
-          console.log("[customAction] pickPlan set plan =", next);
+          console.log("[customAction] pickPlan set planTier =", next);
         },
       }}
     >

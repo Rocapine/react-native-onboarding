@@ -125,6 +125,8 @@ Wire the implementation in the host via `customActions` on `OnboardingProvider`:
       await new Promise(r => setTimeout(r, 2500));
     },
     // Handlers also receive `setVariable` to write back into the context.
+    // Reading `variables.plan` requires the action to list it:
+    // { type: "custom", function: "pickPlan", variables: ["plan"] }.
     pickPlan: ({ variables, setVariable }) => {
       const next = variables.plan?.value === "pro" ? "free" : "pro";
       setVariable("plan", { value: next, kind: "string" });

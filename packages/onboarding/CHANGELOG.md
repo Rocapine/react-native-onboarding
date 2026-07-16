@@ -8,6 +8,14 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.58.1] - 2026-07-16
+
+### Fixed
+
+- **`setVariable` is now optional in the `CustomActionHandler` signature.** The handler type ships in this headless package, but the setter is supplied at runtime by `@rocapine/react-native-onboarding-ui` (`runActions`). A consumer on headless 1.58.1 with a UI older than 1.58.0 receives handler args without `setVariable`, so the type must not guarantee it — handlers should call it as `setVariable?.(name, entry)`. Type-only change; no runtime behavior difference when both packages are ≥ 1.58.0.
+
+---
+
 ## [1.58.0] - 2026-07-16
 
 ### Added

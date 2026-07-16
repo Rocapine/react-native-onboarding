@@ -53,12 +53,15 @@ import type {
 
 type CustomActionHandler = (args: {
   variables: Record<string, ComposableVariableEntry | undefined>;
+  setVariable: (name: string, entry: ComposableVariableEntry) => void;
 }) => void | Promise<void>;
 
 type CustomActions = Record<string, CustomActionHandler>;
 ```
 
 `variables` is filtered to the names listed in the action's `variables` array. Each entry is `{ value: string; label?: string }` — the same shape `Input`, `RadioGroup`, `CheckboxGroup`, and `DatePicker` write to the variable context. Missing keys yield `undefined` so the handler can detect them.
+
+`setVariable(name, { value, label?, kind? })` writes back into the same variable context — the imperative counterpart to the declarative `{ type: "setVariable" }` action. Writes update both the render store (so `renderWhen` / `{{interpolation}}` react) and the branching store, so a following `"continue"` branches on the new value via `resolveNextStepNumber`.
 
 ## Registration
 
@@ -185,6 +188,38 @@ Pair `setVariable` with `"continue"` to set a discriminator a downstream `nextSt
   ]
 }
 ```
+
+### Write a variable from a handler
+
+When the value to store depends on host logic (a computation, an API result, the current value of another variable), use the `setVariable` setter passed to the handler instead of the static `setVariable` action. It writes to the same context, so the screen reacts and a following `"continue"` can branch on it.
+
+```jsonc
+{
+  "actions": [
+    { "type": "custom", "function": "pickPlan", "variables": ["plan"] },
+    "continue"
+  ]
+}
+```
+
+```tsx
+customActions={{
+  pickPlan: async ({ variables, setVariable }) => {
+    const next = variables.plan?.value === "pro" ? "free" : "pro";
+    setVariable("plan", {
+      value: next,
+      label: next === "pro" ? "Pro" : "Free",
+      kind: "string",
+    });
+  },
+}}
+```
+
+`setVariable` takes the full `{ value, label?, kind? }` entry — the same shape variable-writing elements store. List any variable you need to read inside the handler in the action's `variables` array (reads stay filtered to that list).
+
+:::note
+Within a single action list, a write is **not** reflected in a later action's `variables` (they read a snapshot captured when the button was pressed). The write **is** visible to rendering (`renderWhen` / `{{interpolation}}`) and to a following `"continue"` branch. If a later action must consume a value another action just wrote, set it declaratively before the `custom` action or compute it inside the same handler.
+:::
 
 ## Migrating from `action: "continue"`
 

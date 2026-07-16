@@ -124,11 +124,18 @@ Wire the implementation in the host via `customActions` on `OnboardingProvider`:
     delayedContinue: async () => {
       await new Promise(r => setTimeout(r, 2500));
     },
+    // Handlers also receive `setVariable` to write back into the context.
+    // Reading `variables.plan` requires the action to list it:
+    // { type: "custom", function: "pickPlan", variables: ["plan"] }.
+    pickPlan: ({ variables, setVariable }) => {
+      const next = variables.plan?.value === "pro" ? "free" : "pro";
+      setVariable("plan", { value: next, kind: "string" });
+    },
   }}
 />
 ```
 
-Actions run sequentially; throwing aborts the chain; the literal string `"continue"` is terminal and advances the flow.
+Each handler is called with `{ variables, setVariable }`: `variables` is the filtered read-only subset named in the action's `variables` array, and `setVariable(name, { value, label?, kind? })` writes back into the variable context (updates render + branching stores — the imperative counterpart to the `setVariable` action). Actions run sequentially; throwing aborts the chain; the literal string `"continue"` is terminal and advances the flow.
 
 ## Tier 3 — Replace a UIElement renderer (deep customization)
 

@@ -1181,6 +1181,62 @@ export default function ComposableScreenExample() {
                 marginVertical: 4,
               },
             },
+            // Custom action writes a variable — the `pickPlan` handler
+            // (registered in app/_layout.tsx) receives a `setVariable` setter and
+            // toggles `planTier`. The Text below reacts via {{interpolation}}
+            // (needs mode: "expression"), and the renderWhen-gated line appears
+            // only once planTier === "pro". Uses its own variable name so it stays
+            // independent of the `plan` RadioGroup demo above.
+            {
+              id: 'custom-setvar-heading',
+              type: 'Text' as const,
+              props: {
+                content: 'Custom action → setVariable',
+                fontSize: 13,
+                fontWeight: '700',
+                marginVertical: 4,
+                opacity: 0.5,
+              },
+            },
+            {
+              id: 'pick-plan-button',
+              type: 'Button' as const,
+              props: {
+                label: 'Toggle plan tier (custom action)',
+                variant: 'outlined' as const,
+                marginVertical: 4,
+                // `variables: ['planTier']` forwards the current value so the handler
+                // can toggle it. No "continue" → we stay on-screen to watch it change.
+                actions: [{ type: 'custom' as const, function: 'pickPlan', variables: ['planTier'] }],
+              },
+            },
+            {
+              id: 'plan-tier-readout',
+              type: 'Text' as const,
+              props: {
+                content: 'Current tier: {{planTier}}',
+                mode: 'expression' as const,
+                fontSize: 14,
+                textAlign: 'center' as const,
+                marginVertical: 4,
+              },
+            },
+            {
+              id: 'plan-tier-pro-badge',
+              renderWhen: {
+                variable: 'planTier',
+                operator: 'eq' as const,
+                value: 'pro',
+              },
+              type: 'Text' as const,
+              props: {
+                content: '⭐ Pro features unlocked',
+                fontSize: 14,
+                fontWeight: '600' as const,
+                textAlign: 'center' as const,
+                marginVertical: 4,
+              },
+            },
             // Gradient horizontal band
             {
               id: 'gradient-band',

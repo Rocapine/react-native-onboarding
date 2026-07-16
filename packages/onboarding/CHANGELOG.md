@@ -8,6 +8,14 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.58.0] - 2026-07-16
+
+### Added
+
+- **Custom Button action handlers now receive a `setVariable` setter.** `CustomActionHandler` args gained `setVariable(name, { value, label?, kind? })`, so a host-registered `{ type: "custom" }` handler can write back into the ComposableScreen variable context — the imperative counterpart to the declarative `{ type: "setVariable" }` action. Writes update both the render store (`renderWhen` / `{{interpolation}}`) and the branching store (`resolveNextStepNumber`), so a following `"continue"` branches on the new value. Backward compatible — existing handlers destructuring only `{ variables }` are unaffected.
+
+---
+
 ## [1.57.4] - 2026-07-09
 
 ### Fixed

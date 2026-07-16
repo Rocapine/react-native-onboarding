@@ -9,6 +9,14 @@ here.
 
 ---
 
+## [1.58.0] - 2026-07-16
+
+### Added
+
+- **`runActions` passes a `setVariable` setter to `custom` action handlers.** The dispatcher now calls host handlers with `{ variables, setVariable }`; `setVariable` is the render context's setter (`setVariableAndSync`), so a handler write propagates to both the UI variable store and the headless branching store. Pairs with the headless `CustomActionHandler` type change (onboarding 1.58.0).
+
+---
+
 ## [1.57.4] - 2026-07-09
 
 ### Fixed

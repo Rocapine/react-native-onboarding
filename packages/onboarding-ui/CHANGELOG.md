@@ -9,6 +9,14 @@ here.
 
 ---
 
+## [1.58.1] - 2026-07-16
+
+### Changed
+
+- Version kept in lockstep with headless 1.58.1, which makes the `setVariable` arg optional in the `CustomActionHandler` signature. `runActions` already always provides the setter — no functional change in this package.
+
+---
+
 ## [1.58.0] - 2026-07-16
 
 ### Added

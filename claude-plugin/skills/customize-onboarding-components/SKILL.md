@@ -127,15 +127,16 @@ Wire the implementation in the host via `customActions` on `OnboardingProvider`:
     // Handlers also receive `setVariable` to write back into the context.
     // Reading `variables.plan` requires the action to list it:
     // { type: "custom", function: "pickPlan", variables: ["plan"] }.
+    // `setVariable` is optional (supplied by onboarding-ui >= 1.58.0) — guard with `?.`.
     pickPlan: ({ variables, setVariable }) => {
       const next = variables.plan?.value === "pro" ? "free" : "pro";
-      setVariable("plan", { value: next, kind: "string" });
+      setVariable?.("plan", { value: next, kind: "string" });
     },
   }}
 />
 ```
 
-Each handler is called with `{ variables, setVariable }`: `variables` is the filtered read-only subset named in the action's `variables` array, and `setVariable(name, { value, label?, kind? })` writes back into the variable context (updates render + branching stores — the imperative counterpart to the `setVariable` action). Actions run sequentially; throwing aborts the chain; the literal string `"continue"` is terminal and advances the flow.
+Each handler is called with `{ variables, setVariable }`: `variables` is the filtered read-only subset named in the action's `variables` array, and `setVariable?.(name, { value, label?, kind? })` writes back into the variable context (updates render + branching stores — the imperative counterpart to the `setVariable` action). `setVariable` is optional in the handler type (it's supplied by the onboarding-ui runtime, v1.58.0+), so call it with `?.`. Actions run sequentially; throwing aborts the chain; the literal string `"continue"` is terminal and advances the flow.
 
 ## Tier 3 — Replace a UIElement renderer (deep customization)
 

@@ -53,7 +53,7 @@ import type {
 
 type CustomActionHandler = (args: {
   variables: Record<string, ComposableVariableEntry | undefined>;
-  setVariable: (name: string, entry: ComposableVariableEntry) => void;
+  setVariable?: (name: string, entry: ComposableVariableEntry) => void;
 }) => void | Promise<void>;
 
 type CustomActions = Record<string, CustomActionHandler>;
@@ -61,7 +61,7 @@ type CustomActions = Record<string, CustomActionHandler>;
 
 `variables` is filtered to the names listed in the action's `variables` array. Each entry is `{ value: string; label?: string }` — the same shape `Input`, `RadioGroup`, `CheckboxGroup`, and `DatePicker` write to the variable context. Missing keys yield `undefined` so the handler can detect them.
 
-`setVariable(name, { value, label?, kind? })` writes back into the same variable context — the imperative counterpart to the declarative `{ type: "setVariable" }` action. Writes update both the render store (so `renderWhen` / `{{interpolation}}` react) and the branching store, so a following `"continue"` branches on the new value via `resolveNextStepNumber`.
+`setVariable?.(name, { value, label?, kind? })` writes back into the same variable context — the imperative counterpart to the declarative `{ type: "setVariable" }` action. Writes update both the render store (so `renderWhen` / `{{interpolation}}` react) and the branching store, so a following `"continue"` branches on the new value via `resolveNextStepNumber`. It is **optional** in the signature: the handler type ships in the headless package but the setter is supplied by the `@rocapine/react-native-onboarding-ui` runtime (v1.58.0+), so on an older UI it is `undefined` — always call it with `?.`.
 
 ## Registration
 
@@ -206,7 +206,7 @@ When the value to store depends on host logic (a computation, an API result, the
 customActions={{
   pickPlan: async ({ variables, setVariable }) => {
     const next = variables.plan?.value === "pro" ? "free" : "pro";
-    setVariable("plan", {
+    setVariable?.("plan", {
       value: next,
       label: next === "pro" ? "Pro" : "Free",
       kind: "string",
@@ -215,7 +215,7 @@ customActions={{
 }}
 ```
 
-`setVariable` takes the full `{ value, label?, kind? }` entry — the same shape variable-writing elements store. List any variable you need to read inside the handler in the action's `variables` array (reads stay filtered to that list).
+`setVariable` takes the full `{ value, label?, kind? }` entry — the same shape variable-writing elements store. It is optional in the signature (see [Handler signature](#handler-signature)), so call it with `?.`. List any variable you need to read inside the handler in the action's `variables` array (reads stay filtered to that list).
 
 :::note
 Within a single action list, a write is **not** reflected in a later action's `variables` (they read a snapshot captured when the button was pressed). The write **is** visible to rendering (`renderWhen` / `{{interpolation}}`) and to a following `"continue"` branch. If a later action must consume a value another action just wrote, set it declaratively before the `custom` action or compute it inside the same handler.

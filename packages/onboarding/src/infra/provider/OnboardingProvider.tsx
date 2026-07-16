@@ -27,8 +27,13 @@ export type CustomActionHandler = (args: {
    * `renderWhen` / `{{interpolation}}` react) and the branching store (so a
    * following `"continue"` in the same action list branches on the new value via
    * `resolveNextStepNumber`). `entry` is `{ value, label?, kind? }`.
+   *
+   * Optional because this handler type ships in the headless package but the
+   * setter is supplied by the onboarding-ui runtime (`runActions`). A consumer on
+   * a UI version older than 1.58.0 receives handler args without it, so guard
+   * before calling: `setVariable?.(name, entry)`.
    */
-  setVariable: (name: string, entry: ComposableVariableEntry) => void;
+  setVariable?: (name: string, entry: ComposableVariableEntry) => void;
 }) => void | Promise<void>;
 
 export type CustomActions = Record<string, CustomActionHandler>;

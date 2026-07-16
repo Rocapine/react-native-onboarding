@@ -68,10 +68,11 @@ function OnboardingProviderWithLocale() {
         },
         // Writes back into the ComposableScreen variable context. The screen can
         // then react via {{interpolation}} / renderWhen, and a following
-        // "continue" can branch on it.
+        // "continue" can branch on it. `setVariable` is optional in the handler
+        // signature (supplied by onboarding-ui >= 1.58.0), so guard with `?.`.
         pickPlan: async ({ variables, setVariable }) => {
           const next = variables.planTier?.value === "pro" ? "free" : "pro";
-          setVariable("planTier", {
+          setVariable?.("planTier", {
             value: next,
             label: next === "pro" ? "Pro" : "Free",
             kind: "string",

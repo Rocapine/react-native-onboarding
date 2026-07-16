@@ -21,6 +21,14 @@ const queryClient = new QueryClient({
 
 export type CustomActionHandler = (args: {
   variables: Record<string, ComposableVariableEntry | undefined>;
+  /**
+   * Write to the live ComposableScreen variable context. Mirrors the declarative
+   * `{ type: "setVariable" }` action: it updates both the render store (so
+   * `renderWhen` / `{{interpolation}}` react) and the branching store (so a
+   * following `"continue"` in the same action list branches on the new value via
+   * `resolveNextStepNumber`). `entry` is `{ value, label?, kind? }`.
+   */
+  setVariable: (name: string, entry: ComposableVariableEntry) => void;
 }) => void | Promise<void>;
 
 export type CustomActions = Record<string, CustomActionHandler>;
@@ -34,7 +42,8 @@ interface OnboardingProviderProps {
    * Map of named handlers invokable from ComposableScreen Button `actions`
    * with `{ type: "custom", function: <name>, variables?: [...] }`. Handlers
    * receive the requested variables filtered from the live ComposableScreen
-   * variable map and may return a Promise.
+   * variable map, a `setVariable` setter to write back into the context, and
+   * may return a Promise.
    */
   customActions?: CustomActions;
   /**

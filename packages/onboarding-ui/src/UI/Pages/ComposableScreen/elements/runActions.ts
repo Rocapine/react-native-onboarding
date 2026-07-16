@@ -25,7 +25,9 @@ function decodeArrayValue(raw: string | undefined): string[] {
 //   - "continue"     → advance the onboarding; terminal (stops the loop).
 //   - {setVariable}  → write a variable (expression-evaluated when valueMode === "expression").
 //   - {custom}       → invoke the host-registered customAction with the requested
-//                      variables; warns if unregistered, aborts the loop on throw.
+//                      variables plus a `setVariable` setter (so the handler can
+//                      write back into the context); warns if unregistered, aborts
+//                      the loop on throw.
 export async function runActions(
   actions: ButtonAction[],
   ctx: RenderContext
@@ -100,7 +102,7 @@ export async function runActions(
     const vars: Record<string, ComposableVariableEntry | undefined> = {};
     for (const name of requested) vars[name] = variables[name];
     try {
-      await handler({ variables: vars });
+      await handler({ variables: vars, setVariable });
     } catch (err) {
       console.error(
         `[ComposableScreen] customAction "${act.function}" threw:`,

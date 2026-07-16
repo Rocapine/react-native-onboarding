@@ -66,6 +66,18 @@ function OnboardingProviderWithLocale() {
         celebrate: async ({ variables }) => {
           console.log("[customAction] celebrate", variables);
         },
+        // Writes back into the ComposableScreen variable context. The screen can
+        // then react via {{interpolation}} / renderWhen, and a following
+        // "continue" can branch on it.
+        pickPlan: async ({ variables, setVariable }) => {
+          const next = variables.plan?.value === "pro" ? "free" : "pro";
+          setVariable("plan", {
+            value: next,
+            label: next === "pro" ? "Pro" : "Free",
+            kind: "string",
+          });
+          console.log("[customAction] pickPlan set plan =", next);
+        },
       }}
     >
       <OnboardingProgressProvider>

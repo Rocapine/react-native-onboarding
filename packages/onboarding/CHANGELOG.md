@@ -8,6 +8,22 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.59.0] - 2026-07-17
+
+### Added
+
+- **Explicit start & end nodes + a first-class completion callback.** The onboarding graph now has studio-authored entry/exit semantics, all optional and backward compatible:
+  - `OnboardingMetadata.startStepId` — id of the unique step the flow starts on, decoupled from array position. Resolve it with the new `resolveStartStepNumber(steps, startStepId)` helper or the new `useOnboardingStart()` hook (suspends on the payload, returns `{ startStepNumber }`). Falls back to the first step when absent or dangling.
+  - `BaseStepType.isEnd` (+ `BaseStepTypeSchema`) — marks a step terminal; multiple end nodes allowed. Continuing from an end node ends the onboarding.
+  - `OnboardingProvider` gained an `onComplete?: ({ variables, metadata }) => void` prop, exposed to the host via the `completeOnboarding()` helper (returned from `useOnboardingStep` and available on the headless `OnboardingProgressContext`). New exported types `OnboardingCompletionContext` / `OnboardingCompleteHandler`.
+  - `useOnboardingStep` now also returns `isEndStep` (flag-aware terminal signal) alongside the positional `isLastStep`.
+
+### Changed
+
+- **`resolveNextStepNumber` is end-aware.** It returns `null` immediately when `currentStep.isEnd === true`, taking precedence over any `nextStep` branch/default/linear resolution. Signature unchanged; payloads without `isEnd` are unaffected.
+
+---
+
 ## [1.58.0] - 2026-07-16
 
 ### Added

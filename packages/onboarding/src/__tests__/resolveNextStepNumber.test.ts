@@ -282,6 +282,36 @@ describe("self-loop guard", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Explicit end nodes (isEnd)
+// ---------------------------------------------------------------------------
+
+describe("end node (isEnd)", () => {
+  it("returns null from an end node that is not positionally last", () => {
+    const step = makeStep("s2", { isEnd: true });
+    expect(resolveNextStepNumber(step, {}, steps)).toBe(null);
+  });
+
+  it("returns null from an end node even when it has a matching branch", () => {
+    const step = makeStep("s1", {
+      isEnd: true,
+      nextStep: {
+        defaultTargetStepId: "s2",
+        branches: [
+          { condition: null, targetStepId: "s3" },
+        ],
+      },
+    });
+    // isEnd takes precedence over branch/default/linear resolution.
+    expect(resolveNextStepNumber(step, {}, steps)).toBe(null);
+  });
+
+  it("isEnd: false behaves like a normal step", () => {
+    const step = makeStep("s1", { isEnd: false });
+    expect(resolveNextStepNumber(step, {}, steps)).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Edge cases
 // ---------------------------------------------------------------------------
 

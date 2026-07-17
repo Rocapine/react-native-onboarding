@@ -14,9 +14,11 @@ export const useOnboardingStep = <
 }): {
   step: StepType;
   isLastStep: boolean;
+  isEndStep: boolean;
   stepsLength: number;
   onboardingMetadata: OnboardingMetadata;
   steps: StepType[];
+  completeOnboarding: () => void;
 } => {
   // Get all config from context
   const {
@@ -27,6 +29,7 @@ export const useOnboardingStep = <
     setTotalSteps,
     setOnboarding,
     navigation,
+    completeOnboarding,
   } = useContext(OnboardingProgressContext);
 
   // Build query with config from context
@@ -53,14 +56,19 @@ export const useOnboardingStep = <
   );
 
   const step = steps[stepNumber - 1];
+  // Positional last step (kept for back-compat; not branch-aware).
   const isLastStep = stepNumber >= steps.length;
+  // Flag-aware terminal signal: is the current step an explicit end node?
+  const isEndStep = step?.isEnd === true;
   const stepsLength = steps.length;
 
   return {
     step,
     isLastStep,
+    isEndStep,
     stepsLength,
     onboardingMetadata,
     steps,
+    completeOnboarding,
   };
 };

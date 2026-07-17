@@ -54,6 +54,7 @@ export type { OnboardingNavigationAdapter } from "./infra/navigation/types";
 export { expoRouterAdapter } from "./infra/navigation/expoRouterAdapter";
 // Branching
 export { resolveNextStepNumber } from "./resolveNextStepNumber";
+export { resolveStartStepNumber } from "./resolveStartStepNumber";
 export { evaluateCondition, evaluateLeaf, isConditionGroup } from "./evaluateCondition";
 export type { Condition } from "./evaluateCondition";
 export type {

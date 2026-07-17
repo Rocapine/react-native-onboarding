@@ -14,6 +14,10 @@ export function resolveNextStepNumber(
   variables: Record<string, any>,
   steps: BaseStepType[]
 ): number | null {
+  // Explicit end node: continuing from it ends the onboarding, regardless of
+  // any `nextStep` config. Takes precedence over branch/default/linear logic.
+  if (currentStep.isEnd === true) return null;
+
   const linearNext = (): number | null => {
     const idx = steps.findIndex((s) => s.id === currentStep.id);
     if (idx === -1 || idx + 1 >= steps.length) return null;

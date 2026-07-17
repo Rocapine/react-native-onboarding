@@ -14,6 +14,13 @@ export type BaseStepType = {
   continueButtonLabel?: string;
   figmaUrl?: string | null;
   nextStep?: NextStep;
+  /**
+   * Marks this step as a terminal (end) node. When true, continuing from this
+   * step ends the onboarding — `resolveNextStepNumber` returns `null` regardless
+   * of any `nextStep` config. Multiple steps may be end nodes. Optional; when
+   * absent the flow ends via the positional/branch fallback (legacy behavior).
+   */
+  isEnd?: boolean;
 };
 
 export type OnboardingStudioClientOptions<
@@ -52,6 +59,13 @@ export interface OnboardingMetadata {
   audienceOrder?: number;
   locale?: string;
   draft?: boolean;
+  /**
+   * Id of the unique step the onboarding starts on. Read first to resolve the
+   * entry point (see `resolveStartStepNumber`). Optional; when absent or when it
+   * references a missing step, the flow falls back to the first step in `steps`
+   * (legacy behavior).
+   */
+  startStepId?: string;
 }
 
 export type FontWeightKey =

@@ -212,4 +212,7 @@ export const BaseStepTypeSchema = z.object({
   buttonSection: ButtonSectionSchema.optional(),
   figmaUrl: z.string().nullish(),
   nextStep: NextStepSchema,
+  // Marks a terminal (end) node — continuing from it ends the onboarding.
+  // Optional; multiple steps may be end nodes. See BaseStepType.isEnd.
+  isEnd: z.boolean().optional(),
 });

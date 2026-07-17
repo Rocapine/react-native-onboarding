@@ -2,7 +2,7 @@ import { createContext, useCallback, useEffect, useRef, useState } from "react";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { OnboardingStudioClient } from "../../OnboardingStudioClient";
 import { getOnboardingQuery } from "../queries/getOnboarding.query";
-import { Onboarding } from "../../types";
+import { Onboarding, OnboardingMetadata } from "../../types";
 import { OnboardingStepType } from "../../steps/types";
 import { ComposableVariableEntry } from "../../steps/ComposableScreen/types";
 import { FontLoaderGate } from "./FontLoader";
@@ -33,6 +33,20 @@ export type CustomActionHandler = (args: {
 
 export type CustomActions = Record<string, CustomActionHandler>;
 
+/**
+ * Context passed to `onComplete` when the onboarding ends. Carries the collected
+ * variable store and the onboarding metadata. All end nodes are equivalent, so
+ * no terminal-step identity is reported.
+ */
+export type OnboardingCompletionContext = {
+  variables: Record<string, any>;
+  metadata: OnboardingMetadata | undefined;
+};
+
+export type OnboardingCompleteHandler = (
+  ctx: OnboardingCompletionContext
+) => void | Promise<void>;
+
 interface OnboardingProviderProps {
   children: React.ReactNode;
   client: OnboardingStudioClient;
@@ -59,6 +73,14 @@ interface OnboardingProviderProps {
    * support a different navigation library. Must be a stable reference.
    */
   navigation?: OnboardingNavigationAdapter;
+  /**
+   * Called when the onboarding completes — i.e. the host reaches a terminal
+   * step and invokes `completeOnboarding()` (see the headless
+   * `OnboardingProgressContext` / `useOnboardingStep`). Receives the collected
+   * `variables` and the onboarding `metadata`. Use it to run post-onboarding
+   * logic (mark onboarding done, navigate to paywall/home, etc.). Optional.
+   */
+  onComplete?: OnboardingCompleteHandler;
 }
 
 interface OnboardingDataGateProps {
@@ -112,6 +134,7 @@ export const OnboardingProvider = ({
   customActions = {},
   fontsFallback,
   navigation = expoRouterAdapter,
+  onComplete,
 }: OnboardingProviderProps) => {
   const [activeStep, setActiveStep] = useState({
     number: 0,
@@ -134,6 +157,17 @@ export const OnboardingProvider = ({
   }, []);
   const getVariables = useCallback(() => variablesRef.current, []);
 
+  // Fires the host `onComplete` with a synchronous snapshot of the collected
+  // variables (from the ref, so an answer written via `setVariable` immediately
+  // before completing is included) plus the onboarding metadata. Host calls this
+  // on the terminal branch instead of inferring completion from a null next step.
+  const completeOnboarding = useCallback(() => {
+    onComplete?.({
+      variables: variablesRef.current,
+      metadata: onboarding?.metadata,
+    });
+  }, [onComplete, onboarding]);
+
   return (
     <QueryClientProvider client={queryClient}>
       <OnboardingProgressContext.Provider
@@ -152,6 +186,7 @@ export const OnboardingProvider = ({
           variables,
           setVariable,
           getVariables,
+          completeOnboarding,
           customActions,
           navigation,
         }}
@@ -185,6 +220,7 @@ export const OnboardingProgressContext = createContext<{
   variables: Record<string, any>;
   setVariable: (name: string, value: any) => void;
   getVariables: () => Record<string, any>;
+  completeOnboarding: () => void;
   customActions: CustomActions;
   navigation: OnboardingNavigationAdapter;
 }>({
@@ -202,6 +238,7 @@ export const OnboardingProgressContext = createContext<{
   variables: {},
   setVariable: () => { },
   getVariables: () => ({}),
+  completeOnboarding: () => { },
   customActions: {},
   navigation: expoRouterAdapter,
 });

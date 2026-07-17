@@ -148,6 +148,56 @@ switch (step.type) {
 
 This gives you complete control over the UI while still benefiting from the SDK's data fetching, caching, and type safety.
 
+## Start & End Nodes
+
+The onboarding is an `id`-based graph. Two optional, studio-authored markers make its entry and exit explicit. Both are additive — payloads without them behave exactly as before (start at the first step; end by running off the array).
+
+### Start node
+
+`metadata.startStepId` names the unique step the flow starts on, decoupled from array position. Resolve it with `useOnboardingStart()` in your entry route (it suspends until the payload is loaded), or the pure `resolveStartStepNumber(steps, startStepId)` helper:
+
+```typescript
+import { useOnboardingStart } from "@rocapine/react-native-onboarding";
+
+const { startStepNumber } = useOnboardingStart();
+// e.g. router.push(`/onboarding/${startStepNumber}`);
+```
+
+When `startStepId` is absent or references a missing step, it falls back to the first step (`1`).
+
+### End nodes
+
+Any step may set `isEnd: true` to mark it terminal (multiple end nodes are allowed). Continuing from an end node completes the onboarding — `resolveNextStepNumber` returns `null`, taking precedence over any `nextStep` branching on that step. Legacy payloads without `isEnd` still end via the existing positional/branch fallback.
+
+### Completion callback
+
+Pass `onComplete` to `OnboardingProvider` to run post-onboarding logic. The host fires it from its terminal branch via the `completeOnboarding()` helper (returned from `useOnboardingStep`), instead of inferring the end and navigating ad-hoc:
+
+```typescript
+<OnboardingProvider
+  client={client}
+  onComplete={({ variables, metadata }) => {
+    // mark onboarding done, navigate to paywall/home, etc.
+    router.replace("/home");
+  }}
+>
+  {/* ... */}
+</OnboardingProvider>
+```
+
+```typescript
+const { step, steps, completeOnboarding } = useOnboardingStep({ stepNumber });
+
+const next = resolveNextStepNumber(step, variables, steps);
+if (next === null) {
+  completeOnboarding(); // fires onComplete with { variables, metadata }
+} else {
+  router.push(`/onboarding/${next}`);
+}
+```
+
+`onComplete` receives the collected `variables` and the onboarding `metadata`. All end nodes are equivalent — it does not report which terminal step was reached. `useOnboardingStep` also returns `isEndStep` (whether the current step is an end node) alongside the positional `isLastStep`.
+
 ## Caching Strategy
 
 ### AsyncStorage Cache

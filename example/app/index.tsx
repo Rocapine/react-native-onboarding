@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { useRouter } from "expo-router";
-import { useOnboarding } from "@rocapine/react-native-onboarding";
+import { useOnboardingStart } from "@rocapine/react-native-onboarding";
 import { useTheme } from "@rocapine/react-native-onboarding-ui";
 import { SUPPORTED_LOCALES, useLocale } from "../contexts/locale-context";
 
@@ -11,11 +11,12 @@ export const unstable_settings = {
 export default function RootLayout() {
   const router = useRouter();
   const { theme, colorScheme, toggleTheme } = useTheme();
-  const { } = useOnboarding();
+  // Resolve the entry point from metadata.startStepId (falls back to step 1).
+  const { startStepNumber } = useOnboardingStart();
   const { locale, setLocale } = useLocale();
 
   const handleStartOnboarding = () => {
-    router.push("/onboarding/1");
+    router.push(`/onboarding/${startStepNumber}`);
   };
 
   return (

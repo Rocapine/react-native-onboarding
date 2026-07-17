@@ -1321,6 +1321,16 @@ Pick `renderWhen` for in-screen toggles (validation text, plan-specific
 copy, optional sections). Pick `Branch.condition` to skip whole steps.
 :::
 
+:::tip Start & end nodes
+- **Start** — set `metadata.startStepId` to the id of the step the flow
+  should begin on (optional; defaults to the first step). Resolve it with
+  `resolveStartStepNumber` / the `useOnboardingStart()` hook.
+- **End** — set a `nextStep.defaultTargetStepId` or any `branches[].targetStepId`
+  to the reserved sentinel `"__END__"` to end the onboarding from any step (no
+  trailing screen). `resolveNextStepNumber` returns `null` for it, and the host
+  fires `onComplete` via `completeOnboarding()`. See *Core Concepts → Start & End Nodes*.
+:::
+
 **Icon props:**
 
 | Prop | Type | Notes |

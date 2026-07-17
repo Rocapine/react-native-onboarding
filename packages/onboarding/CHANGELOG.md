@@ -20,6 +20,7 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 ### Changed
 
 - **`resolveNextStepNumber` resolves the end sentinel.** It returns `null` when the matching branch's `targetStepId` — or the `defaultTargetStepId` — equals `ONBOARDING_END_STEP_ID`, in addition to the existing "no valid next" cases. Signature unchanged; payloads that don't use the sentinel are unaffected.
+- **`BaseStepTypeSchema` rejects a step `id` equal to `ONBOARDING_END_STEP_ID`.** A step named `"__END__"` would be unreachable (branching to it ends the flow), so the schema now fails validation for it. Real step ids are unaffected.
 
 ---
 

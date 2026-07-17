@@ -213,7 +213,11 @@ export const ONBOARDING_END_STEP_ID = "__END__";
 // ── Base step schema ──────────────────────────────────────────────────────────
 
 export const BaseStepTypeSchema = z.object({
-  id: z.string(),
+  // A step id may not collide with the reserved end sentinel — otherwise the
+  // step would be unreachable (branching to it ends the flow instead).
+  id: z.string().refine((v) => v !== ONBOARDING_END_STEP_ID, {
+    message: `"${ONBOARDING_END_STEP_ID}" is reserved as the onboarding end sentinel and cannot be used as a step id`,
+  }),
   name: z.string(),
   displayProgressHeader: z.boolean(),
   customPayload: CustomPayloadSchema,

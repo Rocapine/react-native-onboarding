@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useOnboardingStart } from '@rocapine/react-native-onboarding';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -7,9 +8,11 @@ export const unstable_settings = {
 
 export default function OnboardingIndex() {
   const router = useRouter();
+  // Resolve the entry point from metadata.startStepId (falls back to step 1).
+  const { startStepNumber } = useOnboardingStart();
 
   const handleStartQuestion1 = () => {
-    router.push('/onboarding/1');
+    router.push(`/onboarding/${startStepNumber}`);
   };
 
   return (

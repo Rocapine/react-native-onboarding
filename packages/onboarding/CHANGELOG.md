@@ -8,6 +8,22 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.59.0] - 2026-07-17
+
+### Added
+
+- **Explicit start node + end-via-branching + a first-class completion callback.** The onboarding graph now has studio-authored entry/exit semantics, all optional and backward compatible:
+  - `OnboardingMetadata.startStepId` — id of the unique step the flow starts on, decoupled from array position. Resolve it with the new `resolveStartStepNumber(steps, startStepId)` helper or the new `useOnboardingStart()` hook (suspends on the payload, returns `{ startStepNumber }`). Falls back to the first step when absent or dangling.
+  - `ONBOARDING_END_STEP_ID` (`"__END__"`) — a reserved end sentinel. A step's `nextStep.defaultTargetStepId` or any `branch.targetStepId` may target it to end the onboarding; ending is a first-class branching outcome, so a decision point can finish the flow from any step with no trailing screen. Exported for host/studio use.
+  - `OnboardingProvider` gained an `onComplete?: ({ variables, metadata }) => void` prop, exposed to the host via the `completeOnboarding()` helper (returned from `useOnboardingStep` and available on the headless `OnboardingProgressContext`). New exported types `OnboardingCompletionContext` / `OnboardingCompleteHandler`.
+
+### Changed
+
+- **`resolveNextStepNumber` resolves the end sentinel.** It returns `null` when the matching branch's `targetStepId` — or the `defaultTargetStepId` — equals `ONBOARDING_END_STEP_ID`, in addition to the existing "no valid next" cases. Signature unchanged; payloads that don't use the sentinel are unaffected.
+- **`BaseStepTypeSchema` rejects a step `id` equal to `ONBOARDING_END_STEP_ID`.** A step named `"__END__"` would be unreachable (branching to it ends the flow), so the schema now fails validation for it. Real step ids are unaffected.
+
+---
+
 ## [1.58.0] - 2026-07-16
 
 ### Added

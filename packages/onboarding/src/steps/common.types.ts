@@ -201,10 +201,23 @@ export const NextStepSchema = z
   .default(null);
 export type NextStep = z.infer<typeof NextStepSchema>;
 
+/**
+ * Reserved `targetStepId` / `defaultTargetStepId` value that ends the onboarding.
+ * When branching resolves to this sentinel, `resolveNextStepNumber` returns
+ * `null` (completion) instead of a step number — so a branch or the default
+ * target can end the flow from any step, with no trailing screen required.
+ * It is not a real step id; no step should use it as its `id`.
+ */
+export const ONBOARDING_END_STEP_ID = "__END__";
+
 // ── Base step schema ──────────────────────────────────────────────────────────
 
 export const BaseStepTypeSchema = z.object({
-  id: z.string(),
+  // A step id may not collide with the reserved end sentinel — otherwise the
+  // step would be unreachable (branching to it ends the flow instead).
+  id: z.string().refine((v) => v !== ONBOARDING_END_STEP_ID, {
+    message: `"${ONBOARDING_END_STEP_ID}" is reserved as the onboarding end sentinel and cannot be used as a step id`,
+  }),
   name: z.string(),
   displayProgressHeader: z.boolean(),
   customPayload: CustomPayloadSchema,

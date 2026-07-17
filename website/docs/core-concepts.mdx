@@ -148,6 +148,74 @@ switch (step.type) {
 
 This gives you complete control over the UI while still benefiting from the SDK's data fetching, caching, and type safety.
 
+## Start & End Nodes
+
+The onboarding is an `id`-based graph. Two optional, studio-authored markers make its entry and exit explicit. Both are additive — payloads without them behave exactly as before (start at the first step; end by running off the array).
+
+### Start node
+
+`metadata.startStepId` names the unique step the flow starts on, decoupled from array position. Resolve it with `useOnboardingStart()` in your entry route (it suspends until the payload is loaded), or the pure `resolveStartStepNumber(steps, startStepId)` helper:
+
+```typescript
+import { useOnboardingStart } from "@rocapine/react-native-onboarding";
+
+const { startStepNumber } = useOnboardingStart();
+// e.g. router.push(`/onboarding/${startStepNumber}`);
+```
+
+When `startStepId` is absent or references a missing step, it falls back to the first step (`1`).
+
+### End nodes
+
+Ending is a **branching outcome**. A step's `nextStep` can target the reserved end sentinel `ONBOARDING_END_STEP_ID` (`"__END__"`) — as the `defaultTargetStepId` or as any `branch.targetStepId`. When branching resolves to it, `resolveNextStepNumber` returns `null` (complete) instead of a step number, so a decision point can end the flow from any step with no trailing screen required. Multiple end transitions are allowed, and legacy payloads still end via the existing positional/branch fallback.
+
+```typescript
+import { ONBOARDING_END_STEP_ID } from "@rocapine/react-native-onboarding";
+
+// terminal screen — continuing from it completes the onboarding
+{ id: "all-set", nextStep: { defaultTargetStepId: ONBOARDING_END_STEP_ID, branches: [] } }
+
+// conditional end from a decision point (buy → thank-you screen; decline → finish)
+{
+  id: "paywall",
+  nextStep: {
+    defaultTargetStepId: ONBOARDING_END_STEP_ID,
+    branches: [
+      { condition: { variable: "purchased", operator: "eq", value: "true" }, targetStepId: "thank-you" },
+    ],
+  },
+}
+```
+
+### Completion callback
+
+Pass `onComplete` to `OnboardingProvider` to run post-onboarding logic. The host fires it from its terminal branch via the `completeOnboarding()` helper (returned from `useOnboardingStep`), instead of inferring the end and navigating ad-hoc:
+
+```typescript
+<OnboardingProvider
+  client={client}
+  onComplete={({ variables, metadata }) => {
+    // mark onboarding done, navigate to paywall/home, etc.
+    router.replace("/home");
+  }}
+>
+  {/* ... */}
+</OnboardingProvider>
+```
+
+```typescript
+const { step, steps, completeOnboarding } = useOnboardingStep({ stepNumber });
+
+const next = resolveNextStepNumber(step, variables, steps);
+if (next === null) {
+  completeOnboarding(); // fires onComplete with { variables, metadata }
+} else {
+  router.push(`/onboarding/${next}`);
+}
+```
+
+`onComplete` receives the collected `variables` and the onboarding `metadata`. All end transitions are equivalent — it does not report which one was taken. The true end is signaled by `resolveNextStepNumber(...) === null` (the end sentinel or no valid next), not by the positional `isLastStep`.
+
 ## Caching Strategy
 
 ### AsyncStorage Cache

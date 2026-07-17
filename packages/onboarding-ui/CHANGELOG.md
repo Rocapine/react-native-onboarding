@@ -9,6 +9,14 @@ here.
 
 ---
 
+## [1.59.0] - 2026-07-17
+
+### Changed
+
+- **Version sync with headless `1.59.0`** — no UI-package code changes. The release adds an explicit start node, end-via-branching (the `ONBOARDING_END_STEP_ID` sentinel), and an `onComplete` completion callback in the headless SDK (`@rocapine/react-native-onboarding` 1.59.0). Renderers are unaffected: the CTA still calls the host `onContinue`; the host decides between advancing and calling `completeOnboarding()`.
+
+---
+
 ## [1.58.0] - 2026-07-16
 
 ### Added

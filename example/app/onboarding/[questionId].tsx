@@ -13,7 +13,7 @@ export const unstable_settings = {
 
 export default function QuestionPage() {
   const { questionId } = useLocalSearchParams();
-  const { step, steps } = useOnboardingStep({
+  const { step, steps, completeOnboarding } = useOnboardingStep({
     stepNumber: parseInt(questionId as string, 10),
   });
 
@@ -34,7 +34,9 @@ export default function QuestionPage() {
 
     const nextNumber = resolveNextStepNumber(step, updatedVars, steps);
     if (nextNumber === null) {
-      router.push("/");
+      // Terminal branch: fire the SDK completion callback instead of inferring
+      // the end and navigating ad-hoc. onComplete (on OnboardingProvider) runs.
+      completeOnboarding();
     } else {
       router.push(`/onboarding/${nextNumber}`);
     }

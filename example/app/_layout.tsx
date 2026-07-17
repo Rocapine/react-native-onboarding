@@ -3,7 +3,7 @@ import {
   OnboardingStudioClient,
   onboardingExample,
 } from "@rocapine/react-native-onboarding";
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
@@ -53,6 +53,7 @@ export default function RootLayout() {
 
 function OnboardingProviderWithLocale() {
   const { locale } = useLocale();
+  const router = useRouter();
   return (
     <OnboardingProvider
       client={client}
@@ -78,6 +79,10 @@ function OnboardingProviderWithLocale() {
           });
           console.log("[customAction] pickPlan set planTier =", next);
         },
+      }}
+      onComplete={({ variables, metadata }) => {
+        console.log("[onComplete] onboarding finished", { variables, metadata });
+        router.replace("/");
       }}
     >
       <OnboardingProgressProvider>

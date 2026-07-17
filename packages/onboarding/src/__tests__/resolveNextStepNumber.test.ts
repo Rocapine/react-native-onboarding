@@ -282,6 +282,65 @@ describe("self-loop guard", () => {
 });
 
 // ---------------------------------------------------------------------------
+// End sentinel (ONBOARDING_END_STEP_ID = "__END__")
+// ---------------------------------------------------------------------------
+
+describe("end sentinel target", () => {
+  it("returns null when defaultTargetStepId is the end sentinel", () => {
+    const step = makeStep("s1", {
+      nextStep: { defaultTargetStepId: "__END__", branches: [] },
+    });
+    expect(resolveNextStepNumber(step, {}, steps)).toBe(null);
+  });
+
+  it("returns null when a matching branch targets the end sentinel", () => {
+    const step = makeStep("s1", {
+      nextStep: {
+        defaultTargetStepId: "s2",
+        branches: [
+          { condition: { variable: "purchased", operator: "eq", value: "true" }, targetStepId: "__END__" },
+        ],
+      },
+    });
+    expect(resolveNextStepNumber(step, { purchased: "true" }, steps)).toBe(null);
+  });
+
+  it("takes a real branch over the sentinel default when the condition matches", () => {
+    const step = makeStep("s1", {
+      nextStep: {
+        defaultTargetStepId: "__END__",
+        branches: [
+          { condition: { variable: "purchased", operator: "eq", value: "true" }, targetStepId: "s3" },
+        ],
+      },
+    });
+    expect(resolveNextStepNumber(step, { purchased: "true" }, steps)).toBe(3);
+    // condition false → falls through to the sentinel default → end
+    expect(resolveNextStepNumber(step, { purchased: "false" }, steps)).toBe(null);
+  });
+
+  it("ends from a sentinel branch even when the step is not positionally last", () => {
+    const step = makeStep("s2", {
+      nextStep: { defaultTargetStepId: "__END__", branches: [] },
+    });
+    expect(resolveNextStepNumber(step, {}, steps)).toBe(null);
+  });
+
+  it("a non-matching sentinel branch does not end the flow", () => {
+    const step = makeStep("s1", {
+      nextStep: {
+        defaultTargetStepId: "s2",
+        branches: [
+          { condition: { variable: "x", operator: "eq", value: "never" }, targetStepId: "__END__" },
+        ],
+      },
+    });
+    // branch condition false → sentinel ignored → default target s2
+    expect(resolveNextStepNumber(step, { x: "other" }, steps)).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Edge cases
 // ---------------------------------------------------------------------------
 

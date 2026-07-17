@@ -66,9 +66,9 @@ Run: `npx tsx scripts/_validate-composable.ts "$(cat step.json)"`
    - `SafeAreaView.props.edges` is an array of `"top"|"right"|"bottom"|"left"` OR an object with edge mode `"off"|"additive"|"maximum"` — NEVER `"always"`
    - `DatePicker.props.format` (optional) is an `Intl.DateTimeFormatOptions` subset object — `weekday`/`month` (`"long"|"short"|"narrow"`, month also `"numeric"|"2-digit"`), `year`/`day`/`hour`/`minute`/`second` (`"numeric"|"2-digit"`), `hour12` (boolean), `hourCycle` (`"h11"|"h12"|"h23"|"h24"`), `dateStyle`/`timeStyle` (`"full"|"long"|"medium"|"short"`). Schema-valid but **warn if `dateStyle`/`timeStyle` is combined with component fields** (`hour`/`day`/etc.) — Intl throws at runtime
    - **Flow-level chain integrity (when input is an array of steps)**:
-     - Every non-terminal step has `nextStep: { defaultTargetStepId, branches }`. Terminal step has `nextStep: null`. Flag steps that rely on `null` linear fallback in the middle of a flow as a warning ("implicit linear link — prefer explicit defaultTargetStepId").
-     - `nextStep.defaultTargetStepId` is a string and references a real step `id` in the flow.
-     - Every `branches[].targetStepId` is a string and references a real step `id` in the flow.
+     - Every non-terminal step has `nextStep: { defaultTargetStepId, branches }`. A terminal step has `nextStep: null` **or** ends explicitly via the reserved end sentinel `{ defaultTargetStepId: "__END__", branches: [] }`. Flag steps that rely on `null` linear fallback in the middle of a flow as a warning ("implicit linear link — prefer explicit defaultTargetStepId").
+     - `nextStep.defaultTargetStepId` is a string that references a real step `id` in the flow **or** the reserved end sentinel `"__END__"` (ends the onboarding — NOT a dangling reference).
+     - Every `branches[].targetStepId` is a string that references a real step `id` in the flow **or** the reserved end sentinel `"__END__"` (a conditional end).
      - Every `branches[].condition` is `null` (unconditional catch-all) OR a valid `LeafCondition` / `ConditionGroup`.
      - Every variable referenced in a `branches[].condition` is captured upstream (by an Input / RadioGroup / CheckboxGroup / DatePicker / WheelPicker / Slider / DrawingPad `variableName` (or DrawingPad's `imageVariableName`) or a `setVariable` action) — warn if not.
      - For multi-step flows, every step except the terminal one must define an explicit `defaultTargetStepId` (auto-link convention).
@@ -103,9 +103,9 @@ Run: `npx tsx scripts/_validate-composable.ts "$(cat step.json)"`
 - `RadioGroup` / `CheckboxGroup` / `Input` / `DatePicker` / `WheelPicker` / `Slider` without `variableName` — element renders but variable never captured.
 - `DrawingPad` with neither `variableName` nor `imageVariableName` — pad renders but the drawing is never captured. Also: `strokeWidth` ≤ 0, `imageFormat` outside `"png"|"jpeg"`, or `children` present (not a container).
 - Nested `SafeAreaView`.
-- `nextStep.defaultTargetStepId` referencing nonexistent step ID.
+- `nextStep.defaultTargetStepId` referencing nonexistent step ID (the reserved end sentinel `"__END__"` is valid, not a nonexistent ID).
 - `nextStep: null` on a non-terminal step in a multi-step flow (relies on implicit array-order linking; prefer explicit `defaultTargetStepId`).
-- `branches[].targetStepId` referencing nonexistent step ID.
+- `branches[].targetStepId` referencing nonexistent step ID (the reserved end sentinel `"__END__"` is valid, not a nonexistent ID).
 - `branches[].condition` referencing a variable never captured upstream.
 - `disabledWhen` / `renderWhen` gating a CTA on a variable the screen never captures — likely a copy-paste leftover from a duplicated screen; the button silently stays enabled/disabled based on stale state. Warn with the variable name + the screen's actual captured variables.
 - Branch with non-null condition that lists an unknown `operator` (binary, require `value`: `eq|neq|gt|lt|gte|lte|contains|in|not_in`; unary, omit `value`: `is_empty|is_not_empty|is_null|is_not_null`). A binary operator missing `value` is a schema error; a unary operator ignores any `value`.

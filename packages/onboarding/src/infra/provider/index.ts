@@ -5,5 +5,7 @@ export {
 export type {
   CustomActionHandler,
   CustomActions,
+  OnboardingCompletionContext,
+  OnboardingCompleteHandler,
 } from "./OnboardingProvider";
 export { FontLoaderGate } from "./FontLoader";

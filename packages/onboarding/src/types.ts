@@ -52,6 +52,13 @@ export interface OnboardingMetadata {
   audienceOrder?: number;
   locale?: string;
   draft?: boolean;
+  /**
+   * Id of the unique step the onboarding starts on. Read first to resolve the
+   * entry point (see `resolveStartStepNumber`). Optional; when absent or when it
+   * references a missing step, the flow falls back to the first step in `steps`
+   * (legacy behavior).
+   */
+  startStepId?: string;
 }
 
 export type FontWeightKey =

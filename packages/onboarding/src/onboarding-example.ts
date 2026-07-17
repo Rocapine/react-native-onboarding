@@ -8,6 +8,8 @@ export const onboardingExample = {
     audienceName: undefined,
     audienceOrder: undefined,
     draft: true,
+    // Explicit entry node (equals steps[0] here, so behavior is unchanged).
+    startStepId: "welcome",
   },
   fonts: {
     Inter: {
@@ -1220,6 +1222,12 @@ export const onboardingExample = {
       customPayload: {},
       continueButtonLabel: "Continue",
       displayProgressHeader: false,
+      // Explicit end via the branching sentinel — continuing from here completes
+      // the onboarding (resolveNextStepNumber returns null for "__END__").
+      nextStep: {
+        defaultTargetStepId: "__END__",
+        branches: [],
+      },
     },
   ],
   configuration: {},

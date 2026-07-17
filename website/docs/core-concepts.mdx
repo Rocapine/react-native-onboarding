@@ -167,7 +167,25 @@ When `startStepId` is absent or references a missing step, it falls back to the 
 
 ### End nodes
 
-Any step may set `isEnd: true` to mark it terminal (multiple end nodes are allowed). Continuing from an end node completes the onboarding — `resolveNextStepNumber` returns `null`, taking precedence over any `nextStep` branching on that step. Legacy payloads without `isEnd` still end via the existing positional/branch fallback.
+Ending is a **branching outcome**. A step's `nextStep` can target the reserved end sentinel `ONBOARDING_END_STEP_ID` (`"__END__"`) — as the `defaultTargetStepId` or as any `branch.targetStepId`. When branching resolves to it, `resolveNextStepNumber` returns `null` (complete) instead of a step number, so a decision point can end the flow from any step with no trailing screen required. Multiple end transitions are allowed, and legacy payloads still end via the existing positional/branch fallback.
+
+```typescript
+import { ONBOARDING_END_STEP_ID } from "@rocapine/react-native-onboarding";
+
+// terminal screen — continuing from it completes the onboarding
+{ id: "all-set", nextStep: { defaultTargetStepId: ONBOARDING_END_STEP_ID, branches: [] } }
+
+// conditional end from a decision point (buy → thank-you screen; decline → finish)
+{
+  id: "paywall",
+  nextStep: {
+    defaultTargetStepId: ONBOARDING_END_STEP_ID,
+    branches: [
+      { condition: { variable: "purchased", operator: "eq", value: "true" }, targetStepId: "thank-you" },
+    ],
+  },
+}
+```
 
 ### Completion callback
 
@@ -196,7 +214,7 @@ if (next === null) {
 }
 ```
 
-`onComplete` receives the collected `variables` and the onboarding `metadata`. All end nodes are equivalent — it does not report which terminal step was reached. `useOnboardingStep` also returns `isEndStep` (whether the current step is an end node) alongside the positional `isLastStep`.
+`onComplete` receives the collected `variables` and the onboarding `metadata`. All end transitions are equivalent — it does not report which one was taken. The true end is signaled by `resolveNextStepNumber(...) === null` (the end sentinel or no valid next), not by the positional `isLastStep`.
 
 ## Caching Strategy
 

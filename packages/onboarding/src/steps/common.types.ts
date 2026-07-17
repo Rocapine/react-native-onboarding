@@ -201,6 +201,15 @@ export const NextStepSchema = z
   .default(null);
 export type NextStep = z.infer<typeof NextStepSchema>;
 
+/**
+ * Reserved `targetStepId` / `defaultTargetStepId` value that ends the onboarding.
+ * When branching resolves to this sentinel, `resolveNextStepNumber` returns
+ * `null` (completion) instead of a step number — so a branch or the default
+ * target can end the flow from any step, with no trailing screen required.
+ * It is not a real step id; no step should use it as its `id`.
+ */
+export const ONBOARDING_END_STEP_ID = "__END__";
+
 // ── Base step schema ──────────────────────────────────────────────────────────
 
 export const BaseStepTypeSchema = z.object({
@@ -212,7 +221,4 @@ export const BaseStepTypeSchema = z.object({
   buttonSection: ButtonSectionSchema.optional(),
   figmaUrl: z.string().nullish(),
   nextStep: NextStepSchema,
-  // Marks a terminal (end) node — continuing from it ends the onboarding.
-  // Optional; multiple steps may be end nodes. See BaseStepType.isEnd.
-  isEnd: z.boolean().optional(),
 });

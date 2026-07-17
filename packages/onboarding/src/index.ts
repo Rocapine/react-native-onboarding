@@ -75,4 +75,5 @@ export {
   ConditionValueSchema,
   UNARY_CONDITION_OPERATORS,
   isUnaryConditionOperator,
+  ONBOARDING_END_STEP_ID,
 } from "./steps/common.types";

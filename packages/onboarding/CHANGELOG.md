@@ -12,15 +12,14 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ### Added
 
-- **Explicit start & end nodes + a first-class completion callback.** The onboarding graph now has studio-authored entry/exit semantics, all optional and backward compatible:
+- **Explicit start node + end-via-branching + a first-class completion callback.** The onboarding graph now has studio-authored entry/exit semantics, all optional and backward compatible:
   - `OnboardingMetadata.startStepId` — id of the unique step the flow starts on, decoupled from array position. Resolve it with the new `resolveStartStepNumber(steps, startStepId)` helper or the new `useOnboardingStart()` hook (suspends on the payload, returns `{ startStepNumber }`). Falls back to the first step when absent or dangling.
-  - `BaseStepType.isEnd` (+ `BaseStepTypeSchema`) — marks a step terminal; multiple end nodes allowed. Continuing from an end node ends the onboarding.
+  - `ONBOARDING_END_STEP_ID` (`"__END__"`) — a reserved end sentinel. A step's `nextStep.defaultTargetStepId` or any `branch.targetStepId` may target it to end the onboarding; ending is a first-class branching outcome, so a decision point can finish the flow from any step with no trailing screen. Exported for host/studio use.
   - `OnboardingProvider` gained an `onComplete?: ({ variables, metadata }) => void` prop, exposed to the host via the `completeOnboarding()` helper (returned from `useOnboardingStep` and available on the headless `OnboardingProgressContext`). New exported types `OnboardingCompletionContext` / `OnboardingCompleteHandler`.
-  - `useOnboardingStep` now also returns `isEndStep` (flag-aware terminal signal) alongside the positional `isLastStep`.
 
 ### Changed
 
-- **`resolveNextStepNumber` is end-aware.** It returns `null` immediately when `currentStep.isEnd === true`, taking precedence over any `nextStep` branch/default/linear resolution. Signature unchanged; payloads without `isEnd` are unaffected.
+- **`resolveNextStepNumber` resolves the end sentinel.** It returns `null` when the matching branch's `targetStepId` — or the `defaultTargetStepId` — equals `ONBOARDING_END_STEP_ID`, in addition to the existing "no valid next" cases. Signature unchanged; payloads that don't use the sentinel are unaffected.
 
 ---
 

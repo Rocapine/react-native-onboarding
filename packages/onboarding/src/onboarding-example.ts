@@ -1222,8 +1222,12 @@ export const onboardingExample = {
       customPayload: {},
       continueButtonLabel: "Continue",
       displayProgressHeader: false,
-      // Explicit end node — continuing from here completes the onboarding.
-      isEnd: true,
+      // Explicit end via the branching sentinel — continuing from here completes
+      // the onboarding (resolveNextStepNumber returns null for "__END__").
+      nextStep: {
+        defaultTargetStepId: "__END__",
+        branches: [],
+      },
     },
   ],
   configuration: {},

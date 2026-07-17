@@ -282,32 +282,61 @@ describe("self-loop guard", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Explicit end nodes (isEnd)
+// End sentinel (ONBOARDING_END_STEP_ID = "__END__")
 // ---------------------------------------------------------------------------
 
-describe("end node (isEnd)", () => {
-  it("returns null from an end node that is not positionally last", () => {
-    const step = makeStep("s2", { isEnd: true });
+describe("end sentinel target", () => {
+  it("returns null when defaultTargetStepId is the end sentinel", () => {
+    const step = makeStep("s1", {
+      nextStep: { defaultTargetStepId: "__END__", branches: [] },
+    });
     expect(resolveNextStepNumber(step, {}, steps)).toBe(null);
   });
 
-  it("returns null from an end node even when it has a matching branch", () => {
+  it("returns null when a matching branch targets the end sentinel", () => {
     const step = makeStep("s1", {
-      isEnd: true,
       nextStep: {
         defaultTargetStepId: "s2",
         branches: [
-          { condition: null, targetStepId: "s3" },
+          { condition: { variable: "purchased", operator: "eq", value: "true" }, targetStepId: "__END__" },
         ],
       },
     });
-    // isEnd takes precedence over branch/default/linear resolution.
+    expect(resolveNextStepNumber(step, { purchased: "true" }, steps)).toBe(null);
+  });
+
+  it("takes a real branch over the sentinel default when the condition matches", () => {
+    const step = makeStep("s1", {
+      nextStep: {
+        defaultTargetStepId: "__END__",
+        branches: [
+          { condition: { variable: "purchased", operator: "eq", value: "true" }, targetStepId: "s3" },
+        ],
+      },
+    });
+    expect(resolveNextStepNumber(step, { purchased: "true" }, steps)).toBe(3);
+    // condition false → falls through to the sentinel default → end
+    expect(resolveNextStepNumber(step, { purchased: "false" }, steps)).toBe(null);
+  });
+
+  it("ends from a sentinel branch even when the step is not positionally last", () => {
+    const step = makeStep("s2", {
+      nextStep: { defaultTargetStepId: "__END__", branches: [] },
+    });
     expect(resolveNextStepNumber(step, {}, steps)).toBe(null);
   });
 
-  it("isEnd: false behaves like a normal step", () => {
-    const step = makeStep("s1", { isEnd: false });
-    expect(resolveNextStepNumber(step, {}, steps)).toBe(2);
+  it("a non-matching sentinel branch does not end the flow", () => {
+    const step = makeStep("s1", {
+      nextStep: {
+        defaultTargetStepId: "s2",
+        branches: [
+          { condition: { variable: "x", operator: "eq", value: "never" }, targetStepId: "__END__" },
+        ],
+      },
+    });
+    // branch condition false → sentinel ignored → default target s2
+    expect(resolveNextStepNumber(step, { x: "other" }, steps)).toBe(2);
   });
 });
 

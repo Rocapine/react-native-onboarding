@@ -162,7 +162,16 @@ export const OnboardingProvider = ({
   // before completing is included) plus the onboarding metadata. Host calls this
   // on the terminal branch instead of inferring completion from a null next step.
   const completeOnboarding = useCallback(() => {
-    onComplete?.({
+    if (!onComplete) {
+      // The terminal branch called completeOnboarding() but no handler is wired,
+      // so nothing advances — the user is left on the last screen. Warn instead
+      // of failing silently; navigation on completion is the host's job.
+      console.warn(
+        "[onboarding] completeOnboarding() was called but no `onComplete` handler is set on <OnboardingProvider>. The onboarding will not advance — pass `onComplete` to handle completion (e.g. navigate away)."
+      );
+      return;
+    }
+    onComplete({
       variables: variablesRef.current,
       metadata: onboarding?.metadata,
     });

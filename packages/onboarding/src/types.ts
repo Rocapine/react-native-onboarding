@@ -52,6 +52,14 @@ export interface OnboardingMetadata {
   audienceOrder?: number;
   locale?: string;
   draft?: boolean;
+}
+
+/**
+ * Studio-authored, project-level configuration returned alongside the steps
+ * (e.g. theme, fonts, entry point). Kept permissive — only the fields the SDK
+ * reads are typed; everything else the studio ships passes through untouched.
+ */
+export interface OnboardingConfiguration {
   /**
    * Id of the unique step the onboarding starts on. Read first to resolve the
    * entry point (see `resolveStartStepNumber`). Optional; when absent or when it
@@ -59,6 +67,7 @@ export interface OnboardingMetadata {
    * (legacy behavior).
    */
   startStepId?: string;
+  [key: string]: any;
 }
 
 export type FontWeightKey =
@@ -92,7 +101,7 @@ export type FontsManifest = Record<string, FontFamilyManifestInput>;
 export interface Onboarding<StepType extends BaseStepType = BaseStepType> {
   metadata: OnboardingMetadata;
   steps: StepType[];
-  configuration: any;
+  configuration: OnboardingConfiguration;
   fonts?: FontsManifest;
 }
 

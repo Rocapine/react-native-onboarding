@@ -154,7 +154,7 @@ The onboarding is an `id`-based graph. Two optional, studio-authored markers mak
 
 ### Start node
 
-`metadata.startStepId` names the unique step the flow starts on, decoupled from array position. Resolve it with `useOnboardingStart()` in your entry route (it suspends until the payload is loaded), or the pure `resolveStartStepNumber(steps, startStepId)` helper:
+`configuration.startStepId` names the unique step the flow starts on, decoupled from array position. Resolve it with `useOnboardingStart()` in your entry route (it suspends until the payload is loaded), or the pure `resolveStartStepNumber(steps, startStepId)` helper:
 
 ```typescript
 import { useOnboardingStart } from "@rocapine/react-native-onboarding";

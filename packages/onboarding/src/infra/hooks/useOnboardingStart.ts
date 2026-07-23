@@ -9,8 +9,9 @@ import { resolveStartStepNumber } from "../../resolveStartStepNumber";
 /**
  * Resolves the entry point of the onboarding. Suspends on the onboarding query
  * (like `useOnboardingStep`) so the payload is guaranteed loaded, then returns
- * the 1-indexed `startStepNumber` derived from `metadata.startStepId` (falling
- * back to the first step). Use it in the entry route to navigate to the start.
+ * the 1-indexed `startStepNumber` derived from `configuration.startStepId`
+ * (falling back to the first step). Use it in the entry route to navigate to
+ * the start.
  */
 export const useOnboardingStart = <
   StepType extends BaseStepType = OnboardingStepType
@@ -32,7 +33,7 @@ export const useOnboardingStart = <
 
   const startStepNumber = resolveStartStepNumber(
     data.steps,
-    data.metadata?.startStepId
+    data.configuration?.startStepId
   );
 
   return { startStepNumber };

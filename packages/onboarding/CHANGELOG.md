@@ -8,6 +8,14 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.59.1] - 2026-07-23
+
+### Fixed
+
+- **`startStepId` is read from `configuration`, not `metadata`.** The backend returns the entry-point id on `onboarding.configuration.startStepId`, but `useOnboardingStart()` read it from `metadata.startStepId` (always `undefined`), so the flow always fell back to the first step regardless of the studio-authored start node. `useOnboardingStart()` now reads `configuration.startStepId`. The `startStepId` field moved from `OnboardingMetadata` to the new `OnboardingConfiguration` interface (`Onboarding.configuration` is now typed instead of `any`). `resolveStartStepNumber(steps, startStepId)` is unchanged. Corrects the `1.59.0` location of `startStepId`.
+
+---
+
 ## [1.59.0] - 2026-07-17
 
 ### Added

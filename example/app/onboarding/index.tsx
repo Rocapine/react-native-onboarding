@@ -8,7 +8,7 @@ export const unstable_settings = {
 
 export default function OnboardingIndex() {
   const router = useRouter();
-  // Resolve the entry point from metadata.startStepId (falls back to step 1).
+  // Resolve the entry point from configuration.startStepId (falls back to step 1).
   const { startStepNumber } = useOnboardingStart();
 
   const handleStartQuestion1 = () => {

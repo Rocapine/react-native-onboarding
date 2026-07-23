@@ -11,7 +11,7 @@ export const unstable_settings = {
 export default function RootLayout() {
   const router = useRouter();
   const { theme, colorScheme, toggleTheme } = useTheme();
-  // Resolve the entry point from metadata.startStepId (falls back to step 1).
+  // Resolve the entry point from configuration.startStepId (falls back to step 1).
   const { startStepNumber } = useOnboardingStart();
   const { locale, setLocale } = useLocale();
 

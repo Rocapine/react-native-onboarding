@@ -9,6 +9,14 @@ here.
 
 ---
 
+## [1.59.1] - 2026-07-23
+
+### Changed
+
+- **Version sync with headless `1.59.1`** — no UI-package code changes. The headless release fixes the start-node lookup so `useOnboardingStart()` reads `configuration.startStepId` instead of `metadata.startStepId` (`@rocapine/react-native-onboarding` 1.59.1).
+
+---
+
 ## [1.59.0] - 2026-07-17
 
 ### Changed

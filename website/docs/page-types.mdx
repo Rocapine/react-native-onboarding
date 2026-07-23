@@ -1322,7 +1322,7 @@ copy, optional sections). Pick `Branch.condition` to skip whole steps.
 :::
 
 :::tip Start & end nodes
-- **Start** — set `metadata.startStepId` to the id of the step the flow
+- **Start** — set `configuration.startStepId` to the id of the step the flow
   should begin on (optional; defaults to the first step). Resolve it with
   `resolveStartStepNumber` / the `useOnboardingStart()` hook.
 - **End** — set a `nextStep.defaultTargetStepId` or any `branches[].targetStepId`

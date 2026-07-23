@@ -9,7 +9,7 @@ import type { BaseStepType } from "./types";
  * preserving legacy positional-start behavior.
  *
  * @param steps       - Full ordered steps array
- * @param startStepId - Optional id of the unique start step (from onboarding metadata)
+ * @param startStepId - Optional id of the unique start step (from onboarding configuration)
  */
 export function resolveStartStepNumber(
   steps: BaseStepType[],

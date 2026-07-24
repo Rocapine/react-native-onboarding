@@ -9,6 +9,14 @@ here.
 
 ---
 
+## [1.59.2] - 2026-07-24
+
+### Added
+
+- **`TypewriterText` accepts `preset: "none"` to disable the per-character animation.** Previously the preset was always an entering builder and omitting it fell back to the `"FadeInDown"` default, so there was no way to turn the animation off. With `"none"`, hold-layout mode renders the full text immediately; `cursor` mode still types progressively (the typing clock is separate from the entering builder), just without a fade on each character.
+
+---
+
 ## [1.59.1] - 2026-07-23
 
 ### Changed

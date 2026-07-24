@@ -31,8 +31,13 @@ export type TypewriterTextElementProps = BaseBoxProps & {
    */
   content: string;
   mode?: "plain" | "expression";
-  /** Reanimated entering builder applied per character. Default `"FadeInDown"`. */
-  preset?: EnteringPreset;
+  /**
+   * Reanimated entering builder applied per character, or `"none"` to disable
+   * the per-character animation entirely (all characters render immediately;
+   * with `cursor` they still mount progressively, just without animating in).
+   * Default `"FadeInDown"`.
+   */
+  preset?: EnteringPreset | "none";
   /** Per-character animation length in ms (reanimated `.duration()`). Default 400. */
   duration?: number;
   /** Lead-in delay (ms) before the first character animates. Default 0. */
@@ -68,7 +73,7 @@ export type TypewriterTextElementProps = BaseBoxProps & {
 export const TypewriterTextElementPropsSchema = BaseBoxPropsSchema.extend({
   content: z.string(),
   mode: z.enum(["plain", "expression"]).optional(),
-  preset: EnteringPresetSchema.optional(),
+  preset: z.union([EnteringPresetSchema, z.literal("none")]).optional(),
   duration: z.number().min(0).optional(),
   delay: z.number().min(0).optional(),
   stagger: z.number().min(0).optional(),

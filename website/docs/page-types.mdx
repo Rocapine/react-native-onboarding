@@ -1099,7 +1099,7 @@ Reveals its `content` string **one character at a time** — each character moun
 |------|------|-------|
 | `content` | `string` | **Required.** Text to reveal. In `mode: "expression"`, `{{variable}}` interpolation runs before the text is split into characters. Plain string only (no spans) |
 | `mode` | `"plain" \| "expression"` | `expression` enables `{{var}}` interpolation; defaults to `"plain"` |
-| `preset` | entering preset | Reanimated entering preset applied per character (same set as `animation.entering.preset`: `FadeIn`/`FadeInUp`/`FadeInDown`/`SlideIn*`/`ZoomIn*`/`BounceIn*`/`FlipIn*`/etc.); defaults to `"FadeInDown"` |
+| `preset` | entering preset | Reanimated entering preset applied per character (same set as `animation.entering.preset`: `FadeIn`/`FadeInUp`/`FadeInDown`/`SlideIn*`/`ZoomIn*`/`BounceIn*`/`FlipIn*`/etc., plus `"none"` to disable the per-character animation); defaults to `"FadeInDown"` |
 | `duration` | `number` | Per-character animation length in ms; defaults to `400` |
 | `delay` | `number` | Lead-in in ms before the **first** character animates; defaults to `0` |
 | `stagger` | `number` | Gap in ms between consecutive characters — the typewriter knob; defaults to `45` |

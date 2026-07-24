@@ -8,6 +8,14 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.59.2] - 2026-07-24
+
+### Added
+
+- **`TypewriterText` accepts `preset: "none"` to disable the per-character animation.** `TypewriterTextElementProps.preset` widens to `EnteringPreset | "none"` (zod schema accepts the literal too). Omitting `preset` still defaults to `"FadeInDown"` — `"none"` is the explicit opt-out.
+
+---
+
 ## [1.59.1] - 2026-07-23
 
 ### Fixed

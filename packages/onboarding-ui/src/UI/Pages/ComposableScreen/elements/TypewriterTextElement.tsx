@@ -36,7 +36,7 @@ import { buildEntering } from "./buildAnimation";
 export type TypewriterTextElementProps = BaseBoxProps & {
   content: string;
   mode?: "plain" | "expression";
-  preset?: EnteringPreset;
+  preset?: EnteringPreset | "none";
   duration?: number;
   delay?: number;
   stagger?: number;
@@ -59,7 +59,7 @@ export type TypewriterTextElementProps = BaseBoxProps & {
 export const TypewriterTextElementPropsSchema = BaseBoxPropsSchema.extend({
   content: z.string(),
   mode: z.enum(["plain", "expression"]).optional(),
-  preset: EnteringPresetSchema.optional(),
+  preset: z.union([EnteringPresetSchema, z.literal("none")]).optional(),
   duration: z.number().min(0).optional(),
   delay: z.number().min(0).optional(),
   stagger: z.number().min(0).optional(),
@@ -154,7 +154,7 @@ export const TypewriterTextElementComponent = ({ element, ctx, parentType }: Pro
   const { variables } = useVariables();
   const p = element.props;
 
-  const preset: EnteringPreset = p.preset ?? "FadeInDown";
+  const preset: EnteringPreset | "none" = p.preset ?? "FadeInDown";
   const duration = p.duration ?? 400;
   const delay = p.delay ?? 0;
   const stagger = p.stagger ?? 45;
@@ -252,14 +252,19 @@ export const TypewriterTextElementComponent = ({ element, ctx, parentType }: Pro
   // (the shared home for preset resolution + spring/easing mutual-exclusion +
   // unknown-preset → undefined), passing the per-char delay through the standard
   // `EnteringAnimation` shape so this stays in lockstep with element-level motion.
+  // `preset: "none"` disables the per-character animation: hold-layout mode shows
+  // the full text immediately; cursor mode still types progressively (the typing
+  // clock lives in `typed`, not in the entering builder) — just without a fade.
   const enteringWithDelay = (delayMs: number): any =>
-    buildEntering({
-      preset,
-      duration,
-      delay: delayMs,
-      easing: p.easing,
-      spring: p.spring,
-    });
+    preset === "none"
+      ? undefined
+      : buildEntering({
+          preset,
+          duration,
+          delay: delayMs,
+          easing: p.easing,
+          spring: p.spring,
+        });
   // Hold-layout mode staggers via the builder's own delay (delay + i*stagger).
   const enteringFor = (charIndex: number): any => enteringWithDelay(delay + charIndex * stagger);
 

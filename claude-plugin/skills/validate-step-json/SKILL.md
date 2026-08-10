@@ -36,7 +36,9 @@ Run: `npx tsx scripts/_validate-composable.ts "$(cat step.json)"`
    - `BaseStepTypeSchema` fields present (`id`, `name`, `displayProgressHeader`, `customPayload`, `nextStep`)
    - `payload` is exactly `{ "elements": UIElement[] }` — no `root`, no `variables` keys
    - Every UIElement has `id` (string), `type` (string literal), `props` (object).
-   - Every container UIElement (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `Carousel`, `RichText`) has `children: UIElement[]` at element top-level — required, must exist even if empty (`"children": []`). Non-container types must NOT have `children`. `RichText.children` are restricted to `Text` elements only — any non-`Text` child fails parse.
+   - Every container UIElement (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `ScrollView`, `KeyboardAvoidingView`, `Carousel`, `RichText`) has `children: UIElement[]` at element top-level — required, must exist even if empty (`"children": []`). Non-container types must NOT have `children`. `RichText.children` are restricted to `Text` elements only — any non-`Text` child fails parse.
+   - `ScrollView.props` (all optional): `horizontal`, `bounces`, `showsVerticalScrollIndicator`, `showsHorizontalScrollIndicator`, `alwaysBounceVertical`, `alwaysBounceHorizontal` (booleans); `contentInset` `{top?,right?,bottom?,left?}` (numbers); `contentContainerPadding` (`≥ 0`); `keyboardShouldPersistTaps` ∈ `"always"|"never"|"handled"`; `alignItems` ∈ `flex-start|center|flex-end|stretch|baseline`; `justifyContent` ∈ `flex-start|center|flex-end|space-between|space-around`
+   - `KeyboardAvoidingView.props` (all optional): `behavior` ∈ `"padding"|"height"|"position"`, `keyboardVerticalOffset` (number), `enabled` (boolean). **A `KeyboardAvoidingView` nested anywhere beneath another one is a schema error** — enforced by a step-level `superRefine` over `payload.elements`, not by the element schema, so it only surfaces when validating the whole step
    - All `id`s unique within `payload.elements` tree
    - `Text.props.content` exists — a string, or an array of spans `[{text, fontWeight?, fontStyle?, fontFamily?, fontSize?, letterSpacing?, color?, textDecorationLine?}]` (each span requires `text`; `textDecorationLine` ∈ `none|underline|line-through|underline line-through`). If `{{var}}` interpolation, `Text.props.mode === "expression"`
    - `Image.props.url` is a string (NOT `source.uri` / `source.localPathId`). A `.svg` URL is valid and auto-renders via `react-native-svg`; WebP/AVIF decode via `expo-image` when installed — no schema change, don't flag these. Optional `blurRadius` (non-negative number) applies a uniform blur — valid, don't flag
@@ -78,7 +80,8 @@ Run: `npx tsx scripts/_validate-composable.ts "$(cat step.json)"`
 
 - `payload.root` set instead of `payload.elements` — **causes Studio crash "els is not iterable"**.
 - `payload.variables` set — this key doesn't exist in schema; remove it.
-- Container element (`YStack` / `XStack` / `ZStack` / `SafeAreaView` / `Carousel` / `RichText`) without `children` — **causes Studio crash "Cannot read properties of undefined (reading 'map')"**. Empty container must emit `"children": []`.
+- Container element (`YStack` / `XStack` / `ZStack` / `SafeAreaView` / `ScrollView` / `KeyboardAvoidingView` / `Carousel` / `RichText`) without `children` — **causes Studio crash "Cannot read properties of undefined (reading 'map')"**. Empty container must emit `"children": []`.
+- `KeyboardAvoidingView` nested beneath another `KeyboardAvoidingView` — step-level schema error naming the offending element `id`.
 - `RichText` with a non-`Text` child (e.g. an `Image` or `XStack`) — its `children` are `Text`-only; anything else fails schema parse (`invalid_union`).
 - `displayProgressHeader` missing — required boolean.
 - UIElement missing `id`.
@@ -114,14 +117,23 @@ Run: `npx tsx scripts/_validate-composable.ts "$(cat step.json)"`
 
 ## Output
 
+Report every finding against a real `payload.elements[…]` path. One block per
+finding: the path, what's wrong, then a concrete `Fix:` line.
+
 ```
-✗ payload.root.children[1].id
+✗ payload.elements[0].children[1].id
   Required (got undefined)
-  Fix: add unique kebab-case id.
+  Fix: add a fresh UUID v4 id (crypto.randomUUID()), unique within the tree.
 
-✗ payload.variables
-  Variable "goal" referenced in payload.root.children[0].children[2].props.text but not declared.
-  Fix: add "goal": { "value": "", "kind": "string" } to payload.variables.
+✗ payload.elements[0].children[2].props.content
+  Uses {{goal}} but props.mode is not "expression" — interpolation is silently disabled.
+  Fix: set "mode": "expression" on that Text, or drop the placeholder.
+
+⚠ payload.elements[0].children[3].props.disabledWhen
+  Gated on variable "goals", which this screen never captures (captured here: "goal").
+  Fix: gate on "goal", or capture "goals" upstream. Likely a copy-paste leftover.
 ```
 
+Use `✗` for schema errors and `⚠` for the warning-level checks (gating sanity,
+implicit linear `nextStep`, `onPress` on an element that owns its own gesture).
 End with `valid: true|false` and a one-line summary.

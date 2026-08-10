@@ -141,7 +141,8 @@ Variable: goal (string)
 ## Anti-patterns
 
 - Do NOT write `payload.root` or `payload.variables` — neither exists in the schema. Only `payload.elements: UIElement[]`. Writing `payload.root` causes Studio to crash with `"els is not iterable"`.
-- Do NOT emit a container element (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `Carousel`) without a `children` array. Empty container → `"children": []`. Missing `children` crashes Studio with `"Cannot read properties of undefined (reading 'map')"`.
+- Do NOT emit a container element (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `ScrollView`, `KeyboardAvoidingView`, `Carousel`, `RichText`) without a `children` array. Empty container → `"children": []`. Missing `children` crashes Studio with `"Cannot read properties of undefined (reading 'map')"`.
+- Do NOT nest a `KeyboardAvoidingView` beneath another one — rejected by a step-level schema check.
 - Do NOT use these wrong prop names — they will cause silent renderer drift:
   - `Text.text` → use `Text.content`
   - `Text.variant` → use `fontSize` / `fontWeight` / `fontFamily` directly
@@ -151,7 +152,7 @@ Variable: goal (string)
   - `Button.disabled` → use `Button.disabledWhen` (LeafCondition or ConditionGroup)
   - `SafeAreaView.edges: { top: "always" }` → use `["top","bottom"]` or `{ top: "additive" | "maximum" | "off" }`
   - `Lottie.source: { localPathId }` → use `Lottie.source: "https://…"` (string)
-  - `Input.suffix` / `Input.autoFocus` / `Input.alignment` → not in schema; use `textAlign`
+  - `Input.suffix` / `Input.alignment` → not in schema; use `textAlign`. (`Input.autoFocus` **is** in the schema since SDK 1.40.0 — a valid boolean that focuses on mount and opens the keyboard. Do not strip it.)
 - Do NOT use `{{var}}` in `Text.content` without also setting `Text.props.mode: "expression"`. Without that flag, interpolation is silently disabled.
 - Do NOT invent brand colors when app probe is available.
 - Do NOT skip the app probe — generic output drifts from host design system.

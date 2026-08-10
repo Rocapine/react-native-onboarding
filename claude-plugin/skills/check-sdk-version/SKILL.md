@@ -41,21 +41,26 @@ Also check `package-lock.json` / `yarn.lock` / `pnpm-lock.yaml` for the resolved
 
 If installed SDK older than plugin:
 
+Report the two real versions and offer the upgrade — substitute the actual values, never a hardcoded one:
+
 ```
-Plugin version: 1.22.0
-Installed SDK: 1.18.0 (@rocapine/react-native-onboarding + @rocapine/react-native-onboarding-ui)
+Plugin version: <PLUGIN_VERSION>
+Installed SDK: <HEADLESS_VERSION> (@rocapine/react-native-onboarding + @rocapine/react-native-onboarding-ui)
 
 The plugin assumes schema features from versions newer than what's installed. Upgrade?
 
-  npm install @rocapine/react-native-onboarding@1.22.0 @rocapine/react-native-onboarding-ui@1.22.0
+  npx expo install @rocapine/react-native-onboarding@<PLUGIN_VERSION> \
+                   @rocapine/react-native-onboarding-ui@<PLUGIN_VERSION>
 
 Proceed? [y/N]
 ```
 
+Use `npx expo install`, not `npm install`, so Expo resolves versions compatible with the app's React Native. A `401` on the `@rocapine` scope is a registry-config problem, not a version problem — point the user at `rocapine doctor --fix`.
+
 **Always wait for explicit user consent before running the install command.** The user may refuse — that's fine, exit with a one-liner:
 
 ```
-ok — skipping upgrade. Note: plugin output may use schema features unavailable at SDK 1.18.0.
+ok — skipping upgrade. Note: plugin output may use schema features unavailable at SDK <HEADLESS_VERSION>.
 ```
 
 ### 5. Refusal is fine
@@ -68,7 +73,7 @@ If `@rocapine/react-native-onboarding` is declared in multiple workspaces, check
 
 ## Lockfile drift
 
-If `package.json` declares `^1.22.0` but lockfile resolves `1.18.0`, flag the lockfile lag as a separate finding. Suggest `npm install` (no version arg) to refresh.
+If `package.json` declares a range (e.g. `^1.59.0`) but the lockfile resolves something older, flag the lockfile lag as a separate finding. Suggest `npm install` with no version argument to refresh within the declared range.
 
 ## Non-blocking
 

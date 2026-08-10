@@ -42,19 +42,20 @@ import { OnboardingProvider, OnboardingStudioClient } from "@rocapine/react-nati
 import { ThemeProvider, OnboardingProgressProvider } from "@rocapine/react-native-onboarding-ui";
 
 <OnboardingProvider client={client} locale="en" fontsFallback={<Splash />}>
-  <ThemeProvider
-    customLightTheme={customLightTheme}
-    customDarkTheme={customDarkTheme}
-    initialColorScheme="light"
-  >
-    <OnboardingProgressProvider>
+  <OnboardingProgressProvider initialColorScheme="light">
+    <ThemeProvider
+      customLightTheme={customLightTheme}
+      customDarkTheme={customDarkTheme}
+    >
       <Stack />
-    </OnboardingProgressProvider>
-  </ThemeProvider>
+    </ThemeProvider>
+  </OnboardingProgressProvider>
 </OnboardingProvider>
 ```
 
-`ThemeProvider` must be an **ancestor** of the rendered onboarding pages — every element reads `useTheme()`. It is optional: with no `ThemeProvider` mounted, `useTheme()` silently returns the built-in light tokens. "My dark theme isn't applying" is almost always a missing `ThemeProvider`.
+**The nesting order matters and is counter-intuitive.** `OnboardingProgressProvider` mounts a `ThemeProvider` of its own — seeded only from its `initialColorScheme`, with no custom-theme pass-through. So a `ThemeProvider` wrapped *around* it is **shadowed**: your brand tokens are silently discarded and every element reads the built-in defaults. Put yours **inside**, where it wins. (`initialColorScheme` still belongs on the outer `OnboardingProgressProvider`, since that's the one you're overriding.)
+
+`ThemeProvider` must be an ancestor of the rendered onboarding pages — every element reads `useTheme()`. It's optional in principle: with none mounted, `useTheme()` silently returns the built-in light tokens. So "my brand theme isn't applying" is almost always one of two things — no `ThemeProvider` at all, or one placed outside `OnboardingProgressProvider`.
 
 ## Pass partials — the provider merges
 
@@ -172,6 +173,7 @@ The `key` forces a remount so the new `initialColorScheme` takes effect; without
 ## Anti-patterns
 
 - Don't pass theme props to `OnboardingProvider` — it has none. Theme goes on `ThemeProvider` from the UI SDK.
+- Don't wrap `ThemeProvider` *outside* `OnboardingProgressProvider` — the one it mounts internally shadows yours, and your tokens vanish without an error.
 - Don't spread `lightTokens` / `darkTokens` into your override — pass a partial and let the provider deep-merge.
 - Don't write `colors.secondary`, `colors.surface.*`, `colors.tertiary.*`, `typography.fontFamily` or `typography.fontSize`. They don't exist; use `neutral.*` and `textStyles`.
 - Don't assume remote fonts are unavailable — Studio-served fonts are the default path, and they avoid an app release per typeface change. Bundle locally only when offline-first requires it.

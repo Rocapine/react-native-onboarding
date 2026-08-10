@@ -1,48 +1,85 @@
 ---
 name: setup-headless-sdk
-description: Installs and wires the `@rocapine/react-native-onboarding` headless SDK in an Expo or React Native app. Use when the user wants to add Rocapine onboarding data layer to their app, asks "set up the onboarding SDK", "install rocapine headless", or "connect to onboarding studio".
+description: Installs and wires the `@rocapine/react-native-onboarding` headless SDK in an Expo or React Native app — constructs the `OnboardingStudioClient`, mounts `OnboardingProvider`, and consumes the flow with `useOnboardingStart` / `useOnboardingStep`. Use when the user wants to add the Rocapine onboarding data layer to their app, asks "set up the onboarding SDK", "install rocapine headless", "connect to onboarding studio", or "why is my onboarding not loading".
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep
 argument-hint: [project-id?]
 ---
 
 # Setup Headless SDK
 
-Install `@rocapine/react-native-onboarding` and wire `OnboardingProvider` + `useOnboardingQuestions`.
+Install `@rocapine/react-native-onboarding`, construct a client, mount `OnboardingProvider`, and read the flow with the onboarding hooks.
 
 ## When invoked
 
 1. **Inspect target app first** — run the probe from `../onboarding-best-practices/references/inspect-target-app.md`. Capture entry point, existing theme system, font loading mechanism, env-var convention, error-boundary library in use. Tailor every step below to those findings.
-2. **Run `check-sdk-version` skill** if SDK already installed — if mismatched, propose upgrade and wait for user decision before continuing. User refusal is fine; carry on with whatever's installed.
-3. Verify target is an Expo/RN app: `package.json` contains `expo` or `react-native`.
-4. Check if SDK already installed. If yes, jump to wiring step.
-5. Install (pin to the plugin's version so authoring + runtime align):
-   ```bash
-   PLUGIN_VERSION=$(node -p "require('<plugin-path>/.claude-plugin/plugin.json').version")
-   npm install @rocapine/react-native-onboarding@$PLUGIN_VERSION
-   # peer deps already in most RN apps:
-   npm install @tanstack/react-query @react-native-async-storage/async-storage
-   ```
-   Navigation is dependency-injected: `expo-router` is an **optional** peer used automatically when installed (drives the per-step focus effect + progress-bar back button). Non-expo-router apps install nothing extra and pass a `navigation` adapter to `OnboardingProvider` — see the `setup-ui-sdk` skill's **Back navigation** section.
-4. Ask for required config (or accept from skill args):
-   - `projectId` — Rocapine Studio project ID
-   - `platform` — `ios | android | web`
-   - `appVersion` — usually from `expo-constants` or `app.json`
-   - `locale` — default `en`
-   - `draft` — `true` for staging preview, `false` for production
-5. Add provider at app root (in `app/_layout.tsx` for Expo Router):
+2. **Run `check-sdk-version` skill** if the SDK is already installed — if mismatched, propose an upgrade and wait for the user's decision. Refusal is fine; carry on with whatever's installed.
+3. Verify the target is an Expo/RN app: `package.json` contains `expo` or `react-native`.
+4. If the SDK is already installed, jump to the wiring step.
+
+## Install
+
+```bash
+npx expo install @rocapine/react-native-onboarding
+```
+
+Use `npx expo install`, not `npm install`, so Expo resolves a version compatible with the app's React Native. `@rocapine/*` is a private-registry scope — a `401` means the registry isn't configured; run `rocapine doctor --fix` rather than hand-editing `~/.npmrc`.
+
+**Do not install `@tanstack/react-query` or `@react-native-async-storage/async-storage`.** They're regular dependencies of the package, not peer deps — they come along, and `OnboardingProvider` mounts its own `QueryClientProvider` internally. The host neither installs nor configures React Query.
+
+Required peers: `react`, `react-native` (already present in any RN app). Everything else is an **optional** peer, installed only if you use it:
+
+| Optional peer | Needed for |
+|---|---|
+| `expo-font` | loading locally bundled font files |
+| `expo-image` | WebP/AVIF decode + asset preloading |
+| `expo-router` | the default navigation adapter (back button + per-step focus effect) |
+
+Non-expo-router apps install nothing extra and inject an adapter instead — see the `setup-ui-sdk` skill's **Back navigation** section.
+
+## Construct the client
+
+The client is a separate object from the provider. Build it **once at module scope**, not inside a component:
+
+```tsx
+import { OnboardingStudioClient } from "@rocapine/react-native-onboarding";
+import Constants from "expo-constants";
+
+const client = new OnboardingStudioClient(
+  process.env.EXPO_PUBLIC_ROCAPINE_PROJECT_ID!,
+  {
+    appVersion: Constants.expoConfig?.version ?? "1.0.0",
+    isSandbox: __DEV__,        // preview unpublished draft steps
+    timeout: 10000,
+  }
+);
+```
+
+`OnboardingStudioClientOptions` — all optional:
+
+- `appVersion` — sent as a targeting param.
+- `isSandbox` — serves the draft instead of the published deployment. Also always fetches fresh (ignores `cacheKey`).
+- `baseUrl` — override the edge-function origin.
+- `fallbackOnboarding` — an `Onboarding` object served if the fetch fails. `onboardingExample` is exported from the package for this.
+- `timeout` — fetch timeout in ms.
+- `cacheKey` — pins the payload. With a `cacheKey` the onboarding is persisted under `rocapine-onboarding-sdk-{cacheKey}` and served **cache-first with no background revalidation** — the pinned version stays put across launches until you call `client.clearCache()`. Omit for the default key and stale-while-revalidate.
+
+`platform` is not an option — the client reads `Platform.OS` itself. There is no `draft` option; it's `isSandbox`.
+
+## Mount the provider
 
 ```tsx
 import { OnboardingProvider } from "@rocapine/react-native-onboarding";
-import Constants from "expo-constants";
 
 export default function RootLayout() {
   return (
     <OnboardingProvider
-      projectId={process.env.EXPO_PUBLIC_ROCAPINE_PROJECT_ID!}
-      platform="ios"
-      appVersion={Constants.expoConfig?.version ?? "1.0.0"}
+      client={client}
       locale="en"
-      draft={__DEV__}
+      fontsFallback={<SplashPlaceholder />}
+      onComplete={({ variables, metadata }) => {
+        // Terminal branch reached. Navigate away, mark onboarding done, etc.
+        router.replace("/(app)");
+      }}
     >
       <Stack />
     </OnboardingProvider>
@@ -50,37 +87,111 @@ export default function RootLayout() {
 }
 ```
 
-6. Wrap in an `ErrorBoundary` — `OnboardingDataGate` THROWS network/parse errors so the host can handle them. Never swallow.
-7. Consume in a screen:
+Every prop `OnboardingProvider` accepts — there are no others:
+
+| Prop | Default | Purpose |
+|---|---|---|
+| `client` | — | **required.** The `OnboardingStudioClient` above |
+| `locale` | `"en"` | locale passed to the steps query |
+| `customAudienceParams` | `{}` | extra targeting params for audience matching |
+| `customActions` | `{}` | named handlers invokable from a ComposableScreen `{ type: "custom" }` Button action |
+| `fontsFallback` | `null` | rendered while the payload is fetched **and** remote fonts download |
+| `navigation` | expo-router adapter | injectable navigation adapter; must be a stable module-scope reference |
+| `onComplete` | — | fired by `completeOnboarding()` with `{ variables, metadata }` |
+
+There is **no** `projectId`, `platform`, `appVersion`, `draft`, `theme`, `lightTheme`, `darkTheme` or `initialColorScheme` prop. Project config lives on the client; theming lives on the UI SDK's `ThemeProvider` (see `customize-onboarding-theme`).
+
+**Set `fontsFallback` whenever the onboarding uses Studio-served fonts** — the gate renders `null` during fetch + font download, so without it the user sees a blank frame.
+
+**Wire `onComplete`.** The terminal branch calls `completeOnboarding()`; if no handler is set the SDK logs a warning and nothing advances, leaving the user stranded on the last screen.
+
+## Consume the flow
+
+Three hooks, three jobs. Note the hook is `useOnboardingStep` — there is no `useOnboardingQuestions`.
+
+**Entry route** — resolve where the flow starts (honors `configuration.startStepId`, else step 1):
 
 ```tsx
-import { useOnboardingQuestions } from "@rocapine/react-native-onboarding";
+import { useOnboardingStart } from "@rocapine/react-native-onboarding";
 
-export default function OnboardingScreen() {
-  const { step, isLastStep, stepsLength, onboardingMetadata } = useOnboardingQuestions();
-  // render based on step.type
-}
+const { startStepNumber } = useOnboardingStart();
+router.push(`/onboarding/${startStepNumber}`);
 ```
 
-8. Add to `.env`:
-   ```
-   EXPO_PUBLIC_ROCAPINE_PROJECT_ID=...
-   ```
-9. Mention: progress bar is auto-injected by `OnboardingProvider` — do not add manually.
-10. Mention: hook uses `useSuspenseQuery` — wrap screens in `<Suspense fallback={...}>`.
+**Step route** — `stepNumber` is **1-indexed**:
+
+```tsx
+import {
+  useOnboardingStep,
+  resolveNextStepNumber,
+  OnboardingProgressContext,
+} from "@rocapine/react-native-onboarding";
+
+const { step, steps, completeOnboarding } = useOnboardingStep({ stepNumber });
+const { setVariable, getVariables } = useContext(OnboardingProgressContext);
+
+const onContinue = (value?: any) => {
+  const nextNumber = resolveNextStepNumber(step, getVariables(), steps);
+  if (nextNumber === null) completeOnboarding();   // terminal branch
+  else router.push(`/onboarding/${nextNumber}`);
+};
+```
+
+`useOnboardingStep` returns `{ step, isLastStep, stepsLength, onboardingMetadata, steps, completeOnboarding }`. **Branch on `resolveNextStepNumber(...) === null`, not on `isLastStep`** — `isLastStep` is positional and not branch-aware, so it's wrong for any flow with branches or an `__END__` sentinel.
+
+**Layout** — progress state for the header:
+
+```tsx
+import { useOnboarding } from "@rocapine/react-native-onboarding";
+
+const { progressPercentage, isProgressBarVisible, onboarding } = useOnboarding();
+```
+
+## Suspense and errors
+
+`useOnboardingStep` and `useOnboardingStart` use `useSuspenseQuery`, so any route calling them must sit under a `<Suspense fallback={…}>`.
+
+`OnboardingDataGate` **throws** network/parse errors so the host can handle them — wrap in an `ErrorBoundary` (match the app's existing one from the probe). Never swallow them.
+
+## The progress bar is yours to render
+
+`OnboardingProvider` does **not** inject a progress bar. The host renders `<ProgressBar>` from the UI SDK, driven by `useOnboarding()` — typically in the onboarding layout so it persists across step routes. See `setup-ui-sdk`.
+
+## Environment
+
+```
+EXPO_PUBLIC_ROCAPINE_PROJECT_ID=...
+```
+
+Match the app's env-var convention from the probe.
+
+## Refreshing a pinned payload
+
+With a `cacheKey` set, the payload never revalidates on its own:
+
+```tsx
+await client.clearCache();     // drops the persisted entry; next mount refetches
+```
+
+To force an in-session refetch as well, invalidate the React Query key `["onboardingQuestions", …]`.
 
 ## Verification
 
-After setup, suggest running the `sdk-integration-verifier` agent.
+Suggest running the `sdk-integration-verifier` agent.
 
 ## Don'ts
 
+- Don't pass `projectId` / `platform` / `appVersion` / `draft` to `OnboardingProvider` — they aren't props. Project config goes in the `OnboardingStudioClient` constructor.
+- Don't reach for `useOnboardingQuestions` — it doesn't exist. It's `useOnboardingStep({ stepNumber })`.
+- Don't install `@tanstack/react-query` or `async-storage` for the headless SDK, and don't add your own `QueryClientProvider` — the provider brings one.
+- Don't construct the client inside a component — a new client each render refetches.
+- Don't treat `isLastStep` as the end of the flow; use `resolveNextStepNumber(...) === null`.
 - Don't catch errors inside `OnboardingDataGate` — they're meant to bubble.
-- Don't add a manual progress bar.
-- Don't hardcode `projectId` in source — use env (match app's env-var convention from probe).
-- Don't call the API client directly unless you're building a custom data layer.
-- Don't skip the app probe — placement of `OnboardingProvider` and theme wiring depend on app conventions.
+- Don't omit `onComplete` if any branch terminates; the flow silently stalls.
+- Don't hardcode `projectId` in source — use env.
+- Don't define the `navigation` adapter inline in JSX — it must be a stable reference.
+- Don't skip the app probe — provider placement and env conventions depend on app conventions.
 
 ## ComposableScreen note
 
-This plugin authors ComposableScreen steps only. After headless setup, install UI SDK via `setup-ui-sdk` skill — it covers the optional peer deps ComposableScreen needs (`@shopify/react-native-skia`, `lottie-react-native`, `rive-react-native`, `expo-video`, `expo-linear-gradient`).
+This plugin authors ComposableScreen steps only, which need the UI SDK to render. Run `setup-ui-sdk` next — it covers the required and optional peer deps ComposableScreen depends on.

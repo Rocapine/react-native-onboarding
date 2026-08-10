@@ -22,6 +22,12 @@ jobs:
           node-version: "22"
           cache: "npm"
 
+      # Before install on purpose: this reads the zod schemas as text and needs no
+      # dependencies, so it fails in seconds when the plugin's element docs fall
+      # behind the schemas — the drift class the tooling audit kept finding.
+      - name: Element docs match the schemas
+        run: npm run check:element-docs
+
       - name: Install dependencies
         # --ignore-scripts skips native postinstalls (e.g. @shopify/react-native-skia
         # downloads a prebuilt binary from a CDN that intermittently 504s). The build

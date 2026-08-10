@@ -32,6 +32,12 @@ Then apply the polish layer from `../create-step-json/references/screen-patterns
 
 ## Element types
 
+The table below is what each element is *for*. For **whether a given prop exists**,
+read `references/element-props.md` — the complete per-element prop surface,
+generated from the zod schemas and verified in CI, so it cannot quietly fall behind
+the way a hand-written list does. Use it before concluding a prop is unsupported:
+this reference has claimed that twice about props that shipped.
+
 | Type | Purpose |
 |------|---------|
 | `YStack` / `XStack` | Vertical / horizontal flex container; has `children` |

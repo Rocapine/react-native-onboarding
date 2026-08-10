@@ -1,26 +1,27 @@
 ---
 name: sdk-integration-verifier
-description: Use this agent to verify that the Rocapine headless + UI SDKs are correctly wired into a target Expo/React Native app AND that the onboarding theme aligns with the app's design system. Trigger after running the `setup-headless-sdk` or `setup-ui-sdk` skill, when the user says "did I set this up right", "verify my onboarding integration", "check that the SDK is wired correctly", or before shipping a build that depends on onboarding.
+description: |
+  Use this agent to verify that the Rocapine headless + UI SDKs are correctly wired into a target Expo/React Native app AND that the onboarding theme aligns with the app's design system. Trigger after running the `setup-headless-sdk` or `setup-ui-sdk` skill, when the user says "did I set this up right", "verify my onboarding integration", "check that the SDK is wired correctly", or before shipping a build that depends on onboarding.
 
-Examples:
+  Examples:
 
-<example>
-Context: User just installed the SDK.
-user: "I added the headless SDK to my Expo app. Did I miss anything?"
-assistant: "Running the sdk-integration-verifier agent."
-<commentary>
-Verification of an integration in a real codebase — agent territory.
-</commentary>
-</example>
+  <example>
+  Context: User just installed the SDK.
+  user: "I added the headless SDK to my Expo app. Did I miss anything?"
+  assistant: "Running the sdk-integration-verifier agent."
+  <commentary>
+  Verification of an integration in a real codebase — agent territory.
+  </commentary>
+  </example>
 
-<example>
-Context: Proactive after setup skill.
-user: "Set up the UI SDK in this app."
-assistant: (after running setup-ui-sdk) "I'll launch the sdk-integration-verifier agent to confirm wiring + design-system alignment."
-<commentary>
-Proactive verification including theme drift.
-</commentary>
-</example>
+  <example>
+  Context: Proactive after setup skill.
+  user: "Set up the UI SDK in this app."
+  assistant: (after running setup-ui-sdk) "I'll launch the sdk-integration-verifier agent to confirm wiring + design-system alignment."
+  <commentary>
+  Proactive verification including theme drift.
+  </commentary>
+  </example>
 tools: Read, Glob, Grep, Bash
 model: sonnet
 color: green

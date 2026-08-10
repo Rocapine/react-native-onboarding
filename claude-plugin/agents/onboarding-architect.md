@@ -1,26 +1,27 @@
 ---
 name: onboarding-architect
-description: Use this agent to design a complete Rocapine onboarding flow from a product goal. Outputs ComposableScreen steps. Inspects the target app's design system first to align colors, fonts, copy voice, and conventions. Trigger when the user says "design an onboarding for…", "plan a flow for my app", "give me a full onboarding JSON for…", or hands over a product brief and expects a flow back.
+description: |
+  Use this agent to design a complete Rocapine onboarding flow from a product goal. Outputs ComposableScreen steps. Inspects the target app's design system first to align colors, fonts, copy voice, and conventions. Trigger when the user says "design an onboarding for…", "plan a flow for my app", "give me a full onboarding JSON for…", or hands over a product brief and expects a flow back.
 
-Examples:
+  Examples:
 
-<example>
-Context: User wants a complete flow drafted from scratch.
-user: "Design an onboarding for a calorie-tracking app targeting beginners trying to lose weight."
-assistant: "I'll use the onboarding-architect agent to draft the full flow."
-<commentary>
-Open-ended flow design from a product brief — exactly the agent's purpose.
-</commentary>
-</example>
+  <example>
+  Context: User wants a complete flow drafted from scratch.
+  user: "Design an onboarding for a calorie-tracking app targeting beginners trying to lose weight."
+  assistant: "I'll use the onboarding-architect agent to draft the full flow."
+  <commentary>
+  Open-ended flow design from a product brief — exactly the agent's purpose.
+  </commentary>
+  </example>
 
-<example>
-Context: User has a vague idea and wants both shape and JSON.
-user: "Plan an onboarding for a meditation app. 8 screens-ish."
-assistant: "I'll launch the onboarding-architect agent."
-<commentary>
-Multi-step generation across ComposableScreen archetypes, branching, variables — better as one agent than many skill calls.
-</commentary>
-</example>
+  <example>
+  Context: User has a vague idea and wants both shape and JSON.
+  user: "Plan an onboarding for a meditation app. 8 screens-ish."
+  assistant: "I'll launch the onboarding-architect agent."
+  <commentary>
+  Multi-step generation across ComposableScreen archetypes, branching, variables — better as one agent than many skill calls.
+  </commentary>
+  </example>
 tools: Read, Write, Glob, Grep
 model: opus
 color: purple

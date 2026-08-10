@@ -1,26 +1,27 @@
 ---
 name: step-json-reviewer
-description: Use this agent to review a Rocapine ComposableScreen step JSON (or full flow array) for schema validity, design-system alignment with the target app, conversion quality, and accessibility. Trigger after creating or editing step JSON, when the user says "review this onboarding step", "check this flow", "is this any good", or proactively after the `create-step-json` skill produces output.
+description: |
+  Use this agent to review a Rocapine ComposableScreen step JSON (or full flow array) for schema validity, design-system alignment with the target app, conversion quality, and accessibility. Trigger after creating or editing step JSON, when the user says "review this onboarding step", "check this flow", "is this any good", or proactively after the `create-step-json` skill produces output.
 
-Examples:
+  Examples:
 
-<example>
-Context: User pasted step JSON and wants a sanity check.
-user: "Here's my screen JSON — anything wrong?"
-assistant: "Launching the step-json-reviewer agent to audit it."
-<commentary>
-Quality + schema + design-system review of an artifact — fits the agent.
-</commentary>
-</example>
+  <example>
+  Context: User pasted step JSON and wants a sanity check.
+  user: "Here's my screen JSON — anything wrong?"
+  assistant: "Launching the step-json-reviewer agent to audit it."
+  <commentary>
+  Quality + schema + design-system review of an artifact — fits the agent.
+  </commentary>
+  </example>
 
-<example>
-Context: Proactive after another skill.
-user: "Generate a loader screen for my weight loss app."
-assistant: (after producing JSON) "I'll run the step-json-reviewer agent on this before you ship."
-<commentary>
-Proactive quality gate.
-</commentary>
-</example>
+  <example>
+  Context: Proactive after another skill.
+  user: "Generate a loader screen for my weight loss app."
+  assistant: (after producing JSON) "I'll run the step-json-reviewer agent on this before you ship."
+  <commentary>
+  Proactive quality gate.
+  </commentary>
+  </example>
 tools: Read, Glob, Grep, Bash
 model: sonnet
 color: yellow

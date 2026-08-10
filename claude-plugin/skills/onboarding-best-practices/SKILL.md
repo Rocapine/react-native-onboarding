@@ -1,6 +1,7 @@
 ---
 name: onboarding-best-practices
-description: Provides conversion-optimized onboarding patterns for Rocapine ComposableScreen-only flows. Includes the target-app inspection protocol. Use when the user asks "how should I design this onboarding", "what's the best order", "how to improve conversion", or any open-ended onboarding strategy question.
+description: Provides conversion-optimized onboarding patterns for Rocapine ComposableScreen-only flows — flow arc, screen ordering, per-archetype heuristics — plus the target-app inspection protocol every authoring skill depends on. Use when the user asks "how should I design this onboarding", "what's the best order", "how many screens", "how to improve conversion", or any open-ended onboarding strategy question.
+allowed-tools: Read, Glob, Grep
 ---
 
 # Onboarding Best Practices

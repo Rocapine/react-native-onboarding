@@ -1,6 +1,6 @@
 ---
 name: compose-screen-builder
-description: Builds the inner UIElement tree of a ComposableScreen step. Inspects the target app's design system before composing. Use when authoring a ComposableScreen, asks "compose a screen", "build the UIElement tree", "design the layout", or needs branching/variables in a single screen.
+description: Builds the inner UIElement tree of a ComposableScreen step, and is the deep reference for every element type, prop, animation preset and condition operator. Inspects the target app's design system before composing. Use when the user asks to "compose a screen", "build the UIElement tree", "design the layout", asks what props an element accepts, or needs branching/variables within a single screen.
 allowed-tools: Read, Write, Edit, Glob, Grep
 ---
 

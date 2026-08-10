@@ -1,6 +1,6 @@
 ---
 name: check-sdk-version
-description: Detects version mismatch between this Rocapine plugin and the installed `@rocapine/react-native-onboarding` / `@rocapine/react-native-onboarding-ui` SDKs in the target app. Proposes upgrade if mismatched. Auto-triggers at the start of setup-headless-sdk, setup-ui-sdk, and sdk-integration-verifier flows, and whenever the user says "check sdk version", "is my onboarding sdk up to date", "do I need to upgrade", or "match plugin version".
+description: Detects version mismatch between this Rocapine plugin and the installed `@rocapine/react-native-onboarding` / `@rocapine/react-native-onboarding-ui` SDKs in the target app, and proposes (never runs) an upgrade. Invoked as the first step of the setup-headless-sdk, setup-ui-sdk and sdk-integration-verifier flows, and whenever the user says "check sdk version", "is my onboarding sdk up to date", "do I need to upgrade", or "match plugin version".
 allowed-tools: Read, Bash, Glob, Grep
 ---
 

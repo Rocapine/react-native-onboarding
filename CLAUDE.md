@@ -178,16 +178,19 @@ In onboarding-studio, update:
 
 ## Publishing Workflow
 
-Bump `claude-plugin/.claude-plugin/plugin.json` `version` to match the SDK packages on each release (it tracks the SDK version).
+**One release, one version number, five files.** Both packages, the plugin manifest (`claude-plugin/.claude-plugin/plugin.json`, which tracks the SDK version), and both package CHANGELOGs all carry it. `npm run check:versions` asserts they agree, runs in CI, and gates every publish.
 
 ```bash
-# Patch release for both packages
-npm run publish:all
+# 1. Bump — use the skill; it edits and stages all five files
+/bump-version [patch|minor|major]
 
-# Individual package release
-cd packages/onboarding && npm run patch    # bump + build + publish
-cd packages/onboarding-ui && npm run patch # bump + build + publish
+# 2. Publish both packages together
+npm run publish:all        # runs check:versions first, then builds, then publishes
 ```
+
+There is no individual-package release. The two packages share a version by policy, so bumping one alone is a contradiction rather than a shortcut — the old `npm run patch` per-package scripts did exactly that (`npm version patch && build && publish`, touching neither the sibling package, the plugin manifest, nor a changelog) and were the mechanism behind the version drift F-11 found. They are removed, and `prepublishOnly` in both packages re-runs the check so no publish path can ship a divergent set, whatever command someone reaches for.
+
+The `rocapine-marketplace` entry states the version too and lives in another repo, so it is a follow-up PR — `check:versions` prints the exact value. It is advertising, not routing: installs resolve the plugin from this repo's default branch by commit sha, so a stale entry misleads humans without breaking installs.
 
 ## Debugging ComposableScreen schema parse errors
 

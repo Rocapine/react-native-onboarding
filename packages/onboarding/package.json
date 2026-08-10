@@ -10,7 +10,7 @@
     "type:check": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "patch": "npm version patch && npm run build && npm publish"
+    "prepublishOnly": "node ../../scripts/check-versions.mjs"
   },
   "keywords": [
     "react-native",

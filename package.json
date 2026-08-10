@@ -18,6 +18,8 @@
     "publish:ui": "cd packages/onboarding-ui && npm publish --access public",
     "publish:all": "npm run build && npm run publish:headless && npm run publish:ui",
     "clean": "rm -rf packages/*/dist packages/*/node_modules node_modules",
+    "check:element-docs": "node scripts/check-element-docs.mjs",
+    "docs:element-props": "node scripts/check-element-docs.mjs --write",
     "docs:start": "cd website && npm start",
     "docs:build": "cd website && npm run build",
     "docs:serve": "cd website && npm run serve",

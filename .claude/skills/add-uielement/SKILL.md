@@ -166,6 +166,32 @@ Fix any TypeScript errors. The most common issues:
 
 ---
 
+## Step 5b — Update the plugin's element docs
+
+`tsc` cannot see the plugin's markdown, so this step is the one that keeps the AI
+reference honest. Two parts:
+
+```bash
+npm run docs:element-props   # regenerate the prop inventory from the schemas
+npm run check:element-docs   # then verify; CI runs this on every PR
+```
+
+The check will tell you exactly what to hand-write, which is the part it cannot do
+for you:
+
+- **The element table** in `claude-plugin/skills/compose-screen-builder/SKILL.md` —
+  one row saying what the element is *for*. The check fails until it exists but it
+  will not write your description.
+- **Container enumerations**, if the new element has `children`. The check lists
+  every file whose container list is now short. There are several, in skills and
+  in agent files, and they have fallen behind twice.
+
+Everything else in that skill — peer deps, degradation behaviour, right/wrong
+props, archetypes — is prose that no generator can produce. Write it while the
+element is fresh in your head.
+
+---
+
 ## Step 6 — Notify onboarding-studio
 
 After all changes are done, output this prompt for the `onboarding-studio` repo:
@@ -204,3 +230,11 @@ In onboarding-studio, update:
 | **MODIFY** | `packages/onboarding-ui/src/UI/Pages/ComposableScreen/types.ts` |
 | **MODIFY** | `packages/onboarding/src/onboarding-example.ts` |
 | **MODIFY** | `example/app/example/composable-screen.tsx` |
+| **REGENERATE** | `claude-plugin/skills/compose-screen-builder/references/element-props.md` — `npm run docs:element-props` |
+| **MODIFY** | `claude-plugin/skills/compose-screen-builder/SKILL.md` — element table row, and the right/wrong row if the element has a tempting wrong shape |
+| **MODIFY** | container enumerations, **if the element has `children`** — `npm run check:element-docs` names every file that needs it |
+
+This map used to stop at the example app, which is why the plugin's element docs
+fell behind the schemas twice: nothing in the workflow mentioned them and `tsc`
+cannot check markdown. The last three rows are enforced by CI now, so the map and
+the gate agree.

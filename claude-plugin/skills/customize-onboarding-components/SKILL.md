@@ -86,7 +86,7 @@ Items are `{ label?, value, subLabel?, image? }`: `label` is optional (omit for 
 `Text`:
 - `fontFamily`, `fontSize`, `fontWeight`, `fontStyle`, `color`, `lineHeight`, `letterSpacing`, `textAlign`
 
-Containers (`YStack` / `XStack` / `ZStack` / `SafeAreaView` / `RichText`):
+Containers (`YStack` / `XStack` / `ZStack` / `SafeAreaView` / `ScrollView` / `KeyboardAvoidingView` / `Carousel` / `RichText`):
 - `backgroundColor`, `borderRadius`, `borderWidth`, `borderColor`
 - gradients via `backgroundGradient: GradientBackground` — **linear** `{ type:"linear", from, to, stops }` or **radial** `{ type:"radial", center?, radius?, stops }`. The prop is on `BaseBoxProps`, so it works on *every* element, not just containers. There is no `background` prop; a bare `background` key is silently dropped
 

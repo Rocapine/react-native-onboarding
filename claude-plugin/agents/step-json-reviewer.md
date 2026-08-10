@@ -58,7 +58,7 @@ For each step:
 
 - Verify `BaseStepTypeSchema` fields: `id`, `name`, `displayProgressHeader`, `customPayload`, `nextStep`, `type === "ComposableScreen"`.
 - Verify `payload` is exactly `{ "elements": UIElement[] }`. Flag any `payload.root` or `payload.variables` — those keys do not exist and crash Studio (`els is not iterable`).
-- Every UIElement has `id`, `type`, `props`. Container elements (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `Carousel`) have `children: UIElement[]` at the element top-level (not in `props`). Container without `children` crashes Studio with `Cannot read properties of undefined (reading 'map')` — empty containers must emit `"children": []`.
+- Every UIElement has `id`, `type`, `props`. Container elements (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `ScrollView`, `KeyboardAvoidingView`, `Carousel`, `RichText`) have `children: UIElement[]` at the element top-level (not in `props`). Container without `children` crashes Studio with `Cannot read properties of undefined (reading 'map')` — empty containers must emit `"children": []`.
 - All UIElement `id`s unique across the tree.
 - Element prop canonical names — flag drift:
   - `Text.content` (not `text`), `Text.mode: "expression"` if interpolating `{{var}}`

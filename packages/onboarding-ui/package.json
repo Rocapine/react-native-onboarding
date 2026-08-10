@@ -8,7 +8,7 @@
     "build": "tsc && cp -r src/assets dist/",
     "watch": "tsc --watch",
     "type:check": "tsc --noEmit",
-    "patch": "npm version patch && npm run build && npm publish"
+    "prepublishOnly": "node ../../scripts/check-versions.mjs"
   },
   "keywords": [
     "react-native",

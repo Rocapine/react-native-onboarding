@@ -28,6 +28,12 @@ jobs:
       - name: Element docs match the schemas
         run: npm run check:element-docs
 
+      # One release, one version number, across five files. The release skill used
+      # to edit the plugin manifest and then not stage it, so the plugin advertised
+      # a version it had never been tested against.
+      - name: Version identities agree
+        run: npm run check:versions
+
       - name: Install dependencies
         # --ignore-scripts skips native postinstalls (e.g. @shopify/react-native-skia
         # downloads a prebuilt binary from a CDN that intermittently 504s). The build

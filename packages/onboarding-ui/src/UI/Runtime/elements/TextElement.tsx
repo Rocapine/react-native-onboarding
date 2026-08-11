@@ -6,7 +6,7 @@ import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
 import { RenderContext, areElementPropsEqual, interpolate, dim, resolveInheritedFontFamily, RichTextStyleContext } from "./shared";
 import { useVariables } from "./VariablesContext";
-import type { ComposableVariableEntry } from "../../../Provider/OnboardingProgressProvider";
+import type { ComposableVariableEntry } from "@rocapine/react-native-onboarding";
 import { GradientBox } from "./GradientBox";
 
 export type TextSpan = {

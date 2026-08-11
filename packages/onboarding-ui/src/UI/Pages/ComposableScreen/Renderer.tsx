@@ -6,11 +6,11 @@ import { withErrorBoundary } from "../../ErrorBoundary";
 import { OnboardingTemplate } from "../../Templates/OnboardingTemplate";
 import { OnboardingProgressContext, ComposableVariableEntry } from "../../Provider/OnboardingProgressProvider";
 import { useTheme } from "../../Theme/useTheme";
-import { RenderContext } from "./elements/shared";
-import { renderElement } from "./elements/renderElement";
-import { VariablesContext } from "./elements/VariablesContext";
-import { AnimatedVariablesContext, useAnimatedVariablesRegistry } from "./elements/AnimatedVariablesContext";
-import { collectElementDefaults } from "./elements/collectDefaults";
+import { RenderContext } from "../../Runtime/elements/shared";
+import { renderElement } from "../../Runtime/elements/renderElement";
+import { VariablesContext } from "../../Runtime/elements/VariablesContext";
+import { AnimatedVariablesContext, useAnimatedVariablesRegistry } from "../../Runtime/elements/AnimatedVariablesContext";
+import { collectElementDefaults } from "../../Runtime/elements/collectDefaults";
 
 type ContentProps = {
   step: ComposableScreenStepType;

@@ -568,6 +568,47 @@ Each phase is independently shippable and leaves the repo green.
 Phases 1–3 are SDK-only and can proceed in parallel with 4. Phase 5 depends on
 3 and 4; phase 6 depends on 4.
 
+### 11.0 Known follow-ups surfaced by Phase 1 implementation
+
+Phase 1 landed (see `docs/superpowers/plans/2026-08-11-screen-engine-extraction.md`).
+Three findings came out of it that later phases must not lose.
+
+**1. `customActions` default breaks the memoization contract (do before Phase 5).**
+`customActions = {}` is a default *parameter* at
+`packages/onboarding/src/infra/provider/OnboardingProvider.tsx:134`, so it is a
+fresh object on every provider render — and the provider re-renders on every
+variable write, because `setVariables(variablesRef.current)` (~`:154-157`) always
+passes a newly-allocated object. `customActions` sits in `RenderContext`'s
+dependency array, so **any host app that omits `customActions` gets a new `ctx`
+identity per write** — the whole-tree re-render storm the memoization
+architecture exists to prevent.
+
+This predates the extraction and is not a regression: the pre-refactor `ctx` had
+the identical dependency. It became load-bearing because `UI/Runtime/ScreenHost.ts`
+now documents "Must be stable" as a contract the shipped provider violates. The
+fix is one line — hoist a module-scope `EMPTY_CUSTOM_ACTIONS` and use it as the
+default. Do it before Phase 5 adds a second host.
+
+**2. The UI mirror did not get the headless split (Phase 5 will hit this).**
+Headless moved the nested-KeyboardAvoidingView refinement onto a screen-agnostic
+`ScreenElementsSchema` (`packages/onboarding/src/screens/types.ts`), on the
+grounds that the constraint belongs to the element tree rather than to steps. The
+UI mirror kept `ComposableScreenStepPayloadSchema = z.object({elements}).superRefine(...)`
+in `packages/onboarding-ui/src/UI/Runtime/types.ts`. So the screen-agnostic engine
+exports a schema named for an onboarding *step*, and a paywall UI adapter has no
+`ScreenElementsSchema` to build on — it must either import the step-named export
+or re-declare the KAV walk a third time. No behaviour impact today. Deliberately
+deferred: Phase 5 should define the UI-side `ScreenElementsSchema` when it knows
+its own payload shape, rather than adding an unused export speculatively.
+
+**3. `update-uielement` skill has a wrong premise (pre-existing).**
+`.claude/skills/update-uielement/SKILL.md` "Step 2 — Mirror in UI package types"
+sends a prop-only change to the union `types.ts`, where it is a no-op, and never
+tells the author to update the re-declared `{Element}ElementProps` + Zod schema in
+the UI mirror `.tsx` — which is exactly where untypechecked drift actually
+happens. Wrong before the extraction too; the file paths are now correct but the
+procedure is not.
+
 ### 11.1 This spec is a program, not one implementation plan
 
 Seven phases across two repos is too much for a single plan to hold usefully.

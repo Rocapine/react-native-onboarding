@@ -55,7 +55,7 @@ Note also that `.claude/rules/composable-screen-runtime.md` currently documents 
 | `Runtime/ScreenRenderer.tsx` (new) | Generic engine: `{ elements, host }` → rendered tree. No onboarding imports. |
 | `Runtime/index.ts` (new) | Public surface of the runtime module. |
 | `Pages/ComposableScreen/Renderer.tsx` (rewritten) | ~40-line onboarding adapter: contexts → `ScreenHost`, wraps in `OnboardingTemplate`. |
-| `Pages/ComposableScreen/types.ts` (rewritten, thin) | `export * from "../../Runtime/types"`. |
+| `Pages/ComposableScreen/types.ts` (rewritten) | The onboarding **step** schema (`ComposableScreenStepTypeSchema`), plus `export * from "../../Runtime/types"` for back-compat. Mirrors the headless split: elements in `Runtime/types.ts`, step wrapper here. Keeping the step schema in `Runtime/` would drag `CustomPayloadSchema` in from `Pages/types.ts` and create a Runtime→Pages edge, which the Definition of Done forbids. |
 
 **Why `Runtime/` sits directly under `UI/` and not under `Pages/`:** `Pages/` means "a thing `OnboardingPage` can switch to". The runtime is not a page — it is what pages are built from — and a paywall will consume it without being a page at all.
 

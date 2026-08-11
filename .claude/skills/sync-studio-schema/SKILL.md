@@ -21,7 +21,7 @@ git diff HEAD -- \
 
 If empty, also check staged + last commit:
 ```bash
-git diff --cached -- packages/onboarding/src/steps/ComposableScreen/
+git diff --cached -- packages/onboarding/src/steps/ComposableScreen/ packages/onboarding/src/screens/
 git show HEAD --stat
 ```
 

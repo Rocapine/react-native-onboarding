@@ -32,7 +32,7 @@ If new prop has runtime default, add `.optional().default(X)` in Zod AND keep it
 
 ## Step 2 — Mirror in UI package types
 
-File: `packages/onboarding-ui/src/UI/Pages/ComposableScreen/types.ts`
+File: `packages/onboarding-ui/src/UI/Runtime/types.ts` (the UI mirror's `UIElement` union — `UI/Pages/ComposableScreen/types.ts` is only the onboarding step schema, not the union)
 
 Both `types.ts` files must stay byte-equivalent for UIElement union + schema. Apply same edits.
 

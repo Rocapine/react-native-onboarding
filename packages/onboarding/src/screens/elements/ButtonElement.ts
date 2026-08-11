@@ -9,7 +9,7 @@ import {
   ConditionGroupSchema,
   HapticStyleSchema,
   ButtonActionSchema,
-} from "../../common.types";
+} from "../../steps/common.types";
 
 // `ButtonAction` and its variants moved to `common.types.ts` (now shared with the
 // generic `onPress` on BaseBoxProps). Re-exported here for back-compat.
@@ -18,7 +18,7 @@ export {
   CustomButtonActionSchema,
   type SetVariableButtonAction,
   SetVariableButtonActionSchema,
-} from "../../common.types";
+} from "../../steps/common.types";
 export type { ButtonAction };
 export { ButtonActionSchema };
 

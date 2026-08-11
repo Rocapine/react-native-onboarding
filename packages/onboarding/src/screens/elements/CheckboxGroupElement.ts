@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { BaseBoxProps, BaseBoxPropsSchema, type ShadowOffset, ShadowOffsetSchema } from "./BaseBoxProps";
-import { type HapticStyle, HapticStyleSchema } from "../../common.types";
+import { type HapticStyle, HapticStyleSchema } from "../../steps/common.types";
 
-export type RadioGroupElementProps = BaseBoxProps & {
+export type CheckboxGroupElementProps = BaseBoxProps & {
   variableName?: string;
-  defaultValue?: string;
-  /** Tactile feedback fired on press, before the selection commits. Maps to expo-haptics ImpactFeedbackStyle. Opt-in; no-op without expo-haptics. */
+  defaultValues?: string[];
+  /** Tactile feedback fired on press, before the toggle commits. Maps to expo-haptics ImpactFeedbackStyle. Opt-in; no-op without expo-haptics. */
   haptic?: HapticStyle;
   gap?: number;
   direction?: "vertical" | "horizontal";
@@ -14,15 +14,15 @@ export type RadioGroupElementProps = BaseBoxProps & {
   /** Spacing (px) between an item's inner pieces: tick ↔ content, and image ↔ text within the content column. Defaults to 12. */
   itemGap?: number;
   showTick?: boolean;
-  /** Tick (radio circle) placement relative to the label. Defaults to "start". */
+  /** Tick (checkbox box) placement relative to the label. Defaults to "start". */
   tickPosition?: "start" | "end";
-  /** Tick color when the item is unselected (border + dot). Defaults to theme neutral. */
+  /** Tick color when the item is unselected (border). Defaults to theme neutral. */
   tickColor?: string;
-  /** Tick color when the item is selected (border + dot). Defaults to theme primary. */
+  /** Tick color when the item is selected (border + fill). Defaults to theme primary. */
   tickSelectedColor?: string;
-  /** Corner radius of the tick element. Defaults to tickSize/2 (full circle). */
+  /** Corner radius of the tick element. Defaults to 4. */
   tickBorderRadius?: number;
-  /** Diameter of the tick element in px. Inner dot scales with it. Defaults to 20. */
+  /** Side length of the tick box in px. Checkmark scales with it. Defaults to 20. */
   tickSize?: number;
   /** Optional per-item image, stacked above the label/sub-label (image → label → subLabel column). */
   items: Array<{
@@ -60,7 +60,7 @@ export type RadioGroupElementProps = BaseBoxProps & {
   itemPadding?: number;
   itemPaddingHorizontal?: number;
   itemPaddingVertical?: number;
-  /** Per-item drop shadow (applied to each radio row). iOS uses shadow*; Android uses itemElevation. */
+  /** Per-item drop shadow (applied to each checkbox row). iOS uses shadow*; Android uses itemElevation. */
   itemShadowColor?: string;
   itemShadowOffset?: ShadowOffset;
   itemShadowOpacity?: number;
@@ -68,9 +68,9 @@ export type RadioGroupElementProps = BaseBoxProps & {
   itemElevation?: number;
 };
 
-export const RadioGroupElementPropsSchema = BaseBoxPropsSchema.extend({
+export const CheckboxGroupElementPropsSchema = BaseBoxPropsSchema.extend({
   variableName: z.string().optional(),
-  defaultValue: z.string().optional(),
+  defaultValues: z.array(z.string()).optional(),
   haptic: HapticStyleSchema.optional(),
   gap: z.number().optional(),
   direction: z.enum(["vertical", "horizontal"]).optional(),
@@ -127,7 +127,11 @@ export const RadioGroupElementPropsSchema = BaseBoxPropsSchema.extend({
   if (unique.size !== values.length) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "item values must be unique", path: ["items"] });
   }
-  if (data.defaultValue !== undefined && !unique.has(data.defaultValue)) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "defaultValue must match one of the item values", path: ["defaultValue"] });
+  if (data.defaultValues !== undefined) {
+    data.defaultValues.forEach((dv, i) => {
+      if (!unique.has(dv)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: `defaultValues entry "${dv}" must match one of the item values`, path: ["defaultValues", i] });
+      }
+    });
   }
 });

@@ -40,7 +40,7 @@ export const {ElementName}ElementPropsSchema = BaseBoxPropsSchema.extend({
 });
 ```
 
-**Then update `packages/onboarding/src/steps/ComposableScreen/types.ts`:**
+**Then update `packages/onboarding/src/screens/types.ts`** (the `UIElement` union + `UIElementSchema` live here now — `steps/ComposableScreen/types.ts` is only the step wrapper and re-exports this file):
 
 1. Add import at top:
 ```typescript
@@ -126,7 +126,7 @@ case "{ElementName}":
 
 ## Step 3 — Mirror types in onboarding-ui
 
-**Update `packages/onboarding-ui/src/UI/Pages/ComposableScreen/types.ts`** — mirror every change from Step 1:
+**Update `packages/onboarding-ui/src/UI/Runtime/types.ts`** (the UI mirror's `UIElement` union — `UI/Pages/ComposableScreen/types.ts` is only the onboarding step schema) — mirror every change from Step 1:
 
 1. Add import of props type + schema from local `./elements/{ElementName}Element`
 2. Add re-export of the props type
@@ -205,10 +205,10 @@ Changes made:
 
 Files changed in the SDK:
 - packages/onboarding/src/screens/elements/{ElementName}Element.ts  (new)
-- packages/onboarding/src/steps/ComposableScreen/types.ts
+- packages/onboarding/src/screens/types.ts
 - packages/onboarding-ui/src/UI/Runtime/elements/{ElementName}Element.tsx  (new)
 - packages/onboarding-ui/src/UI/Runtime/elements/renderElement.tsx
-- packages/onboarding-ui/src/UI/Pages/ComposableScreen/types.ts
+- packages/onboarding-ui/src/UI/Runtime/types.ts
 
 In onboarding-studio, update:
 - The UIElement union type / discriminated union to include "{ElementName}"
@@ -224,10 +224,10 @@ In onboarding-studio, update:
 | Action | File |
 |--------|------|
 | **CREATE** | `packages/onboarding/src/screens/elements/{ElementName}Element.ts` |
-| **MODIFY** | `packages/onboarding/src/steps/ComposableScreen/types.ts` |
+| **MODIFY** | `packages/onboarding/src/screens/types.ts` |
 | **CREATE** | `packages/onboarding-ui/src/UI/Runtime/elements/{ElementName}Element.tsx` |
 | **MODIFY** | `packages/onboarding-ui/src/UI/Runtime/elements/renderElement.tsx` |
-| **MODIFY** | `packages/onboarding-ui/src/UI/Pages/ComposableScreen/types.ts` |
+| **MODIFY** | `packages/onboarding-ui/src/UI/Runtime/types.ts` |
 | **MODIFY** | `packages/onboarding/src/onboarding-example.ts` |
 | **MODIFY** | `example/app/example/composable-screen.tsx` |
 | **REGENERATE** | `claude-plugin/skills/compose-screen-builder/references/element-props.md` — `npm run docs:element-props` |

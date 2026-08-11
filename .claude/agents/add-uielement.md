@@ -67,10 +67,10 @@ gh pr create --title "✨ feat(composable-screen): add <ElementName> UIElement (
 
 ## Files changed
 - `packages/onboarding/src/screens/elements/<ElementName>Element.ts` (new)
-- `packages/onboarding/src/steps/ComposableScreen/types.ts`
+- `packages/onboarding/src/screens/types.ts`
 - `packages/onboarding-ui/src/UI/Runtime/elements/<ElementName>Element.tsx` (new)
 - `packages/onboarding-ui/src/UI/Runtime/elements/renderElement.tsx`
-- `packages/onboarding-ui/src/UI/Pages/ComposableScreen/types.ts`
+- `packages/onboarding-ui/src/UI/Runtime/types.ts`
 
 ## Version
 `<OLD_VERSION>` → `<NEW_VERSION>` (MINOR)

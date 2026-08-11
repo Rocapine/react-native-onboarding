@@ -245,7 +245,7 @@ Each override is a `Partial` of the overridable Button props: `BaseBoxProps` (in
 
 ## Schema source of truth
 
-- Union: `packages/onboarding/src/steps/ComposableScreen/types.ts`
+- Union: `packages/onboarding/src/screens/types.ts` (the step wrapper `steps/ComposableScreen/types.ts` re-exports it)
 - Per-element Zod: `packages/onboarding/src/screens/elements/*.ts`
 - UI mirror to watch for drift: `packages/onboarding-ui/src/UI/Runtime/elements/ButtonElement.tsx`
 

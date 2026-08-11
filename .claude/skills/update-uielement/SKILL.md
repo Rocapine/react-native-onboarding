@@ -78,8 +78,8 @@ Breaking: <yes/no>
 
 Files changed:
 - packages/onboarding/src/screens/elements/{ElementName}Element.ts
-- packages/onboarding/src/steps/ComposableScreen/types.ts
-- packages/onboarding-ui/src/UI/Pages/ComposableScreen/types.ts
+- packages/onboarding/src/screens/types.ts
+- packages/onboarding-ui/src/UI/Runtime/types.ts
 - packages/onboarding-ui/src/UI/Runtime/elements/{ElementName}Element.tsx
 
 In onboarding-studio:
@@ -95,8 +95,8 @@ In onboarding-studio:
 | Action | File |
 |--------|------|
 | **MODIFY** | `packages/onboarding/src/screens/elements/{ElementName}Element.ts` |
-| **MODIFY** | `packages/onboarding/src/steps/ComposableScreen/types.ts` |
-| **MODIFY** | `packages/onboarding-ui/src/UI/Pages/ComposableScreen/types.ts` |
+| **MODIFY** | `packages/onboarding/src/screens/types.ts` |
+| **MODIFY** | `packages/onboarding-ui/src/UI/Runtime/types.ts` |
 | **MODIFY** | `packages/onboarding-ui/src/UI/Runtime/elements/{ElementName}Element.tsx` |
 | **MODIFY** | `packages/onboarding/src/onboarding-example.ts` |
 | **MODIFY** | `example/app/example/composable-screen.tsx` |

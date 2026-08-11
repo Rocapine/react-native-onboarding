@@ -65,7 +65,7 @@ Then in Claude Code:
 
 - Headless SDK source: `packages/onboarding/src/`
 - UI SDK source: `packages/onboarding-ui/src/`
-- ComposableScreen schema: `packages/onboarding/src/steps/ComposableScreen/`
+- ComposableScreen element schemas + UIElement union: `packages/onboarding/src/screens/` (the `packages/onboarding/src/steps/ComposableScreen/` step wrapper re-exports these, screen-agnostic)
 - Example app: `example/app/`
 - OpenAPI spec: `openapi.yaml`
 - Target-app probe protocol: `skills/onboarding-best-practices/references/inspect-target-app.md`

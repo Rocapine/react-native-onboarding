@@ -12,7 +12,7 @@ right/wrong table is the authority on which of these to actually use.
 
 <!-- BEGIN:generated-element-props -->
 
-_Generated from `packages/onboarding/src/steps/ComposableScreen` by
+_Generated from `packages/onboarding/src/screens` by
 `scripts/check-element-docs.mjs --write`. Do not edit between the markers._
 
 **Element-level keys** (outside `props`, on every element): `children`, `id`, `name`, `renderWhen`, `type`. `children` is required on containers and forbidden elsewhere.

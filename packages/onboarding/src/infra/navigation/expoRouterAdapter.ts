@@ -3,7 +3,7 @@ import type { OnboardingNavigationAdapter } from "./types";
 
 // expo-router is an OPTIONAL peer dependency. Lazily require it so the SDK
 // loads (and the no-op fallbacks below take over) when it is not installed.
-// Precedent: Pages/ComposableScreen/elements/haptics.ts (try/require/catch).
+// Precedent: UI/Runtime/elements/haptics.ts (try/require/catch).
 let expoRouter: any;
 try {
   expoRouter = require("expo-router");

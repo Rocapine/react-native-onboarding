@@ -11,7 +11,22 @@ import { collectElementDefaults } from "./elements/collectDefaults";
 import { mergeVariables, flattenVariables } from "./variables";
 
 export type ScreenRendererProps = {
+  /**
+   * Must be referentially stable across renders — e.g. parsed/built inside a
+   * `useMemo` keyed on the raw step/payload, never inline in the adapter's
+   * render body. Its identity is memoized below (`collectElementDefaults`) and
+   * flows into every element's `areElementPropsEqual` check. An adapter that
+   * parses or `.map()`s its elements inline on each render silently loses ALL
+   * element memoization — no type error, no test failure, just a whole-tree
+   * re-render on every variable write.
+   */
   elements: UIElement[];
+  /**
+   * Fine to rebuild fresh on every render — only its destructured fields
+   * (`variables`, `setVariable`, `complete`, etc.) reach `ctx`, and each of
+   * those is individually ref-stashed or memoized below before landing on
+   * `RenderContext`.
+   */
   host: ScreenHost;
 };
 
@@ -79,10 +94,16 @@ export const ScreenRenderer = ({ elements, host }: ScreenRendererProps) => {
     [effectiveVariables, flatVariables]
   );
 
-  // The root KeyboardAvoidingView has no background, so the padding it inserts when
-  // the keyboard opens exposes whatever is behind it as a coloured band. Paint that
-  // region with the screen's own root background — but only when the first element
-  // is a full-bleed, unconditional root that actually covers the screen.
+  // ROC-2984 finding #2: the root KeyboardAvoidingView has no background, so the
+  // padding it inserts when the keyboard opens exposes whatever sits behind it as a
+  // coloured band. Paint that region with the screen's own root background — but
+  // only when the first element is a full-bleed, UNCONDITIONAL root that actually
+  // covers the screen (flex, or height:"100%"; no renderWhen).
+  //
+  // Painting the flex:1 KeyboardAvoidingView with the colour of a content-sized,
+  // gated, or decorative first element would overpaint the themeable page
+  // background — even with the keyboard closed — so those cases intentionally
+  // stay a no-op and keep the host's own background.
   const rootElement = elements[0];
   const rootIsFullBleed =
     !!rootElement &&

@@ -31,7 +31,7 @@ import { useVariables } from "./VariablesContext";
 import { buildEntering } from "./buildAnimation";
 
 // Mirror of the headless TypewriterTextElement schema. Kept in lockstep with
-// packages/onboarding/src/steps/ComposableScreen/elements/TypewriterTextElement.ts —
+// packages/onboarding/src/screens/elements/TypewriterTextElement.ts —
 // TS won't catch drift because this re-declares its own type.
 export type TypewriterTextElementProps = BaseBoxProps & {
   content: string;

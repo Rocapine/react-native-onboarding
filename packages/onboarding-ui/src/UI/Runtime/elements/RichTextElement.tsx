@@ -8,7 +8,7 @@ import { useVariables } from "./VariablesContext";
 import { GradientBox } from "./GradientBox";
 
 // Mirror of the headless RichTextElement schema. Kept in lockstep with
-// packages/onboarding/src/steps/ComposableScreen/elements/RichTextElement.ts —
+// packages/onboarding/src/screens/elements/RichTextElement.ts —
 // TS won't catch drift because this re-declares its own type.
 export type RichTextElementProps = BaseBoxProps & {
   gap?: number;

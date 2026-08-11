@@ -7,7 +7,6 @@ import {
   ConditionGroupSchema,
   WheelPickerElementPropsSchema,
 } from "@rocapine/react-native-onboarding";
-import { CustomPayloadSchema } from "../Pages/types";
 import { type StackElementProps, StackElementPropsSchema } from "./elements/StackElement";
 import { type TextElementProps, TextElementPropsSchema } from "./elements/TextElement";
 import { type RichTextElementProps, RichTextElementPropsSchema } from "./elements/RichTextElement";
@@ -507,16 +506,3 @@ export const ComposableScreenStepPayloadSchema = z
       });
     }
   });
-
-export const ComposableScreenStepTypeSchema = z.object({
-  id: z.string(),
-  type: z.literal("ComposableScreen"),
-  name: z.string(),
-  displayProgressHeader: z.boolean(),
-  payload: ComposableScreenStepPayloadSchema,
-  customPayload: CustomPayloadSchema,
-  continueButtonLabel: z.string().optional().default("Continue"),
-  figmaUrl: z.string().nullish(),
-});
-
-export type ComposableScreenStepType = z.infer<typeof ComposableScreenStepTypeSchema>;

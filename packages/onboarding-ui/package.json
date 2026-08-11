@@ -8,6 +8,8 @@
     "build": "tsc && cp -r src/assets dist/",
     "watch": "tsc --watch",
     "type:check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "prepublishOnly": "node ../../scripts/check-versions.mjs"
   },
   "keywords": [
@@ -42,7 +44,8 @@
     "react-native-reanimated-carousel": "^4.0.3",
     "react-native-safe-area-context": "^5.7.0",
     "react-native-svg": "15.15.4",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vitest": "4.1.5"
   },
   "peerDependencies": {
     "@react-native-community/datetimepicker": "*",

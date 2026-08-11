@@ -13,8 +13,8 @@ Reads recent changes to ComposableScreen `types.ts` files and emits the prompt t
 git diff HEAD -- \
   packages/onboarding/src/steps/ComposableScreen/types.ts \
   packages/onboarding-ui/src/UI/Pages/ComposableScreen/types.ts \
-  'packages/onboarding/src/steps/ComposableScreen/elements/*.ts' \
-  'packages/onboarding-ui/src/UI/Pages/ComposableScreen/elements/*.tsx'
+  'packages/onboarding/src/screens/elements/*.ts' \
+  'packages/onboarding-ui/src/UI/Runtime/elements/*.tsx'
 ```
 
 If empty, also check staged + last commit:

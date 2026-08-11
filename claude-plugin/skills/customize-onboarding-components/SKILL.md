@@ -139,7 +139,7 @@ Each handler is called with `{ variables, setVariable }`: `variables` is the fil
 
 ## Tier 3 — Replace a UIElement renderer (deep customization)
 
-Edit the UI package mirror at `packages/onboarding-ui/src/UI/Pages/ComposableScreen/elements/<Element>Element.tsx`. Use cases:
+Edit the UI package mirror at `packages/onboarding-ui/src/UI/Runtime/elements/<Element>Element.tsx`. Use cases:
 
 - Adding a new visual variant not expressible through existing props
 - Wiring a host-only library (e.g. Skia-based progress ring) to an element

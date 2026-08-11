@@ -63,7 +63,7 @@ this reference has claimed that twice about props that shipped.
 | `AnimatedText` | Number that count-animates `from`→`to` on the UI thread (native TextInput) — **zero re-renders, no variable write**. The performant way to show an animated stat ("+1,028,709 members"); pair a static label as a sibling `Text`. `decimals`/`thousandsSeparator` format the number |
 | `TypewriterText` | Reveals its `content` string one character at a time, each char mounting its own reanimated entering animation (`preset`); per-char delay = `delay + charIndex * stagger`. The staggered-headline reveal — distinct from the whole-block `animation.entering` (fades the string at once) and from `AnimatedText` (an animated number). `stagger` is the typewriter knob; wraps by whole words. Leaf, non-interactive |
 
-Authoritative prop shapes: `packages/onboarding/src/steps/ComposableScreen/elements/*.ts`.
+Authoritative prop shapes: `packages/onboarding/src/screens/elements/*.ts`.
 
 ## BaseBoxProps (every element)
 
@@ -246,8 +246,8 @@ Each override is a `Partial` of the overridable Button props: `BaseBoxProps` (in
 ## Schema source of truth
 
 - Union: `packages/onboarding/src/steps/ComposableScreen/types.ts`
-- Per-element Zod: `packages/onboarding/src/steps/ComposableScreen/elements/*.ts`
-- UI mirror to watch for drift: `packages/onboarding-ui/src/UI/Pages/ComposableScreen/elements/ButtonElement.tsx`
+- Per-element Zod: `packages/onboarding/src/screens/elements/*.ts`
+- UI mirror to watch for drift: `packages/onboarding-ui/src/UI/Runtime/elements/ButtonElement.tsx`
 
 ## Element prop canonical names (drift-prone — verify here)
 

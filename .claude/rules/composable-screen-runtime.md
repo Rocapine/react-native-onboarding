@@ -1,6 +1,7 @@
 ---
 paths:
   - "packages/onboarding-ui/src/UI/Pages/ComposableScreen/**"
+  - "packages/onboarding-ui/src/UI/Runtime/**"
 ---
 
 # ComposableScreen UIElement Runtime
@@ -85,18 +86,41 @@ Use legacy `useResolvedFontFamily` only for elements that never set `fontWeight`
 
 ## RenderContext variables → primitive flattening
 
-`ctx.variables` is `Record<string, ComposableVariableEntry>` (each entry `{value, label?}`). Headless utils that expect primitive variables (`evaluateCondition`, `evaluateLeaf`, `resolveNextStepNumber`) want `Record<string, unknown>`. Flatten before calling:
+`RenderContext` carries `getVariables()` — a **ref-backed, referentially stable**
+live read of the merged variable map, for press-time action evaluation
+(`runActions`). It is NOT reactive: reading it during render will not re-render on
+a write.
 
-**Use the precomputed `ctx.flatVariables`** — `Renderer` memoizes the flatten once per render and passes it on `RenderContext`. `renderElement`, `RichTextElement`, `ButtonElement` read `ctx.flatVariables` directly. Don't rebuild a local `Object.fromEntries` per element/component — that re-allocated on every tree re-render (an autoplay `ProgressIndicator` writes a variable each step → whole tree re-renders), which v1.38.1 removed. New consumers needing primitives outside the ctx flow flatten with:
+Reactive reads go through `useVariables()` (`Runtime/elements/VariablesContext.tsx`),
+which yields `{ variables, flatVariables }`. `flatVariables` is the entry map
+flattened to primitives — that is what `evaluateCondition` / `renderWhen` want.
+Skip the flatten and every `eq`/`neq` compares against the `{value,label}` entry
+object and silently mis-evaluates.
 
-```ts
-const flatVars = useMemo(
-  () => Object.fromEntries(Object.entries(variables).map(([k, v]) => [k, v?.value])),
-  [variables]
-);
-```
+The split is the whole point of the memoization architecture: `ctx` is stable so
+memoized `ElementHost`s skip re-render on a write, while the volatile variable maps
+re-render only their actual consumers through context. Adding a volatile field back
+onto `RenderContext` reintroduces the full-tree re-render storm, and no type error
+will catch it.
 
-Skip the flatten and your condition reads the entry object, not its value — every `eq`/`neq` silently mis-evaluates.
+The merge and flatten helpers are pure and unit-tested in
+`Runtime/variables.ts` (`mergeVariables`, `flattenVariables`).
+
+## ScreenHost: the onboarding ⇄ paywall seam
+
+The rendering engine lives in `packages/onboarding-ui/src/UI/Runtime/` and knows
+nothing about onboarding. `ScreenRenderer({ elements, host })` renders a UIElement
+tree against an injected `ScreenHost` (`Runtime/ScreenHost.ts`): variable store,
+`setVariable`, `complete`, `customActions`, `keyboardVerticalOffset`.
+
+`Pages/ComposableScreen/Renderer.tsx` is the onboarding adapter — it builds a host
+from the onboarding contexts and adds `OnboardingTemplate`. A paywall renderer is
+the sibling adapter. **Put new engine behaviour in `Runtime/`, not in the adapter**,
+or paywalls silently miss it.
+
+Naming: the host exposes `complete` ("finish this screen"); `RenderContext` keeps
+`onContinue` ("the continue action fired"). `ScreenRenderer` maps one to the other
+in exactly one place. A paywall host interprets `complete` as dismiss.
 
 ## Multi-select variables are JSON-encoded strings
 
@@ -104,11 +128,11 @@ Skip the flatten and your condition reads the entry object, not its value — ev
 
 ## `renderWhen` gating
 
-Every UIElement variant accepts optional `renderWhen?: LeafCondition | ConditionGroup`. Single gating point at top of `elements/renderElement.tsx`: flatten `ctx.variables`, call `evaluateCondition`, return `null` if false. Covers all 15 variants — container subtrees skip naturally because the bail-out runs before `renderChildren`.
+Every UIElement variant accepts optional `renderWhen?: LeafCondition | ConditionGroup`. Single gating point at top of `elements/renderElement.tsx`: read `flatVariables` via `useVariables()`, call `evaluateCondition`, return `null` if false. Covers all 15 variants — container subtrees skip naturally because the bail-out runs before `renderChildren`.
 
-## Element-default overlay (Renderer.tsx)
+## Element-default overlay (`ScreenRenderer.tsx`)
 
-`Renderer.tsx` builds `effectiveVariables = { ...collectElementDefaults(elements), ...composableVariables }` so `renderWhen` + `{{var}}` interpolation see element-declared defaults (`Carousel.defaultIndex`, `RadioGroup.defaultValue`, etc.) on first render. `composableVariables` wins over defaults — never invert the spread. Per-element seeding effects still own persistence (full label entries).
+`ScreenRenderer.tsx` (`Runtime/`) builds `effectiveVariables = mergeVariables(collectElementDefaults(elements), host.variables)` (`mergeVariables` from `Runtime/variables.ts`) so `renderWhen` + `{{var}}` interpolation see element-declared defaults (`Carousel.defaultIndex`, `RadioGroup.defaultValue`, etc.) on first render. The host store always wins over defaults — never invert the merge. Per-element seeding effects still own persistence (full label entries).
 
 ## Adding a new defaulted element
 
@@ -119,7 +143,7 @@ When introducing a new element type with a `defaultValue` / `defaultIndex`:
 
 ## Adding a container element (with `children`)
 
-Beyond the schema-mirror checklist in the root CLAUDE.md, a container needs its type added to the `parentType` union in **all 5** spots or tsc cascades (the `Renderer.tsx` `renderChildren` mismatch is the tell): `shared.ts` (`RenderContext.renderChildren`), `renderElement.tsx` (param + dispatch case), `StackElement.tsx` + `TextElement.tsx` (`Props.parentType`), and `Renderer.tsx` (the `renderChildren` impl). Children render via `ctx.renderChildren(children, "<Type>")`.
+Beyond the schema-mirror checklist in the root CLAUDE.md, a container needs its type added to the `parentType` union in **all 5** spots or tsc cascades (the `ScreenRenderer.tsx` `renderChildren` mismatch is the tell): `shared.ts` (`RenderContext.renderChildren`), `renderElement.tsx` (param + dispatch case), `StackElement.tsx` + `TextElement.tsx` (`Props.parentType`), and `ScreenRenderer.tsx` (the `renderChildren` impl). Children render via `ctx.renderChildren(children, "<Type>")`.
 
 **Restricting children to one element type** (e.g. `RichText` → Text-only): extract that variant's `z.object` into a named const (`TextUIElementSchema`) in **both** `types.ts` files, reference it in the union slot **and** `children: z.array(...)`; TS type is `children: Array<Extract<UIElement, { type: "X" }>>`. A non-matching child then fails parse with `invalid_union`.
 

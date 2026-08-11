@@ -17,9 +17,9 @@ Read `.claude/skills/add-uielement/SKILL.md` and follow every step exactly.
 
 The skill will guide you through:
 - Confirming the element name and props with the user
-- Creating the headless schema file (`packages/onboarding/src/steps/ComposableScreen/elements/`)
+- Creating the headless schema file (`packages/onboarding/src/screens/elements/`)
 - Updating the headless `types.ts` union
-- Creating the UI renderer component (`packages/onboarding-ui/src/UI/Pages/ComposableScreen/elements/`)
+- Creating the UI renderer component (`packages/onboarding-ui/src/UI/Runtime/elements/`)
 - Updating `renderElement.tsx`
 - Mirroring types in the UI `types.ts`
 - Updating `onboarding-example.ts` and `example/app/example/composable-screen.tsx`
@@ -66,10 +66,10 @@ gh pr create --title "✨ feat(composable-screen): add <ElementName> UIElement (
 - Variable binding via `variableName` prop
 
 ## Files changed
-- `packages/onboarding/src/steps/ComposableScreen/elements/<ElementName>Element.ts` (new)
+- `packages/onboarding/src/screens/elements/<ElementName>Element.ts` (new)
 - `packages/onboarding/src/steps/ComposableScreen/types.ts`
-- `packages/onboarding-ui/src/UI/Pages/ComposableScreen/elements/<ElementName>Element.tsx` (new)
-- `packages/onboarding-ui/src/UI/Pages/ComposableScreen/elements/renderElement.tsx`
+- `packages/onboarding-ui/src/UI/Runtime/elements/<ElementName>Element.tsx` (new)
+- `packages/onboarding-ui/src/UI/Runtime/elements/renderElement.tsx`
 - `packages/onboarding-ui/src/UI/Pages/ComposableScreen/types.ts`
 
 ## Version

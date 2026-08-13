@@ -1,6 +1,6 @@
 import { resolveWheelPickerItems } from "@rocapine/react-native-onboarding";
 import { UIElement } from "../types";
-import { ComposableVariableEntry } from "../../../Provider/OnboardingProgressProvider";
+import type { ComposableVariableEntry } from "@rocapine/react-native-onboarding";
 
 /**
  * Walks the element tree and returns the initial variable map declared via

@@ -136,9 +136,16 @@ UI package optional peer deps (install only if using feature):
 - `expo-store-review` — Ratings step type
 - `expo-haptics` — `haptic` prop on Button/RadioGroup/CheckboxGroup
 
-Optional dep for a press-time **side-effect** (not a visual element): wrap in a `try { require() } catch` helper that no-ops when absent (precedent: `Pages/ComposableScreen/elements/haptics.ts` — `triggerHaptic`). Don't throw; the feature is opt-in and silent without the dep.
+Optional dep for a press-time **side-effect** (not a visual element): wrap in a `try { require() } catch` helper that no-ops when absent (precedent: `Runtime/elements/haptics.ts` — `triggerHaptic`). Don't throw; the feature is opt-in and silent without the dep.
 
 ## Updating ComposableScreen UIElement Schema
+
+**Element schemas live in `packages/onboarding/src/screens/elements/` (headless)
+and `packages/onboarding-ui/src/UI/Runtime/elements/` (UI mirror).** The
+`steps/ComposableScreen/types.ts` file is now only the *step wrapper*
+(`BaseStepType` + `payload.elements`); it re-exports everything screen-agnostic
+from `src/screens/types.ts`, so existing import paths — and the
+`dist/steps/ComposableScreen/types.js` validation recipe below — still resolve.
 
 **Adding a prop to an existing element** is narrower than adding an element: edit only the headless element `*.ts` (type + Zod schema) and its UI mirror `*.tsx`. The `types.ts` UIElement union/schema is untouched — each variant references the element's props type, so new props flow through automatically.
 
@@ -154,7 +161,7 @@ When adding/changing a `UIElement` type in either ComposableScreen `types.ts`, *
 
 1. **Update `packages/onboarding/src/onboarding-example.ts`** — add/update example step exercising the new/changed element type so default onboarding stays in sync with schema.
 2. **Update `example/app/example/composable-screen.tsx`** — add/update element in rendered example payload.
-3. **Watch for schema duplication in UI renderers.** Several UI element renderers re-declare their Zod schemas + `*Props` type in lockstep with the headless source (known mirrors: `Pages/ComposableScreen/elements/ButtonElement.tsx`, `IconElement.tsx` — grep for `IconElementPropsSchema`-style re-exports to find others). When changing headless `elements/*.ts`, update the UI mirror's field set too — TS won't catch the drift because the UI re-declares its own type. **Drift runs both ways**: a variant added only to the UI mirror (e.g. `setVariable` `ButtonAction`) still fails parsing — the headless schema validates the payload, so a UI-only variant throws `invalid_union` even though the renderer handles it.
+3. **Watch for schema duplication in UI renderers.** Several UI element renderers re-declare their Zod schemas + `*Props` type in lockstep with the headless source (known mirrors: `Runtime/elements/ButtonElement.tsx`, `IconElement.tsx` — grep for `IconElementPropsSchema`-style re-exports to find others). When changing headless `elements/*.ts`, update the UI mirror's field set too — TS won't catch the drift because the UI re-declares its own type. **Drift runs both ways**: a variant added only to the UI mirror (e.g. `setVariable` `ButtonAction`) still fails parsing — the headless schema validates the payload, so a UI-only variant throws `invalid_union` even though the renderer handles it.
 4. **Mirror schema docs in-repo** — run `npm run docs:element-props` (regenerates the prop inventory the plugin reads) then `npm run check:element-docs`, which is CI-gated and tells you exactly which hand-written docs are now short: the element table, and every container enumeration if the element has `children`. Then update the prose the check can't write — `claude-plugin/skills/{compose-screen-builder,validate-step-json,customize-onboarding-components}/SKILL.md` + `create-step-json/references/composable-archetypes.md`, and `website/docs/page-types.mdx` (Button/element prop tables). The list of files in this rule was incomplete for months; prefer the check's output over this sentence, and treat `website/` as the part still on trust.
 5. **Display this prompt for `onboarding-studio` repo** (CMS backend that must mirror schema changes):
 
@@ -166,8 +173,8 @@ Changes made:
 <describe what was added/changed — element type name, props, Zod schema>
 
 Files changed in the SDK:
-- packages/onboarding/src/steps/ComposableScreen/types.ts
-- packages/onboarding-ui/src/UI/Pages/ComposableScreen/types.ts
+- packages/onboarding/src/screens/types.ts (element union/schemas, headless) + packages/onboarding/src/screens/elements/*.ts
+- packages/onboarding-ui/src/UI/Runtime/types.ts (element union/schemas, UI mirror) + packages/onboarding-ui/src/UI/Runtime/elements/*.tsx
 
 In onboarding-studio, update:
 - The UIElement union type / discriminated union to include the new element

@@ -30,7 +30,7 @@ import { join, dirname, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const CS = join(ROOT, "packages/onboarding/src/steps/ComposableScreen");
+const CS = join(ROOT, "packages/onboarding/src/screens");
 const PLUGIN = join(ROOT, "claude-plugin");
 
 /* ── source of truth ─────────────────────────────────────────────────── */
@@ -269,7 +269,7 @@ const END = "<!-- END:generated-element-props -->";
 
 function renderInventory(truth) {
   const lines = [
-    `_Generated from \`packages/onboarding/src/steps/ComposableScreen\` by`,
+    `_Generated from \`packages/onboarding/src/screens\` by`,
     `\`scripts/check-element-docs.mjs --write\`. Do not edit between the markers._`,
     "",
     `**Element-level keys** (outside \`props\`, on every element): ` +

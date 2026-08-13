@@ -1,8 +1,8 @@
 import React from "react";
 import { CustomActions } from "@rocapine/react-native-onboarding";
 import { UIElement } from "../types";
-import { Theme } from "../../../Theme/types";
-import { ComposableVariableEntry } from "../../../Provider/OnboardingProgressProvider";
+import { Theme } from "../../Theme/types";
+import type { ComposableVariableEntry } from "@rocapine/react-native-onboarding";
 import type { BaseBoxProps } from "./BaseBoxProps";
 
 export type RenderContext = {

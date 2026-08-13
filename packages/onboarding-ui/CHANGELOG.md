@@ -9,6 +9,23 @@ here.
 
 ---
 
+## [1.60.0] - 2026-08-13
+
+### Added
+
+- **`ScreenRenderer` + `ScreenHost` — the rendering engine is now screen-agnostic.** `ScreenRenderer({ elements, host })` renders a `UIElement` tree against an injected `ScreenHost` (`variables`, `setVariable`, `complete`, `customActions`, `keyboardVerticalOffset`) and knows nothing about onboarding. `ComposableScreenRenderer` is now a thin onboarding adapter that builds a host from the onboarding contexts and supplies `OnboardingTemplate`; a paywall renderer becomes a sibling adapter over the same engine. New exports from the package root: `ScreenRenderer`, `noopScreenHost`, and the types `ScreenHost` / `ScreenRendererProps`.
+
+### Changed
+
+- **Element runtime moved to `UI/Runtime/`.** `UI/Pages/ComposableScreen/elements/*` is now `UI/Runtime/elements/*`, and the `UIElement` union mirror is `UI/Runtime/types.ts`. `UI/Pages/ComposableScreen/types.ts` keeps the onboarding **step** schema and re-exports the runtime types, so existing deep imports still resolve. `UI/Runtime/` no longer imports from `Pages/`, `Templates/`, or the onboarding provider — that decoupling is what lets a second host reuse the engine.
+- **No behaviour change for onboarding.** The element memoization architecture is preserved exactly: `RenderContext` stays referentially stable across variable writes (its dependency set is unchanged), and volatile variable maps still travel through `VariablesContext`. Rendered tree, keyboard-avoidance offset, and the root-background handling are identical.
+
+### Notes
+
+- `ScreenRenderer`'s `elements` prop **must be referentially stable** across renders — it drives every element's memoization. The onboarding adapter satisfies this via its `[step]`-memoized parse; a custom host that re-parses or re-maps elements each render would silently lose element memoization with no type error.
+
+---
+
 ## [1.59.2] - 2026-07-24
 
 ### Added

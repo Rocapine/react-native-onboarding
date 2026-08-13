@@ -8,6 +8,19 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.60.0] - 2026-08-13
+
+### Added
+
+- **`UIElement` and `UIElementSchema` are now public.** Both were module-private in `steps/ComposableScreen/types.ts`, where the step payload schema was their only consumer. They are exported from the new `src/screens/types.ts` and reachable from every existing import path. Purely additive — nothing was removed or renamed.
+- **`ScreenElementsSchema`** — the elements array as a first-class, screen-agnostic schema, carrying the nested-`KeyboardAvoidingView` refinement that previously lived on the step payload. A caller parsing a full step still sees the same `payload.elements` issue path; the constraint simply belongs to the element tree rather than to steps, so a non-step screen can reuse it.
+
+### Changed
+
+- **Element schemas moved to `src/screens/`, ahead of the paywall work.** `src/steps/ComposableScreen/elements/*` is now `src/screens/elements/*`, and the `UIElement` union lives in `src/screens/types.ts`. `src/steps/ComposableScreen/types.ts` remains as the onboarding **step wrapper** (`BaseStepType` + `payload.elements`) and re-exports everything screen-agnostic, so every existing import path — including the documented `dist/steps/ComposableScreen/types.js` payload-validation recipe — resolves unchanged. This is the headless half of extracting the rendering engine so it can serve both onboarding steps and paywall screens.
+
+---
+
 ## [1.59.2] - 2026-07-24
 
 ### Added

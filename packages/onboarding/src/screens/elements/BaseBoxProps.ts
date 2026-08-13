@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { type ButtonAction, ButtonActionSchema } from "../../common.types";
+import { type ButtonAction, ButtonActionSchema } from "../../steps/common.types";
 
 export type GradientStop = {
   color: string;

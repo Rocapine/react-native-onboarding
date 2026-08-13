@@ -1,13 +1,15 @@
 {
   "name": "@rocapine/react-native-onboarding-ui",
-  "version": "1.59.2",
+  "version": "1.60.0",
   "description": "UI components and renderers for Rocapine Onboarding Studio - Built on top of the headless SDK",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc && cp -r src/assets dist/",
+    "build": "rm -rf dist && tsc && cp -r src/assets dist/",
     "watch": "tsc --watch",
     "type:check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "prepublishOnly": "node ../../scripts/check-versions.mjs"
   },
   "keywords": [
@@ -42,7 +44,8 @@
     "react-native-reanimated-carousel": "^4.0.3",
     "react-native-safe-area-context": "^5.7.0",
     "react-native-svg": "15.15.4",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vitest": "4.1.5"
   },
   "peerDependencies": {
     "@react-native-community/datetimepicker": "*",

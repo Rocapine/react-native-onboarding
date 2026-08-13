@@ -44,7 +44,7 @@ try {
 
 // Mirror of the headless schema (UI mirrors stay self-contained — they don't
 // import headless internals). Keep in lockstep with
-// packages/onboarding/src/steps/ComposableScreen/elements/ProgressiveBlurImageElement.ts.
+// packages/onboarding/src/screens/elements/ProgressiveBlurImageElement.ts.
 export type BlurMaskStop = { position: number; opacity: number };
 export type LinearBlurMask = { type?: "linear"; from: GradientEdge; to: GradientEdge; stops: BlurMaskStop[] };
 export type RadialBlurMask = {

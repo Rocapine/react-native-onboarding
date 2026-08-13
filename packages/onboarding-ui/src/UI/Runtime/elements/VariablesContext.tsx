@@ -1,5 +1,5 @@
 import React, { useContext } from "react";
-import type { ComposableVariableEntry } from "../../../Provider/OnboardingProgressProvider";
+import type { ComposableVariableEntry } from "@rocapine/react-native-onboarding";
 
 // Reactive variable slice, split out of the (otherwise stable) RenderContext so
 // that only components reading variables re-render on a write. The stable ctx is

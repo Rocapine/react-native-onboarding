@@ -12,14 +12,16 @@ Reads recent changes to ComposableScreen `types.ts` files and emits the prompt t
 ```bash
 git diff HEAD -- \
   packages/onboarding/src/steps/ComposableScreen/types.ts \
+  packages/onboarding/src/screens/types.ts \
   packages/onboarding-ui/src/UI/Pages/ComposableScreen/types.ts \
-  'packages/onboarding/src/steps/ComposableScreen/elements/*.ts' \
-  'packages/onboarding-ui/src/UI/Pages/ComposableScreen/elements/*.tsx'
+  packages/onboarding-ui/src/UI/Runtime/types.ts \
+  'packages/onboarding/src/screens/elements/*.ts' \
+  'packages/onboarding-ui/src/UI/Runtime/elements/*.tsx'
 ```
 
 If empty, also check staged + last commit:
 ```bash
-git diff --cached -- packages/onboarding/src/steps/ComposableScreen/
+git diff --cached -- packages/onboarding/src/steps/ComposableScreen/ packages/onboarding/src/screens/
 git show HEAD --stat
 ```
 

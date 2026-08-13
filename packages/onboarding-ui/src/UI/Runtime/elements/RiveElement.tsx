@@ -4,7 +4,7 @@ import { View, Text, StyleSheet } from "react-native";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
 import { RenderContext, dim, areElementPropsEqual } from "./shared";
-import { getTextStyle } from "../../../Theme/helpers";
+import { getTextStyle } from "../../Theme/helpers";
 
 export type RiveElementProps = BaseBoxProps & {
   url: string;

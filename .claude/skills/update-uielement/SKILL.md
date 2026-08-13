@@ -20,7 +20,7 @@ If breaking, suggest bumping minor (or major) version after.
 
 ## Step 1 — Update headless schema
 
-File: `packages/onboarding/src/steps/ComposableScreen/elements/{ElementName}Element.ts`
+File: `packages/onboarding/src/screens/elements/{ElementName}Element.ts`
 
 - Update `{ElementName}ElementProps` TS type
 - Update `{ElementName}ElementPropsSchema` Zod (keep defaults consistent with TS optionals)
@@ -32,7 +32,7 @@ If new prop has runtime default, add `.optional().default(X)` in Zod AND keep it
 
 ## Step 2 — Mirror in UI package types
 
-File: `packages/onboarding-ui/src/UI/Pages/ComposableScreen/types.ts`
+File: `packages/onboarding-ui/src/UI/Runtime/types.ts` (the UI mirror's `UIElement` union — `UI/Pages/ComposableScreen/types.ts` is only the onboarding step schema, not the union)
 
 Both `types.ts` files must stay byte-equivalent for UIElement union + schema. Apply same edits.
 
@@ -40,7 +40,7 @@ Both `types.ts` files must stay byte-equivalent for UIElement union + schema. Ap
 
 ## Step 3 — Update renderer
 
-File: `packages/onboarding-ui/src/UI/Pages/ComposableScreen/elements/{ElementName}Element.tsx`
+File: `packages/onboarding-ui/src/UI/Runtime/elements/{ElementName}Element.tsx`
 
 - Use new prop in JSX
 - Sizing-sensitive elements (Carousel, Video, Lottie, Rive): if changing width/height behavior, prefer `onLayout` measurement over raw `props.width/height`. Don't pass `"50%"` strings to libraries expecting numbers.
@@ -77,10 +77,10 @@ Change:
 Breaking: <yes/no>
 
 Files changed:
-- packages/onboarding/src/steps/ComposableScreen/elements/{ElementName}Element.ts
-- packages/onboarding/src/steps/ComposableScreen/types.ts
-- packages/onboarding-ui/src/UI/Pages/ComposableScreen/types.ts
-- packages/onboarding-ui/src/UI/Pages/ComposableScreen/elements/{ElementName}Element.tsx
+- packages/onboarding/src/screens/elements/{ElementName}Element.ts
+- packages/onboarding/src/screens/types.ts
+- packages/onboarding-ui/src/UI/Runtime/types.ts
+- packages/onboarding-ui/src/UI/Runtime/elements/{ElementName}Element.tsx
 
 In onboarding-studio:
 - Update UIElement Zod schema for "{ElementName}"
@@ -94,9 +94,9 @@ In onboarding-studio:
 
 | Action | File |
 |--------|------|
-| **MODIFY** | `packages/onboarding/src/steps/ComposableScreen/elements/{ElementName}Element.ts` |
-| **MODIFY** | `packages/onboarding/src/steps/ComposableScreen/types.ts` |
-| **MODIFY** | `packages/onboarding-ui/src/UI/Pages/ComposableScreen/types.ts` |
-| **MODIFY** | `packages/onboarding-ui/src/UI/Pages/ComposableScreen/elements/{ElementName}Element.tsx` |
+| **MODIFY** | `packages/onboarding/src/screens/elements/{ElementName}Element.ts` |
+| **MODIFY** | `packages/onboarding/src/screens/types.ts` |
+| **MODIFY** | `packages/onboarding-ui/src/UI/Runtime/types.ts` |
+| **MODIFY** | `packages/onboarding-ui/src/UI/Runtime/elements/{ElementName}Element.tsx` |
 | **MODIFY** | `packages/onboarding/src/onboarding-example.ts` |
 | **MODIFY** | `example/app/example/composable-screen.tsx` |

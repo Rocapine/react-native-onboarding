@@ -1,47 +1,72 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { z } from "zod";
 import { Text, StyleSheet } from "react-native";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
 import { RenderContext, dim, areElementPropsEqual } from "./shared";
-import { getTextStyle } from "../../../Theme/helpers";
+import { getTextStyle } from "../../Theme/helpers";
 import { GradientBox } from "./GradientBox";
 
-export type LottieElementProps = BaseBoxProps & {
-  source: string;
+export type VideoElementProps = BaseBoxProps & {
+  url: string;
   autoPlay?: boolean;
   loop?: boolean;
-  speed?: number;
+  muted?: boolean;
+  controls?: boolean;
+  contentFit?: "contain" | "cover" | "fill";
 };
 
-export const LottieElementPropsSchema = BaseBoxPropsSchema.extend({
-  source: z.string().min(1, "source must not be empty"),
+export const VideoElementPropsSchema = BaseBoxPropsSchema.extend({
+  url: z.string().min(1, "url must not be empty"),
   autoPlay: z.boolean().optional(),
   loop: z.boolean().optional(),
-  speed: z.number().optional(),
+  muted: z.boolean().optional(),
+  controls: z.boolean().optional(),
+  contentFit: z.enum(["contain", "cover", "fill"]).optional(),
 });
 
-type LottieUIElement = Extract<UIElement, { type: "Lottie" }>;
+type VideoUIElement = Extract<UIElement, { type: "Video" }>;
 
-let LottieView: React.ComponentType<{
-  source: string | object;
-  autoPlay?: boolean;
-  loop?: boolean;
-  speed?: number;
-  style?: object;
-}> | null = null;
+let VideoElementComponent: React.ComponentType<{ element: VideoUIElement; style: object }> | null = null;
 try {
-  LottieView = require("lottie-react-native").default;
+  const { VideoView, useVideoPlayer } = require("expo-video");
+  VideoElementComponent = ({ element, style }: { element: VideoUIElement; style: object }) => {
+    const player = useVideoPlayer(element.props.url, (p: any) => {
+      p.loop = element.props.loop ?? false;
+      p.muted = element.props.muted ?? true;
+      if (element.props.autoPlay) p.play();
+    });
+
+    useEffect(() => {
+      player.loop = element.props.loop ?? false;
+      player.muted = element.props.muted ?? true;
+      if (element.props.autoPlay) {
+        player.play();
+      } else {
+        player.pause();
+      }
+    }, [element.props.loop, element.props.muted, element.props.autoPlay]);
+
+    return (
+      <VideoView
+        player={player}
+        style={style}
+        allowsFullscreen={false}
+        nativeControls={element.props.controls ?? false}
+        contentFit={element.props.contentFit ?? "contain"}
+      />
+    );
+  };
 } catch {
-  // lottie-react-native not installed
+  // expo-video not installed
 }
 
 type Props = {
-  element: LottieUIElement;
+  element: VideoUIElement;
   ctx: RenderContext;
 };
 
-const LottieElementComponentBase = ({ element, ctx }: Props): React.ReactElement => {
+const VideoElementRendererBase = ({ element, ctx }: Props): React.ReactElement => {
   const { theme } = ctx;
   const wrapperStyle = {
     flex: element.props.flex,
@@ -68,14 +93,14 @@ const LottieElementComponentBase = ({ element, ctx }: Props): React.ReactElement
     overflow: "hidden" as const,
   };
 
-  if (!LottieView) {
+  if (!VideoElementComponent) {
     return (
       <GradientBox
         gradient={element.props.backgroundGradient}
         style={[wrapperStyle, styles.mediaFallback, { backgroundColor: theme.colors.neutral.lowest }] as any}
       >
         <Text style={[styles.mediaFallbackText, getTextStyle(theme, "caption"), { color: theme.colors.text.tertiary }]}>
-          Install lottie-react-native to render Lottie animations.
+          Install expo-video to render videos.
         </Text>
       </GradientBox>
     );
@@ -83,18 +108,12 @@ const LottieElementComponentBase = ({ element, ctx }: Props): React.ReactElement
 
   return (
     <GradientBox gradient={element.props.backgroundGradient} style={wrapperStyle as any}>
-      <LottieView
-        source={{ uri: element.props.source }}
-        autoPlay={element.props.autoPlay ?? true}
-        loop={element.props.loop ?? true}
-        speed={element.props.speed}
-        style={styles.fill}
-      />
+      <VideoElementComponent element={element} style={styles.fill} />
     </GradientBox>
   );
 };
 
-export const LottieElementComponent = React.memo(LottieElementComponentBase, areElementPropsEqual);
+export const VideoElementRenderer = React.memo(VideoElementRendererBase, areElementPropsEqual);
 
 const styles = StyleSheet.create({
   fill: {

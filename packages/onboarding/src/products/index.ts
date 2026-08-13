@@ -12,3 +12,4 @@ export type {
 } from "./types";
 export { parseIsoDuration } from "./duration";
 export { formatCurrency, deriveProductFields, deriveAll } from "./derive";
+export { productVariables } from "./toVariables";

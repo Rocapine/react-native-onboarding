@@ -135,6 +135,42 @@ describe("runActions — purchase", () => {
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
   });
+
+  // A real host (no productProvider configured) still publishes a runtime whose
+  // purchase/restore resolve {status:"error"} — the `!ctx.products` guard above
+  // never fires there. Without this warn, a store-level failure with no `onError`
+  // declared was a completely silent no-op.
+  it("warns with the underlying error when purchase fails and no onError is declared", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const boom = new Error("boom");
+    const products = makeProducts({ purchase: vi.fn(async () => ({ status: "error" as const, error: boom })) });
+    const ctx = makeCtx({ products } as any);
+    await runActions(
+      [{ type: "purchase", product: "yearly", onSuccess: [{ type: "setVariable", name: "bought", value: "yes" }] }],
+      ctx
+    );
+    expect(ctx.getVariables().bought).toBeUndefined();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("purchase"), boom);
+    warn.mockRestore();
+  });
+
+  it("runs onError — and does not warn — when purchase fails with onError declared", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const products = makeProducts({
+      purchase: vi.fn(async () => ({ status: "error" as const, error: new Error("boom") })),
+    });
+    const ctx = makeCtx({ products } as any);
+    await runActions(
+      [{
+        type: "purchase", product: "yearly",
+        onError: [{ type: "setVariable", name: "failed", value: "yes" }],
+      }],
+      ctx
+    );
+    expect(ctx.getVariables().failed.value).toBe("yes");
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
 });
 
 describe("runActions — restore", () => {
@@ -164,5 +200,34 @@ describe("runActions — restore", () => {
     );
     expect(ctx.getVariables().restored).toBeUndefined();
     expect(ctx.getVariables().none.value).toBe("yes");
+  });
+
+  it("warns with the underlying error when restore fails and no onError is declared", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const boom = new Error("boom");
+    const products = makeProducts({ restore: vi.fn(async () => ({ status: "error" as const, error: boom })) });
+    const ctx = makeCtx({ products } as any);
+    await runActions(
+      [{ type: "restore", onSuccess: [{ type: "setVariable", name: "restored", value: "yes" }] }],
+      ctx
+    );
+    expect(ctx.getVariables().restored).toBeUndefined();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("restore"), boom);
+    warn.mockRestore();
+  });
+
+  it("runs onError — and does not warn — when restore fails with onError declared", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const products = makeProducts({
+      restore: vi.fn(async () => ({ status: "error" as const, error: new Error("boom") })),
+    });
+    const ctx = makeCtx({ products } as any);
+    await runActions(
+      [{ type: "restore", onError: [{ type: "setVariable", name: "failed", value: "yes" }] }],
+      ctx
+    );
+    expect(ctx.getVariables().failed.value).toBe("yes");
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
   });
 });

@@ -110,8 +110,14 @@ export async function runActions(
       const result = await runtime.purchase(key);
       if (result.status === "purchased" && act.onSuccess) await runActions(act.onSuccess, ctx);
       else if (result.status === "cancelled" && act.onCancel) await runActions(act.onCancel, ctx);
-      else if (result.status === "error" && act.onError) await runActions(act.onError, ctx);
-      else if (result.status === "pending") {
+      else if (result.status === "error") {
+        if (act.onError) await runActions(act.onError, ctx);
+        else
+          console.warn(
+            "[ComposableScreen] `purchase` failed with no `onError` actions declared:",
+            result.error
+          );
+      } else if (result.status === "pending") {
         console.warn(
           "[ComposableScreen] `purchase` returned pending (e.g. Ask-to-Buy / deferred transaction) — no follow-up actions run. Handle deferred purchases in the host."
         );
@@ -131,7 +137,14 @@ export async function runActions(
       if (result.status === "restored" && act.onSuccess) await runActions(act.onSuccess, ctx);
       else if (result.status === "nothing_to_restore" && act.onNothingToRestore)
         await runActions(act.onNothingToRestore, ctx);
-      else if (result.status === "error" && act.onError) await runActions(act.onError, ctx);
+      else if (result.status === "error") {
+        if (act.onError) await runActions(act.onError, ctx);
+        else
+          console.warn(
+            "[ComposableScreen] `restore` failed with no `onError` actions declared:",
+            result.error
+          );
+      }
       continue;
     }
 

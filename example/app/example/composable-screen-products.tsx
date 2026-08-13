@@ -39,6 +39,7 @@ export default function ComposableScreenProductsExample() {
     type: 'ComposableScreen',
     name: 'Products',
     displayProgressHeader: true,
+    continueButtonLabel: 'Continue',
     payload: {
       elements: [
         {
@@ -64,32 +65,32 @@ export default function ComposableScreenProductsExample() {
                 },
                 {
                   id: 'savings', type: 'Text' as const,
+                  renderWhen: { variable: 'product.yearly.savingsPct', operator: 'is_not_empty' as const },
                   props: {
                     content: 'Save {{product.yearly.savingsPct}}% vs monthly',
                     fontSize: 14, textAlign: 'center' as const, color: '#0A7C3A',
-                    renderWhen: { 'product.yearly.savingsPct': { is_not_empty: true } },
                   },
                 },
                 {
                   id: 'trial', type: 'Text' as const,
+                  renderWhen: { variable: 'product.yearly.trialDays', operator: 'is_not_empty' as const },
                   props: {
                     content: '{{product.yearly.trialDays}}-day free trial',
                     fontSize: 14, textAlign: 'center' as const, opacity: 0.6,
-                    renderWhen: { 'product.yearly.trialDays': { is_not_empty: true } },
                   },
                 },
                 {
                   id: 'loading', type: 'Text' as const,
+                  renderWhen: { variable: 'products.loaded', operator: 'eq' as const, value: 'false' },
                   props: {
                     content: 'Loading plans…', fontSize: 14, textAlign: 'center' as const, opacity: 0.5,
-                    renderWhen: { 'products.loaded': { eq: 'false' } },
                   },
                 },
                 {
                   id: 'plans', type: 'RadioGroup' as const,
+                  renderWhen: { variable: 'products.loaded', operator: 'eq' as const, value: 'true' },
                   props: {
                     variableName: 'plan', defaultValue: 'yearly',
-                    renderWhen: { 'products.loaded': { eq: 'true' } },
                     items: [
                       { value: 'yearly', label: '{{product.yearly.title}} — {{product.yearly.price}}' },
                       { value: 'monthly', label: '{{product.monthly.title}} — {{product.monthly.price}}' },
@@ -98,9 +99,9 @@ export default function ComposableScreenProductsExample() {
                 },
                 {
                   id: 'buy', type: 'Button' as const,
+                  renderWhen: { variable: 'products.loaded', operator: 'eq' as const, value: 'true' },
                   props: {
                     label: 'Start free trial',
-                    renderWhen: { 'products.loaded': { eq: 'true' } },
                     actions: [{ type: 'purchase', product: '{{plan}}' }],
                   },
                 },
@@ -117,11 +118,11 @@ export default function ComposableScreenProductsExample() {
         },
       ],
     },
-  };
+  } satisfies OnboardingUi.ComposableScreenStepType;
 
   return (
     <OnboardingUi.OnboardingPage
-      step={step as any}
+      step={step}
       onContinue={() => router.back()}
     />
   );

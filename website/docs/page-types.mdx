@@ -506,7 +506,7 @@ Every UIElement inherits an optional `transform` and `animation` from `BaseBoxPr
 
 #### `onPress` — make any element tappable (every element)
 
-Every UIElement also inherits an optional `onPress: ButtonAction[]` from `BaseBoxProps` — the **same action list as `Button.actions`** (`"continue"`, `{ type: "setVariable", … }`, `{ type: "custom", … }`, run sequentially, `"continue"` terminal; see the **Button actions** section below). Use it to make a static element react to a tap — a tappable card/`Image`, a logo that advances the flow, a `Text` row that fires a custom action.
+Every UIElement also inherits an optional `onPress: ButtonAction[]` from `BaseBoxProps` — the **same action list as `Button.actions`** (`"continue"`, `{ type: "setVariable", … }`, `{ type: "custom", … }`, `{ type: "purchase", … }`, `{ type: "restore", … }`, run sequentially, `"continue"` terminal; see the **Button actions** section below). Use it to make a static element react to a tap — a tappable card/`Image`, a logo that advances the flow, a `Text` row that fires a custom action.
 
 ```json
 {
@@ -915,14 +915,40 @@ Plain-text children are automatically split into **one item per word** so the ro
 - `"continue"` — advances to the next onboarding step (calls the `onContinue` callback wired to the renderer).
 - `{ type: "custom", function: string, variables?: string[] }` — invokes a developer-injected handler registered on `OnboardingProvider.customActions`. `variables` lists the keys to read from the live ComposableScreen variable map and forward to the handler.
 - `{ type: "setVariable", name: string, value: string, label?: string, valueMode?: "literal" | "expression", kind?: "int" | "float" | "string", arrayOp?: "append" | "remove" | "toggle" }` — writes to the variable map (`{ value, label }`). Pair with `"continue"` to set a discriminator a downstream `nextStep` rule can branch on; the value is visible to the same-tick branch evaluation. With **`arrayOp`** the target is treated as a `CheckboxGroup`-style multi-select (JSON-encoded `string[]`) and `value`/`label` are the single member to `append` (add, dedup), `remove` (drop), or `toggle` (flip — matches a checkbox tap); the stored label stays comma-joined like a real checkbox and `kind` is ignored. This lets any element (via `onPress`) add or remove a chip from a multi-select without a `CheckboxGroup` widget.
+- `{ type: "purchase", product: string, onSuccess?: ButtonAction[], onCancel?: ButtonAction[], onError?: ButtonAction[] }` — buys a resolved store product. `product` is a product slot key (e.g. `"yearly"`) or an interpolable `{{var}}` ref — typically the value a `RadioGroup` bound to `variableName: "plan"` just wrote. Runs `onSuccess` when the purchase completes, `onCancel` when the user backs out, `onError` on a store-level failure; a `"pending"` result (Ask-to-Buy / deferred transaction) runs none of them — the host app owns that case. All three follow-up lists are optional.
+- `{ type: "restore", onSuccess?: ButtonAction[], onNothingToRestore?: ButtonAction[], onError?: ButtonAction[] }` — restores prior purchases. Runs `onSuccess` when a purchase is restored, `onNothingToRestore` when the user had nothing to restore, `onError` on failure. All three follow-up lists are optional.
 
 Execution rules:
 
 - Sequential. Each action awaits the previous before starting.
-- Async-aware. If a custom handler returns a `Promise`, the runtime awaits it.
+- Async-aware. If a custom handler returns a `Promise`, the runtime awaits it. `purchase`/`restore` always await the store round-trip before moving on.
 - `"continue"` is **terminal** — any actions after it are ignored.
 - A thrown error in a custom handler is logged via `console.error` and the remaining chain is aborted.
 - An unknown `function` name (no matching key in `customActions`) emits `console.warn` and the chain skips to the next action.
+- `purchase`/`restore` need a `ProductProvider` configured on `OnboardingProvider`. Without one — or when the runtime resolves `{ status: "error" }` and no `onError` list is declared — the action logs via `console.warn` instead of failing silently.
+
+**Selling with `purchase` / `restore`**
+
+Resolved store products are projected into the same variable map as flat dotted keys, so prices interpolate like any other variable: `product.<slot>.price`, `product.<slot>.pricePerWeek`, `product.<slot>.savingsPct`, `product.<slot>.trialDays`, plus `products.loaded` / `products.purchasing` / `products.error`. **Never author a price into the payload** — always read it from these variables, and gate the plan list / buy button on `products.loaded` so nothing is tappable before products resolve:
+
+```jsonc
+{
+  "id": "buy-yearly",
+  "type": "Button",
+  "renderWhen": { "variable": "products.loaded", "operator": "eq", "value": "true" },
+  "props": {
+    "label": "Start free trial — {{product.yearly.price}}",
+    "actions": [
+      {
+        "type": "purchase",
+        "product": "yearly",
+        "onSuccess": ["continue"],
+        "onError": [{ "type": "custom", "function": "trackPurchaseError" }]
+      }
+    ]
+  }
+}
+```
 
 ```jsonc
 {

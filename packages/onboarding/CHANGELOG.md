@@ -8,6 +8,29 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.61.0] - 2026-08-13
+
+### Added
+
+- **Vendor-neutral product runtime (`src/products/`).** Store subscriptions resolve at runtime through an injected `ProductProvider`, so a screen can display live prices and sell without the SDK depending on any billing vendor. New exports: `ProductProvider`, `ProductRef`, `ResolvedProduct`, `ProductWithDerived`, `ProductRuntime`, `PurchaseResult`, `RestoreResult`, `useProducts`, `deriveAll`, `deriveProductFields`, `formatCurrency`, `parseIsoDuration`, `productVariables`.
+- **Three providers, none a dependency.** `revenueCatProductProvider`, `expoIapProductProvider`, and `stubProductProvider` (demos and previews only). `react-native-purchases` and `expo-iap` are loaded via `try { require() } catch` and are neither dependencies nor peer dependencies — absent, the adapter throws a clear error at call time rather than at import time.
+- **Derived price fields are computed centrally**, not by adapters, so every provider yields identical numbers and formatting: `pricePerWeek`/`Month`/`Year` (string + amount), `savingsPct` (against a declared `compareTo` slot, normalized per day), `trialDays`.
+- **Products project into the variable bag as flat dotted keys** — `product.<slot>.price`, `product.<slot>.pricePerWeek`, `product.<slot>.savingsPct`, plus `products.loaded` / `products.purchasing` / `products.error`. `interpolate()` and `evaluateCondition` both resolve keys by flat lookup, so `{{product.yearly.price}}` and `renderWhen` on `products.loaded` work with no rendering-engine change.
+- **`purchase` and `restore` press actions** on `ButtonAction`. `purchase` interpolates its `product` field, so a `RadioGroup` writing `plan` can drive `{ type: "purchase", product: "{{plan}}" }`. Both accept `onSuccess` / `onError` follow-up action arrays (`purchase` also `onCancel`; `restore` also `onNothingToRestore`), which are full `ButtonAction[]` — so `"continue"` nested inside one still works.
+- **`OnboardingProvider` accepts `productProvider` and `productRefs`** (both optional) and publishes a `products: ProductRuntime` on its context.
+
+### Changed
+
+- **`ButtonActionSchema` is now `z.ZodType<ButtonAction>` rather than `z.ZodUnion`.** The union became recursive when the follow-up action arrays were added, so it is declared with `z.lazy` and an explicit type annotation. Union-specific introspection (`.options`) is no longer available on it; parsing behaviour is unchanged.
+
+### Notes
+
+- Prices are never CMS data. Every displayed price comes from a `ProductProvider` — App Review rejects a paywall whose displayed price differs from the store. `stubProductProvider` exists for demos only and must never back a shipped paywall.
+- A host that passes neither `productProvider` nor `productRefs` is unaffected: `useProducts` returns a referentially stable object forever after mount, so element memoization is preserved. Such apps do gain three variables in the bag (`products.loaded` = `"false"`, `products.purchasing` = `"false"`, `products.error` = `""`), computed once per screen mount.
+- `dismiss` and `presentPaywall` actions are deliberately **not** included — they need a paywall host that does not exist yet, and shipping them as no-ops would let authors wire buttons that do nothing.
+
+---
+
 ## [1.60.0] - 2026-08-13
 
 ### Added

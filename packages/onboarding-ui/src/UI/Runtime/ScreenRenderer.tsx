@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef } from "react";
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from "react-native";
+import { productVariables } from "@rocapine/react-native-onboarding";
 import type { UIElement } from "./types";
 import type { ScreenHost } from "./ScreenHost";
 import { useTheme } from "../Theme/useTheme";
@@ -8,7 +9,7 @@ import { renderElement } from "./elements/renderElement";
 import { VariablesContext } from "./elements/VariablesContext";
 import { AnimatedVariablesContext, useAnimatedVariablesRegistry } from "./elements/AnimatedVariablesContext";
 import { collectElementDefaults } from "./elements/collectDefaults";
-import { mergeVariables, flattenVariables } from "./variables";
+import { mergeVariables, flattenVariables, withProductVariables } from "./variables";
 
 export type ScreenRendererProps = {
   /**
@@ -39,15 +40,20 @@ type ParentType = "XStack" | "YStack" | "ZStack" | "RichText" | "XScroll";
  */
 export const ScreenRenderer = ({ elements, host }: ScreenRendererProps) => {
   const { theme } = useTheme();
-  const { variables: hostVariables, setVariable, complete, customActions, keyboardVerticalOffset } = host;
+  const { variables: hostVariables, setVariable, complete, customActions, products, keyboardVerticalOffset } = host;
 
   // Defaults declared inline on UIElements are overlaid BENEATH the host store so
   // renderWhen / {{var}} interpolation see them on first render, before per-element
-  // seeding effects run. Host values always win.
+  // seeding effects run. Host values always win — except resolved product
+  // variables, which win over everything (see withProductVariables).
   const elementDefaults = useMemo(() => collectElementDefaults(elements), [elements]);
+  const productVars = useMemo(
+    () => (products ? productVariables(products) : undefined),
+    [products]
+  );
   const effectiveVariables = useMemo(
-    () => mergeVariables(elementDefaults, hostVariables),
-    [elementDefaults, hostVariables]
+    () => withProductVariables(mergeVariables(elementDefaults, hostVariables), productVars),
+    [elementDefaults, hostVariables, productVars]
   );
   const flatVariables = useMemo(() => flattenVariables(effectiveVariables), [effectiveVariables]);
 
@@ -82,9 +88,10 @@ export const ScreenRenderer = ({ elements, host }: ScreenRendererProps) => {
       setVariable,
       onContinue: stableOnContinue,
       customActions,
+      products,
       renderChildren,
     }),
-    [theme, getVariables, setVariable, stableOnContinue, customActions, renderChildren]
+    [theme, getVariables, setVariable, stableOnContinue, customActions, products, renderChildren]
   );
   ctxRef.current = ctx;
 

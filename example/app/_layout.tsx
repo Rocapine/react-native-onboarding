@@ -11,6 +11,7 @@ import { OnboardingProgressProvider } from "@rocapine/react-native-onboarding-ui
 import { Dimensions } from "react-native";
 import { configureReanimatedLogger, ReanimatedLogLevel } from "react-native-reanimated";
 import { LocaleProvider, useLocale } from "../contexts/locale-context";
+import { REFS as PRODUCT_REFS, provider as productProvider } from "./example/composable-screen-products";
 
 configureReanimatedLogger({ level: ReanimatedLogLevel.warn, strict: false });
 
@@ -58,6 +59,8 @@ function OnboardingProviderWithLocale() {
     <OnboardingProvider
       client={client}
       locale={locale}
+      productProvider={productProvider}
+      productRefs={PRODUCT_REFS}
       customAudienceParams={{
       }}
       customActions={{

@@ -170,3 +170,24 @@ Page Renderer is intentionally a plain `View flex:1` inside `KeyboardAvoidingVie
 ## UI press-action dispatch (`runActions`)
 
 `elements/runActions.ts` runs a `ButtonAction[]` (continue / setVariable / custom) — shared by `Button.actions` and the generic `onPress`. It lives in its **own** module, NOT `shared.ts`: `shared.ts` ↔ `expression.ts` already form a cycle (`expression` imports `interpolate` from `shared`) and `runActions` needs both. `ButtonAction` types/schemas are the leaf `elements/actions.ts` (UI mirror of headless `common.types.ts`) so `BaseBoxProps.ts` + `runActions.ts` import them cycle-free. `setVariable` `arrayOp` (`append`/`remove`/`toggle`) operates on the JSON-`string[]` CheckboxGroup encoding — value = `JSON.stringify(values)`, label = comma-joined members.
+
+## Product variables
+
+Resolved store products are projected into the variable bag as FLAT DOTTED KEYS
+(`product.<slot>.price`, `product.<slot>.pricePerWeek`, `product.<slot>.savingsPct`,
+plus `products.loaded` / `products.purchasing` / `products.error`). `interpolate()`
+and `evaluateCondition` both do a flat `variables[key]` lookup, so this needs no
+engine change — `{{product.yearly.price}}` and
+`renderWhen: { "products.loaded": { eq: "true" } }` just work.
+
+Products OVERLAY the merged bag and win over author variables
+(`withProductVariables` in `Runtime/variables.ts`): they are facts read from the
+store, and a displayed price must match what StoreKit charges.
+
+**Never render a price the CMS supplied.** Prices come only from a
+`ProductProvider`. When resolution fails, `products.loaded` is `"false"` — gate
+the CTA on it.
+
+`ProductRuntime` sits in `RenderContext`, so it must be referentially stable
+across variable writes; `useProducts` memoizes it on its contents. An unstable
+one re-renders every memoized element on every write, and nothing type-checks it.

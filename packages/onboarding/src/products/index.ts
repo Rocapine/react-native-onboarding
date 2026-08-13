@@ -14,3 +14,6 @@ export { parseIsoDuration } from "./duration";
 export { formatCurrency, deriveProductFields, deriveAll } from "./derive";
 export { productVariables } from "./toVariables";
 export { useProducts } from "./useProducts";
+export { stubProductProvider } from "./adapters/stub";
+export { revenueCatProductProvider } from "./adapters/revenueCat";
+export { expoIapProductProvider } from "./adapters/expoIap";

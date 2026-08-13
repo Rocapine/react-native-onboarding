@@ -80,7 +80,11 @@ export const ScreenRenderer = ({ elements, host }: ScreenRendererProps) => {
     []
   );
 
-  // Stable across variable writes; changes only on a theme switch.
+  // Stable across variable writes; changes only on a theme switch — PROVIDED the
+  // host's `products` is itself referentially stable (the contract is on
+  // ScreenHost.products, not enforced here). A host that hands in a fresh
+  // ProductRuntime object each render makes this ctx churn on every render too,
+  // and every memoized element re-renders with it. Nothing here catches that.
   const ctx: RenderContext = useMemo(
     () => ({
       theme,

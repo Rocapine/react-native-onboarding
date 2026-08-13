@@ -40,8 +40,11 @@ describe("formatCurrency", () => {
     expect(formatCurrency(1.15, "USD", "en-US")).toBe("$1.15");
   });
 
-  it("does not throw on an unknown currency code", () => {
-    expect(() => formatCurrency(5, "XYZ", "en-US")).not.toThrow();
+  it("falls back to a plain amount+code string when Intl rejects the currency code", () => {
+    // "XYZ" is syntactically valid (3 letters) and Intl accepts it even though it's
+    // not a real currency, so it never exercises the catch branch. "ZZZZZZ" is the
+    // wrong shape and Intl genuinely throws on it.
+    expect(formatCurrency(5, "ZZZZZZ", "en-US")).toBe("5.00 ZZZZZZ");
   });
 });
 

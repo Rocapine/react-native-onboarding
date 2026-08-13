@@ -20,6 +20,19 @@ const yearly: ProductWithDerived = {
   trialDays: 7,
 };
 
+// Every optional field populated, so the dotted-key test below catches both a
+// typo in an emitted key and an accidentally-dropped field.
+const complete: ProductWithDerived = {
+  ...yearly,
+  key: "complete",
+  productId: "com.app.complete",
+  pricePerMonth: "$4.93",
+  pricePerMonthAmount: 4.9307,
+  pricePerYear: "$59.99",
+  pricePerYearAmount: 59.99,
+  introOffer: { price: "$0.99", priceAmount: 0.99, period: "month", periodCount: 1, cycles: 1 },
+};
+
 describe("productVariables", () => {
   it("emits flat dotted keys the interpolator can resolve", () => {
     const v = productVariables({ products: { yearly }, status: "ready", purchasing: false });
@@ -38,6 +51,34 @@ describe("productVariables", () => {
     }
   });
 
+  it("emits the complete set of dotted keys for a fully-populated product", () => {
+    const v = productVariables({ products: { complete }, status: "ready", purchasing: false });
+    expect(Object.keys(v).sort()).toEqual(
+      [
+        "product.complete.productId",
+        "product.complete.title",
+        "product.complete.description",
+        "product.complete.price",
+        "product.complete.priceAmount",
+        "product.complete.currencyCode",
+        "product.complete.period",
+        "product.complete.periodCount",
+        "product.complete.pricePerWeek",
+        "product.complete.pricePerWeekAmount",
+        "product.complete.pricePerMonth",
+        "product.complete.pricePerMonthAmount",
+        "product.complete.pricePerYear",
+        "product.complete.pricePerYearAmount",
+        "product.complete.savingsPct",
+        "product.complete.trialDays",
+        "product.complete.introPrice",
+        "products.loaded",
+        "products.purchasing",
+        "products.error",
+      ].sort()
+    );
+  });
+
   it("omits absent optional fields rather than emitting empty strings", () => {
     const bare = { ...yearly, savingsPct: undefined, trialDays: undefined };
     const v = productVariables({ products: { yearly: bare }, status: "ready", purchasing: false });
@@ -49,6 +90,7 @@ describe("productVariables", () => {
     const ready = productVariables({ products: {}, status: "ready", purchasing: false });
     expect(ready["products.loaded"].value).toBe("true");
     expect(ready["products.purchasing"].value).toBe("false");
+    expect(ready["products.error"].value).toBe("");
 
     const failed = productVariables({
       products: {},

@@ -8,8 +8,12 @@ import type { ProductRuntime } from "./types";
  * the same way, so this needs no engine change.
  *
  * Optional fields are OMITTED when absent rather than emitted empty: a missing
- * key interpolates to "" anyway, but an absent key also makes
- * `renderWhen: { "product.x.savingsPct": { is_not_empty: true } }` behave.
+ * key interpolates to "" anyway, but `evaluateCondition`'s `is_empty`/
+ * `is_not_empty` treat an empty string identically to a missing key, so that
+ * pair doesn't actually depend on this. It's `is_null`/`is_not_null` that do —
+ * they only treat null/undefined as null, so an emitted `""` would read as
+ * "not null" — so omitting is what makes
+ * `renderWhen: { "product.x.savingsPct": { is_not_null: true } }` behave.
  */
 export const productVariables = (
   runtime: Pick<ProductRuntime, "products" | "status" | "error" | "purchasing">

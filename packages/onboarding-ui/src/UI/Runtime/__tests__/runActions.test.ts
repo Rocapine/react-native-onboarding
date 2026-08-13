@@ -99,6 +99,23 @@ describe("runActions — purchase", () => {
     expect(ctx.getVariables().bailed.value).toBe("yes");
   });
 
+  // Ask-to-Buy / deferred transactions resolve "pending" — the purchase is
+  // genuinely in flight, so this must warn rather than silently doing nothing.
+  it("warns and runs no follow-up actions when the purchase is pending", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const products = makeProducts({ purchase: vi.fn(async () => ({ status: "pending" as const })) });
+    const ctx = makeCtx({ products } as any);
+    await expect(
+      runActions(
+        [{ type: "purchase", product: "yearly", onSuccess: [{ type: "setVariable", name: "bought", value: "yes" }] }],
+        ctx
+      )
+    ).resolves.toBeUndefined();
+    expect(ctx.getVariables().bought).toBeUndefined();
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
   // Without a provider the action must be inert and loud, never a silent no-op
   // that looks like a working buy button.
   it("warns and does not throw when no product runtime is present", async () => {

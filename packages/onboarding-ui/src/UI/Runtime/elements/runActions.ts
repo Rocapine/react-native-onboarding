@@ -111,6 +111,11 @@ export async function runActions(
       if (result.status === "purchased" && act.onSuccess) await runActions(act.onSuccess, ctx);
       else if (result.status === "cancelled" && act.onCancel) await runActions(act.onCancel, ctx);
       else if (result.status === "error" && act.onError) await runActions(act.onError, ctx);
+      else if (result.status === "pending") {
+        console.warn(
+          "[ComposableScreen] `purchase` returned pending (e.g. Ask-to-Buy / deferred transaction) — no follow-up actions run. Handle deferred purchases in the host."
+        );
+      }
       continue;
     }
 

@@ -77,3 +77,5 @@ export {
   isUnaryConditionOperator,
   ONBOARDING_END_STEP_ID,
 } from "./steps/common.types";
+// Product runtime (paywall phase 3) — vendor-neutral store products
+export * from "./products";

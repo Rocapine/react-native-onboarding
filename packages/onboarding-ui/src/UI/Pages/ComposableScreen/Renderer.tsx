@@ -29,7 +29,7 @@ const ComposableScreenRendererBase = ({ step, onContinue, keyboardVerticalOffset
   const validatedData = useMemo(() => ComposableScreenStepTypeSchema.parse(step), [step]);
   const { elements } = validatedData.payload;
   const { composableVariables, setComposableVariable } = useContext(OnboardingProgressContext);
-  const { setVariable: setHeadlessVariable, customActions } = useContext(HeadlessProgressContext);
+  const { setVariable: setHeadlessVariable, customActions, products } = useContext(HeadlessProgressContext);
 
   // Writes go to both stores: the UI store drives rendering, the headless store
   // drives step branching (resolveNextStepNumber).
@@ -47,9 +47,10 @@ const ComposableScreenRendererBase = ({ step, onContinue, keyboardVerticalOffset
       setVariable: setVariableAndSync,
       complete: onContinue,
       customActions,
+      products,
       keyboardVerticalOffset: keyboardVerticalOffset ?? headerHeight,
     }),
-    [composableVariables, setVariableAndSync, onContinue, customActions, keyboardVerticalOffset, headerHeight]
+    [composableVariables, setVariableAndSync, onContinue, customActions, products, keyboardVerticalOffset, headerHeight]
   );
 
   return (

@@ -9,6 +9,25 @@ here.
 
 ---
 
+## [1.61.0] - 2026-08-13
+
+### Added
+
+- **`ScreenHost.products` — the renderer can now surface live store prices.** `ScreenHost` and `RenderContext` gain an optional `products?: ProductRuntime`. `ScreenRenderer` overlays the resolved products into the variable bag (via `withProductVariables`), so any existing element interpolates them: `{{product.yearly.pricePerWeek}}`, `renderWhen` on `products.loaded`, and so on. No new element type was needed.
+- **`purchase` and `restore` dispatch in `runActions`.** Both read `ctx.products`. Follow-up arrays (`onSuccess` / `onCancel` / `onNothingToRestore` / `onError`) are full `ButtonAction[]` run through a nested dispatch, so a `"continue"` inside `onSuccess` still works and stays terminal for that nested run.
+- **`withProductVariables`** (`Runtime/variables.ts`) — pure overlay in which product values **win** over author variables. Prices are facts read from the store; a displayed price must match what the store charges.
+
+### Changed
+
+- **Product actions never fail silently.** `purchase` and `restore` warn rather than no-op when there is no product runtime, when the named product slot is unresolved, when the result is `pending` (Ask-to-Buy / deferred transactions), and when the result is an error with no `onError` arm declared. A silent no-op is indistinguishable from a working buy button.
+
+### Notes
+
+- `ProductRuntime` sits in `RenderContext`'s dependency array, so it **must** be referentially stable across variable writes — `useProducts` guarantees this. An unstable one re-renders every memoized element on every write, and no type error or test in this repo catches it. The contract is documented on `ScreenHost.products` and at the `ctx` memo in `ScreenRenderer.tsx`.
+- Onboarding behaviour is unchanged for hosts without billing; see the headless `1.61.0` notes.
+
+---
+
 ## [1.60.0] - 2026-08-13
 
 ### Added

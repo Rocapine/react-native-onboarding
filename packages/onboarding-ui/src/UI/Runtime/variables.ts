@@ -19,3 +19,14 @@ export const flattenVariables = (
   variables: Record<string, ComposableVariableEntry>
 ): Record<string, unknown> =>
   Object.fromEntries(Object.entries(variables).map(([k, v]) => [k, v?.value]));
+
+/**
+ * Overlay resolved-product variables on top of the merged bag. Products WIN over
+ * author variables: they are facts read from the store, and a displayed price
+ * must match what StoreKit charges (spec §2.2).
+ */
+export const withProductVariables = (
+  base: Record<string, ComposableVariableEntry>,
+  productVariables: Record<string, ComposableVariableEntry> | undefined
+): Record<string, ComposableVariableEntry> =>
+  productVariables ? { ...base, ...productVariables } : base;

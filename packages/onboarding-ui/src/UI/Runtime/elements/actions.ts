@@ -44,10 +44,54 @@ export const SetVariableButtonActionSchema = z.object({
   arrayOp: z.enum(["append", "remove", "toggle"]).optional(),
 });
 
-export type ButtonAction = "continue" | CustomButtonAction | SetVariableButtonAction;
+export type PurchaseButtonAction = {
+  type: "purchase";
+  /** A product slot key, or an interpolable ref like "{{plan}}". */
+  product: string;
+  onSuccess?: ButtonAction[];
+  onCancel?: ButtonAction[];
+  onError?: ButtonAction[];
+};
 
-export const ButtonActionSchema = z.union([
-  z.literal("continue"),
-  CustomButtonActionSchema,
-  SetVariableButtonActionSchema,
-]);
+export type RestoreButtonAction = {
+  type: "restore";
+  onSuccess?: ButtonAction[];
+  onNothingToRestore?: ButtonAction[];
+  onError?: ButtonAction[];
+};
+
+export type ButtonAction =
+  | "continue"
+  | CustomButtonAction
+  | SetVariableButtonAction
+  | PurchaseButtonAction
+  | RestoreButtonAction;
+
+export const PurchaseButtonActionSchema: z.ZodType<PurchaseButtonAction> = z.lazy(() =>
+  z.object({
+    type: z.literal("purchase"),
+    product: z.string().min(1, "product must not be empty"),
+    onSuccess: z.array(ButtonActionSchema).optional(),
+    onCancel: z.array(ButtonActionSchema).optional(),
+    onError: z.array(ButtonActionSchema).optional(),
+  })
+);
+
+export const RestoreButtonActionSchema: z.ZodType<RestoreButtonAction> = z.lazy(() =>
+  z.object({
+    type: z.literal("restore"),
+    onSuccess: z.array(ButtonActionSchema).optional(),
+    onNothingToRestore: z.array(ButtonActionSchema).optional(),
+    onError: z.array(ButtonActionSchema).optional(),
+  })
+);
+
+export const ButtonActionSchema: z.ZodType<ButtonAction> = z.lazy(() =>
+  z.union([
+    z.literal("continue"),
+    CustomButtonActionSchema,
+    SetVariableButtonActionSchema,
+    PurchaseButtonActionSchema,
+    RestoreButtonActionSchema,
+  ])
+);

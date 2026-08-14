@@ -138,6 +138,8 @@ UI package optional peer deps (install only if using feature):
 
 Optional dep for a press-time **side-effect** (not a visual element): wrap in a `try { require() } catch` helper that no-ops when absent (precedent: `Runtime/elements/haptics.ts` — `triggerHaptic`). Don't throw; the feature is opt-in and silent without the dep.
 
+`react-native-purchases` and `expo-iap` are optional too, but live in the **headless** package: `packages/onboarding/src/products/adapters/{revenueCat,expoIap}.ts` dynamically `require()` them the same way. Neither is a peer dep — absent, the adapter throws a clear error at call time instead of at import time.
+
 ## Updating ComposableScreen UIElement Schema
 
 **Element schemas live in `packages/onboarding/src/screens/elements/` (headless)

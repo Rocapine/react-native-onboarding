@@ -33,6 +33,7 @@ const examples: Example[] = [
       { name: "Animations", route: "/example/composable-screen-animations" },
       { name: "Entering + Transform", route: "/example/composable-screen-anim-transform" },
       { name: "Re-render Isolation", route: "/example/composable-screen-rerender" },
+      { name: "Products", route: "/example/composable-screen-products" },
       { name: "All", route: "/example/composable-screen" },
     ],
   },

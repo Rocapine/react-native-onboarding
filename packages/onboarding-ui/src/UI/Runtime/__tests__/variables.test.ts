@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mergeVariables, flattenVariables } from "../variables";
+import { mergeVariables, flattenVariables, withProductVariables } from "../variables";
 
 describe("mergeVariables", () => {
   it("overlays host values on top of element defaults", () => {
@@ -36,5 +36,30 @@ describe("flattenVariables", () => {
 
   it("returns an empty object for no variables", () => {
     expect(flattenVariables({})).toEqual({});
+  });
+});
+
+describe("withProductVariables", () => {
+  it("overlays product variables on top of the merged bag", () => {
+    const base = { plan: { value: "yearly" } };
+    const products = { "product.yearly.price": { value: "$59.99" } };
+    expect(withProductVariables(base, products)).toEqual({
+      plan: { value: "yearly" },
+      "product.yearly.price": { value: "$59.99" },
+    });
+  });
+
+  // Products are resolved facts from the store, not user state. If an author
+  // ever writes a colliding key, the store value must still win — otherwise a
+  // stale or spoofed price could render, which is an App Review problem.
+  it("lets product values win over a colliding author variable", () => {
+    const base = { "product.yearly.price": { value: "$0.00" } };
+    const products = { "product.yearly.price": { value: "$59.99" } };
+    expect(withProductVariables(base, products)["product.yearly.price"].value).toBe("$59.99");
+  });
+
+  it("returns the base unchanged when there are no product variables", () => {
+    const base = { plan: { value: "yearly" } };
+    expect(withProductVariables(base, undefined)).toEqual(base);
   });
 });

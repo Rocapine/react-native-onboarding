@@ -52,7 +52,7 @@ this reference has claimed that twice about props that shipped.
 | `Lottie` / `Rive` / `Video` | Animated media |
 | `Icon` | Vector icon |
 | `Input` | Text input bound to a variable |
-| `Button` | Triggers a `ButtonAction` (continue, setVariable, custom) |
+| `Button` | Triggers a `ButtonAction` (continue, setVariable, custom, purchase, restore) |
 | `RadioGroup` / `CheckboxGroup` | Bound to a variable |
 | `DatePicker` | Date/time input bound to a variable; `mode` (`date`/`time`/`datetime`), `format` (Intl options subset → label format, e.g. `{hour:"2-digit",minute:"2-digit",hour12:false}` for 24h) |
 | `WheelPicker` | Scrolling wheel selector bound to a variable (needs `@react-native-picker/picker`) |
@@ -175,8 +175,12 @@ Reference variables from `Text` ONLY when `Text.props.mode === "expression"`. Th
 - `{ "type": "custom", "function": "name", "variables": ["a","b"] }` — emit to host. Host wires the implementation.
 - `{ "type": "setVariable", "name": "counter", "value": "{{counter}} + 1", "valueMode": "expression" }` — write a variable. `valueMode: "expression"` triggers interpolation + numeric coercion based on the variable's runtime `kind`.
 - `{ "type": "setVariable", "name": "goals", "value": "sleep", "label": "Sleep", "arrayOp": "append" }` — multi-select set operation on a `CheckboxGroup`-style variable (JSON-encoded `string[]`). `arrayOp`: `"append"` (add, dedup — no-op if present), `"remove"` (drop), `"toggle"` (flip, like a checkbox tap). `value`/`label` are the single member added/removed; the variable's label stays comma-joined like a real checkbox. Use this to add/remove a chip from a multi-select without a `CheckboxGroup` widget. `kind` is ignored (stored value is always a JSON string).
+- `{ "type": "purchase", "product": "{{plan}}", "onSuccess": [...], "onCancel": [...], "onError": [...] }` — buy a resolved store product. `product` is a product slot key (e.g. `"yearly"`) or an interpolable `{{var}}` ref (typically the value a `RadioGroup` bound to `variableName: "plan"` just wrote). Runs `onSuccess` on `"purchased"`, `onCancel` on `"cancelled"`, `onError` on `"error"`; a `"pending"` result (e.g. Ask-to-Buy) runs nothing and the host must handle it. All three follow-up arrays are optional `ButtonAction[]`.
+- `{ "type": "restore", "onSuccess": [...], "onNothingToRestore": [...], "onError": [...] }` — restore prior purchases. Runs `onSuccess` on `"restored"`, `onNothingToRestore` when there was nothing to restore, `onError` on `"error"`. All three follow-up arrays are optional `ButtonAction[]`.
 
-The headless Zod schema enumerates all three: `"continue" | CustomButtonAction | SetVariableButtonAction` (`ButtonAction` in `common.types.ts`, re-exported from `ButtonElement.ts`). `setVariable` also accepts `kind: "int" | "float" | "string"` to tag the stored variable's type (overwrite mode only) and `arrayOp: "append" | "remove" | "toggle"` for multi-select collections. The **same `ButtonAction[]` shape** is reusable as `onPress` on any non-pressable element — see [onPress](#onpress--make-any-element-tappable-every-element).
+Both `purchase` and `restore` need a `ProductProvider` wired into `OnboardingProvider` to resolve real store products — never author a price into the payload; read it from the runtime's projected variables instead (`product.<slot>.price`, `product.<slot>.pricePerWeek`, `product.<slot>.savingsPct`, `product.<slot>.trialDays`, `products.loaded`). Gate any plan list / buy CTA on `products.loaded` being `"true"` via `renderWhen` so nothing is tappable before products resolve.
+
+The headless Zod schema enumerates all five: `"continue" | CustomButtonAction | SetVariableButtonAction | PurchaseButtonAction | RestoreButtonAction` (`ButtonAction` in `common.types.ts`, re-exported from `ButtonElement.ts`). `setVariable` also accepts `kind: "int" | "float" | "string"` to tag the stored variable's type (overwrite mode only) and `arrayOp: "append" | "remove" | "toggle"` for multi-select collections. The **same `ButtonAction[]` shape** is reusable as `onPress` on any non-pressable element — see [onPress](#onpress--make-any-element-tappable-every-element).
 
 ## Disabling continue conditionally
 

@@ -4,6 +4,7 @@ import type {
 } from "@rocapine/react-native-onboarding";
 import type { ButtonAction } from "./actions";
 import type { RenderContext } from "./shared";
+import { interpolate } from "./shared";
 import { evaluateSetVariableExpression } from "./expression";
 
 // Decode a multi-select variable's stored value (JSON-encoded string[], as
@@ -91,6 +92,62 @@ export async function runActions(
       setVariable(act.name, { value, label: act.label, kind });
       continue;
     }
+    if (act.type === "purchase") {
+      const runtime = ctx.products;
+      if (!runtime) {
+        console.warn(
+          "[ComposableScreen] `purchase` action with no ProductProvider — pass one to OnboardingProvider."
+        );
+        continue;
+      }
+      const key = interpolate(act.product, variables).trim();
+      if (!runtime.products[key]) {
+        console.warn(
+          `[ComposableScreen] \`purchase\` action: no resolved product for key "${key}".`
+        );
+        continue;
+      }
+      const result = await runtime.purchase(key);
+      if (result.status === "purchased" && act.onSuccess) await runActions(act.onSuccess, ctx);
+      else if (result.status === "cancelled" && act.onCancel) await runActions(act.onCancel, ctx);
+      else if (result.status === "error") {
+        if (act.onError) await runActions(act.onError, ctx);
+        else
+          console.warn(
+            "[ComposableScreen] `purchase` failed with no `onError` actions declared:",
+            result.error
+          );
+      } else if (result.status === "pending") {
+        console.warn(
+          "[ComposableScreen] `purchase` returned pending (e.g. Ask-to-Buy / deferred transaction) — no follow-up actions run. Handle deferred purchases in the host."
+        );
+      }
+      continue;
+    }
+
+    if (act.type === "restore") {
+      const runtime = ctx.products;
+      if (!runtime) {
+        console.warn(
+          "[ComposableScreen] `restore` action with no ProductProvider — pass one to OnboardingProvider."
+        );
+        continue;
+      }
+      const result = await runtime.restore();
+      if (result.status === "restored" && act.onSuccess) await runActions(act.onSuccess, ctx);
+      else if (result.status === "nothing_to_restore" && act.onNothingToRestore)
+        await runActions(act.onNothingToRestore, ctx);
+      else if (result.status === "error") {
+        if (act.onError) await runActions(act.onError, ctx);
+        else
+          console.warn(
+            "[ComposableScreen] `restore` failed with no `onError` actions declared:",
+            result.error
+          );
+      }
+      continue;
+    }
+
     const handler = customActions[act.function];
     if (!handler) {
       console.warn(

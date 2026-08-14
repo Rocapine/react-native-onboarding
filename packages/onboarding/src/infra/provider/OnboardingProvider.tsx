@@ -10,6 +10,8 @@ import { extractAssetUrls } from "../preload/extractAssetUrls";
 import { preloadAssets } from "../preload/preloadAssets";
 import { OnboardingNavigationAdapter } from "../navigation/types";
 import { expoRouterAdapter } from "../navigation/expoRouterAdapter";
+import { useProducts } from "../../products/useProducts";
+import { ProductProvider, ProductRef, ProductRuntime } from "../../products/types";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -18,6 +20,17 @@ const queryClient = new QueryClient({
     },
   },
 })
+
+// Module-scope so the context default is referentially stable — an inline
+// object literal here would allocate a fresh value on every read of the
+// default, defeating the same stability contract useProducts upholds.
+const EMPTY_PRODUCT_RUNTIME: ProductRuntime = {
+  products: {},
+  status: "idle",
+  purchasing: false,
+  purchase: async () => ({ status: "error", error: new Error("No ProductProvider") }),
+  restore: async () => ({ status: "error", error: new Error("No ProductProvider") }),
+};
 
 export type CustomActionHandler = (args: {
   variables: Record<string, ComposableVariableEntry | undefined>;
@@ -81,6 +94,15 @@ interface OnboardingProviderProps {
    * logic (mark onboarding done, navigate to paywall/home, etc.). Optional.
    */
   onComplete?: OnboardingCompleteHandler;
+  /**
+   * Billing adapter. Omit for an app with no paywall. Must be a stable reference.
+   */
+  productProvider?: ProductProvider;
+  /**
+   * Product slots to resolve at mount, e.g.
+   * `[{ key: "yearly", ios: "com.app.yr", android: "com.app.yr:p1y", compareTo: "monthly" }]`.
+   */
+  productRefs?: ProductRef[];
 }
 
 interface OnboardingDataGateProps {
@@ -135,6 +157,8 @@ export const OnboardingProvider = ({
   fontsFallback,
   navigation = expoRouterAdapter,
   onComplete,
+  productProvider,
+  productRefs,
 }: OnboardingProviderProps) => {
   const [activeStep, setActiveStep] = useState({
     number: 0,
@@ -177,6 +201,8 @@ export const OnboardingProvider = ({
     });
   }, [onComplete, onboarding]);
 
+  const productRuntime = useProducts(productRefs, productProvider, locale);
+
   return (
     <QueryClientProvider client={queryClient}>
       <OnboardingProgressContext.Provider
@@ -198,6 +224,7 @@ export const OnboardingProvider = ({
           completeOnboarding,
           customActions,
           navigation,
+          products: productRuntime,
         }}
       >
         <OnboardingDataGate
@@ -232,6 +259,7 @@ export const OnboardingProgressContext = createContext<{
   completeOnboarding: () => void;
   customActions: CustomActions;
   navigation: OnboardingNavigationAdapter;
+  products: ProductRuntime;
 }>({
   activeStep: { number: 0, displayProgressHeader: false },
   setActiveStep: () => { },
@@ -250,4 +278,5 @@ export const OnboardingProgressContext = createContext<{
   completeOnboarding: () => { },
   customActions: {},
   navigation: expoRouterAdapter,
+  products: EMPTY_PRODUCT_RUNTIME,
 });

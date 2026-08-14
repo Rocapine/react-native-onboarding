@@ -1,5 +1,5 @@
 import React from "react";
-import { CustomActions } from "@rocapine/react-native-onboarding";
+import { CustomActions, ProductRuntime } from "@rocapine/react-native-onboarding";
 import { UIElement } from "../types";
 import { Theme } from "../../Theme/types";
 import type { ComposableVariableEntry } from "@rocapine/react-native-onboarding";
@@ -16,6 +16,8 @@ export type RenderContext = {
   setVariable: (key: string, entry: ComposableVariableEntry) => void;
   onContinue: () => void;
   customActions: CustomActions;
+  /** Product runtime for `purchase` / `restore` actions. Undefined without billing. */
+  products?: ProductRuntime;
   renderChildren: (elements: UIElement[], parentType: "XStack" | "YStack" | "ZStack" | "RichText" | "XScroll") => React.ReactNode;
 };
 

@@ -12,6 +12,7 @@ import { OnboardingNavigationAdapter } from "../navigation/types";
 import { expoRouterAdapter } from "../navigation/expoRouterAdapter";
 import { useProducts } from "../../products/useProducts";
 import { ProductProvider, ProductRef, ProductRuntime } from "../../products/types";
+import { useProductRuntime } from "../../products/ProductRuntimeContext";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -31,6 +32,37 @@ const EMPTY_PRODUCT_RUNTIME: ProductRuntime = {
   purchase: async () => ({ status: "error", error: new Error("No ProductProvider") }),
   restore: async () => ({ status: "error", error: new Error("No ProductProvider") }),
 };
+
+// Stable empty ref set fed to the local `useProducts` call when a
+// ProductRuntime already comes from context — an inline `[]` would be a fresh
+// array every render, and while `useProducts`' effect keys on ref *content*
+// (not identity) so that alone wouldn't cause a refetch loop, there's no
+// reason to allocate one per render either.
+const EMPTY_PRODUCT_REFS: ProductRef[] = [];
+
+/**
+ * Args for the local `useProducts` call, given whatever a `PaywallProvider`
+ * (or other ancestor) already published via `ProductRuntimeContext`.
+ *
+ * Exported so the "which refs/provider does the local call get" decision is
+ * covered by an importable, real test rather than only inspection — getting
+ * this backwards is exactly the kind of bug this file warns about elsewhere:
+ * silent, no error, no failing test, just a runtime that behaves wrong. Two
+ * ways it can go wrong: (1) a context runtime exists but this still returns
+ * the real refs/provider — the standalone `useProducts` call fires a second,
+ * redundant store round-trip alongside the shared one; (2) no context runtime
+ * exists but this returns the empty set anyway — a standalone
+ * `OnboardingProvider` (the common case, no `PaywallProvider` above it) never
+ * resolves its products at all.
+ */
+export const resolveLocalProductArgs = (
+  contextRuntime: ProductRuntime | null,
+  productRefs: ProductRef[] | undefined,
+  productProvider: ProductProvider | undefined
+): { refs: ProductRef[] | undefined; provider: ProductProvider | undefined } =>
+  contextRuntime
+    ? { refs: EMPTY_PRODUCT_REFS, provider: undefined }
+    : { refs: productRefs, provider: productProvider };
 
 // Frozen at module scope, not `= {}` inline: a default PARAMETER re-allocates on
 // every render, and `customActions` is a RenderContext dependency, so a host that
@@ -207,7 +239,22 @@ export const OnboardingProvider = ({
     });
   }, [onComplete, onboarding]);
 
-  const productRuntime = useProducts(productRefs, productProvider, locale);
+  // A ProductRuntime may already be published above by a `PaywallProvider`
+  // (Phase 5 Task 6) sharing one product catalog with this provider. Hooks
+  // can't be called conditionally, so `useProducts` is always called — with
+  // an empty ref set when a context runtime exists. That's a genuine no-op,
+  // not a wasted round-trip: useProducts.ts's effect bails out to status
+  // "idle" before ever calling the provider when `refs.length === 0`
+  // (useProducts.ts:49-54). We then publish the context's runtime instead of
+  // this local one. Do not "simplify" this into a conditional hook call.
+  const contextRuntime = useProductRuntime();
+  const { refs: localProductRefs, provider: localProductProvider } = resolveLocalProductArgs(
+    contextRuntime,
+    productRefs,
+    productProvider
+  );
+  const localProductRuntime = useProducts(localProductRefs, localProductProvider, locale);
+  const productRuntime = contextRuntime ?? localProductRuntime;
 
   return (
     <QueryClientProvider client={queryClient}>

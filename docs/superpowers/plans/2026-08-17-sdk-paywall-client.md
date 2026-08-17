@@ -104,7 +104,6 @@ Cost: an app with many paywalls resolves products it may never show. That is one
 
 **Files:**
 - Modify: `packages/onboarding/src/infra/provider/OnboardingProvider.tsx`
-- Test: `packages/onboarding/src/infra/provider/__tests__/customActions.test.ts` (new)
 
 **Interfaces:**
 - Produces: a stable `customActions` default, which every later task's memoization assumes.
@@ -113,25 +112,19 @@ Cost: an app with many paywalls resolves products it may never show. That is one
 
 `OnboardingProvider.tsx:27-33` already declares `EMPTY_PRODUCT_RUNTIME` at module scope, with a comment explaining why. Read it — your fix is the same shape and should read like its sibling, not like a new idea.
 
-- [ ] **Step 2: Write the failing test**
+- [ ] **Step 2: Do NOT write a unit test for this — here is why, and do not work around it**
 
-The bug is an *identity* bug, so the test must assert on identity, not on rendered output. Render the provider twice (or force a re-render) with `customActions` omitted, capture the value handed to the context each time, and assert the two are `toBe`-identical.
+This is deliberate and was checked before the task was written. The bug is an *identity* bug observable only across two renders of a React component, and this package has **no rendering harness**: `packages/onboarding` runs vitest alone, with no `@testing-library/react-native`, no `react-test-renderer`, no jsdom, and every one of its existing tests is a pure-function test. The three ways to get a test here are all worse than none:
 
-```ts
-// The point of this test: `customActions = {}` as a default PARAMETER allocates
-// a fresh object per render. Because the provider re-renders on every variable
-// write, a host that omits the prop got a new `ctx` identity per write — the
-// whole-tree re-render storm the memoization architecture exists to prevent.
-// Asserting on identity is the only way to see it; the UI looks identical either way.
-expect(firstCustomActions).toBe(secondCustomActions);
-```
+- adding a harness — forbidden by this plan's no-new-dependencies constraint, and a large change to smuggle in under a one-line fix;
+- exporting `EMPTY_CUSTOM_ACTIONS` purely so a test can import it — public API pollution to serve a test, and it would assert `X === X`, which is a JavaScript language fact rather than a fact about this code;
+- grepping the source file for the old text — this repo's guard-test style is import-and-assert-behaviour (see `screenTypesBackCompat.test.ts`, which imports both module paths and parses real fixtures), not reading source as a string.
 
-- [ ] **Step 3: Run it and watch it fail**
+The precedent settles it: `EMPTY_PRODUCT_RUNTIME` is the identical fix in the identical file and has **no test**. Match it.
 
-Run: `npm test --workspace=packages/onboarding`
-Expected: FAIL — the two references differ.
+**In your report, state plainly that this change is verified by inspection and by the existing suite staying green — do not describe it as tested.** An honest gap is worth more than a test that asserts nothing, and this phase treats an unbacked verification claim as unverified.
 
-- [ ] **Step 4: Fix it**
+- [ ] **Step 3: Fix it**
 
 Hoist a module-scope constant next to `EMPTY_PRODUCT_RUNTIME` and use it as the default at `:156`:
 
@@ -145,7 +138,7 @@ const EMPTY_CUSTOM_ACTIONS: CustomActions = Object.freeze({});
 
 **Do not touch `:279`** — `customActions: {}` inside `createContext({...})` is a default *value*, evaluated once at module load. It is not part of this bug.
 
-- [ ] **Step 5: Run tests, then commit**
+- [ ] **Step 4: Run tests, then commit**
 
 ```bash
 npm test --workspace=packages/onboarding
@@ -442,7 +435,7 @@ git commit -m "✨ feat(ui): add PaywallHost rendering a paywall in a fullScreen
 - [ ] `npm run build` clean for both packages.
 - [ ] `npm test --workspace=packages/onboarding` — **≥159 passing**, no failures.
 - [ ] `npm test --workspace=packages/onboarding-ui` — **≥26 passing**, no failures.
-- [ ] `customActions` identity is stable across a variable write, proven by a test that asserts identity.
+- [ ] `customActions` defaults to a module-scope constant, matching `EMPTY_PRODUCT_RUNTIME`. **Verified by inspection, not by a test** — see Task 1 Step 2 for why a test here would be worse than none, and do not let a reviewer talk this into a rendering harness.
 - [ ] `ScreenElementsSchema` exported from the UI runtime; `ComposableScreenStepPayloadSchema` still exported and behaviourally unchanged.
 - [ ] `client.getPaywalls()` returns catalog + headers, cached under `rocapine-paywalls-*`.
 - [ ] `dismiss` and `presentPaywall` exist in headless schema, UI mirror, and dispatch.

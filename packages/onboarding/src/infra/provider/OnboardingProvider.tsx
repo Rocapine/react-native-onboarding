@@ -32,6 +32,12 @@ const EMPTY_PRODUCT_RUNTIME: ProductRuntime = {
   restore: async () => ({ status: "error", error: new Error("No ProductProvider") }),
 };
 
+// Frozen at module scope, not `= {}` inline: a default PARAMETER re-allocates on
+// every render, and `customActions` is a RenderContext dependency, so a host that
+// omits the prop would get a fresh `ctx` on every variable write and re-render the
+// whole tree. Same reason EMPTY_PRODUCT_RUNTIME above is hoisted.
+const EMPTY_CUSTOM_ACTIONS: CustomActions = Object.freeze({});
+
 export type CustomActionHandler = (args: {
   variables: Record<string, ComposableVariableEntry | undefined>;
   /**
@@ -153,7 +159,7 @@ export const OnboardingProvider = ({
   client,
   locale = "en",
   customAudienceParams = {},
-  customActions = {},
+  customActions = EMPTY_CUSTOM_ACTIONS,
   fontsFallback,
   navigation = expoRouterAdapter,
   onComplete,

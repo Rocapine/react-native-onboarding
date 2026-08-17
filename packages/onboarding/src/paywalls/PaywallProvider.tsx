@@ -9,6 +9,7 @@ import {
   purchaseOutcomeFromResult,
   resolvePresentDecision,
   resolvePresentedOutcome,
+  shouldRecordPurchaseOutcome,
   type PurchaseOutcomeDuringPresentation,
 } from "./present";
 import { useProducts } from "../products/useProducts";
@@ -149,16 +150,32 @@ const PaywallProviderInner = ({
   // can never leak into the next.
   const lastPurchaseOutcomeRef = useRef<PurchaseOutcomeDuringPresentation>(null);
 
-  // Wraps `productRuntime.purchase` to record the outcome above; every other
-  // field (and — critically — the object's change cadence, since `products.
-  // purchasing` flips must still propagate) is untouched. `productRuntime.
-  // purchase` is itself `useCallback(…, [])`-stable (`useProducts.ts`), so
-  // this wrapper never changes identity either.
+  // Monotonic, incremented every time a presentation actually starts (never
+  // on the "immediate" no-op branch). Resetting `lastPurchaseOutcomeRef` at
+  // that same moment is NOT enough to stop a stale write: paywall A's
+  // `purchase()` can still be in flight when the user dismisses A and
+  // paywall B is presented (which resets the ref); if A's promise settles
+  // AFTER that reset, an unconditional write would land "purchased" in what
+  // is now B's tracker. `purchase()` below captures the generation it
+  // started in and only writes if that generation is still current — see
+  // `shouldRecordPurchaseOutcome`. DO NOT remove the guard because the write
+  // "looks" unconditional; that is exactly the race it closes.
+  const presentationGenerationRef = useRef(0);
+
+  // Wraps `productRuntime.purchase` to record the outcome above (race-guarded
+  // — see `presentationGenerationRef`); every other field (and — critically —
+  // the object's change cadence, since `products.purchasing` flips must
+  // still propagate) is untouched. `productRuntime.purchase` is itself
+  // `useCallback(…, [])`-stable (`useProducts.ts`), so this wrapper never
+  // changes identity either.
   const purchase = useCallback(
     async (key: string) => {
+      const startedInGeneration = presentationGenerationRef.current;
       const result = await productRuntime.purchase(key);
       const outcome = purchaseOutcomeFromResult(result);
-      if (outcome) lastPurchaseOutcomeRef.current = outcome;
+      if (outcome && shouldRecordPurchaseOutcome(startedInGeneration, presentationGenerationRef.current)) {
+        lastPurchaseOutcomeRef.current = outcome;
+      }
       return result;
     },
     [productRuntime.purchase]
@@ -186,8 +203,11 @@ const PaywallProviderInner = ({
     if (decision.type === "immediate") {
       return Promise.resolve(decision.result);
     }
-    // Fresh presentation: no purchase has happened under it yet.
+    // Fresh presentation: no purchase has happened under it yet, and any
+    // still-in-flight purchase from a PREVIOUS presentation must not be
+    // allowed to write into this one — see `presentationGenerationRef`.
     lastPurchaseOutcomeRef.current = null;
+    presentationGenerationRef.current += 1;
     return new Promise<PresentResult>((resolve) => {
       pendingResolveRef.current = resolve;
       setActivePlacement(placement);

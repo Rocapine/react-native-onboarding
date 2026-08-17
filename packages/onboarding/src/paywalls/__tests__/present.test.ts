@@ -5,6 +5,7 @@ import {
   purchaseOutcomeFromResult,
   resolvePresentDecision,
   resolvePresentedOutcome,
+  shouldRecordPurchaseOutcome,
 } from "../present";
 import type { Paywall, PaywallCatalog } from "../types";
 import type { PurchaseResult } from "../../products/types";
@@ -168,5 +169,22 @@ describe("resolvePresentedOutcome", () => {
     // "error" here means "unknown placement / already showing" (resolvePresentDecision) —
     // a purchase outcome must never be allowed to clobber that different meaning.
     expect(resolvePresentedOutcome({ status: "error" }, "purchased")).toEqual({ status: "error" });
+  });
+});
+
+describe("shouldRecordPurchaseOutcome", () => {
+  it("records when the presentation is still the one the purchase started in", () => {
+    expect(shouldRecordPurchaseOutcome(1, 1)).toBe(true);
+  });
+
+  it("does NOT record when a newer presentation has started since the purchase began — the race this guards against", () => {
+    // Paywall A's purchase() captured generation 1; the user dismissed A and
+    // paywall B was presented (generation bumped to 2) before A's promise
+    // settled. A's write must not land in B's tracker.
+    expect(shouldRecordPurchaseOutcome(1, 2)).toBe(false);
+  });
+
+  it("does NOT record for a generation older than the current one by more than one step either", () => {
+    expect(shouldRecordPurchaseOutcome(1, 5)).toBe(false);
   });
 });

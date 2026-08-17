@@ -118,3 +118,24 @@ export const resolvePresentedOutcome = (
   purchaseOutcome: PurchaseOutcomeDuringPresentation
 ): PresentResult =>
   reported.status === "dismissed" && purchaseOutcome ? { status: purchaseOutcome } : reported;
+
+/**
+ * Guards the purchase-outcome WRITE against a race that resetting the ref at
+ * `present()`'s start does not, by itself, prevent: paywall A is showing,
+ * `purchase()` is in flight; the user dismisses A (nothing tracked yet, so A
+ * correctly resolves `"dismissed"`); paywall B is presented, resetting the
+ * tracked outcome; THEN A's stale promise finally settles and would write
+ * `"purchased"` into what is now B's tracker — B later reports a purchase
+ * the user never made on it. `purchase()` must capture the current
+ * generation BEFORE awaiting the store and compare it against the current
+ * generation again after — only an unchanged generation means the write is
+ * still for the presentation that started it.
+ *
+ * A monotonic counter, not the placement string: the same placement can
+ * legitimately be presented twice in a row, and a string comparison would
+ * let a stale write from the FIRST of those two land in the second.
+ */
+export const shouldRecordPurchaseOutcome = (
+  startedInGeneration: number,
+  currentGeneration: number
+): boolean => startedInGeneration === currentGeneration;

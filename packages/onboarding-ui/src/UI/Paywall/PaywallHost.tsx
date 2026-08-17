@@ -16,19 +16,22 @@ import { useTheme } from "../Theme/useTheme";
 // `usePaywallHost().complete` takes the CLOSED `PresentResult` union
 // (required argument); `ScreenHost.complete` takes the OPEN `CompleteOutcome`
 // (optional argument — a bare `"continue"` action calls it with none at all).
-// This narrows one into the other.
+// This function ONLY does that narrowing — nothing more.
 //
 // The engine itself only ever produces `undefined` (bare `"continue"`) or
 // `{status:"dismissed"}` (the `dismiss` action — see `runActions.ts`) —
 // `dismiss` doesn't know anything about purchase state, so a purchase closed
 // via spec §4.6's `{type:"purchase", onSuccess:[{type:"dismiss"}]}` narrows
-// to `"dismissed"` right here too. That is NOT the final answer: it still
-// checks the status against the closed set (rather than hardcoding
-// `"dismissed"`) so it forwards a genuinely explicit status unchanged, but
-// the actual "did a purchase happen" upgrade to `"purchased"`/`"cancelled"`
-// happens one level up, in `PaywallProvider.complete()`
-// (`resolvePresentedOutcome` in `present.ts`) — that's where the product
-// runtime and the pending `present()` resolver both already live.
+// to `"dismissed"` right here too, unchanged. The "did a purchase actually
+// happen" upgrade to `"purchased"`/`"cancelled"` is NOT this function's job:
+// it happens one level up, in `PaywallProvider`'s `purchase()` wrapper
+// (records the outcome, race-guarded against a stale in-flight purchase from
+// a PREVIOUS presentation — see `shouldRecordPurchaseOutcome`) and its
+// `complete()` (applies `resolvePresentedOutcome`) — both in `present.ts` /
+// `PaywallProvider.tsx`, where the product runtime and the pending
+// `present()` resolver already live. This function still checks the status
+// against the closed set (rather than hardcoding `"dismissed"`) purely so a
+// genuinely explicit status forwards unchanged instead of being clobbered.
 const PRESENT_RESULT_STATUSES: ReadonlySet<PresentResult["status"]> = new Set([
   "purchased",
   "dismissed",

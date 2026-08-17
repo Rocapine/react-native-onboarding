@@ -411,7 +411,16 @@ Memoize `setVariable`, `customActions` and `products` — all three are contract
 npm run build
 ```
 
-Then run the example app and actually present a paywall: check that variable writes update dependent text, that a `purchase` action drives `products.purchasing`, and that back/dismiss resolves the promise. **Say what you observed** — a build passing is not evidence the Modal renders.
+Then run the example app and actually present a paywall. **Say what you observed** — a build passing is not evidence the Modal renders.
+
+Observe and report each of these. The last two are **carried over from Task 4**, which wired both capabilities but could not assert on them: `packages/onboarding-ui/vitest.config.ts` documents its Node environment as deliberate — *"Element renderers are verified by tsc and the example app"* — so this run is the prescribed verification for them, not a nice-to-have.
+
+1. Variable writes update dependent text and `renderWhen` gates.
+2. A `purchase` action drives `products.purchasing` (a spinner gated on it appears).
+3. An authored `SafeAreaView` element gets **non-zero** insets inside the Modal — this is the `SafeAreaProvider`-inside-Modal hazard; zero insets means the provider is missing and every paywall lays out under the notch.
+4. Android hardware back resolves the same as `dismiss`, so a user is never trapped in a paywall.
+5. **A `dismiss` action resolves `present()` with `{ status: "dismissed" }`** — proving the outcome survives `stableOnContinue`'s forwarding rather than being dropped.
+6. **A `presentPaywall` action fired from an onboarding step actually opens a paywall** — proving the ctx field reaches a real host, in the host that is not the paywall's own.
 
 - [ ] **Step 5: Commit**
 

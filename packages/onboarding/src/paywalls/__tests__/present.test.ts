@@ -1,6 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { collectProductRefs, computeIsReady, resolvePresentDecision } from "../present";
+import {
+  collectProductRefs,
+  computeIsReady,
+  purchaseOutcomeFromResult,
+  resolvePresentDecision,
+  resolvePresentedOutcome,
+} from "../present";
 import type { Paywall, PaywallCatalog } from "../types";
+import type { PurchaseResult } from "../../products/types";
 
 const makePaywall = (overrides: Partial<Paywall> & Pick<Paywall, "id" | "placement">): Paywall => ({
   name: overrides.name ?? "Paywall",
@@ -119,5 +126,47 @@ describe("computeIsReady", () => {
   it("is true as soon as the catalog resolves when NO paywall declares any products — useProducts would otherwise stay 'idle' forever", () => {
     const catalog = makeCatalog([]);
     expect(computeIsReady(catalog, [], "idle")).toBe(true);
+  });
+});
+
+describe("purchaseOutcomeFromResult", () => {
+  it("tracks 'purchased'", () => {
+    const result: PurchaseResult = { status: "purchased", productKey: "yearly" };
+    expect(purchaseOutcomeFromResult(result)).toBe("purchased");
+  });
+
+  it("tracks 'cancelled'", () => {
+    const result: PurchaseResult = { status: "cancelled" };
+    expect(purchaseOutcomeFromResult(result)).toBe("cancelled");
+  });
+
+  it("does not track 'pending' — not a completed store interaction", () => {
+    const result: PurchaseResult = { status: "pending" };
+    expect(purchaseOutcomeFromResult(result)).toBeNull();
+  });
+
+  it("does not track 'error' — would collide with PresentResult's own, differently-meaning 'error'", () => {
+    const result: PurchaseResult = { status: "error", error: new Error("boom") };
+    expect(purchaseOutcomeFromResult(result)).toBeNull();
+  });
+});
+
+describe("resolvePresentedOutcome", () => {
+  it("upgrades a bare 'dismissed' to 'purchased' when a purchase succeeded during the presentation", () => {
+    expect(resolvePresentedOutcome({ status: "dismissed" }, "purchased")).toEqual({ status: "purchased" });
+  });
+
+  it("upgrades a bare 'dismissed' to 'cancelled' when the store purchase was cancelled during the presentation", () => {
+    expect(resolvePresentedOutcome({ status: "dismissed" }, "cancelled")).toEqual({ status: "cancelled" });
+  });
+
+  it("leaves 'dismissed' alone when nothing happened at the store", () => {
+    expect(resolvePresentedOutcome({ status: "dismissed" }, null)).toEqual({ status: "dismissed" });
+  });
+
+  it("never upgrades a status other than 'dismissed', even if a purchase occurred", () => {
+    // "error" here means "unknown placement / already showing" (resolvePresentDecision) —
+    // a purchase outcome must never be allowed to clobber that different meaning.
+    expect(resolvePresentedOutcome({ status: "error" }, "purchased")).toEqual({ status: "error" });
   });
 });

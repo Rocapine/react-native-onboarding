@@ -70,6 +70,16 @@ export interface GetPaywallsResponseHeaders {
  * paywall is already being presented. Both resolve rather than throw — a
  * missing placement or a mistimed call must not crash a host app mid-flow.
  * See `resolvePresentDecision` in `present.ts` for the exact decision logic.
+ *
+ * `"purchased"` / `"cancelled"` are NOT produced by any ButtonAction directly
+ * — `dismiss` (the only in-content closing action) always reports
+ * `{status:"dismissed"}`, on purpose, since it doesn't know anything about
+ * purchase state. `PaywallProvider` instead tracks what the store actually
+ * did during the active presentation (`purchaseOutcomeFromResult` in
+ * `present.ts`) and `resolvePresentedOutcome` upgrades a bare `"dismissed"`
+ * to whichever of these occurred, if any — so spec §4.6's canonical authoring
+ * shape (`{type:"purchase", onSuccess:[{type:"dismiss"}]}`) resolves
+ * `"purchased"` even though `dismiss` itself never says so.
  */
 export type PresentResult = {
   status: "purchased" | "dismissed" | "cancelled" | "error";

@@ -3,7 +3,14 @@ import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-quer
 import { OnboardingStudioClient } from "../OnboardingStudioClient";
 import { getPaywallsQuery } from "./getPaywalls.query";
 import { Paywall, PaywallCatalog, PresentResult } from "./types";
-import { collectProductRefs, computeIsReady, resolvePresentDecision } from "./present";
+import {
+  collectProductRefs,
+  computeIsReady,
+  purchaseOutcomeFromResult,
+  resolvePresentDecision,
+  resolvePresentedOutcome,
+  type PurchaseOutcomeDuringPresentation,
+} from "./present";
 import { useProducts } from "../products/useProducts";
 import { ProductProvider } from "../products/types";
 import { ProductRuntimeContext } from "../products/ProductRuntimeContext";
@@ -135,6 +142,32 @@ const PaywallProviderInner = ({
   const productRefs = useMemo(() => collectProductRefs(catalog), [catalog]);
   const productRuntime = useProducts(productRefs, productProvider, locale);
 
+  // Tracks what a purchase attempt resolved to during the CURRENT
+  // presentation — read by `complete()` to upgrade a generic "dismissed"
+  // outcome (see `resolvePresentedOutcome`), reset when a new presentation
+  // starts (`present()`'s "start" branch) so one presentation's purchase
+  // can never leak into the next.
+  const lastPurchaseOutcomeRef = useRef<PurchaseOutcomeDuringPresentation>(null);
+
+  // Wraps `productRuntime.purchase` to record the outcome above; every other
+  // field (and — critically — the object's change cadence, since `products.
+  // purchasing` flips must still propagate) is untouched. `productRuntime.
+  // purchase` is itself `useCallback(…, [])`-stable (`useProducts.ts`), so
+  // this wrapper never changes identity either.
+  const purchase = useCallback(
+    async (key: string) => {
+      const result = await productRuntime.purchase(key);
+      const outcome = purchaseOutcomeFromResult(result);
+      if (outcome) lastPurchaseOutcomeRef.current = outcome;
+      return result;
+    },
+    [productRuntime.purchase]
+  );
+  const productRuntimeWithPurchaseTracking = useMemo(
+    () => ({ ...productRuntime, purchase }),
+    [productRuntime, purchase]
+  );
+
   const [activePlacement, setActivePlacement] = useState<string | null>(null);
   // Refs so `present`/`complete` stay referentially stable (empty deps) while
   // still reading current state — same pattern `useProducts.ts` uses for its
@@ -153,6 +186,8 @@ const PaywallProviderInner = ({
     if (decision.type === "immediate") {
       return Promise.resolve(decision.result);
     }
+    // Fresh presentation: no purchase has happened under it yet.
+    lastPurchaseOutcomeRef.current = null;
     return new Promise<PresentResult>((resolve) => {
       pendingResolveRef.current = resolve;
       setActivePlacement(placement);
@@ -163,11 +198,16 @@ const PaywallProviderInner = ({
   // `ScreenHost.complete`. Resolves whatever `present()` call is pending and
   // clears the active placement, hiding the Modal and allowing a new
   // `present()` to start. Safe to call with nothing pending (no-ops).
+  //
+  // `resolvePresentedOutcome` upgrades a bare "dismissed" to "purchased" (or
+  // "cancelled") when the store actually did something during this
+  // presentation — see its doc for why `dismiss`'s own `{status:"dismissed"}`
+  // isn't treated as an unoverridable explicit answer.
   const complete = useCallback((result: PresentResult) => {
     const resolve = pendingResolveRef.current;
     pendingResolveRef.current = null;
     setActivePlacement(null);
-    resolve?.(result);
+    resolve?.(resolvePresentedOutcome(result, lastPurchaseOutcomeRef.current));
   }, []);
 
   const activePaywall = activePlacement ? catalog?.paywalls[activePlacement] ?? null : null;
@@ -183,7 +223,7 @@ const PaywallProviderInner = ({
   );
 
   return (
-    <ProductRuntimeContext.Provider value={productRuntime}>
+    <ProductRuntimeContext.Provider value={productRuntimeWithPurchaseTracking}>
       <PaywallContext.Provider value={contextValue}>{children}</PaywallContext.Provider>
     </ProductRuntimeContext.Provider>
   );

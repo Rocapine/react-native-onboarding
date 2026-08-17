@@ -1,5 +1,5 @@
 import type { Paywall, PaywallCatalog, PresentResult } from "./types";
-import type { ProductRef, ProductStatus } from "../products/types";
+import type { ProductRef, ProductStatus, PurchaseResult } from "../products/types";
 
 /**
  * Union of every `paywall.products[]` across the WHOLE catalog, deduplicated
@@ -82,3 +82,39 @@ export const computeIsReady = (
   productRefs: ProductRef[],
   productsStatus: ProductStatus
 ): boolean => catalog !== null && (productRefs.length === 0 || productsStatus === "ready");
+
+/**
+ * What a purchase attempt resolved to during the current presentation, or
+ * `null` if none did. Only the two `PurchaseResult` statuses that describe a
+ * completed store interaction are tracked — `"pending"` (e.g. Ask-to-Buy) and
+ * `"error"` are not: they don't describe what happened to the STORE PURCHASE
+ * in a way that should override how the paywall itself reports closing (an
+ * `"error"` here would collide with `PresentResult`'s existing `"error"`,
+ * which means something structurally different — an unknown placement or a
+ * mistimed `present()` call, not a failed purchase attempt).
+ */
+export type PurchaseOutcomeDuringPresentation = "purchased" | "cancelled" | null;
+
+/** Narrows a `PurchaseResult` to the subset `PurchaseOutcomeDuringPresentation` tracks. */
+export const purchaseOutcomeFromResult = (result: PurchaseResult): PurchaseOutcomeDuringPresentation =>
+  result.status === "purchased" || result.status === "cancelled" ? result.status : null;
+
+/**
+ * Reconciles what the closing action REPORTED with what actually happened at
+ * the store during this presentation. `dismiss` (spec §4.5) always reports
+ * `{status:"dismissed"}` — it is the generic "this screen is done" signal and
+ * knows nothing about purchases, which is exactly the gap spec §4.6's own
+ * canonical authoring shape falls into: `{type:"purchase", onSuccess:
+ * [{type:"dismiss"}]}` closes a successful purchase through the SAME generic
+ * signal a user backing out would produce. So a bare `"dismissed"` is treated
+ * as "the caller didn't have anything more specific to say" and gets upgraded
+ * to whatever the store actually did (if anything). Any other reported
+ * status is assumed to mean something deliberate and passes through
+ * unchanged — this only fills in the generic default, never overrides a
+ * caller that already said something more specific.
+ */
+export const resolvePresentedOutcome = (
+  reported: PresentResult,
+  purchaseOutcome: PurchaseOutcomeDuringPresentation
+): PresentResult =>
+  reported.status === "dismissed" && purchaseOutcome ? { status: purchaseOutcome } : reported;

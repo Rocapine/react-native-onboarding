@@ -18,16 +18,17 @@ import { useTheme } from "../Theme/useTheme";
 // (optional argument — a bare `"continue"` action calls it with none at all).
 // This narrows one into the other.
 //
-// Known gap, not papered over: today the only completions the engine can
-// actually produce are `undefined` (bare `"continue"`) and
-// `{status:"dismissed"}` (the `dismiss` action — see `runActions.ts`). The
-// spec's authoring example closes a paywall after a successful purchase with
-// `"onSuccess": [{type:"dismiss"}]`, so that path ALSO resolves `"dismissed"`,
-// not `"purchased"` — there is currently no ButtonAction that produces
-// `"purchased"`/`"cancelled"`/`"error"`. This mapper still checks the status
-// against the closed set (rather than hardcoding `"dismissed"`) so it does the
-// right thing the moment a later task adds a way to signal one of those —
-// nothing here would need to change.
+// The engine itself only ever produces `undefined` (bare `"continue"`) or
+// `{status:"dismissed"}` (the `dismiss` action — see `runActions.ts`) —
+// `dismiss` doesn't know anything about purchase state, so a purchase closed
+// via spec §4.6's `{type:"purchase", onSuccess:[{type:"dismiss"}]}` narrows
+// to `"dismissed"` right here too. That is NOT the final answer: it still
+// checks the status against the closed set (rather than hardcoding
+// `"dismissed"`) so it forwards a genuinely explicit status unchanged, but
+// the actual "did a purchase happen" upgrade to `"purchased"`/`"cancelled"`
+// happens one level up, in `PaywallProvider.complete()`
+// (`resolvePresentedOutcome` in `present.ts`) — that's where the product
+// runtime and the pending `present()` resolver both already live.
 const PRESENT_RESULT_STATUSES: ReadonlySet<PresentResult["status"]> = new Set([
   "purchased",
   "dismissed",

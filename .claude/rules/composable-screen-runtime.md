@@ -122,6 +122,90 @@ Naming: the host exposes `complete` ("finish this screen"); `RenderContext` keep
 `onContinue` ("the continue action fired"). `ScreenRenderer` maps one to the other
 in exactly one place. A paywall host interprets `complete` as dismiss.
 
+## Paywalls: PaywallProvider, PaywallHost, present()
+
+`UI/Paywall/PaywallHost.tsx` is the second `ScreenHost` implementation — sibling
+to `Pages/ComposableScreen/Renderer.tsx`, sharing the same `ScreenRenderer`
+engine (previous section). It reads `usePaywallHost()` from the headless
+`PaywallProvider` (`packages/onboarding/src/paywalls/`) and renders whichever
+paywall is active in a fullScreen RN `Modal`.
+
+**Provider arrangement — `PaywallProvider` goes ABOVE `OnboardingProvider`, not
+beside it, and not inside it:**
+
+```tsx
+<PaywallProvider client={client} productProvider={revenueCatProductProvider(Purchases)}>
+  <App /> {/* OnboardingProvider mounts somewhere inside here, e.g. in a screen's own layout */}
+  <PaywallHost />
+</PaywallProvider>
+```
+
+The spec's "sibling, not nested inside it" requirement means *not inside
+`OnboardingProvider`* — an app-level ancestor satisfies that (context flows
+downward to every descendant, including wherever `OnboardingProvider` mounts)
+while also working from a screen with no onboarding mounted at all (e.g.
+Settings → "Upgrade"). It is also the only arrangement giving **one** shared
+product runtime: `useProducts` has no cross-mount sharing mechanism of its own
+— it resolves and stores whatever refs its own call site is given. Two true
+siblings (`<PaywallProvider>...</PaywallProvider><OnboardingProvider>...
+</OnboardingProvider>`, both under some higher common ancestor) would each call
+`useProducts` independently and end up with two separate `getProducts()`
+round-trips and two independent `purchasing` flags — a purchase started from
+one wouldn't be visible to the other. `PaywallProvider` mounted above
+`OnboardingProvider` instead publishes one `ProductRuntimeContext` that an
+`OnboardingProvider` anywhere inside it picks up rather than creating its own
+(`products/ProductRuntimeContext.tsx` — `useProductRuntime()` returns the
+ancestor's runtime, or `null` with no ancestor at all).
+
+**`present(placement)` performs no network call.** The whole catalog (every
+placement) is fetched once, at `PaywallProvider` mount
+(`OnboardingStudioClient.getPaywalls()`, no `placement` filter by default —
+see its doc comment), and every placement's `products[]` are collected into
+one deduplicated union resolved once via `useProducts`
+(`present.ts`'s `collectProductRefs`). `present()` itself only makes a
+synchronous decision (`resolvePresentDecision`) and shows the Modal — a store
+round-trip at present-time is exactly the "must render instantly on tap"
+conversion bug spec §6.1 exists to prevent. A stale/failed catalog fetch
+degrades to `present()` resolving `{status:"error"}` for every placement
+(`isReady: false`), never a thrown error and never a blocking fetch.
+
+**Two ButtonActions exist only because of paywalls** (`elements/actions.ts` /
+headless `common.types.ts`):
+
+- `dismiss` — `{ type: "dismiss" }`. Terminal, like `"continue"`. Resolves the
+  current screen with `{status:"dismissed"}`. In a paywall this resolves the
+  pending `present()` call; `PaywallProvider.complete()` may still upgrade a
+  bare `"dismissed"` to `"purchased"`/`"cancelled"` if a purchase actually
+  happened during this presentation (`resolvePresentedOutcome` in
+  `present.ts`) — `dismiss` itself doesn't know or care about purchase state,
+  which is why the canonical "buy" authoring shape is `{type:"purchase",
+  onSuccess:[{type:"dismiss"}]}` rather than a special "close as purchased"
+  action.
+- `presentPaywall` — `{ type: "presentPaywall", placement: string }`. NOT
+  terminal (`runActions.ts` continues the loop after firing it). Works from
+  **either** host: `Pages/ComposableScreen/Renderer.tsx` and `PaywallHost.tsx`
+  both wire `ScreenHost.presentPaywall` from the same `usePaywall().present`,
+  so an onboarding step can open a paywall mid-flow, and a paywall's own
+  content can open a *different* paywall (spec §4.5). Warns via
+  `console.warn` and no-ops when the host has no `presentPaywall` (e.g. no
+  `PaywallProvider` mounted anywhere above) — `usePaywall()` degrades to inert
+  defaults with no ancestor provider, so this is a silent no-op, never a
+  crash. Firing it while presenting the SAME paywall (a paywall re-opening
+  itself, or opening a second one) resolves `{status:"error"}` immediately
+  (`resolvePresentDecision` — one active paywall at a time) rather than
+  stacking a second Modal.
+
+**The Modal itself** (first `Modal` in the codebase, so every property below
+is a decision, not copied precedent — see `PaywallHost.tsx`'s own doc comment
+for the full reasoning): `presentationStyle="fullScreen"` + `transparent={false}`
+(full interstitial, not a popover); `onRequestClose` wired to the exact same
+`complete({status:"dismissed"})` as the in-content `dismiss` action, REQUIRED
+on Android or hardware back throws inside the Modal and would otherwise trap
+the user with no way out; a nested `SafeAreaProvider` rendered INSIDE the
+Modal, because a `Modal` presents into a separate native view hierarchy that
+the app's own root `SafeAreaProvider` doesn't reach — omit it and every
+authored `SafeAreaView` inside a paywall measures zero insets.
+
 ## Multi-select variables are JSON-encoded strings
 
 `CheckboxGroup` stores its value as `JSON.stringify(string[])` to fit the string-based variable system — an empty selection is the literal `"[]"`, not `""`. `evaluateCondition` decodes any value that parses to an array before testing, so `is_empty` / `is_not_empty` / `contains` / `in` see the real collection. Anything else reading these vars (new operators, `{{interpolation}}`) must decode too — a raw `"[]"` is a non-empty 2-char string and reads as "not empty".
@@ -169,7 +253,9 @@ Page Renderer is intentionally a plain `View flex:1` inside `KeyboardAvoidingVie
 
 ## UI press-action dispatch (`runActions`)
 
-`elements/runActions.ts` runs a `ButtonAction[]` (continue / setVariable / custom) — shared by `Button.actions` and the generic `onPress`. It lives in its **own** module, NOT `shared.ts`: `shared.ts` ↔ `expression.ts` already form a cycle (`expression` imports `interpolate` from `shared`) and `runActions` needs both. `ButtonAction` types/schemas are the leaf `elements/actions.ts` (UI mirror of headless `common.types.ts`) so `BaseBoxProps.ts` + `runActions.ts` import them cycle-free. `setVariable` `arrayOp` (`append`/`remove`/`toggle`) operates on the JSON-`string[]` CheckboxGroup encoding — value = `JSON.stringify(values)`, label = comma-joined members.
+`elements/runActions.ts` runs a `ButtonAction[]` (continue / setVariable / custom / purchase / restore / dismiss / presentPaywall) — shared by `Button.actions` and the generic `onPress`. It lives in its **own** module, NOT `shared.ts`: `shared.ts` ↔ `expression.ts` already form a cycle (`expression` imports `interpolate` from `shared`) and `runActions` needs both. `ButtonAction` types/schemas are the leaf `elements/actions.ts` (UI mirror of headless `common.types.ts`) so `BaseBoxProps.ts` + `runActions.ts` import them cycle-free. `setVariable` `arrayOp` (`append`/`remove`/`toggle`) operates on the JSON-`string[]` CheckboxGroup encoding — value = `JSON.stringify(values)`, label = comma-joined members.
+
+`dismiss` and `presentPaywall` (paywall phase 5) are both terminal-ish but behave differently: `dismiss` is terminal like `"continue"` (calls `onContinue({status:"dismissed"})` and stops the loop); `presentPaywall` is NOT terminal (it fires `ctx.presentPaywall(placement)` and the loop continues to the next action). Neither throws when unsupported — `presentPaywall` warns and no-ops when `ctx.presentPaywall` is absent (a host that doesn't wire the field, e.g. an app with no `PaywallProvider` mounted). See the "Paywalls" section below for what supplies `presentPaywall` and why it works from both an onboarding step and a paywall's own content.
 
 ## Product variables
 
@@ -191,3 +277,16 @@ the CTA on it.
 `ProductRuntime` sits in `RenderContext`, so it must be referentially stable
 across variable writes; `useProducts` memoizes it on its contents. An unstable
 one re-renders every memoized element on every write, and nothing type-checks it.
+
+**`{{var}}` interpolation resolves to `label`, not `value`, when both are
+set** (`interpolate()` in `elements/shared.ts`: `variables[key]?.label ??
+variables[key]?.value`). A `RadioGroup`/`CheckboxGroup` item with `{value:
+"yearly", label: "Yearly"}` (the normal authoring pattern — nicer display
+text, distinct machine value) writes both into the variable, so a `purchase`
+action reading `product: "{{plan}}"` interpolates to `"Yearly"`, not
+`"yearly"` — and silently fails to resolve (`runActions.ts` warns "no
+resolved product for key" and no-ops) unless the product slot key happens to
+equal the display label. Give the RadioGroup item the SAME string for both
+`value` and `label` whenever that variable feeds a `{{...}}` reference used as
+a lookup key (a product slot, a `nextStep` branch target) rather than as
+display text.

@@ -217,6 +217,81 @@ const client = new OnboardingStudioClient(projectId, {
 | `appVersion` | `string` | - | Your app version |
 | `fallbackOnboarding` | `Onboarding` | - | Fallback onboarding if the onboarding is not found |
 
+## Paywalls
+
+`PaywallProvider` presents standalone paywalls (a "Settings → Upgrade" button,
+an out-of-onboarding upsell) using the same element-based rendering engine as
+a `ComposableScreen` onboarding step. Mount it once, **above**
+`OnboardingProvider`, not beside or inside it:
+
+```typescript
+import {
+  PaywallProvider,
+  OnboardingProvider,
+  OnboardingStudioClient,
+  revenueCatProductProvider,
+} from "@rocapine/react-native-onboarding";
+import { PaywallHost } from "@rocapine/react-native-onboarding-ui";
+import Purchases from "react-native-purchases";
+
+const client = new OnboardingStudioClient("your-project-id", { appVersion: "1.0.0" });
+
+export default function RootLayout() {
+  return (
+    <PaywallProvider client={client} productProvider={revenueCatProductProvider(Purchases)}>
+      <OnboardingProvider client={client} productProvider={revenueCatProductProvider(Purchases)}>
+        {/* the rest of your app */}
+      </OnboardingProvider>
+      <PaywallHost />
+    </PaywallProvider>
+  );
+}
+```
+
+**Why above, not beside:** React context only flows to descendants, so an
+app-level `PaywallProvider` reaches `OnboardingProvider` wherever it mounts
+underneath — including a screen with no onboarding flow active at all (e.g.
+Settings). It's also what gives both providers **one shared product
+runtime**: pass the same `productProvider` to each and `OnboardingProvider`
+picks up the ancestor `PaywallProvider`'s already-resolved products instead of
+resolving its own — one store round-trip, one `purchasing` flag, visible to
+both an onboarding step's `purchase` action and a standalone paywall's.
+
+Present a paywall by placement from anywhere inside the tree:
+
+```typescript
+import { usePaywall } from "@rocapine/react-native-onboarding";
+
+function UpgradeButton() {
+  const { present, isReady } = usePaywall();
+
+  return (
+    <Button
+      title="Upgrade"
+      disabled={!isReady}
+      onPress={async () => {
+        const result = await present("settings_upgrade");
+        // result.status: "purchased" | "dismissed" | "cancelled" | "error"
+      }}
+    />
+  );
+}
+```
+
+`present()` makes **no network call** — the whole paywall catalog (every
+placement) is fetched once at `PaywallProvider` mount, and every placement's
+products are resolved as one deduplicated union up front, so tapping "Upgrade"
+renders instantly. An unknown placement, or calling `present()` while another
+paywall is already showing, resolves `{ status: "error" }` rather than
+throwing.
+
+A paywall's own content is authored the same way a `ComposableScreen` step is
+(see [Page Types](./page-types.mdx#composablescreen)) — same elements, same
+`Button.actions`, plus two actions specific to this flow: `dismiss` (closes
+the paywall) and `presentPaywall` (opens another placement, from either an
+onboarding step or a paywall). See the **Button actions** section of
+[Page Types](./page-types.mdx#composablescreen) for both.
+
 ## Example Project
 
 Check out the `example/` directory in the repository for a complete working example with all screen types and customization options.

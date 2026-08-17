@@ -18,8 +18,9 @@ import { OnboardingStudioClient } from "../../OnboardingStudioClient";
 import {
   getOnboardingCacheKey,
   DEFAULT_ONBOARDING_CACHE_KEY,
+  getPaywallsCacheKey,
+  DEFAULT_PAYWALLS_CACHE_KEY,
 } from "../../infra/queries/cacheKey";
-import { getPaywallsCacheKey, DEFAULT_PAYWALLS_CACHE_KEY } from "../cacheKey";
 import { getPaywallsQuery } from "../getPaywalls.query";
 import type { PaywallCatalog } from "../types";
 

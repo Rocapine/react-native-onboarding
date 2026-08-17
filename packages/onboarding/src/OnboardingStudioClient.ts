@@ -8,8 +8,10 @@ import {
   UserDefinedParams,
   BaseStepType,
 } from "./types";
-import { getOnboardingCacheKey } from "./infra/queries/cacheKey";
-import { getPaywallsCacheKey } from "./paywalls/cacheKey";
+import {
+  getOnboardingCacheKey,
+  getPaywallsCacheKey,
+} from "./infra/queries/cacheKey";
 import {
   PaywallCatalog,
   PaywallOptions,
@@ -176,6 +178,12 @@ export class OnboardingStudioClient {
       urlParams.append("placement", paywallOptions.placement);
     }
 
+    // Deliberately NOT sending spec §6.1's `omitNulls=true`: it's a
+    // convenience for untyped consumers that strips null-valued keys from the
+    // response, which would make the runtime shape diverge from `PaywallCatalog`
+    // and `Paywall`'s declared `| null` fields. This client parses into those
+    // typed objects, so the fields must always be present (possibly `null`),
+    // not sometimes missing.
     const url = `${this.baseUrl}/get-paywalls?${urlParams.toString()}`;
     console.info("OnboardingStudioClient getPaywalls url", url);
     try {

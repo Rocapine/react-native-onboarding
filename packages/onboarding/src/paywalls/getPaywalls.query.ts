@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { OnboardingStudioClient } from "../OnboardingStudioClient";
 import { PaywallCatalog } from "./types";
-import { getPaywallsCacheKey } from "./cacheKey";
+import { getPaywallsCacheKey } from "../infra/queries/cacheKey";
 
 /**
  * Mirrors `getOnboarding.query.ts`'s cache-first / background-revalidate /

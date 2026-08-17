@@ -28,9 +28,11 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   formatZodError(error: ZodError<any>): string {
     try {
-      // @ts-ignore
-      return error.errors
-        // @ts-ignore
+      // Zod 4 renamed `ZodError.errors` to `.issues` — `.errors` no longer
+      // exists, so this used to throw on every call and fall through to the
+      // catch below, always rendering the fallback string instead of the
+      // real validation detail.
+      return error.issues
         .map((err) => {
           const path = err.path.join(' > ');
           return `• ${path || 'root'}: ${err.message}`;

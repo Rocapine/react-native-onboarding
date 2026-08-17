@@ -58,3 +58,19 @@ export interface GetPaywallsResponseHeaders {
   "ONBS-Audience-Id": string | null;
   "ONBS-Paywall-Ids": string | null;
 }
+
+/**
+ * Resolved outcome of a `usePaywall().present(placement)` call (spec §7).
+ * Closed union, not the open-ended `ScreenHost.CompleteOutcome` — a
+ * presentation ends in exactly one of these four ways, and `present()`'s
+ * caller (typically an `await`) should be able to switch over it exhaustively.
+ *
+ * `"error"` covers both: (a) `placement` is absent from the catalog (or the
+ * catalog hasn't resolved yet), and (b) `present()` was called while another
+ * paywall is already being presented. Both resolve rather than throw — a
+ * missing placement or a mistimed call must not crash a host app mid-flow.
+ * See `resolvePresentDecision` in `present.ts` for the exact decision logic.
+ */
+export type PresentResult = {
+  status: "purchased" | "dismissed" | "cancelled" | "error";
+};

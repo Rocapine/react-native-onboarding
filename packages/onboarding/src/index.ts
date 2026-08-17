@@ -79,3 +79,15 @@ export {
 } from "./steps/common.types";
 // Product runtime (paywall phase 3) — vendor-neutral store products
 export * from "./products";
+// Paywalls (paywall phase 5) — catalog types, provider, and the `usePaywall` hook
+export type {
+  Paywall,
+  PaywallCatalog,
+  PaywallOptions,
+  GetPaywallsResponseHeaders,
+  PresentResult,
+} from "./paywalls/types";
+export { PaywallProvider, usePaywallHost } from "./paywalls/PaywallProvider";
+export type { PaywallContextValue } from "./paywalls/PaywallProvider";
+export { usePaywall } from "./paywalls/usePaywall";
+export type { UsePaywallResult } from "./paywalls/usePaywall";

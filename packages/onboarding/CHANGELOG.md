@@ -8,6 +8,17 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.62.0] - 2026-08-17
+
+### Added
+
+- **`client.getPaywalls()` — fetch a project's full paywall catalog in one round-trip.** Returns every placement (no per-placement fetch in the common path), cached under a dedicated `rocapine-paywalls-*` AsyncStorage namespace with the same stale-while-revalidate / custom-key behaviour as onboarding steps. New exports: `Paywall`, `PaywallCatalog`, `PaywallOptions`, `GetPaywallsResponseHeaders`, `PresentResult`.
+- **`PaywallProvider` and `usePaywall()` — present a paywall from anywhere in the app, including screens with no onboarding flow mounted.** Mount `PaywallProvider` once, **above** `OnboardingProvider`, not beside or inside it — an app-level ancestor still reaches an `OnboardingProvider` mounted anywhere underneath. `usePaywall()` returns `{ present, isReady, catalog }`: `present(placement)` shows the matching paywall and resolves once the user leaves it (`"purchased" | "dismissed" | "cancelled" | "error"`), with **no network call** — the catalog and its products are already resolved from `PaywallProvider` mount, so a paywall renders the instant a user taps upgrade. An unknown placement, or presenting while another paywall is already showing, resolves `"error"` rather than throwing.
+- **One shared product runtime across both providers.** `PaywallProvider` and `OnboardingProvider` publish/consume the same product context, so passing the same `productProvider` to each — with `PaywallProvider` as the ancestor — gives a single resolved product set and a single `purchasing` flag visible to both an onboarding step's `purchase` action and a standalone paywall's.
+- **`dismiss` and `presentPaywall` ButtonActions.** `dismiss` finishes the current screen with `{ status: "dismissed" }` (a paywall host upgrades this to `"purchased"`/`"cancelled"` when a purchase actually completed during that presentation). `presentPaywall` opens a paywall by placement from an onboarding step or from a paywall's own content, and no-ops (with a `console.warn`) when no `PaywallProvider` is mounted anywhere above the host. Both were withheld from the `1.61.0` product-actions release specifically because no paywall host existed yet to make them meaningful.
+
+---
+
 ## [1.61.0] - 2026-08-13
 
 ### Added

@@ -2,6 +2,7 @@ import { useCallback, useContext, useMemo } from "react";
 import {
   OnboardingProgressContext as HeadlessProgressContext,
   useOnboardingHeaderHeight,
+  usePaywall,
 } from "@rocapine/react-native-onboarding";
 import { ComposableScreenStepType, ComposableScreenStepTypeSchema } from "./types";
 import { withErrorBoundary } from "../../ErrorBoundary";
@@ -30,6 +31,11 @@ const ComposableScreenRendererBase = ({ step, onContinue, keyboardVerticalOffset
   const { elements } = validatedData.payload;
   const { composableVariables, setComposableVariable } = useContext(OnboardingProgressContext);
   const { setVariable: setHeadlessVariable, customActions, products } = useContext(HeadlessProgressContext);
+  // Degrades to an inert `present` (resolves `{status:"error"}`, never throws)
+  // when there is no ancestor `PaywallProvider` — so an onboarding app that
+  // never mounts one keeps working exactly as it does today; `presentPaywall`
+  // is simply reachable but a no-op placement lookup, not a crash.
+  const { present } = usePaywall();
 
   // Writes go to both stores: the UI store drives rendering, the headless store
   // drives step branching (resolveNextStepNumber).
@@ -41,6 +47,18 @@ const ComposableScreenRendererBase = ({ step, onContinue, keyboardVerticalOffset
     [setComposableVariable, setHeadlessVariable]
   );
 
+  // Lets an onboarding step open a paywall (spec §4.5/§7) via the same
+  // `present()` a paywall's own host uses to open another paywall
+  // (`UI/Paywall/PaywallHost.tsx`). `PaywallHost` (rendered by the host app
+  // alongside `OnboardingProvider`, per `PaywallProvider`'s mount-order doc)
+  // is what actually shows the Modal — this only asks for it.
+  const presentPaywall = useCallback(
+    (placement: string) => {
+      void present(placement);
+    },
+    [present]
+  );
+
   const host: ScreenHost = useMemo(
     () => ({
       variables: composableVariables,
@@ -48,9 +66,19 @@ const ComposableScreenRendererBase = ({ step, onContinue, keyboardVerticalOffset
       complete: onContinue,
       customActions,
       products,
+      presentPaywall,
       keyboardVerticalOffset: keyboardVerticalOffset ?? headerHeight,
     }),
-    [composableVariables, setVariableAndSync, onContinue, customActions, products, keyboardVerticalOffset, headerHeight]
+    [
+      composableVariables,
+      setVariableAndSync,
+      onContinue,
+      customActions,
+      products,
+      presentPaywall,
+      keyboardVerticalOffset,
+      headerHeight,
+    ]
   );
 
   return (

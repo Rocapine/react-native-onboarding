@@ -1,6 +1,6 @@
 export { ScreenRenderer } from "./ScreenRenderer";
 export type { ScreenRendererProps } from "./ScreenRenderer";
-export type { ScreenHost } from "./ScreenHost";
+export type { ScreenHost, CompleteOutcome } from "./ScreenHost";
 export { noopScreenHost } from "./ScreenHost";
 export { mergeVariables, flattenVariables } from "./variables";
 export { renderElement } from "./elements/renderElement";

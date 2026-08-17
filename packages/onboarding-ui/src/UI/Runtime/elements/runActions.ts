@@ -29,6 +29,11 @@ function decodeArrayValue(raw: string | undefined): string[] {
 //                      variables plus a `setVariable` setter (so the handler can
 //                      write back into the context); warns if unregistered, aborts
 //                      the loop on throw.
+//   - {dismiss}      → finish the screen with a `{status:"dismissed"}` outcome;
+//                      terminal (stops the loop), same as "continue".
+//   - {presentPaywall} → ask the host to present a paywall by placement; warns
+//                      and no-ops (continues the loop) when the host has no
+//                      `presentPaywall` capability.
 export async function runActions(
   actions: ButtonAction[],
   ctx: RenderContext
@@ -42,6 +47,20 @@ export async function runActions(
     if (act === "continue") {
       onContinue();
       return;
+    }
+    if (act.type === "dismiss") {
+      onContinue({ status: "dismissed" });
+      return;
+    }
+    if (act.type === "presentPaywall") {
+      if (!ctx.presentPaywall) {
+        console.warn(
+          "[ComposableScreen] `presentPaywall` action with no host support — pass a `presentPaywall` handler on the ScreenHost."
+        );
+        continue;
+      }
+      ctx.presentPaywall(act.placement);
+      continue;
     }
     if (act.type === "setVariable") {
       let value: string;

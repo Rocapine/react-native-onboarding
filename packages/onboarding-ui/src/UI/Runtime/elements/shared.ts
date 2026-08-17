@@ -4,6 +4,7 @@ import { UIElement } from "../types";
 import { Theme } from "../../Theme/types";
 import type { ComposableVariableEntry } from "@rocapine/react-native-onboarding";
 import type { BaseBoxProps } from "./BaseBoxProps";
+import type { CompleteOutcome } from "../ScreenHost";
 
 export type RenderContext = {
   theme: Theme;
@@ -14,10 +15,16 @@ export type RenderContext = {
   // reads for rendering go through `useVariables()` (VariablesContext), NOT here.
   getVariables: () => Record<string, ComposableVariableEntry>;
   setVariable: (key: string, entry: ComposableVariableEntry) => void;
-  onContinue: () => void;
+  // "The continue action fired" — mapped 1:1 to `host.complete` by
+  // ScreenRenderer (see the ScreenHost seam note). The optional outcome is how
+  // a `"dismiss"` action forwards `{ status: "dismissed" }` through the same
+  // channel; "continue" itself calls this with no argument.
+  onContinue: (outcome?: CompleteOutcome) => void;
   customActions: CustomActions;
   /** Product runtime for `purchase` / `restore` actions. Undefined without billing. */
   products?: ProductRuntime;
+  /** Host capability for the `presentPaywall` action. Undefined without one. */
+  presentPaywall?: (placement: string) => void;
   renderChildren: (elements: UIElement[], parentType: "XStack" | "YStack" | "ZStack" | "RichText" | "XScroll") => React.ReactNode;
 };
 

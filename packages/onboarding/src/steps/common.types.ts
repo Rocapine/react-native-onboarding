@@ -48,6 +48,10 @@ export type HapticStyle = z.infer<typeof HapticStyleSchema>;
 // (BaseBoxProps). An action is `"continue"` (terminal — advances the onboarding),
 // `{type:"custom"}` (invokes a host-registered customAction), or
 // `{type:"setVariable"}` (writes an onboarding variable). Run sequentially.
+// Also: `{type:"purchase"}` / `{type:"restore"}` (billing), `{type:"dismiss"}`
+// (terminal — finishes the screen with a `{status:"dismissed"}` outcome), and
+// `{type:"presentPaywall"}` (asks the host to present a paywall by placement —
+// works from an onboarding step or a paywall alike).
 
 export type CustomButtonAction = {
   type: "custom";
@@ -117,12 +121,39 @@ export type RestoreButtonAction = {
   onError?: ButtonAction[];
 };
 
+/** Terminal — finishes the screen with a `{ status: "dismissed" }` outcome. */
+export type DismissButtonAction = {
+  type: "dismiss";
+};
+
+export const DismissButtonActionSchema = z.object({
+  type: z.literal("dismiss"),
+});
+
+/**
+ * Asks the host to present a paywall by placement. Available from an
+ * onboarding step or a paywall alike — that is how an onboarding step opens a
+ * paywall mid-flow. No-ops (with a warning) on a host that doesn't support it.
+ */
+export type PresentPaywallButtonAction = {
+  type: "presentPaywall";
+  /** Paywall placement key to present, e.g. "hard_paywall". */
+  placement: string;
+};
+
+export const PresentPaywallButtonActionSchema = z.object({
+  type: z.literal("presentPaywall"),
+  placement: z.string().min(1, "placement must not be empty"),
+});
+
 export type ButtonAction =
   | "continue"
   | CustomButtonAction
   | SetVariableButtonAction
   | PurchaseButtonAction
-  | RestoreButtonAction;
+  | RestoreButtonAction
+  | DismissButtonAction
+  | PresentPaywallButtonAction;
 
 export const PurchaseButtonActionSchema: z.ZodType<PurchaseButtonAction> = z.lazy(() =>
   z.object({
@@ -150,6 +181,8 @@ export const ButtonActionSchema: z.ZodType<ButtonAction> = z.lazy(() =>
     SetVariableButtonActionSchema,
     PurchaseButtonActionSchema,
     RestoreButtonActionSchema,
+    DismissButtonActionSchema,
+    PresentPaywallButtonActionSchema,
   ])
 );
 

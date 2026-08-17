@@ -49,6 +49,57 @@ describe("runActions", () => {
   });
 });
 
+describe("runActions — dismiss", () => {
+  it("calls the host continue callback with a dismissed outcome", async () => {
+    const onContinue = vi.fn();
+    await runActions([{ type: "dismiss" }], makeCtx({ onContinue }));
+    expect(onContinue).toHaveBeenCalledWith({ status: "dismissed" });
+  });
+
+  // Same structural guarantee as "continue" — a paywall host relies on nothing
+  // running after the screen is gone.
+  it("stops the loop after 'dismiss'", async () => {
+    const ctx = makeCtx();
+    await runActions(
+      [{ type: "dismiss" }, { type: "setVariable", name: "after", value: "written" }],
+      ctx
+    );
+    expect(ctx.getVariables().after).toBeUndefined();
+  });
+});
+
+describe("runActions — presentPaywall", () => {
+  // An authoring mistake (no host support) must warn loudly, not crash the
+  // host app mid-flow.
+  it("warns and does not throw when the host has no presentPaywall handler", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await expect(
+      runActions([{ type: "presentPaywall", placement: "hard_paywall" }], makeCtx())
+    ).resolves.toBeUndefined();
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("calls the host's presentPaywall with the placement when supported", async () => {
+    const presentPaywall = vi.fn();
+    const ctx = makeCtx({ presentPaywall });
+    await runActions([{ type: "presentPaywall", placement: "hard_paywall" }], ctx);
+    expect(presentPaywall).toHaveBeenCalledWith("hard_paywall");
+  });
+
+  it("does not stop the loop after 'presentPaywall'", async () => {
+    const ctx = makeCtx({ presentPaywall: vi.fn() });
+    await runActions(
+      [
+        { type: "presentPaywall", placement: "hard_paywall" },
+        { type: "setVariable", name: "after", value: "written" },
+      ],
+      ctx
+    );
+    expect(ctx.getVariables().after.value).toBe("written");
+  });
+});
+
 const makeProducts = (over: Partial<any> = {}) => ({
   products: {
     yearly: { key: "yearly", productId: "com.app.yearly", price: "$59.99" },

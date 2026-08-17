@@ -388,6 +388,7 @@ git commit -m "✨ feat(headless): add PaywallProvider and usePaywall"
 **Files:**
 - Create: `packages/onboarding-ui/src/UI/Paywall/PaywallHost.tsx`
 - Modify: `packages/onboarding-ui/src/index.ts`
+- Modify: `packages/onboarding-ui/src/UI/Pages/ComposableScreen/Renderer.tsx` — **added after the plan was written.** `presentPaywall` must work in *both* hosts (§4.5, §7): that is how an onboarding step opens a paywall. Grep confirmed the onboarding adapter never supplies the field, so after Task 4 the capability exists, is wired through ctx, and is reachable from **zero** hosts — the same failure shape as Ruling 7, one layer up. This task supplies it in the adapter's existing `useMemo`'d host object, sourced from `usePaywall().present`. An onboarding app with no `PaywallProvider` above it must keep working unchanged: the field is optional and `runActions` already warns-and-no-ops when absent.
 
 **Interfaces:**
 - Consumes: `usePaywall` (Task 6), `ScreenElementsSchema` (Task 2), `ScreenRenderer` (unchanged).

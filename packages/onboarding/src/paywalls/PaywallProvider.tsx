@@ -119,10 +119,18 @@ const PaywallProviderInner = ({
   productProvider,
   customActions,
 }: PaywallProviderInnerProps) => {
-  const [catalog, setCatalog] = useState<PaywallCatalog | null>(null);
-  const { error } = useQuery<PaywallCatalog>(
-    getPaywallsQuery(client, locale, customAudienceParams, setCatalog)
+  // `data` straight off `useQuery` is the single source of truth (Finding 1,
+  // 2026-08-17 final review) — react-query's own cache already gets both a
+  // provider remount and a locale/customAudienceParams round-trip right; a
+  // mirrored `useState` populated from inside `queryFn` does not (it only
+  // gets written on a cache MISS). See `getPaywalls.query.ts`'s module doc
+  // for why the query still needs `paywallQueryClient` for the ONE case
+  // `data` alone can't cover: a background revalidation pushing a fresh
+  // payload while this query call already resolved with the cached one.
+  const { data, error } = useQuery<PaywallCatalog>(
+    getPaywallsQuery(client, locale, customAudienceParams, paywallQueryClient)
   );
+  const catalog = data ?? null;
 
   useEffect(() => {
     if (!error) return;
@@ -191,6 +199,20 @@ const PaywallProviderInner = ({
   // `purchase`/`restore` callbacks.
   const catalogRef = useRef(catalog);
   catalogRef.current = catalog;
+  // `activePlacementRef` is made AUTHORITATIVE below — assigned inside
+  // `present()`'s start branch and inside `complete()`, not just here. Finding
+  // 4, 2026-08-17 final review: this line alone only resyncs the ref from
+  // state AFTER React commits, so between a `present()` call and the next
+  // commit the ref still holds the PREVIOUS value. Two `present()` calls
+  // issued in the same tick (`Promise.all([present("a"), present("b")])`, or
+  // two `presentPaywall` actions in one action list) both read the stale ref,
+  // both take the "start" branch, and the second overwrites
+  // `pendingResolveRef` — the first promise then never settles, exactly the
+  // orphaning this whole ref/resolver scheme exists to prevent. Assigning
+  // synchronously inside `present`/`complete` closes that window; this
+  // render-body line stays only as a resync for the (rare) case something
+  // external changes `activePlacement` state without going through either
+  // callback.
   const activePlacementRef = useRef(activePlacement);
   activePlacementRef.current = activePlacement;
   const pendingResolveRef = useRef<((result: PresentResult) => void) | null>(null);
@@ -208,6 +230,10 @@ const PaywallProviderInner = ({
     // allowed to write into this one — see `presentationGenerationRef`.
     lastPurchaseOutcomeRef.current = null;
     presentationGenerationRef.current += 1;
+    // Authoritative NOW, synchronously — see the ref's doc above. A second
+    // `present()` call before React commits reads this value, not the stale
+    // pre-commit state, and correctly takes the "already showing" branch.
+    activePlacementRef.current = placement;
     return new Promise<PresentResult>((resolve) => {
       pendingResolveRef.current = resolve;
       setActivePlacement(placement);
@@ -226,11 +252,36 @@ const PaywallProviderInner = ({
   const complete = useCallback((result: PresentResult) => {
     const resolve = pendingResolveRef.current;
     pendingResolveRef.current = null;
+    // Authoritative NOW, synchronously — same reasoning as `present()`'s
+    // assignment above: a `present()` issued from the resolution continuation
+    // (`const r = await present("a"); … present("downsell")` — a downsell
+    // opening from the previous paywall's resolution is a canonical pattern,
+    // spec §4.5) must see "nothing showing" immediately, not wait for the
+    // next commit.
+    activePlacementRef.current = null;
     setActivePlacement(null);
     resolve?.(resolvePresentedOutcome(result, lastPurchaseOutcomeRef.current));
   }, []);
 
   const activePaywall = activePlacement ? catalog?.paywalls[activePlacement] ?? null : null;
+
+  // Finding 6, 2026-08-17 final review: a background catalog revalidation
+  // (see `getPaywalls.query.ts`) can push a fresh catalog that no longer
+  // contains the placement currently on screen (a studio publish renamed or
+  // removed it mid-session). `activePaywall` above then goes null and the
+  // Modal closes itself — but WITHOUT going through `complete()`, so the
+  // pending `present()` promise would never settle and `activePlacement`
+  // would stay set forever, silently failing every later `present()` call
+  // with `"error"` for the rest of the app's life. This effect is the only
+  // path that can produce that exact state (`activePlacement` set, `catalog`
+  // resolved, placement absent) — `complete()` always clears
+  // `activePlacement` together with resolving the pending promise, so it
+  // cannot race with or double-resolve this branch.
+  useEffect(() => {
+    if (!activePlacement || !catalog) return;
+    if (catalog.paywalls[activePlacement]) return;
+    complete({ status: "error" });
+  }, [activePlacement, catalog, complete]);
 
   const isReady = useMemo(
     () => computeIsReady(catalog, productRefs, productRuntime.status),

@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import type { QueryClient } from "@tanstack/react-query";
 import { OnboardingStudioClient } from "../OnboardingStudioClient";
 import { PaywallCatalog } from "./types";
 import { getPaywallsCacheKey } from "../infra/queries/cacheKey";
@@ -16,23 +17,39 @@ import { getPaywallsCacheKey } from "../infra/queries/cacheKey";
  * option — it always throws on a network/response error instead of returning
  * a stand-in payload — so there is no fallback case to special-case here:
  * every resolved catalog is a real one and is always cached.
+ *
+ * `catalog` consumption used to be a `setCatalog` callback mirrored into a
+ * component `useState` — but `queryFn` only re-runs on a cache MISS
+ * (`staleTime: Infinity`), so that mirror went stale on a provider remount
+ * (module-scope `QueryClient`, cache outlives the provider) and on a
+ * query-key round-trip (`locale` switched away and back) — Finding 1, 2026-
+ * 08-17 final review. The fix: `PaywallProviderInner` now reads `data`
+ * straight off `useQuery` as the single source of truth — react-query's own
+ * cache already gets this right on both a remount and a key round-trip. The
+ * ONE case `data` alone can't cover is the BACKGROUND revalidation below:
+ * `fetchAndCache()` there runs detached from the pending query call (its
+ * return value is discarded, not observed by react-query), so it must push
+ * the fresh payload into the query cache directly via `queryClient.
+ * setQueryData` — there is no mirrored component state left to keep in sync.
  */
 export const getPaywallsQuery = (
   client: OnboardingStudioClient,
   locale: string,
   customAudienceParams: Record<string, any>,
-  setCatalog?: (catalog: PaywallCatalog) => void
+  queryClient?: QueryClient
 ) => {
+  const queryKey = [
+    "paywallCatalog",
+    client.projectId,
+    client.options.isSandbox,
+    client.options.baseUrl,
+    client.options.cacheKey,
+    locale,
+    JSON.stringify(customAudienceParams),
+  ];
+
   return {
-    queryKey: [
-      "paywallCatalog",
-      client.projectId,
-      client.options.isSandbox,
-      client.options.baseUrl,
-      client.options.cacheKey,
-      locale,
-      JSON.stringify(customAudienceParams),
-    ],
+    queryKey,
     queryFn: async (): Promise<PaywallCatalog> => {
       const isProduction = !(client?.options?.isSandbox || false);
       // A custom key opts into app-controlled caching: persist cache-first
@@ -41,17 +58,21 @@ export const getPaywallsQuery = (
       const hasCustomKey = Boolean(client.options.cacheKey);
       const cacheKey = getPaywallsCacheKey(client.options.cacheKey);
 
-      // Fetches the live catalog, pushes it to the provider, and caches it.
+      // Fetches the live catalog, caches it, and pushes it into the query
+      // cache directly — see the module doc above for why that push is
+      // needed even though `queryFn`'s own return value already becomes
+      // `data` for a LIVE call: this same function also runs detached, as a
+      // background revalidation, whose return value nothing observes.
       // Unlike `getOnboardingQuery`, there is no fallback payload to exclude
-      // from caching (see module doc above) — a rejection here propagates
-      // as-is (error-surfacing, not a resolved fallback).
+      // from caching — a rejection here propagates as-is (error-surfacing,
+      // not a resolved fallback).
       const fetchAndCache = async (): Promise<PaywallCatalog> => {
         const { data } = await client.getPaywalls(
           { locale },
           customAudienceParams
         );
 
-        setCatalog && setCatalog(data);
+        queryClient?.setQueryData<PaywallCatalog>(queryKey, data);
 
         try {
           await AsyncStorage.setItem(cacheKey, JSON.stringify(data));
@@ -81,11 +102,11 @@ export const getPaywallsQuery = (
       }
 
       if (cached) {
-        setCatalog && setCatalog(cached);
         if (!hasCustomKey) {
-          // Background revalidation — updates the cache + provider state when a
-          // fresh real payload arrives. Errors are swallowed: the cache already
-          // painted, so an offline revalidation must not surface as a query error.
+          // Background revalidation — updates the cache + query state when a
+          // fresh real payload arrives via `queryClient.setQueryData` above.
+          // Errors are swallowed: the cache already painted, so an offline
+          // revalidation must not surface as a query error.
           void fetchAndCache().catch((error) => {
             console.warn("Background paywalls revalidation failed:", error);
           });

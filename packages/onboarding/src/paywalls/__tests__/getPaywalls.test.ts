@@ -193,8 +193,10 @@ const makeClient = (
   } as any;
 };
 
-const run = (client: any, setCatalog = vi.fn()) =>
-  (getPaywallsQuery(client, "en", {}, setCatalog) as any).queryFn();
+const makeQueryClient = () => ({ setQueryData: vi.fn() }) as any;
+
+const run = (client: any, queryClient = makeQueryClient()) =>
+  (getPaywallsQuery(client, "en", {}, queryClient) as any).queryFn();
 
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
@@ -220,13 +222,15 @@ describe("getPaywallsQuery", () => {
   it("production cache miss: fetches and caches under the default key", async () => {
     getItem.mockResolvedValue(null);
     const client = makeClient({ isSandbox: false, data: catalog });
-    const setCatalog = vi.fn();
+    const queryClient = makeQueryClient();
 
-    const data = await run(client, setCatalog);
+    const data = await run(client, queryClient);
 
     expect(client.getPaywalls).toHaveBeenCalledTimes(1);
     expect(setItem).toHaveBeenCalledWith(CACHE_KEY, JSON.stringify(catalog));
-    expect(setCatalog).toHaveBeenCalledWith(catalog);
+    // A live (non-background) call also pushes through `setQueryData` — a
+    // harmless overwrite with the exact value this call is about to return.
+    expect(queryClient.setQueryData).toHaveBeenCalledWith(expect.anything(), catalog);
     expect(data).toBe(catalog);
   });
 
@@ -234,37 +238,43 @@ describe("getPaywallsQuery", () => {
     const cached = { ...catalog, metadata: { ...catalog.metadata, locale: "cached" } };
     getItem.mockResolvedValue(JSON.stringify(cached));
     const client = makeClient({ isSandbox: false, data: catalog });
-    const setCatalog = vi.fn();
+    const queryClient = makeQueryClient();
 
-    const data = await run(client, setCatalog);
+    const data = await run(client, queryClient);
 
-    // Served from cache without blocking on the network.
+    // Served from cache without blocking on the network — this call's own
+    // return value is what becomes `data` for a live `useQuery`, with no
+    // query-cache write needed for it.
     expect(data).toEqual(cached);
-    expect(setCatalog).toHaveBeenCalledWith(cached);
 
-    // Background revalidation runs after the cache is returned.
+    // Background revalidation runs after the cache is returned, and pushes
+    // the fresh payload into the query cache directly (Finding 1) — this is
+    // the ONE case `useQuery`'s own `data` cannot cover on its own, since this
+    // call is detached from the pending query invocation.
     await flush();
     expect(client.getPaywalls).toHaveBeenCalledTimes(1);
     expect(setItem).toHaveBeenCalledWith(CACHE_KEY, JSON.stringify(catalog));
-    expect(setCatalog).toHaveBeenCalledWith(catalog);
+    expect(queryClient.setQueryData).toHaveBeenCalledTimes(1);
+    expect(queryClient.setQueryData).toHaveBeenCalledWith(expect.anything(), catalog);
   });
 
   it("custom key, cache hit: serves cache and does NOT revalidate", async () => {
     const cached = { ...catalog, metadata: { ...catalog.metadata, locale: "cached" } };
     getItem.mockResolvedValue(JSON.stringify(cached));
     const client = makeClient({ isSandbox: false, cacheKey: CUSTOM_KEY, data: catalog });
-    const setCatalog = vi.fn();
+    const queryClient = makeQueryClient();
 
-    const data = await run(client, setCatalog);
+    const data = await run(client, queryClient);
 
     expect(getItem).toHaveBeenCalledWith(CUSTOM_CACHE_KEY);
     expect(data).toEqual(cached);
-    expect(setCatalog).toHaveBeenCalledWith(cached);
+    expect(queryClient.setQueryData).not.toHaveBeenCalled();
 
     // No background revalidation — the pinned version is never refetched.
     await flush();
     expect(client.getPaywalls).not.toHaveBeenCalled();
     expect(setItem).not.toHaveBeenCalled();
+    expect(queryClient.setQueryData).not.toHaveBeenCalled();
   });
 
   it("custom key, cache miss: fetches once and persists under the namespaced key", async () => {

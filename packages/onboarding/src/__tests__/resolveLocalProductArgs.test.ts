@@ -9,7 +9,7 @@ vi.mock("@react-native-async-storage/async-storage", () => ({
 vi.mock("react-native", () => ({ Platform: { OS: "ios" } }));
 
 import { resolveLocalProductArgs } from "../infra/provider/OnboardingProvider";
-import type { ProductProvider, ProductRef, ProductRuntime } from "../products/types";
+import type { ProductProvider, ProductRef } from "../products/types";
 
 const REFS: ProductRef[] = [{ key: "yearly", ios: "com.app.yearly" }];
 const PROVIDER: ProductProvider = {
@@ -17,35 +17,25 @@ const PROVIDER: ProductProvider = {
   purchase: async () => ({ status: "cancelled" }),
   restore: async () => ({ status: "nothing_to_restore" }),
 };
-const CONTEXT_RUNTIME: ProductRuntime = {
-  products: {},
-  status: "ready",
-  purchasing: false,
-  purchase: async () => ({ status: "cancelled" }),
-  restore: async () => ({ status: "nothing_to_restore" }),
-};
 
-// This is the exact decision the shared-runtime feature hinges on: get it
-// backwards and either (a) a wrapped OnboardingProvider double-fetches
-// alongside the shared runtime, or (b) a standalone one silently never
-// resolves its products — no error, no failing test, just missing products.
-// See the comment on `resolveLocalProductArgs` in OnboardingProvider.tsx.
+// Finding 5, 2026-08-17 final review: this function used to zero refs/provider
+// out whenever a context runtime existed, on the assumption that the paywall
+// catalog's product union is always a superset of the host's own `productRefs`
+// — that silently broke a documented Phase 3 prop the moment a `PaywallProvider`
+// was mounted above. It now passes the host's own args through UNCONDITIONALLY;
+// `mergeProductRuntimes` (see its own test) does the unioning at the runtime
+// level. This test guards the pass-through itself against a regression back to
+// the old zeroing behavior.
 describe("resolveLocalProductArgs", () => {
-  it("standalone (no context runtime): passes the host's own refs/provider through unchanged", () => {
-    const result = resolveLocalProductArgs(null, REFS, PROVIDER);
+  it("passes the host's own refs/provider through unchanged", () => {
+    const result = resolveLocalProductArgs(REFS, PROVIDER);
     expect(result.refs).toBe(REFS);
     expect(result.provider).toBe(PROVIDER);
   });
 
-  it("standalone with no productRefs/productProvider props: stays undefined (host declared no products)", () => {
-    const result = resolveLocalProductArgs(null, undefined, undefined);
+  it("stays undefined when the host declared no productRefs/productProvider props", () => {
+    const result = resolveLocalProductArgs(undefined, undefined);
     expect(result.refs).toBeUndefined();
-    expect(result.provider).toBeUndefined();
-  });
-
-  it("provider-above: local call gets an empty ref set and no provider, regardless of the host's own props", () => {
-    const result = resolveLocalProductArgs(CONTEXT_RUNTIME, REFS, PROVIDER);
-    expect(result.refs).toEqual([]);
     expect(result.provider).toBeUndefined();
   });
 });

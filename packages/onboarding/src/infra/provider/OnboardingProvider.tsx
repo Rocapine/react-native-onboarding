@@ -13,6 +13,7 @@ import { expoRouterAdapter } from "../navigation/expoRouterAdapter";
 import { useProducts } from "../../products/useProducts";
 import { ProductProvider, ProductRef, ProductRuntime } from "../../products/types";
 import { useProductRuntime } from "../../products/ProductRuntimeContext";
+import { mergeProductRuntimes } from "../../products/mergeProductRuntimes";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -33,36 +34,34 @@ const EMPTY_PRODUCT_RUNTIME: ProductRuntime = {
   restore: async () => ({ status: "error", error: new Error("No ProductProvider") }),
 };
 
-// Stable empty ref set fed to the local `useProducts` call when a
-// ProductRuntime already comes from context — an inline `[]` would be a fresh
-// array every render, and while `useProducts`' effect keys on ref *content*
-// (not identity) so that alone wouldn't cause a refetch loop, there's no
-// reason to allocate one per render either.
-const EMPTY_PRODUCT_REFS: ProductRef[] = [];
-
 /**
- * Args for the local `useProducts` call, given whatever a `PaywallProvider`
- * (or other ancestor) already published via `ProductRuntimeContext`.
+ * Args for the local `useProducts` call.
  *
- * Exported so the "which refs/provider does the local call get" decision is
- * covered by an importable, real test rather than only inspection — getting
- * this backwards is exactly the kind of bug this file warns about elsewhere:
- * silent, no error, no failing test, just a runtime that behaves wrong. Two
- * ways it can go wrong: (1) a context runtime exists but this still returns
- * the real refs/provider — the standalone `useProducts` call fires a second,
- * redundant store round-trip alongside the shared one; (2) no context runtime
- * exists but this returns the empty set anyway — a standalone
- * `OnboardingProvider` (the common case, no `PaywallProvider` above it) never
- * resolves its products at all.
+ * This function used to zero refs/provider out entirely whenever a
+ * `PaywallProvider` (or other ancestor) already published a `ProductRuntime`
+ * via `ProductRuntimeContext` — on the assumption that the paywall catalog's
+ * product union is always a superset of whatever `productRefs` this
+ * `OnboardingProvider` declares. Finding 5 (2026-08-17 final review) found
+ * that assumption wrong: it is a claim about a host-supplied prop, not a
+ * property of the code, and it silently stopped resolving any `productRefs`
+ * key absent from the catalog union the moment a host added a
+ * `PaywallProvider` above an existing `OnboardingProvider` — no error,
+ * nothing that type-checks, just a variable that renders empty.
+ *
+ * `productRefs`/`productProvider` are therefore passed through UNCHANGED
+ * regardless of whether a context runtime exists — `mergeProductRuntimes`
+ * (in `OnboardingProvider` below) unions the resulting local runtime back
+ * into the context one. Exported so the pass-through itself is covered by an
+ * importable, real test, not only inspection: this is the exact seam Finding
+ * 5's silent regression went through.
  */
 export const resolveLocalProductArgs = (
-  contextRuntime: ProductRuntime | null,
   productRefs: ProductRef[] | undefined,
   productProvider: ProductProvider | undefined
-): { refs: ProductRef[] | undefined; provider: ProductProvider | undefined } =>
-  contextRuntime
-    ? { refs: EMPTY_PRODUCT_REFS, provider: undefined }
-    : { refs: productRefs, provider: productProvider };
+): { refs: ProductRef[] | undefined; provider: ProductProvider | undefined } => ({
+  refs: productRefs,
+  provider: productProvider,
+});
 
 // Frozen at module scope, not `= {}` inline: a default PARAMETER re-allocates on
 // every render, and `customActions` is a RenderContext dependency, so a host that
@@ -241,20 +240,23 @@ export const OnboardingProvider = ({
 
   // A ProductRuntime may already be published above by a `PaywallProvider`
   // (Phase 5 Task 6) sharing one product catalog with this provider. Hooks
-  // can't be called conditionally, so `useProducts` is always called — with
-  // an empty ref set when a context runtime exists. That's a genuine no-op,
-  // not a wasted round-trip: useProducts.ts's effect bails out to status
-  // "idle" before ever calling the provider when `refs.length === 0`
-  // (useProducts.ts:49-54). We then publish the context's runtime instead of
-  // this local one. Do not "simplify" this into a conditional hook call.
+  // can't be called conditionally, so `useProducts` is always called, with
+  // this provider's OWN `productRefs`/`productProvider` regardless of whether
+  // a context runtime exists (`resolveLocalProductArgs`) — when a context
+  // runtime is present, `mergeProductRuntimes` unions the two into the one
+  // `ProductRuntime` published below (Finding 5, 2026-08-17 final review: the
+  // two runtimes used to never merge, so a context runtime silently made
+  // `productRefs` unresolvable). Do not "simplify" this into a conditional
+  // hook call.
   const contextRuntime = useProductRuntime();
   const { refs: localProductRefs, provider: localProductProvider } = resolveLocalProductArgs(
-    contextRuntime,
     productRefs,
     productProvider
   );
   const localProductRuntime = useProducts(localProductRefs, localProductProvider, locale);
-  const productRuntime = contextRuntime ?? localProductRuntime;
+  const productRuntime = contextRuntime
+    ? mergeProductRuntimes(contextRuntime, localProductRuntime, (productRefs?.length ?? 0) > 0)
+    : localProductRuntime;
 
   return (
     <QueryClientProvider client={queryClient}>

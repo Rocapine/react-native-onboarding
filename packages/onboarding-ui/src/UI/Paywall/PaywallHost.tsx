@@ -176,6 +176,18 @@ export const PaywallHost = () => {
     complete({ status: "dismissed" });
   }, [complete]);
 
+  // N4, 2026-08-18 final review round 2: Finding 2 closes the trap for a
+  // payload that fails to PARSE, but `PaywallContent` is still wrapped in an
+  // error boundary for a genuine RENDER-time crash the parse can't predict
+  // (an element renderer throwing on valid-but-unusual props) — that fallback
+  // still has no interactive control, still inside a fullScreen, non-
+  // transparent Modal. Symmetric fix: resolve the pending `present()` call
+  // with `"error"` the same way a parse failure does, closing the trap
+  // completely instead of narrowing it.
+  const handleRenderError = useCallback(() => {
+    complete({ status: "error" });
+  }, [complete]);
+
   // Parsed OUTSIDE `PaywallContent`'s error boundary — Finding 2, 2026-08-17
   // final review — so a malformed payload never reaches the Modal at all. See
   // `resolvePaywallModalDecision`'s doc for the full reasoning.
@@ -210,6 +222,7 @@ export const PaywallHost = () => {
             elements={decision.elements}
             complete={complete}
             customActions={customActions}
+            onError={handleRenderError}
           />
         )}
       </SafeAreaProvider>

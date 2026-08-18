@@ -57,8 +57,14 @@ export default function ComposableScreenProductsExample() {
                   props: { content: 'Go Premium', fontSize: 30, fontWeight: '700' as const, textAlign: 'center' as const },
                 },
                 {
+                  // `mode: 'expression'` is required for `{{var}}` interpolation
+                  // (no auto-detection from `{{` in `content`) — this Text was
+                  // missing it, so it rendered the literal, un-interpolated
+                  // string on every run until now. See `.claude/rules/
+                  // composable-screen-runtime.md` ("Text.mode ...").
                   id: 'per-week', type: 'Text' as const,
                   props: {
+                    mode: 'expression' as const,
                     content: 'Just {{product.yearly.pricePerWeek}} per week',
                     fontSize: 16, textAlign: 'center' as const, opacity: 0.7,
                   },
@@ -67,6 +73,7 @@ export default function ComposableScreenProductsExample() {
                   id: 'savings', type: 'Text' as const,
                   renderWhen: { variable: 'product.yearly.savingsPct', operator: 'is_not_empty' as const },
                   props: {
+                    mode: 'expression' as const,
                     content: 'Save {{product.yearly.savingsPct}}% vs monthly',
                     fontSize: 14, textAlign: 'center' as const, color: '#0A7C3A',
                   },
@@ -75,6 +82,7 @@ export default function ComposableScreenProductsExample() {
                   id: 'trial', type: 'Text' as const,
                   renderWhen: { variable: 'product.yearly.trialDays', operator: 'is_not_empty' as const },
                   props: {
+                    mode: 'expression' as const,
                     content: '{{product.yearly.trialDays}}-day free trial',
                     fontSize: 14, textAlign: 'center' as const, opacity: 0.6,
                   },
@@ -87,13 +95,21 @@ export default function ComposableScreenProductsExample() {
                   },
                 },
                 {
+                  // RadioGroup item `label` never interpolates `{{var}}` at
+                  // all (unlike Text.content, there's no `mode: "expression"`
+                  // opt-in for it, and no auto-detection either) — these
+                  // items previously authored `{{product.yearly.title}} —
+                  // {{product.yearly.price}}` as a literal label and rendered
+                  // that exact un-interpolated string. Plain static labels
+                  // here; live pricing is shown by the interpolated `per-week`
+                  // Text above instead.
                   id: 'plans', type: 'RadioGroup' as const,
                   renderWhen: { variable: 'products.loaded', operator: 'eq' as const, value: 'true' },
                   props: {
                     variableName: 'plan', defaultValue: 'yearly',
                     items: [
-                      { value: 'yearly', label: '{{product.yearly.title}} — {{product.yearly.price}}' },
-                      { value: 'monthly', label: '{{product.monthly.title}} — {{product.monthly.price}}' },
+                      { value: 'yearly', label: 'Yearly' },
+                      { value: 'monthly', label: 'Monthly' },
                     ],
                   },
                 },

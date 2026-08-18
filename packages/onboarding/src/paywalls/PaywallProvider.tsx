@@ -265,23 +265,29 @@ const PaywallProviderInner = ({
 
   const activePaywall = activePlacement ? catalog?.paywalls[activePlacement] ?? null : null;
 
-  // Finding 6, 2026-08-17 final review: a background catalog revalidation
-  // (see `getPaywalls.query.ts`) can push a fresh catalog that no longer
-  // contains the placement currently on screen (a studio publish renamed or
-  // removed it mid-session). `activePaywall` above then goes null and the
-  // Modal closes itself — but WITHOUT going through `complete()`, so the
-  // pending `present()` promise would never settle and `activePlacement`
-  // would stay set forever, silently failing every later `present()` call
-  // with `"error"` for the rest of the app's life. This effect is the only
-  // path that can produce that exact state (`activePlacement` set, `catalog`
-  // resolved, placement absent) — `complete()` always clears
-  // `activePlacement` together with resolving the pending promise, so it
-  // cannot race with or double-resolve this branch.
+  // Finding 6, 2026-08-17 final review, widened by N2 (round 2): a background
+  // catalog revalidation (see `getPaywalls.query.ts`) can push a fresh catalog
+  // that no longer contains the placement currently on screen (a studio
+  // publish renamed or removed it mid-session) — OR the query KEY itself can
+  // change while a paywall is showing (`locale`/`customAudienceParams`
+  // changed as a prop), which makes react-query report `data: undefined`
+  // while the new key is fetching (Finding 1's fix reads `catalog` straight
+  // from that `data`). Both collapse `activePaywall` to null the same way, so
+  // guarding on THAT — not on `catalog` being non-null — catches both: the
+  // original guard (`!catalog` check) missed the query-key case entirely,
+  // because a null `catalog` made it bail out before ever checking whether
+  // the placement was still present.
+  //
+  // Either way, the Modal closes itself WITHOUT going through `complete()`,
+  // so the pending `present()` promise would never settle and
+  // `activePlacement` would stay set forever, silently failing every later
+  // `present()` call with `"error"` for the rest of the app's life.
+  // `complete()` always clears `activePlacement` together with resolving the
+  // pending promise, so it cannot race with or double-resolve this branch.
   useEffect(() => {
-    if (!activePlacement || !catalog) return;
-    if (catalog.paywalls[activePlacement]) return;
+    if (!activePlacement || activePaywall) return;
     complete({ status: "error" });
-  }, [activePlacement, catalog, complete]);
+  }, [activePlacement, activePaywall, complete]);
 
   const isReady = useMemo(
     () => computeIsReady(catalog, productRefs, productRuntime.status),

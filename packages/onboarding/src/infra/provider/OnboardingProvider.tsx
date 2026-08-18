@@ -1,4 +1,4 @@
-import { createContext, useCallback, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { OnboardingStudioClient } from "../../OnboardingStudioClient";
 import { getOnboardingQuery } from "../queries/getOnboarding.query";
@@ -254,9 +254,24 @@ export const OnboardingProvider = ({
     productProvider
   );
   const localProductRuntime = useProducts(localProductRefs, localProductProvider, locale);
-  const productRuntime = contextRuntime
-    ? mergeProductRuntimes(contextRuntime, localProductRuntime, (productRefs?.length ?? 0) > 0)
-    : localProductRuntime;
+  const hasLocalRefs = (productRefs?.length ?? 0) > 0;
+  const hasLocalProvider = !!localProductProvider;
+  // Memoized — round 2 of the final review (N1) caught that calling
+  // `mergeProductRuntimes` inline in the render body allocates a fresh object
+  // (and a fresh `purchase` closure) on EVERY render whenever `hasLocalRefs`,
+  // breaking `ScreenHost.products`'s "referentially stable across variable
+  // writes" contract (`ScreenHost.ts`) the moment a host uses `productRefs`
+  // alongside a `PaywallProvider` ancestor — every memoized element would
+  // re-render on every keystroke, since `setVariables` always allocates a new
+  // object. Keyed on the two runtimes plus the two booleans that change the
+  // merge's shape, exactly the inputs the function reads.
+  const productRuntime = useMemo(
+    () =>
+      contextRuntime
+        ? mergeProductRuntimes(contextRuntime, localProductRuntime, hasLocalRefs, hasLocalProvider)
+        : localProductRuntime,
+    [contextRuntime, localProductRuntime, hasLocalRefs, hasLocalProvider]
+  );
 
   return (
     <QueryClientProvider client={queryClient}>

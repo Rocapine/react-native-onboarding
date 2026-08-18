@@ -35,7 +35,7 @@ describe("mergeProductRuntimes", () => {
     const contextRuntime = makeRuntime({ products: { yearly: product("yearly") }, status: "ready" });
     const localRuntime = makeRuntime();
 
-    const result = mergeProductRuntimes(contextRuntime, localRuntime, false);
+    const result = mergeProductRuntimes(contextRuntime, localRuntime, false, true);
 
     expect(result).toBe(contextRuntime);
   });
@@ -44,7 +44,7 @@ describe("mergeProductRuntimes", () => {
     const contextRuntime = makeRuntime({ products: { yearly: product("yearly") }, status: "ready" });
     const localRuntime = makeRuntime({ products: { lifetime: product("lifetime") }, status: "ready" });
 
-    const result = mergeProductRuntimes(contextRuntime, localRuntime, true);
+    const result = mergeProductRuntimes(contextRuntime, localRuntime, true, true);
 
     expect(result.products).toEqual({
       yearly: product("yearly"),
@@ -56,14 +56,14 @@ describe("mergeProductRuntimes", () => {
     const contextRuntime = makeRuntime({ status: "ready" });
     const localRuntime = makeRuntime({ status: "loading" });
 
-    expect(mergeProductRuntimes(contextRuntime, localRuntime, true).status).toBe("loading");
+    expect(mergeProductRuntimes(contextRuntime, localRuntime, true, true).status).toBe("loading");
   });
 
   it("reports 'error' if either runtime errored", () => {
     const contextRuntime = makeRuntime({ status: "ready" });
     const localRuntime = makeRuntime({ status: "error", error: "boom" });
 
-    const result = mergeProductRuntimes(contextRuntime, localRuntime, true);
+    const result = mergeProductRuntimes(contextRuntime, localRuntime, true, true);
     expect(result.status).toBe("error");
     expect(result.error).toBe("boom");
   });
@@ -72,14 +72,40 @@ describe("mergeProductRuntimes", () => {
     const contextRuntime = makeRuntime({ status: "ready" });
     const localRuntime = makeRuntime({ status: "ready" });
 
-    expect(mergeProductRuntimes(contextRuntime, localRuntime, true).status).toBe("ready");
+    expect(mergeProductRuntimes(contextRuntime, localRuntime, true, true).status).toBe("ready");
+  });
+
+  // N3, round 2 of the final review: productRefs declared with no local
+  // productProvider is a real, unremarkable configuration (the shared context
+  // runtime is expected to cover it) — useProducts then never leaves the
+  // local runtime's status at anything but "idle" (it bails before ever
+  // calling a provider it doesn't have). A naive mergeStatus would drag the
+  // context runtime's "ready" down to "idle" forever, closing every
+  // renderWhen gate on products.loaded for the life of the component.
+  it("hasLocalProvider=false: merged status is the context runtime's alone, not dragged down by a permanently-idle local runtime", () => {
+    const contextRuntime = makeRuntime({ status: "ready", products: { yearly: product("yearly") } });
+    const localRuntime = makeRuntime({ status: "idle" });
+
+    const result = mergeProductRuntimes(contextRuntime, localRuntime, true, false);
+
+    expect(result.status).toBe("ready");
+  });
+
+  it("hasLocalProvider=false: still surfaces the context runtime's error, since that's a real failure", () => {
+    const contextRuntime = makeRuntime({ status: "error", error: "boom" });
+    const localRuntime = makeRuntime({ status: "idle" });
+
+    const result = mergeProductRuntimes(contextRuntime, localRuntime, true, false);
+
+    expect(result.status).toBe("error");
+    expect(result.error).toBe("boom");
   });
 
   it("purchasing is true if EITHER runtime is mid-purchase", () => {
     const contextRuntime = makeRuntime({ purchasing: false });
     const localRuntime = makeRuntime({ purchasing: true });
 
-    expect(mergeProductRuntimes(contextRuntime, localRuntime, true).purchasing).toBe(true);
+    expect(mergeProductRuntimes(contextRuntime, localRuntime, true, true).purchasing).toBe(true);
   });
 
   it("purchase() routes a key resolved by the LOCAL runtime through the local provider", async () => {
@@ -98,7 +124,7 @@ describe("mergeProductRuntimes", () => {
       },
     });
 
-    const result = await mergeProductRuntimes(contextRuntime, localRuntime, true).purchase("lifetime");
+    const result = await mergeProductRuntimes(contextRuntime, localRuntime, true, true).purchase("lifetime");
 
     expect(calledLocal).toBe(true);
     expect(result).toEqual({ status: "purchased", productKey: "lifetime" });
@@ -115,7 +141,7 @@ describe("mergeProductRuntimes", () => {
     });
     const localRuntime = makeRuntime({ products: { lifetime: product("lifetime") } });
 
-    const result = await mergeProductRuntimes(contextRuntime, localRuntime, true).purchase("yearly");
+    const result = await mergeProductRuntimes(contextRuntime, localRuntime, true, true).purchase("yearly");
 
     expect(calledContext).toBe(true);
     expect(result).toEqual({ status: "purchased", productKey: "yearly" });
@@ -137,7 +163,7 @@ describe("mergeProductRuntimes", () => {
       },
     });
 
-    const result = await mergeProductRuntimes(contextRuntime, localRuntime, true).restore();
+    const result = await mergeProductRuntimes(contextRuntime, localRuntime, true, true).restore();
 
     expect(calledContext).toBe(true);
     expect(calledLocal).toBe(false);

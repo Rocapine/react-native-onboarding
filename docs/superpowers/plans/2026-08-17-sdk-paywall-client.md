@@ -475,3 +475,18 @@ git commit -m "✨ feat(ui): add PaywallHost rendering a paywall in a fullScreen
 - **Phase 7:** seeded paywall templates for the products-failed and purchasing-in-flight patterns.
 - **§11.0 item 3** — the `update-uielement` skill's wrong premise. Pre-existing and unrelated to the runtime; its own change.
 - **Per-placement `metadata.locale`** — the studio returns one locale for the whole catalog; if placements ever resolve locales independently this needs settling before the SDK's types harden.
+- **§4.6's RadioGroup item `label` never interpolates `{{var}}`** — pre-existing,
+  correct-by-design engine behavior (unlike `Text.content`, there is no
+  `mode: "expression"` opt-in for it at all, and no auto-detection either), but
+  the spec's own canonical authoring shape still shows
+  `{"value":"yearly","label":"{{product.yearly.price}} / year"}` right next to
+  the `Text.mode` paragraph that fixed the OTHER interpolation gap in the same
+  code block — now a visible contradiction in the one place a studio author
+  would copy from. Recorded only in an `example/app/example/*.tsx` code
+  comment before this; tracked here so it doesn't fall through again
+  (2026-08-17 final review, Finding 3 follow-up; round 2 of the fix pass).
+  Fix shape: either give `RadioGroup`/`CheckboxGroup` item `label` the same
+  `mode: "expression"` opt-in `Text.content` has, or rewrite §4.6's example to
+  use plain static labels (as `example/app/example/paywall.tsx` already does)
+  and say why. Out of scope for this phase's own DoD (no `Runtime/` element
+  prop changes were authorized here beyond the Task 4 exception above).

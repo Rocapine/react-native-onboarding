@@ -5,6 +5,24 @@ import { ZodError } from 'zod';
 interface ErrorBoundaryProps {
   children: ReactNode;
   stepType?: string;
+  /**
+   * Called once, right after `componentDidCatch`, with the error that was
+   * caught. Optional — every existing caller of `withErrorBoundary` that
+   * doesn't need this keeps working unchanged.
+   *
+   * N4, 2026-08-18 final review round 2: `PaywallHost` passes one that calls
+   * `complete({status:"error"})` — a render-time crash the Finding 2 parse
+   * check cannot predict (an element renderer throwing on valid-but-unusual
+   * props) would otherwise still render this boundary's fallback — which has
+   * no interactive control — inside a fullScreen, non-transparent Modal, with
+   * the pending `present()` promise never settling. This callback closes that
+   * remaining trap symmetrically with Finding 2's fix, without adding any UI
+   * (so it cannot collide with an authored paywall's own design) and without
+   * changing the fallback rendered below, which the onboarding host still
+   * relies on as-is (a back button already exists OUTSIDE that boundary
+   * there).
+   */
+  onError?: (error: Error) => void;
 }
 
 interface ErrorBoundaryState {
@@ -24,13 +42,16 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
+    this.props.onError?.(error);
   }
 
   formatZodError(error: ZodError<any>): string {
     try {
-      // @ts-ignore
-      return error.errors
-        // @ts-ignore
+      // Zod 4 renamed `ZodError.errors` to `.issues` — `.errors` no longer
+      // exists, so this used to throw on every call and fall through to the
+      // catch below, always rendering the fallback string instead of the
+      // real validation detail.
+      return error.issues
         .map((err) => {
           const path = err.path.join(' > ');
           return `• ${path || 'root'}: ${err.message}`;

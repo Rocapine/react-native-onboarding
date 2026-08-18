@@ -1,0 +1,141 @@
+import type { Paywall, PaywallCatalog, PresentResult } from "./types";
+import type { ProductRef, ProductStatus, PurchaseResult } from "../products/types";
+
+/**
+ * Union of every `paywall.products[]` across the WHOLE catalog, deduplicated
+ * by content — the same identity notion `useProducts`' `refsKey` uses
+ * (`products/useProducts.ts:41-45`: keyed on ref CONTENT, not array
+ * identity), so this array is exactly as cheap to pass as a hand-written one:
+ * `useProducts` resolves it once and does not refetch on every render.
+ *
+ * Resolving the whole catalog's union ONCE at load — rather than re-keying
+ * `useProducts` per presented paywall — is the deliberate design decision:
+ * a paywall must render the instant the user taps upgrade (spec §6.1), and a
+ * store round-trip at that moment is exactly the latency this avoids. Cost
+ * accepted: an app resolves products for paywalls it may never show.
+ */
+export const collectProductRefs = (catalog: PaywallCatalog | null): ProductRef[] => {
+  if (!catalog) return [];
+  const seen = new Set<string>();
+  const refs: ProductRef[] = [];
+  for (const paywall of Object.values(catalog.paywalls)) {
+    for (const ref of paywall.products) {
+      const identity = `${ref.key}|${ref.ios ?? ""}|${ref.android ?? ""}|${ref.compareTo ?? ""}`;
+      if (seen.has(identity)) continue;
+      seen.add(identity);
+      refs.push(ref);
+    }
+  }
+  return refs;
+};
+
+/** What `present()` should do, decided as a pure function of current state. */
+export type PresentDecision =
+  | { type: "start"; paywall: Paywall }
+  | { type: "immediate"; result: PresentResult };
+
+/**
+ * `present(placement)`'s edge-case decision, extracted so both documented
+ * edge cases are covered by an importable test rather than only inspection:
+ *
+ * - **Unknown placement** (absent from the catalog, or the catalog hasn't
+ *   resolved yet — both look identical here: `catalog?.paywalls[placement]`
+ *   is `undefined` either way) → resolves `"error"`, never throws. A missing
+ *   placement must not crash a host app mid-flow.
+ * - **`present()` called while another paywall is already showing** → also
+ *   resolves `"error"` immediately, leaving the in-progress presentation
+ *   untouched. This SDK shows one paywall at a time. Silently replacing the
+ *   active paywall would orphan its pending `present()` promise (never
+ *   resolved — that caller hangs forever); queueing the new request would
+ *   need its own cancellation/timeout story that nothing here asks for.
+ *   Resolving the new call immediately applies the same "resolve, don't
+ *   throw" contract as the unknown-placement case, consistently.
+ */
+export const resolvePresentDecision = (
+  catalog: PaywallCatalog | null,
+  activePlacement: string | null,
+  placement: string
+): PresentDecision => {
+  if (activePlacement !== null) {
+    return { type: "immediate", result: { status: "error" } };
+  }
+  const paywall = catalog?.paywalls[placement];
+  if (!paywall) {
+    return { type: "immediate", result: { status: "error" } };
+  }
+  return { type: "start", paywall };
+};
+
+/**
+ * `isReady` = catalog resolved AND products resolved — the one flag a caller
+ * needs to know "presenting now will not show a spinner".
+ *
+ * The `productRefs.length === 0` branch handles a real edge case:
+ * `useProducts` never leaves status `"idle"` when its ref set is empty
+ * (`products/useProducts.ts:49-54` bails out before ever calling the
+ * provider) — a catalog whose paywalls declare no products at all would
+ * otherwise report `isReady: false` forever, with nothing to actually wait
+ * for.
+ */
+export const computeIsReady = (
+  catalog: PaywallCatalog | null,
+  productRefs: ProductRef[],
+  productsStatus: ProductStatus
+): boolean => catalog !== null && (productRefs.length === 0 || productsStatus === "ready");
+
+/**
+ * What a purchase attempt resolved to during the current presentation, or
+ * `null` if none did. Only the two `PurchaseResult` statuses that describe a
+ * completed store interaction are tracked — `"pending"` (e.g. Ask-to-Buy) and
+ * `"error"` are not: they don't describe what happened to the STORE PURCHASE
+ * in a way that should override how the paywall itself reports closing (an
+ * `"error"` here would collide with `PresentResult`'s existing `"error"`,
+ * which means something structurally different — an unknown placement or a
+ * mistimed `present()` call, not a failed purchase attempt).
+ */
+export type PurchaseOutcomeDuringPresentation = "purchased" | "cancelled" | null;
+
+/** Narrows a `PurchaseResult` to the subset `PurchaseOutcomeDuringPresentation` tracks. */
+export const purchaseOutcomeFromResult = (result: PurchaseResult): PurchaseOutcomeDuringPresentation =>
+  result.status === "purchased" || result.status === "cancelled" ? result.status : null;
+
+/**
+ * Reconciles what the closing action REPORTED with what actually happened at
+ * the store during this presentation. `dismiss` (spec §4.5) always reports
+ * `{status:"dismissed"}` — it is the generic "this screen is done" signal and
+ * knows nothing about purchases, which is exactly the gap spec §4.6's own
+ * canonical authoring shape falls into: `{type:"purchase", onSuccess:
+ * [{type:"dismiss"}]}` closes a successful purchase through the SAME generic
+ * signal a user backing out would produce. So a bare `"dismissed"` is treated
+ * as "the caller didn't have anything more specific to say" and gets upgraded
+ * to whatever the store actually did (if anything). Any other reported
+ * status is assumed to mean something deliberate and passes through
+ * unchanged — this only fills in the generic default, never overrides a
+ * caller that already said something more specific.
+ */
+export const resolvePresentedOutcome = (
+  reported: PresentResult,
+  purchaseOutcome: PurchaseOutcomeDuringPresentation
+): PresentResult =>
+  reported.status === "dismissed" && purchaseOutcome ? { status: purchaseOutcome } : reported;
+
+/**
+ * Guards the purchase-outcome WRITE against a race that resetting the ref at
+ * `present()`'s start does not, by itself, prevent: paywall A is showing,
+ * `purchase()` is in flight; the user dismisses A (nothing tracked yet, so A
+ * correctly resolves `"dismissed"`); paywall B is presented, resetting the
+ * tracked outcome; THEN A's stale promise finally settles and would write
+ * `"purchased"` into what is now B's tracker — B later reports a purchase
+ * the user never made on it. `purchase()` must capture the current
+ * generation BEFORE awaiting the store and compare it against the current
+ * generation again after — only an unchanged generation means the write is
+ * still for the presentation that started it.
+ *
+ * A monotonic counter, not the placement string: the same placement can
+ * legitimately be presented twice in a row, and a string comparison would
+ * let a stale write from the FIRST of those two land in the second.
+ */
+export const shouldRecordPurchaseOutcome = (
+  startedInGeneration: number,
+  currentGeneration: number
+): boolean => startedInGeneration === currentGeneration;

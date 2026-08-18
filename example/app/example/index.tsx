@@ -52,6 +52,7 @@ const examples: Example[] = [
     ],
   },
   { name: "Media Content", route: "/example/media-content" },
+  { name: "Paywall", route: "/example/paywall" },
   {
     name: "Picker",
     variants: [

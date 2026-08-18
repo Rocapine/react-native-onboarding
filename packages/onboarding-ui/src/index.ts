@@ -24,7 +24,10 @@ export * from "./UI/Pages";
 // legal (both resolve to the same declaration, so it is not an ambiguous star
 // export) but it makes the public surface accidental. List what is public.
 export { ScreenRenderer, noopScreenHost } from "./UI/Runtime";
-export type { ScreenRendererProps, ScreenHost } from "./UI/Runtime";
+export type { ScreenRendererProps, ScreenHost, CompleteOutcome } from "./UI/Runtime";
+
+// Paywall host — the second ScreenHost, rendering a paywall in a fullScreen Modal.
+export { PaywallHost } from "./UI/Paywall";
 
 // Templates and shared components
 export * from "./UI/Templates";

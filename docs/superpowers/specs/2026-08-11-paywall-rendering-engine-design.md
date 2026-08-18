@@ -265,9 +265,14 @@ Added to headless `steps/common.types.ts` (type + Zod), mirrored in UI
 { type: "presentPaywall", placement: string }
 ```
 
-`purchase` resolves `product` through `interpolate` first, so a RadioGroup
-writing `plan` drives it. During an in-flight purchase the runtime sets
-`products.purchasing = "true"` so authors can gate a spinner with `renderWhen`.
+`purchase` resolves `product` through `interpolateIdentifier` first, so a
+RadioGroup writing `plan` drives it — the opposite precedence from `interpolate`
+(`value ?? label`, not `label ?? value`), deliberately: `product` names an
+IDENTIFIER (a product slot key), not display text, and a RadioGroup item's
+`value`/`label` commonly differ (`{value:"yearly", label:"Yearly"}`).
+`interpolate` would resolve the label instead and silently fail to find the
+product. During an in-flight purchase the runtime sets `products.purchasing =
+"true"` so authors can gate a spinner with `renderWhen`.
 
 `dismiss` calls `host.complete({ status: "dismissed" })`.
 `presentPaywall` is available in **both** hosts — that is how an onboarding step
@@ -283,7 +288,8 @@ opens a paywall.
 
 ```jsonc
 // paywall.elements — all existing element types, unchanged
-{ "type": "Text", "props": { "content": "Just {{product.yearly.pricePerWeek}}/week" } }
+{ "type": "Text", "props": { "mode": "expression",
+    "content": "Just {{product.yearly.pricePerWeek}}/week" } }
 { "type": "RadioGroup", "props": { "variableName": "plan", "defaultValue": "yearly",
     "items": [{ "value": "yearly",  "label": "{{product.yearly.price}} / year" },
               { "value": "monthly", "label": "{{product.monthly.price}} / month" }] } }
@@ -293,6 +299,13 @@ opens a paywall.
                   "onSuccess": [{ "type": "dismiss" }] }] } }
 { "type": "Button", "props": { "label": "Restore", "actions": [{ "type": "restore" }] } }
 ```
+
+`Text.content` is the one prop that interpolates `{{...}}`, and only when
+`mode: "expression"` is set — it has no default, so an authored `Text` that
+omits it renders the literal `{{product.yearly.pricePerWeek}}/week` string
+verbatim. This is pre-existing, correct-by-design engine behavior (opt-in
+interpolation), not new for paywalls — the canonical shape above must set it
+explicitly.
 
 ---
 

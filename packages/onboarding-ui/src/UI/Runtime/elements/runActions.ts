@@ -4,7 +4,7 @@ import type {
 } from "@rocapine/react-native-onboarding";
 import type { ButtonAction } from "./actions";
 import type { RenderContext } from "./shared";
-import { interpolate } from "./shared";
+import { interpolateIdentifier } from "./shared";
 import { evaluateSetVariableExpression } from "./expression";
 
 // Decode a multi-select variable's stored value (JSON-encoded string[], as
@@ -29,6 +29,11 @@ function decodeArrayValue(raw: string | undefined): string[] {
 //                      variables plus a `setVariable` setter (so the handler can
 //                      write back into the context); warns if unregistered, aborts
 //                      the loop on throw.
+//   - {dismiss}      → finish the screen with a `{status:"dismissed"}` outcome;
+//                      terminal (stops the loop), same as "continue".
+//   - {presentPaywall} → ask the host to present a paywall by placement; warns
+//                      and no-ops (continues the loop) when the host has no
+//                      `presentPaywall` capability.
 export async function runActions(
   actions: ButtonAction[],
   ctx: RenderContext
@@ -42,6 +47,20 @@ export async function runActions(
     if (act === "continue") {
       onContinue();
       return;
+    }
+    if (act.type === "dismiss") {
+      onContinue({ status: "dismissed" });
+      return;
+    }
+    if (act.type === "presentPaywall") {
+      if (!ctx.presentPaywall) {
+        console.warn(
+          "[ComposableScreen] `presentPaywall` action with no host support — pass a `presentPaywall` handler on the ScreenHost."
+        );
+        continue;
+      }
+      ctx.presentPaywall(act.placement);
+      continue;
     }
     if (act.type === "setVariable") {
       let value: string;
@@ -100,7 +119,12 @@ export async function runActions(
         );
         continue;
       }
-      const key = interpolate(act.product, variables).trim();
+      // `product` names a product slot KEY, not display text — resolve `value`
+      // before `label` (see `interpolateIdentifier`'s doc in shared.ts). A
+      // RadioGroup driving `{{plan}}` typically has a differently-cased
+      // `label` ("Yearly") from its `value` ("yearly"); `interpolate()` would
+      // resolve the label and never find a matching product.
+      const key = interpolateIdentifier(act.product, variables).trim();
       if (!runtime.products[key]) {
         console.warn(
           `[ComposableScreen] \`purchase\` action: no resolved product for key "${key}".`

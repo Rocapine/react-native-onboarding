@@ -491,18 +491,26 @@ const collectNestedKeyboardAvoidingViews = (
   }
 };
 
-export const ComposableScreenStepPayloadSchema = z
-  .object({
-    elements: z.array(UIElementSchema),
-  })
-  .superRefine((payload, ctx) => {
+// The engine is screen-agnostic; this schema is the screen-agnostic form of it —
+// the elements array of any composable screen, not just an onboarding step payload
+// (mirrors packages/onboarding's `screens/types.ts` ScreenElementsSchema, same
+// shape and same nesting guard, kept self-contained per the UI-mirror convention).
+export const ScreenElementsSchema = z
+  .array(UIElementSchema)
+  .superRefine((elements, ctx) => {
     const offenders: string[] = [];
-    collectNestedKeyboardAvoidingViews(payload.elements, false, offenders);
+    collectNestedKeyboardAvoidingViews(elements, false, offenders);
     for (const id of offenders) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["elements"],
+        path: [],
         message: `KeyboardAvoidingView (id="${id}") cannot be nested inside another KeyboardAvoidingView.`,
       });
     }
   });
+
+// `ComposableScreenStepPayloadSchema` stays exported and unchanged in behaviour —
+// it is public API, and Pages/ComposableScreen/Renderer.tsx parses with it.
+export const ComposableScreenStepPayloadSchema = z.object({
+  elements: ScreenElementsSchema,
+});

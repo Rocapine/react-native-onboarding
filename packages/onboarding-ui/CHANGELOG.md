@@ -9,6 +9,20 @@ here.
 
 ---
 
+## [1.62.0] - 2026-08-17
+
+### Added
+
+- **`PaywallHost` — renders the active paywall in a fullScreen Modal.** Mount once as a sibling of the app, alongside `PaywallProvider`. It reads `usePaywallHost()` for which paywall (if any) is active and renders it using the same `ScreenRenderer` engine as a `ComposableScreen` onboarding step — a paywall is authored with the exact same elements and `Button.actions`. Android hardware back resolves exactly like the in-content `dismiss` action, so a user is never trapped inside a paywall; its own nested `SafeAreaProvider` means an authored `SafeAreaView` measures real insets even though a `Modal` presents into a separate native view hierarchy from the app root.
+- **`dismiss` and `presentPaywall` press-action dispatch in `runActions`.** `presentPaywall` is wired into the onboarding adapter's own `ScreenHost` too (`Pages/ComposableScreen/Renderer.tsx`), so a `presentPaywall` action fired from an ordinary onboarding step reaches a real paywall host when one is mounted.
+- **`ScreenElementsSchema`** is now exported from the package root (alongside the existing `UIElement` / `UIElementSchema`) — the schema `PaywallHost` parses a paywall's `elements` with.
+
+### Fixed
+
+- **`ErrorBoundary`'s Zod-error formatting works again.** It read `error.errors`, a property that doesn't exist on Zod 4's `ZodError` (renamed to `.issues`) — every schema validation failure in a `ComposableScreen` step or a paywall showed the generic "An error occurred while formatting the Zod error" fallback instead of the actual path/message detail. Fixed; the two `@ts-ignore` suppressions that hid the original type error are also removed.
+
+---
+
 ## [1.61.0] - 2026-08-13
 
 ### Added

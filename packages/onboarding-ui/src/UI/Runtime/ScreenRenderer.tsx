@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef } from "react";
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from "react-native";
 import { productVariables } from "@rocapine/react-native-onboarding";
 import type { UIElement } from "./types";
-import type { ScreenHost } from "./ScreenHost";
+import type { ScreenHost, CompleteOutcome } from "./ScreenHost";
 import { useTheme } from "../Theme/useTheme";
 import { RenderContext } from "./elements/shared";
 import { renderElement } from "./elements/renderElement";
@@ -40,7 +40,7 @@ type ParentType = "XStack" | "YStack" | "ZStack" | "RichText" | "XScroll";
  */
 export const ScreenRenderer = ({ elements, host }: ScreenRendererProps) => {
   const { theme } = useTheme();
-  const { variables: hostVariables, setVariable, complete, customActions, products, keyboardVerticalOffset } = host;
+  const { variables: hostVariables, setVariable, complete, customActions, products, presentPaywall, keyboardVerticalOffset } = host;
 
   // Defaults declared inline on UIElements are overlaid BENEATH the host store so
   // renderWhen / {{var}} interpolation see them on first render, before per-element
@@ -67,9 +67,14 @@ export const ScreenRenderer = ({ elements, host }: ScreenRendererProps) => {
   // `complete` comes from the host and may be a fresh closure on every host
   // render. Ref-stash it so `ctx` keeps a stable identity — a new ctx would fail
   // every ElementHost identity check and bring back the full-tree re-render.
+  // Forwards its optional outcome through (e.g. `{status:"dismissed"}` from the
+  // `dismiss` action) — the wrapper must not silently drop it.
   const completeRef = useRef(complete);
   completeRef.current = complete;
-  const stableOnContinue = useCallback(() => completeRef.current(), []);
+  const stableOnContinue = useCallback(
+    (outcome?: CompleteOutcome) => completeRef.current(outcome),
+    []
+  );
 
   // `renderChildren` must stay referentially stable, so it reads the current ctx
   // from a ref to break the ctx ⇄ renderChildren cycle.
@@ -93,9 +98,10 @@ export const ScreenRenderer = ({ elements, host }: ScreenRendererProps) => {
       onContinue: stableOnContinue,
       customActions,
       products,
+      presentPaywall,
       renderChildren,
     }),
-    [theme, getVariables, setVariable, stableOnContinue, customActions, products, renderChildren]
+    [theme, getVariables, setVariable, stableOnContinue, customActions, products, presentPaywall, renderChildren]
   );
   ctxRef.current = ctx;
 

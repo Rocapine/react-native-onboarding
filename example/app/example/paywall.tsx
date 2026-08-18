@@ -99,25 +99,22 @@ const paywallElements: UIElement[] = [
             props: { content: 'Loading plans…', fontSize: 14, textAlign: 'center', opacity: 0.5 },
           },
           {
-            // `label` intentionally matches `value` here (not "Yearly" /
-            // "Monthly"): `interpolate()` (Runtime/elements/shared.ts) resolves
-            // `{{plan}}` to the stored entry's `label` when present, falling
-            // back to `value` only if there's no label. The Buy button below
-            // resolves its product via `{{plan}}`, so a nicer, differing label
-            // would interpolate to that display string instead of the actual
-            // product key — a real gotcha for any RadioGroup feeding a
-            // `purchase` action this way, not specific to this demo.
             id: 'plans', type: 'RadioGroup',
             renderWhen: { variable: 'products.loaded', operator: 'eq', value: 'true' },
             props: {
               variableName: 'plan', defaultValue: 'yearly',
               items: [
-                { value: 'yearly', label: 'yearly' },
-                { value: 'monthly', label: 'monthly' },
+                { value: 'yearly', label: 'Yearly' },
+                { value: 'monthly', label: 'Monthly' },
               ],
             },
           },
           {
+            // `{{plan}}` resolves the RadioGroup entry's `value` ("yearly"/
+            // "monthly"), not its `label` ("Yearly"/"Monthly") — `purchase`'s
+            // `product` field is an identifier lookup, resolved via
+            // `interpolateIdentifier` (Runtime/elements/shared.ts), not the
+            // label-preferring `interpolate` used for display text.
             id: 'buy', type: 'Button',
             renderWhen: { variable: 'products.loaded', operator: 'eq', value: 'true' },
             props: {

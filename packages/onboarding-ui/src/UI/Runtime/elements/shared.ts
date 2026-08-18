@@ -62,6 +62,21 @@ export const RichTextStyleContext = React.createContext<InheritedTextStyle>({});
 export const interpolate = (template: string, variables: Record<string, ComposableVariableEntry>): string =>
   template.replace(/\{\{([^}]+?)\}\}/g, (_, key) => variables[key]?.label ?? variables[key]?.value ?? "");
 
+// Same `{{var}}` substitution as `interpolate`, but reads `value` BEFORE
+// `label` — the inverse precedence. `interpolate` favors `label` because it
+// exists for DISPLAY text (`Text.content`, a `{{var}}` inside a Button label
+// if that ever grows interpolation) — a human-readable string is exactly what
+// a label is for. Machine identifiers are the opposite case: a product slot
+// key is constrained by the studio to `^[a-z][a-z0-9_]{0,63}$`, and a display
+// label (e.g. "Yearly") will essentially never satisfy that shape, so `value`
+// is the correct source and `label` is only a same-string fallback for a
+// variable that happens to carry no `value`. Use this wherever a `{{var}}`
+// reference is resolved as an IDENTIFIER to look up, not shown to the user —
+// today that's `purchase`'s `product` field (`runActions.ts`); reach for it
+// again for any future identifier-shaped resolution rather than `interpolate`.
+export const interpolateIdentifier = (template: string, variables: Record<string, ComposableVariableEntry>): string =>
+  template.replace(/\{\{([^}]+?)\}\}/g, (_, key) => variables[key]?.value ?? variables[key]?.label ?? "");
+
 // Cast number | string dimension values to DimensionValue for React Native style props
 export const dim = (v: number | string | undefined): import("react-native").DimensionValue | undefined =>
   v as import("react-native").DimensionValue | undefined;

@@ -278,15 +278,23 @@ the CTA on it.
 across variable writes; `useProducts` memoizes it on its contents. An unstable
 one re-renders every memoized element on every write, and nothing type-checks it.
 
-**`{{var}}` interpolation resolves to `label`, not `value`, when both are
-set** (`interpolate()` in `elements/shared.ts`: `variables[key]?.label ??
-variables[key]?.value`). A `RadioGroup`/`CheckboxGroup` item with `{value:
-"yearly", label: "Yearly"}` (the normal authoring pattern — nicer display
-text, distinct machine value) writes both into the variable, so a `purchase`
-action reading `product: "{{plan}}"` interpolates to `"Yearly"`, not
-`"yearly"` — and silently fails to resolve (`runActions.ts` warns "no
-resolved product for key" and no-ops) unless the product slot key happens to
-equal the display label. Give the RadioGroup item the SAME string for both
-`value` and `label` whenever that variable feeds a `{{...}}` reference used as
-a lookup key (a product slot, a `nextStep` branch target) rather than as
-display text.
+**Two `{{var}}` resolvers exist, with opposite precedence, for two different
+purposes** (`elements/shared.ts`): `interpolate()` resolves `label ?? value` —
+right for DISPLAY text, since a label is what a human should see.
+`interpolateIdentifier()` resolves `value ?? label` — right for resolving an
+IDENTIFIER a `{{var}}` reference names, since a `RadioGroup`/`CheckboxGroup`
+item's `value` is the machine key (a product slot is constrained by the
+studio to `^[a-z][a-z0-9_]{0,63}$`) while its `label` ("Yearly") is display
+copy that will essentially never match that shape. `purchase`'s `product`
+field (`runActions.ts`) resolves through `interpolateIdentifier` for exactly
+this reason: a `RadioGroup` item authored `{value: "yearly", label:
+"Yearly"}` (the normal pattern — nicer display text, distinct machine value)
+must let `{ type: "purchase", product: "{{plan}}" }` find the `"yearly"`
+product regardless of what the label says. This was a real bug until it was
+fixed here — `purchase` used to call `interpolate()` (the label-preferring
+one) and silently failed to resolve a product whenever the label differed
+from the value. `renderWhen` / `nextStep` branch conditions are unaffected by
+either resolver: they read `flatVariables` (`variables.ts`'s
+`flattenVariables`), which is `value`-only and never touches `label`. Reach
+for `interpolateIdentifier`, not `interpolate`, for any future `{{var}}`
+resolution that looks a value up rather than showing it.

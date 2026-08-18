@@ -126,6 +126,19 @@ describe("runActions — purchase", () => {
     expect(products.purchase).toHaveBeenCalledWith("yearly");
   });
 
+  // Regression: a RadioGroup item's `value` ("yearly") and `label` ("Yearly")
+  // commonly differ — the standard authoring pattern (see
+  // `onboarding-example.ts`'s `hero-radio`). `product: "{{plan}}"` must
+  // resolve the KEY, not the display label, or the purchase silently fails to
+  // find a matching product no matter what the user selected.
+  it("resolves the product key by value, not by label, when they differ", async () => {
+    const products = makeProducts();
+    const ctx = makeCtx({ products } as any);
+    ctx.setVariable("plan", { value: "yearly", label: "Yearly" });
+    await runActions([{ type: "purchase", product: "{{plan}}" }], ctx);
+    expect(products.purchase).toHaveBeenCalledWith("yearly");
+  });
+
   it("runs onSuccess actions after a purchase", async () => {
     const ctx = makeCtx({ products: makeProducts() } as any);
     await runActions(

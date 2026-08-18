@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Modal, StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import {
@@ -6,12 +6,13 @@ import {
   usePaywall,
   useProductRuntime,
 } from "@rocapine/react-native-onboarding";
-import type { ComposableVariableEntry, Paywall, PresentResult } from "@rocapine/react-native-onboarding";
-import { ScreenElementsSchema } from "../Runtime/types";
+import type { ComposableVariableEntry, PresentResult } from "@rocapine/react-native-onboarding";
+import { ScreenElementsSchema, type UIElement } from "../Runtime/types";
 import { ScreenRenderer } from "../Runtime/ScreenRenderer";
 import type { ScreenHost, CompleteOutcome } from "../Runtime/ScreenHost";
 import { withErrorBoundary } from "../ErrorBoundary";
 import { useTheme } from "../Theme/useTheme";
+import { resolvePaywallModalDecision } from "./resolvePaywallModalDecision";
 
 // `usePaywallHost().complete` takes the CLOSED `PresentResult` union
 // (required argument); `ScreenHost.complete` takes the OPEN `CompleteOutcome`
@@ -48,7 +49,8 @@ function toPresentResult(outcome?: CompleteOutcome): PresentResult {
 }
 
 type PaywallContentProps = {
-  paywall: Paywall;
+  /** Already parsed by `PaywallHost` — see `resolvePaywallModalDecision`'s doc for why parsing happens OUTSIDE this component's error boundary. */
+  elements: UIElement[];
   complete: ScreenHost["complete"];
   customActions: ScreenHost["customActions"];
 };
@@ -60,7 +62,7 @@ type PaywallContentProps = {
  * to keep in sync and no progress header/CTA template to wrap it in — the
  * paywall's own elements ARE the whole screen.
  */
-const PaywallContentBase = ({ paywall, complete, customActions }: PaywallContentProps) => {
+const PaywallContentBase = ({ elements, complete, customActions }: PaywallContentProps) => {
   const { theme } = useTheme();
   const { present } = usePaywall();
   const productRuntime = useProductRuntime();
@@ -89,8 +91,6 @@ const PaywallContentBase = ({ paywall, complete, customActions }: PaywallContent
     },
     [present]
   );
-
-  const elements = useMemo(() => ScreenElementsSchema.parse(paywall.elements), [paywall]);
 
   // `setVariable` (above), `customActions` and `products` are contractually
   // referentially stable (ScreenHost.ts) — `customActions` comes straight
@@ -176,19 +176,38 @@ export const PaywallHost = () => {
     complete({ status: "dismissed" });
   }, [complete]);
 
+  // Parsed OUTSIDE `PaywallContent`'s error boundary — Finding 2, 2026-08-17
+  // final review — so a malformed payload never reaches the Modal at all. See
+  // `resolvePaywallModalDecision`'s doc for the full reasoning.
+  const decision = useMemo(
+    () => resolvePaywallModalDecision(activePaywall, (elements) => ScreenElementsSchema.safeParse(elements)),
+    [activePaywall]
+  );
+
+  // A parse failure resolves the pending `present()` call with `"error"` —
+  // exactly what `PresentResult.error` exists for — instead of opening a
+  // Modal with nothing renderable inside it. Runs as an effect (a side
+  // effect, not a render-time call); `complete` no-ops safely if this ever
+  // ran with nothing pending.
+  useEffect(() => {
+    if (decision.type === "parse-error") {
+      complete({ status: "error" });
+    }
+  }, [decision, complete]);
+
   return (
     <Modal
-      visible={!!activePaywall}
+      visible={decision.type === "show"}
       animationType="slide"
       presentationStyle="fullScreen"
       transparent={false}
       onRequestClose={handleRequestClose}
     >
       <SafeAreaProvider>
-        {activePaywall && (
+        {decision.type === "show" && activePaywall && (
           <PaywallContent
             key={activePaywall.id}
-            paywall={activePaywall}
+            elements={decision.elements}
             complete={complete}
             customActions={customActions}
           />

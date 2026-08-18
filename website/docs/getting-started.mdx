@@ -255,7 +255,11 @@ Settings). It's also what gives both providers **one shared product
 runtime**: pass the same `productProvider` to each and `OnboardingProvider`
 picks up the ancestor `PaywallProvider`'s already-resolved products instead of
 resolving its own — one store round-trip, one `purchasing` flag, visible to
-both an onboarding step's `purchase` action and a standalone paywall's.
+both an onboarding step's `purchase` action and a standalone paywall's. If
+`OnboardingProvider` also declares its own `productRefs` for slots the paywall
+catalog doesn't cover, those are still resolved (a second, smaller round-trip
+for just that slot set) and merged into the same runtime — `productRefs` is
+never silently dropped just because a `PaywallProvider` is mounted above.
 
 Present a paywall by placement from anywhere inside the tree:
 

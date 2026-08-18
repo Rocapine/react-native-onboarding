@@ -458,7 +458,16 @@ git commit -m "✨ feat(ui): add PaywallHost rendering a paywall in a fullScreen
 - [ ] Exactly one product runtime when both providers are mounted, proven by instance identity.
 - [ ] `present()` resolves with a real outcome; an unknown placement resolves `"error"` rather than throwing.
 - [ ] A paywall renders in the example app and was **observed doing so**, not merely built.
-- [ ] `packages/onboarding-ui/src/UI/Runtime/` is unchanged.
+- [ ] `packages/onboarding-ui/src/UI/Runtime/` changes only through the Global
+      Constraints exception (Task 4: `ScreenHost.ts`, `Runtime/elements/actions.ts`,
+      `runActions.ts`, `shared.ts`, and `ScreenRenderer.tsx`'s `ScreenHost` →
+      `RenderContext` assembly) plus Task 2's `Runtime/types.ts` mirror update —
+      the rendering engine itself (`renderElement.tsx`, and all of
+      `ScreenRenderer.tsx` beyond that one assembly) does not change. This line
+      used to read "is unchanged" outright, contradicting the amended
+      constraint above (Rulings 1 and 7) — a stale checkbox a later task cited
+      as its reason not to fix a bug it had found (2026-08-17 final review,
+      Finding 7).
 
 ## Follow-ups this plan does NOT do
 

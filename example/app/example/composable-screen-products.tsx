@@ -60,8 +60,8 @@ export default function ComposableScreenProductsExample() {
                   // `mode: 'expression'` is required for `{{var}}` interpolation
                   // (no auto-detection from `{{` in `content`) — this Text was
                   // missing it, so it rendered the literal, un-interpolated
-                  // string on every run until now. See `.claude/rules/
-                  // composable-screen-runtime.md` ("Text.mode ...").
+                  // string on every run until now. See `website/docs/
+                  // page-types.mdx` (`Text`'s `mode` prop).
                   id: 'per-week', type: 'Text' as const,
                   props: {
                     mode: 'expression' as const,

@@ -81,6 +81,19 @@ export interface GetPaywallsResponseHeaders {
  * shape (`{type:"purchase", onSuccess:[{type:"dismiss"}]}`) resolves
  * `"purchased"` even though `dismiss` itself never says so.
  */
+/**
+ * How a presentation ENDED — not what the user is entitled to.
+ *
+ * `"purchased"` means a purchase succeeded while this paywall was showing, and
+ * is the honest report in the common case. But it is deliberately not an
+ * entitlement signal: a purchase followed by a render crash resolves `"error"`
+ * (the boundary settles the promise so the user is not trapped), so a host that
+ * keys entitlement off `status === "purchased"` would under-grant a user who
+ * genuinely paid.
+ *
+ * Entitlement belongs to the store — read it from the `ProductProvider` /
+ * billing SDK, and use this only to decide what the UI does next.
+ */
 export type PresentResult = {
   status: "purchased" | "dismissed" | "cancelled" | "error";
 };

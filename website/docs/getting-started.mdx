@@ -276,6 +276,10 @@ function UpgradeButton() {
       onPress={async () => {
         const result = await present("settings_upgrade");
         // result.status: "purchased" | "dismissed" | "cancelled" | "error"
+        // This says how the presentation ENDED, not what the user owns.
+        // Read entitlement from the store via your ProductProvider — a
+        // purchase followed by a render crash resolves "error", so keying
+        // entitlement off "purchased" would under-grant a paying user.
       }}
     />
   );

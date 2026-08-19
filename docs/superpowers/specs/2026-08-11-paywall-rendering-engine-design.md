@@ -773,14 +773,13 @@ form and the preview work unchanged. See `.claude/rules/paywalls.md` there.
 
 ### 11.0.2 Follow-ups surfaced by the audience-assignment work
 
-- **`lib/audienceWeightValidation.ts` is a third implementation of the weight
-  rules.** The backend (`supabase/shared/audienceWeights.ts`'s `validateSplit`)
-  and this frontend copy independently implement "weights must sum to 100", with
-  no shared code and no test coverage on the frontend one. The paywall path now
-  imports the shared module directly, so the onboarding rollout is the only
-  remaining duplicate. Consolidating it touches the live onboarding path, which
-  has neither tests nor a render harness — worth a deliberate change, not a
-  drive-by one.
+- **`lib/audienceWeightValidation.ts` duplicates the weight rules.** It and
+  `supabase/shared/audienceWeights.ts`'s `validateSplit` are the only two
+  implementations of "weights must sum to 100" in the repo — no shared code, and
+  no test coverage on the frontend one. The paywall path imports the shared
+  module directly, so the onboarding rollout is the sole remaining duplicate.
+  Consolidating it touches the live onboarding path, which has neither tests nor
+  a render harness — worth a deliberate change, not a drive-by one.
 
 - **`hooks/useAudiences.ts` keys its query `["audiences"]` with no project id**,
   so two projects share one cache entry. Pre-existing and unrelated to paywalls,

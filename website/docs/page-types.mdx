@@ -420,7 +420,7 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 - Any screen that doesn't fit a pre-built type
 
 **Key features:**
-- Recursive element tree (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `Text`, `RichText`, `Image`, `Lottie`, `Rive`, `Icon`, `Video`, `Input`, `RadioGroup`, `CheckboxGroup`, `Button`, `DatePicker`, `WheelPicker`, `DrawingPad`, `Slider`, `ProgressIndicator`, `AnimatedText`, `TypewriterText`, `Carousel`)
+- Recursive element tree (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `Text`, `RichText`, `Image`, `Lottie`, `Rive`, `Icon`, `Video`, `Input`, `RadioGroup`, `CheckboxGroup`, `Button`, `DatePicker`, `WheelPicker`, `DrawingPad`, `Slider`, `ProgressIndicator`, `AnimatedText`, `TypewriterText`, `Carousel`, `Repeat`)
 - Full flexbox layout support
 - Border, radius, overflow, and opacity control
 - Dimension constraints (`width`, `height`, `min/max`)
@@ -455,6 +455,7 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 | `ProgressIndicator` | Linear bar / circular ring | — | — |
 | `AnimatedText` | Count-up number (UI-thread, native `TextInput`) | — | — |
 | `TypewriterText` | Character-by-character text reveal (staggered entering) | — | — |
+| `Repeat` | Materializes one template per row of `props.data`; layout-transparent | — | — |
 | `Lottie` | `LottieView` | — | `lottie-react-native` |
 | `Rive` | `<Rive>` | — | `rive-react-native` |
 | `Video` | `<VideoView>` | — | `expo-video` |
@@ -462,6 +463,8 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 #### Animations, transitions & effects (every element)
 
 Every UIElement inherits an optional `transform` and `animation` from `BaseBoxProps`, so motion can be attached to any element type. The schema mirrors [react-native-reanimated](https://docs.swmansion.com/react-native-reanimated/) — `preset` values are the **exact reanimated builder names** and the modifier fields map to builder methods (`.duration().delay().springify().easing()`). `react-native-reanimated` `>=3` is a peer dependency (already required for `Carousel` / `ProgressIndicator`); no extra install.
+
+**`animation.replayWhen`** — a variable NAME. Re-fires `entering` whenever that variable's value changes, so an element re-animates **without** disappearing first (previously only toggling `renderWhen` could replay one). It works by remounting the element's subtree, so transient state inside resets and a continuous `effect` restarts — use it on presentational subtrees rather than around an `Input`. The initial mount is not a replay.
 
 **`inset`** — declarative absolute placement, honoured on **`ZStack` children only**:
 
@@ -1180,6 +1183,20 @@ A freehand drawing surface (signature, doodle, annotation). The user draws with 
 ```bash
 npx expo install @shopify/react-native-skia
 ```
+
+**Repeat props:**
+
+Materializes its `children` (one template) once per row of `data`. It renders no view of its own — the rows become direct children of the enclosing container, so that container's `gap`, direction and alignment apply per row exactly as if the rows had been written by hand. For that reason its props do **not** extend `BaseBoxProps`.
+
+| Prop | Type | Notes |
+|------|------|-------|
+| `data` | `Array<Record<string, string \| number \| boolean>>` | **Required.** One record per materialization, authored in the payload. Flat scalars only — nested objects aren't addressable as `{{item.x}}` and are rejected |
+| `as` | `string` | Prefix the row's fields are exposed under; defaults to `"item"` |
+| `keyField` | `string` | Row field used for each materialized element's id suffix and React key (`card` → `card__aries`). Falls back to the row index. Prefer setting it — ids stay meaningful and identity survives a reorder of `data` |
+
+Each row's fields are readable as `{{item.<field>}}` and as `renderWhen` variables (`item.index` is always present). **A `renderWhen` on the template gates per row, so `Repeat` also covers the "show exactly one of N" case — there is no separate `Match` element.** The scope reaches press-time actions too, so a repeated card can write its own row's value with `{ "type": "setVariable", "valueMode": "expression", "value": "{{item.id}}" }`; scoped values are read-only, and every row's child writes the same variable *name*, distinguishing itself by the value.
+
+`data` is authored in the payload rather than sourced from a variable holding JSON, so copy and asset URLs stay in the studio where designers and the translation pipeline are. For the same reason a translatable row string carries its own **literal** i18n key (`"titleKey": "zodiac_aries_title"`), never a computed one — key coverage is measured by scanning payloads for literal key strings, so a computed key reports the screen fully translated while its rows ship untranslated.
 
 **Carousel props:**
 

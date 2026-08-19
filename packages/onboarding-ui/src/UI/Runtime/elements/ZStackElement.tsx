@@ -57,7 +57,9 @@ const ZStackElementComponentBase = ({ element, ctx }: Props): React.ReactElement
       {element.children.map((child) => {
         // `inset` is declarative absolute placement, honoured only here because
         // ZStack is the only container that absolutely-positions its children.
-        const inset = child.props?.inset;
+        // Cast: not every element's props extend BaseBoxProps (`Repeat` renders no
+        // view of its own, so it has no box props). Same idiom as renderConcrete.
+        const inset = (child.props as Partial<BaseBoxProps>)?.inset;
         // The wrapper is flexDirection:column, so `justifyContent` drives the
         // VERTICAL axis and `alignItems` the HORIZONTAL one.
         const pinnedV = inset?.top !== undefined || inset?.bottom !== undefined;

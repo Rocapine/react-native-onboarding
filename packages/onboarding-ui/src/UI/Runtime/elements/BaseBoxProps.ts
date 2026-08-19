@@ -244,6 +244,13 @@ export type ElementAnimation = {
   exiting?: ExitingAnimation;
   layout?: LayoutAnimation;
   effect?: ElementEffect;
+  /**
+   * Replay `entering` whenever the named variable's value changes, by remounting
+   * the element's subtree (its React key derives from the value). Transient
+   * state inside resets and a continuous `effect` restarts. Mount is not a
+   * replay. See the headless schema for full semantics.
+   */
+  replayWhen?: string;
 };
 
 const ElementAnimationSchema = z.object({
@@ -251,6 +258,7 @@ const ElementAnimationSchema = z.object({
   exiting: ExitingAnimationSchema.optional(),
   layout: LayoutAnimationSchema.optional(),
   effect: EffectSchema.optional(),
+  replayWhen: z.string().min(1).optional(),
 });
 
 // Static transform surface — also what `effect` animates at runtime.

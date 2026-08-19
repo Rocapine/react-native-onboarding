@@ -850,6 +850,60 @@ export default function ComposableScreenExample() {
                 marginVertical: 2,
               },
             },
+            // `animation.replayWhen`: re-fires the entering animation whenever
+            // `carouselPage` changes, without the element ever disappearing.
+            {
+              id: 'carousel-replay-label',
+              type: 'Text' as const,
+              props: {
+                content: 'Slide {{carouselPage}}',
+                mode: 'expression' as const,
+                fontSize: 14,
+                fontWeight: '600',
+                textAlign: 'center' as const,
+                marginVertical: 2,
+                animation: {
+                  entering: { preset: 'FadeInUp' as const, duration: 260 },
+                  replayWhen: 'carouselPage',
+                },
+              },
+            },
+            // `Repeat`: one template per row of payload-authored data. Layout-
+            // transparent, so the rows become children of the enclosing stack.
+            // Row fields read as `{{item.*}}`; a `renderWhen` on the template
+            // gates per row, which is how this also covers the "switch" case.
+            {
+              id: 'feature-rows',
+              type: 'Repeat' as const,
+              props: {
+                keyField: 'key',
+                data: [
+                  { key: 'track', label: 'Track every workout' },
+                  { key: 'plan', label: 'Plan your week' },
+                  { key: 'coach', label: 'Coaching that adapts' },
+                ],
+              },
+              children: [
+                {
+                  id: 'feature-row',
+                  type: 'XStack' as const,
+                  props: { gap: 10, alignItems: 'center' as const, marginVertical: 2 },
+                  children: [
+                    {
+                      // Static: `Icon.name` has no `mode`, so it does not interpolate.
+                      id: 'feature-icon',
+                      type: 'Icon' as const,
+                      props: { name: 'check', size: 18 },
+                    },
+                    {
+                      id: 'feature-label',
+                      type: 'Text' as const,
+                      props: { content: '{{item.label}}', mode: 'expression' as const, fontSize: 15 },
+                    },
+                  ],
+                },
+              ],
+            },
             // Data-driven Image: the URL rebuilds from a variable, so ONE element
             // replaces a duplicated subtree per case. Resolves to the variable's
             // VALUE, not its label — a URL segment is an identifier.

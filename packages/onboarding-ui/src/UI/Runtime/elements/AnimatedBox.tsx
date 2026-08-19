@@ -10,6 +10,7 @@ import Animated, {
 } from "react-native-reanimated";
 import type { ElementAnimation, ElementTransform } from "@rocapine/react-native-onboarding";
 import { buildEntering, buildExiting, buildLayout, EASING_MAP } from "./buildAnimation";
+import { useVariables } from "./VariablesContext";
 
 type Props = {
   animation?: ElementAnimation;
@@ -157,4 +158,32 @@ export const AnimatedBox = ({
       </Animated.View>
     </Animated.View>
   );
+};
+
+/**
+ * `animation.replayWhen`: re-fires the entering animation when a variable's value
+ * changes, WITHOUT the element having to disappear and come back.
+ *
+ * Reanimated runs an `entering` builder on mount only, so the sole way to replay
+ * one is to remount — which previously meant toggling `renderWhen`, coupling
+ * "animate again" to "change visibility". This derives the wrapper's React key
+ * from the watched value, so a write remounts the subtree and the entrance runs
+ * again while the element stays on screen throughout.
+ *
+ * Split into its own component rather than calling `useVariables()` inside
+ * `AnimatedBox`, for the same reason Text and Image are split: a context
+ * subscription bypasses React.memo, so subscribing in the shared component would
+ * re-render EVERY animated element on EVERY variable write. Only elements that
+ * actually opt into `replayWhen` pay for it.
+ */
+export const ReplayingAnimatedBox = ({
+  replayWhen,
+  replayKeyPrefix,
+  ...boxProps
+}: Props & { replayWhen: string; replayKeyPrefix: string }): React.ReactElement => {
+  const { variables } = useVariables();
+  // `label` is irrelevant here — any change to the underlying value should
+  // replay, and two different labels for one value are the same state.
+  const token = variables[replayWhen]?.value ?? "";
+  return <AnimatedBox key={`${replayKeyPrefix}::${token}`} {...boxProps} />;
 };

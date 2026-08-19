@@ -71,9 +71,14 @@ export interface OnboardingMetadata {
  * Every field is optional; an omitted field falls back to the previous
  * behaviour. Resolution order in `ProgressBar` is:
  *   explicit prop  >  this block  >  theme  >  hardcoded default
- * This block deliberately outranks the theme: a host app that passes its own
- * `customLightTheme` to the provider shadows Studio's theme entirely, so a
- * theme-only knob would never reach the screen in exactly the apps that need it.
+ * This block deliberately outranks the theme because a theme-only knob could not
+ * reach the screen at all today: `ThemeProvider` is fed solely by the host's
+ * `customTheme`/`customLightTheme`/`customDarkTheme` props, and nothing in the SDK
+ * reads `configuration.theme` — the edge function delivers the field and no
+ * consumer exists, so the host theme is the only theme at runtime. Wiring
+ * `configuration.theme` into `ThemeProvider` (config below host props, mirroring
+ * the order here) is a known open item; until then this block is the only way
+ * Studio can restyle the header.
  */
 export interface ProgressHeaderConfiguration {
   /** Track (unfilled) colour. Defaults to `theme.colors.neutral.lower`. */

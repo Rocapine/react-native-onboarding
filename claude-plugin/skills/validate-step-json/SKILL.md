@@ -71,7 +71,7 @@ Run: `npx tsx scripts/_validate-composable.ts "$(cat step.json)"`
    - `BaseStepTypeSchema` fields present (`id`, `name`, `displayProgressHeader`, `customPayload`, `nextStep`)
    - `payload` is exactly `{ "elements": UIElement[] }` — no `root`, no `variables` keys
    - Every UIElement has `id` (string), `type` (string literal), `props` (object).
-   - Every container UIElement (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `ScrollView`, `KeyboardAvoidingView`, `Carousel`, `RichText`) has `children: UIElement[]` at element top-level — required, must exist even if empty (`"children": []`). Non-container types must NOT have `children`. `RichText.children` are restricted to `Text` elements only — any non-`Text` child fails parse.
+   - Every container UIElement (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `ScrollView`, `KeyboardAvoidingView`, `Carousel`, `RichText`, `Repeat`) has `children: UIElement[]` at element top-level — required, must exist even if empty (`"children": []`). Non-container types must NOT have `children`. `RichText.children` are restricted to `Text` elements only — any non-`Text` child fails parse.
    - `ScrollView.props` (all optional): `horizontal`, `bounces`, `showsVerticalScrollIndicator`, `showsHorizontalScrollIndicator`, `alwaysBounceVertical`, `alwaysBounceHorizontal` (booleans); `contentInset` `{top?,right?,bottom?,left?}` (numbers); `contentContainerPadding` (`≥ 0`); `keyboardShouldPersistTaps` ∈ `"always"|"never"|"handled"`; `alignItems` ∈ `flex-start|center|flex-end|stretch|baseline`; `justifyContent` ∈ `flex-start|center|flex-end|space-between|space-around`
    - `KeyboardAvoidingView.props` (all optional): `behavior` ∈ `"padding"|"height"|"position"`, `keyboardVerticalOffset` (number), `enabled` (boolean). **A `KeyboardAvoidingView` nested anywhere beneath another one is a schema error** — enforced by a step-level `superRefine` over `payload.elements`, not by the element schema, so it only surfaces when validating the whole step
    - All `id`s unique within `payload.elements` tree
@@ -115,7 +115,7 @@ Run: `npx tsx scripts/_validate-composable.ts "$(cat step.json)"`
 
 - `payload.root` set instead of `payload.elements` — **causes Studio crash "els is not iterable"**.
 - `payload.variables` set — this key doesn't exist in schema; remove it.
-- Container element (`YStack` / `XStack` / `ZStack` / `SafeAreaView` / `ScrollView` / `KeyboardAvoidingView` / `Carousel` / `RichText`) without `children` — **causes Studio crash "Cannot read properties of undefined (reading 'map')"**. Empty container must emit `"children": []`.
+- Container element (`YStack` / `XStack` / `ZStack` / `SafeAreaView` / `ScrollView` / `KeyboardAvoidingView` / `Carousel` / `RichText` / `Repeat`) without `children` — **causes Studio crash "Cannot read properties of undefined (reading 'map')"**. Empty container must emit `"children": []`.
 - `KeyboardAvoidingView` nested beneath another `KeyboardAvoidingView` — step-level schema error naming the offending element `id`.
 - `RichText` with a non-`Text` child (e.g. an `Image` or `XStack`) — its `children` are `Text`-only; anything else fails schema parse (`invalid_union`).
 - `displayProgressHeader` missing — required boolean.

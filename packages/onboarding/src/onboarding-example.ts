@@ -949,6 +949,69 @@ export const onboardingExample = {
                 },
               },
               {
+                // `animation.replayWhen`: re-fires the entering animation each
+                // time `carouselPage` changes, WITHOUT the element disappearing.
+                // Previously the only way to replay was to toggle `renderWhen`,
+                // which couples "animate again" to "change visibility".
+                id: "carousel-replay-label",
+                type: "Text",
+                props: {
+                  content: "Slide {{carouselPage}}",
+                  mode: "expression",
+                  fontSize: 14,
+                  fontWeight: "600",
+                  textAlign: "center",
+                  marginVertical: 2,
+                  animation: {
+                    entering: { preset: "FadeInUp", duration: 260 },
+                    replayWhen: "carouselPage",
+                  },
+                },
+              },
+              {
+                // `Repeat`: ONE template materialized per row of payload-authored
+                // data, instead of three near-identical hand-written subtrees.
+                // Layout-transparent, so these rows become children of the
+                // enclosing YStack and its `gap` applies between them.
+                // Row fields are exposed as `{{item.*}}`; `item.index` is always
+                // available. A `renderWhen` on the template gates per row, which
+                // is how Repeat also covers the "switch" case without a separate
+                // Match element.
+                id: "feature-rows",
+                type: "Repeat",
+                props: {
+                  keyField: "key",
+                  data: [
+                    { key: "track", label: "Track every workout" },
+                    { key: "plan", label: "Plan your week" },
+                    { key: "coach", label: "Coaching that adapts" },
+                  ],
+                },
+                children: [
+                  {
+                    id: "feature-row",
+                    type: "XStack",
+                    props: { gap: 10, alignItems: "center", marginVertical: 2 },
+                    children: [
+                      {
+                        // Static: `Icon.name` has no `mode`, so it does NOT
+                        // interpolate — `{{item.icon}}` here would render as a
+                        // literal, unmatched icon name. Only props documented as
+                        // supporting `expression` accept `{{var}}`.
+                        id: "feature-icon",
+                        type: "Icon",
+                        props: { name: "check", size: 18 },
+                      },
+                      {
+                        id: "feature-label",
+                        type: "Text",
+                        props: { content: "{{item.label}}", mode: "expression", fontSize: 15 },
+                      },
+                    ],
+                  },
+                ],
+              },
+              {
                 id: "carousel-page-label",
                 type: "Text",
                 props: {

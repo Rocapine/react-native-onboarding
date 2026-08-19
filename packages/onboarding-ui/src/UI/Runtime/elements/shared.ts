@@ -25,7 +25,17 @@ export type RenderContext = {
   products?: ProductRuntime;
   /** Host capability for the `presentPaywall` action. Undefined without one. */
   presentPaywall?: (placement: string) => void;
-  renderChildren: (elements: UIElement[], parentType: "XStack" | "YStack" | "ZStack" | "RichText" | "XScroll") => React.ReactNode;
+  /**
+   * Render child elements. `ctxOverride` renders them against a DERIVED context
+   * instead of the screen's root one — `Repeat` uses it to give each
+   * materialized row its own `getVariables`, so a press-time action inside a row
+   * resolves that row's `{{item.*}}` values. Omit it everywhere else.
+   */
+  renderChildren: (
+    elements: UIElement[],
+    parentType: "XStack" | "YStack" | "ZStack" | "RichText" | "XScroll",
+    ctxOverride?: RenderContext
+  ) => React.ReactNode;
 };
 
 // Shared `React.memo` comparator for element components. `element` is

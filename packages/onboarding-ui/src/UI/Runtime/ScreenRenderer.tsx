@@ -5,6 +5,7 @@ import type { UIElement } from "./types";
 import type { ScreenHost, CompleteOutcome } from "./ScreenHost";
 import { useTheme } from "../Theme/useTheme";
 import { RenderContext } from "./elements/shared";
+import type { BaseBoxProps } from "./elements/BaseBoxProps";
 import { renderElement } from "./elements/renderElement";
 import { VariablesContext } from "./elements/VariablesContext";
 import { AnimatedVariablesContext, useAnimatedVariablesRegistry } from "./elements/AnimatedVariablesContext";
@@ -80,8 +81,8 @@ export const ScreenRenderer = ({ elements, host }: ScreenRendererProps) => {
   // from a ref to break the ctx ⇄ renderChildren cycle.
   const ctxRef = useRef<RenderContext>(undefined as unknown as RenderContext);
   const renderChildren = useCallback(
-    (children: UIElement[], parentType: ParentType) =>
-      children.map((child) => renderElement(child, ctxRef.current, parentType)),
+    (children: UIElement[], parentType: ParentType, ctxOverride?: RenderContext) =>
+      children.map((child) => renderElement(child, ctxOverride ?? ctxRef.current, parentType)),
     []
   );
 
@@ -122,11 +123,15 @@ export const ScreenRenderer = ({ elements, host }: ScreenRendererProps) => {
   // background — even with the keyboard closed — so those cases intentionally
   // stay a no-op and keep the host's own background.
   const rootElement = elements[0];
+  // Cast: not every element's props extend BaseBoxProps (`Repeat` renders no view
+  // of its own, so it has no box props) — those simply read as undefined here,
+  // which correctly means "not a full-bleed root".
+  const rootProps = rootElement?.props as Partial<BaseBoxProps> | undefined;
   const rootIsFullBleed =
     !!rootElement &&
     !rootElement.renderWhen &&
-    (rootElement.props.flex != null || rootElement.props.height === "100%");
-  const rootBackgroundColor = rootIsFullBleed ? rootElement.props.backgroundColor : undefined;
+    (rootProps?.flex != null || rootProps?.height === "100%");
+  const rootBackgroundColor = rootIsFullBleed ? rootProps?.backgroundColor : undefined;
   const keyboardAvoidingStyle = useMemo(
     () => (rootBackgroundColor ? [styles.flex, { backgroundColor: rootBackgroundColor }] : styles.flex),
     [rootBackgroundColor]

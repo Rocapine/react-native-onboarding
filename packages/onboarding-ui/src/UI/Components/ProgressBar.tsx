@@ -50,9 +50,12 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   };
 
   // Resolution order: explicit prop > studio configuration > theme > default.
-  // The studio block deliberately outranks the theme — a host app passing its own
-  // `customLightTheme` to the provider shadows Studio's theme entirely, so a
-  // theme-only knob would never reach the screen in the apps that need it most.
+  // The studio block deliberately outranks the theme because a theme-only knob
+  // could not reach the screen at all: `ThemeProvider` is fed solely by the host's
+  // `customTheme`/`customLightTheme`/`customDarkTheme` props, and NOTHING in the
+  // SDK reads `configuration.theme` — the edge function delivers it and no
+  // consumer exists. So the host theme is the only theme at runtime. This block is
+  // the one path by which Studio can actually restyle the bar.
   const height = config.height ?? 12;
   // Half the height keeps the track a pill at ANY thickness. This renders
   // identically to the previous hardcoded 10: RN clamps a radius to half the

@@ -244,6 +244,26 @@ export type ElementAnimation = {
   exiting?: ExitingAnimation;
   layout?: LayoutAnimation;
   effect?: ElementEffect;
+  /**
+   * Replay `entering` whenever the named variable's VALUE changes.
+   *
+   * Reanimated fires an `entering` builder on mount and never again, so without
+   * this the only way to re-run an entrance is to unmount and remount the
+   * element — which today means toggling `renderWhen`, i.e. you cannot replay
+   * without also changing visibility. This covers the case where the element
+   * stays on screen and should re-animate because something it depends on
+   * changed (a recalculated total, the answer to the question above it).
+   *
+   * Mechanism, because it has a visible consequence: the element's subtree is
+   * remounted (its React key is derived from the variable's value). Any
+   * transient state inside it resets — an `Input`'s uncommitted text, a
+   * `Carousel`'s scroll position — and a continuous `animation.effect` restarts.
+   * Use it on presentational subtrees; avoid wrapping inputs in one.
+   *
+   * The first render is not a replay: the key only changes on a subsequent
+   * write, so `entering` still fires exactly once on mount.
+   */
+  replayWhen?: string;
 };
 
 const ElementAnimationSchema = z.object({
@@ -251,6 +271,7 @@ const ElementAnimationSchema = z.object({
   exiting: ExitingAnimationSchema.optional(),
   layout: LayoutAnimationSchema.optional(),
   effect: EffectSchema.optional(),
+  replayWhen: z.string().min(1).optional(),
 });
 
 // Declarative absolute placement for a ZStack child. Numbers are density-

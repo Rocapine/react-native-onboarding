@@ -24,6 +24,7 @@ import { type CheckboxGroupElementProps, CheckboxGroupElementPropsSchema } from 
 import { type DatePickerElementProps, DatePickerElementPropsSchema } from "./elements/DatePickerElement";
 import { type WheelPickerElementProps, WheelPickerElementPropsSchema } from "./elements/WheelPickerElement";
 import { type CarouselElementProps, CarouselElementPropsSchema } from "./elements/CarouselElement";
+import { type RepeatElementProps, RepeatElementPropsSchema } from "./elements/RepeatElement";
 import { type ZStackElementProps, ZStackElementPropsSchema } from "./elements/ZStackElement";
 import { type SafeAreaViewElementProps, SafeAreaViewElementPropsSchema } from "./elements/SafeAreaViewElement";
 import { type ScrollViewElementProps, ScrollViewElementPropsSchema } from "./elements/ScrollViewElement";
@@ -79,6 +80,7 @@ export type { DatePickerElementProps } from "./elements/DatePickerElement";
 export type { WheelPickerElementProps, WheelPickerItem, WheelPickerRange } from "./elements/WheelPickerElement";
 export { WheelPickerElementPropsSchema, generateWheelPickerRangeItems, resolveWheelPickerItems } from "./elements/WheelPickerElement";
 export type { CarouselElementProps } from "./elements/CarouselElement";
+export type { RepeatElementProps } from "./elements/RepeatElement";
 export type { ZStackElementProps } from "./elements/ZStackElement";
 export type { SafeAreaViewElementProps, SafeAreaEdge, SafeAreaEdgeMode } from "./elements/SafeAreaViewElement";
 export type { ScrollViewElementProps, ScrollViewContentInset } from "./elements/ScrollViewElement";
@@ -225,6 +227,14 @@ export type UIElement =
       renderWhen?: LeafCondition | ConditionGroup;
       type: "Carousel";
       props: CarouselElementProps;
+      children: UIElement[];
+    }
+  | {
+      id: string;
+      name?: string;
+      renderWhen?: LeafCondition | ConditionGroup;
+      type: "Repeat";
+      props: RepeatElementProps;
       children: UIElement[];
     }
   | {
@@ -415,6 +425,14 @@ export const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
       renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
       type: z.literal("Carousel"),
       props: CarouselElementPropsSchema,
+      children: z.array(UIElementSchema),
+    }),
+    z.object({
+      id: z.string(),
+      name: z.string().optional(),
+      renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
+      type: z.literal("Repeat"),
+      props: RepeatElementPropsSchema,
       children: z.array(UIElementSchema),
     }),
     z.object({

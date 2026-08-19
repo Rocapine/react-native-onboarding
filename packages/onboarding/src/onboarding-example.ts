@@ -924,7 +924,13 @@ export const onboardingExample = {
                 renderWhen: { variable: "carouselProgress", operator: "eq", value: 1 },
                 props: {
                   // `animation` is a BaseBoxProp -- inside `props`, not top level.
-                  animation: { entering: { preset: "FadeInDown", duration: 300 } },
+                  // `once: true` — plays the first time this slide is arrived at
+                  // and never again. Without it the entrance replays every time
+                  // you swipe back, because `renderWhen` visibility is
+                  // mount/unmount and reanimated fires `entering` on mount.
+                  animation: {
+                    entering: { preset: "FadeInDown", duration: 300, once: true },
+                  },
                   content: "Revealed mid-swipe on slide 2",
                   fontSize: 13,
                   textAlign: "center",

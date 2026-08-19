@@ -8,6 +8,19 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.65.0] - 2026-08-19
+
+### Added
+
+- **`animation.entering.once`** — play an entrance **exactly once per screen lifetime**, on the first render where the element is visible. Fixes two bugs that share one cause: `renderWhen` visibility is mount/unmount (a false gate returns `null`) while reanimated fires `entering` on mount, so a gated element replays its entrance every time the gate flips back to true — swipe away from a carousel slide and back, and its decorations animate in again. No payload-level workaround exists: `gte` still unmounts when you move backwards past the threshold, and `replayWhen` is the exact opposite (it remounts on *every* change), so the latch has to live in the SDK.
+- **An initial-mount play is DEFERRED, not suppressed.** If the first visible render is the screen's own mount, the entrance waits until the screen has settled. An entrance fired during the host navigator's push transition is half-consumed by it — with staggered delays, the early ones run under the transition and the late ones land after, so the reveal reads as half-animated — and remote images may not have decoded yet. Suppressing would have traded a partial entrance for none, which is the bug rather than the fix. Later visibility flips never replay; `once` wins over `replayWhen` when both are set.
+
+### Notes
+
+- Fully opt-in. Nothing changes for an element that does not set it, and screen-entrance choreography is untouched — a blanket "never animate on initial mount" would have broken that for every screen.
+
+---
+
 ## [1.64.0] - 2026-08-19
 
 ### Added

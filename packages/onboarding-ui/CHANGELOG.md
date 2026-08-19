@@ -9,6 +9,21 @@ here.
 
 ---
 
+## [1.65.0] - 2026-08-19
+
+### Added
+
+- **`OnceAnimatedBox` and a screen-scoped entering latch** back `animation.entering.once`. The latch is a plain mutable `Set` behind a stable object, and the decision is derived from a value sampled **once per mount** — both deliberate: `markPlayed` runs while the animation is in flight, so a reactive latch (or a live re-read on any unrelated re-render) would flip the decision to "already played", change the wrapper key, remount the element and cut the running animation off at the knees.
+- **The settled signal uses `InteractionManager.runAfterInteractions`.** The SDK cannot know the host navigator's transition duration — it belongs to the app's navigator — so hardcoding a guess would be wrong on every app that configured something else. RN already tracks "no interaction or animation in flight", which is exactly the question being asked.
+- Kept in its own `EnteringLatchContext` rather than folded into `AnimatedVariablesContext`. That registry has the right lifetime and stability, but its contract is "SharedValues a producer animates on the UI thread"; overloading it with an unrelated latch would make its name a lie.
+
+### Notes
+
+- Scoped per screen, so "once" means once on that screen and each screen defers its own arrival.
+- With no provider above it (a renderer used outside `ScreenRenderer`) the context fails **open**: `settled: true`, so `once` degrades to "play on first mount, never again" rather than going silent.
+
+---
+
 ## [1.64.0] - 2026-08-19
 
 ### Added

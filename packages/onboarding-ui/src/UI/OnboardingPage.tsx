@@ -1,11 +1,12 @@
 import { OnboardingStepType } from "./types";
+import type { ScreenHost } from "./Runtime/ScreenHost";
 import { RatingsRenderer, PickerRenderer, CommitmentRenderer, CarouselRenderer, LoaderRenderer, MediaContentRenderer, ComposableScreenRenderer, QuestionRenderer, QuestionAnswerButtonProps, QuestionAnswersListProps } from "./Pages";
 import { View, Text, Button } from 'react-native';
 import { useTheme } from "./Theme/useTheme";
 import { Theme } from "./Theme";
 
 
-interface OnboardingPageProps {
+export interface OnboardingPageProps {
   step: OnboardingStepType;
   onContinue: (args?: any) => void;
   isSandbox?: boolean;
@@ -66,3 +67,43 @@ export const OnboardingPage = ({ step, onContinue, isSandbox, keyboardVerticalOf
       }
   }
 };
+
+// ---------------------------------------------------------------------------
+// Compile-time reachability gate.
+//
+// Twice now a `ScreenHost` field has shipped correct, type-safe, tested — and
+// unreachable, because `OnboardingPage` BUILDS the host, so a consumer entering
+// through it can never set the field. `enteringSettleDelayMs` did exactly this
+// in 1.65.0: present on `ScreenHost`, absent from this component's props, so the
+// documented "raise the delay" escape hatch could not be taken.
+//
+// Nothing caught it. The tests exercise `ScreenRenderer` with a hand-built host
+// — the one caller for whom every field is trivially reachable — so the consumer
+// path was never the thing under test.
+//
+// This asserts the inverse and costs nothing at runtime (pure types, no emit):
+// every `ScreenHost` field NOT listed as internally-provided must be settable
+// from here. Adding a new host field therefore fails the build until it is
+// either threaded through this component or deliberately declared internal.
+// ---------------------------------------------------------------------------
+
+/** Host fields the SDK constructs itself; a consumer never supplies them. */
+type HostProvidedInternally =
+  | "variables"
+  | "setVariable"
+  | "complete"
+  | "customActions"
+  | "products"
+  | "presentPaywall";
+
+/** Everything else on `ScreenHost` is the consumer's to set. */
+type ConsumerSettableHostField = Exclude<keyof ScreenHost, HostProvidedInternally>;
+
+type AssertTrue<T extends true> = T;
+
+// If this line errors, a consumer-settable `ScreenHost` field is not reachable
+// from `OnboardingPage`. Thread it through (follow `keyboardVerticalOffset`), or
+// add it to `HostProvidedInternally` if the SDK really does own it.
+export type _ConsumerHostFieldsAreReachable = AssertTrue<
+  ConsumerSettableHostField extends keyof OnboardingPageProps ? true : false
+>;

@@ -12,13 +12,24 @@ interface OnboardingPageProps {
   theme?: Theme;
   /** Offset for ComposableScreen keyboard avoidance — pass the height of any fixed header rendered above the page. */
   keyboardVerticalOffset?: number;
+  /**
+   * Overrides how long a deferred `animation.entering.once` entrance waits after
+   * mount before playing, in ms (default 350). Set it to match this app's
+   * navigator push duration — the SDK cannot detect that, and the host is the
+   * only party that knows it.
+   *
+   * Threaded from here because `OnboardingPage` builds the `ScreenHost` itself:
+   * putting the field only on `ScreenHost` left it unreachable for every
+   * consumer entering through this component, which is the documented path.
+   */
+  enteringSettleDelayMs?: number;
   customComponents?: {
     QuestionAnswerButton?: React.ComponentType<QuestionAnswerButtonProps>;
     QuestionAnswersList?: React.ComponentType<QuestionAnswersListProps>;
   };
 }
 
-export const OnboardingPage = ({ step, onContinue, isSandbox, keyboardVerticalOffset }: OnboardingPageProps) => {
+export const OnboardingPage = ({ step, onContinue, isSandbox, keyboardVerticalOffset, enteringSettleDelayMs }: OnboardingPageProps) => {
   const { theme } = useTheme();
 
   switch (step.type) {
@@ -37,7 +48,7 @@ export const OnboardingPage = ({ step, onContinue, isSandbox, keyboardVerticalOf
     case 'Question':
       return <QuestionRenderer step={step} onContinue={onContinue} theme={theme} />;
     case 'ComposableScreen':
-      return <ComposableScreenRenderer step={step} onContinue={onContinue} keyboardVerticalOffset={keyboardVerticalOffset} />;
+      return <ComposableScreenRenderer step={step} onContinue={onContinue} keyboardVerticalOffset={keyboardVerticalOffset} enteringSettleDelayMs={enteringSettleDelayMs} />;
     default:
       if (isSandbox) {
         // @ts-ignore

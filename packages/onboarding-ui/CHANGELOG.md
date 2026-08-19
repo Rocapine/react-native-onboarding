@@ -9,6 +9,19 @@ here.
 
 ---
 
+## [1.66.0] - 2026-08-19
+
+### Fixed
+
+- **`enteringSettleDelayMs` was unreachable from the documented entry path.** 1.65.0 put it on `ScreenHost`, reasoning that the host is the only party that knows its navigator's transition duration — correct, except `OnboardingPage` *builds* the `ScreenHost` itself, so every consumer entering through it got `undefined` and was pinned to the 350ms default with no override. The escape hatch the 1.65.0 docs point at ("if an entrance still reads early, raise the delay before suspecting the mechanism") could not be taken, which also made the intended diagnosis — telling "the default doesn't match your transition" apart from "the deferral is broken" — impossible. Now threaded `OnboardingPage` → `ComposableScreenRenderer` → `ScreenHost`, following `keyboardVerticalOffset`'s existing path exactly.
+
+### Notes
+
+- A host that renders `ScreenRenderer` directly with its own `ScreenHost` was never affected; this only fixes the `OnboardingPage` path, which is the one nearly everyone uses.
+- `PaywallHost` still hardcodes no delay, so a paywall's `entering.once` uses the default. Left alone deliberately: a modal presentation is a different transition from a stack push, and no one has asked for it — worth revisiting if a paywall ever needs a deferred entrance.
+
+---
+
 ## [1.65.0] - 2026-08-19
 
 ### Added

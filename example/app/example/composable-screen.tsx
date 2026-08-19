@@ -797,6 +797,8 @@ export default function ComposableScreenExample() {
                 height: 220,
                 borderRadius: 16,
                 marginVertical: 8,
+                // Snap-time index, readable as `{{carouselPage}}` in text/URLs.
+                variableName: 'carouselPage',
                 // Publishes the CONTINUOUS swipe position (normalized to
                 // [0, childCount), so it reads the same on every lap under `loop`).
                 progressVariableName: 'carouselProgress',
@@ -846,6 +848,22 @@ export default function ComposableScreenExample() {
                 fontSize: 13,
                 textAlign: 'center' as const,
                 marginVertical: 2,
+              },
+            },
+            // Data-driven Image: the URL rebuilds from a variable, so ONE element
+            // replaces a duplicated subtree per case. Resolves to the variable's
+            // VALUE, not its label — a URL segment is an identifier.
+            {
+              id: 'carousel-derived-image',
+              type: 'Image' as const,
+              props: {
+                url: 'https://picsum.photos/seed/{{carouselPage}}/120/120',
+                mode: 'expression' as const,
+                width: 120,
+                height: 120,
+                borderRadius: 12,
+                alignSelf: 'center' as const,
+                marginVertical: 4,
               },
             },
             // Cursor mode mounts characters progressively, so without reserveSpace

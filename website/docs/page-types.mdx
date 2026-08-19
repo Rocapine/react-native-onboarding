@@ -595,7 +595,8 @@ As of 1.15.0, `OnboardingTemplate` does not apply safe-area insets. Built-in pag
 
 | Prop | Type | Notes |
 |------|------|-------|
-| `url` | `string` | **Required** — remote image URI |
+| `url` | `string` | **Required** — remote image URI. In `mode: "expression"`, `{{variable}}` interpolation runs first |
+| `mode` | `"plain" \| "expression"` | `expression` enables `{{var}}` interpolation in `url`, so one element can serve a data-driven set (`.../zodiac/{{zodiacSign}}.png`) instead of one duplicated subtree per case. References resolve to the variable's **`value`**, not its `label` — a URL segment is a machine identifier, so `{ value: "aries", label: "Aries" }` yields `aries`. An unknown variable interpolates to an empty string, so keep a fallback segment or a `renderWhen` guard. Defaults to `"plain"`, which stays fully static and does not subscribe to variable writes |
 | `width` | `number` | Defaults to `"100%"` |
 | `height` | `number` | When omitted, `aspectRatio` is used to size the image |
 | `aspectRatio` | `number` | Used when `height` is absent; defaults to `16/9` |

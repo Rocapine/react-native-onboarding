@@ -932,6 +932,23 @@ export const onboardingExample = {
                 },
               },
               {
+                // Data-driven Image: ONE element instead of one duplicated subtree
+                // per case. The URL rebuilds as `carouselPage` changes, so paging
+                // the carousel swaps this image. `{{var}}` resolves to the
+                // variable's VALUE (not its label) — a URL segment is an identifier.
+                id: "carousel-derived-image",
+                type: "Image",
+                props: {
+                  url: "https://picsum.photos/seed/{{carouselPage}}/120/120",
+                  mode: "expression",
+                  width: 120,
+                  height: 120,
+                  borderRadius: 12,
+                  alignSelf: "center",
+                  marginVertical: 4,
+                },
+              },
+              {
                 id: "carousel-page-label",
                 type: "Text",
                 props: {

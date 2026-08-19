@@ -32,7 +32,7 @@ _Generated from `packages/onboarding/src/screens` by
 | `DatePicker` | — | `variableName` · `defaultValue` · `minimumDate` · `maximumDate` · `mode` · `display` · `textColor` · `accentColor` · `locale` · `format` |
 | `DrawingPad` | — | `variableName` · `imageVariableName` · `strokeColor` · `strokeWidth` · `clearable` · `clearButtonPosition` · `clearButtonOffset` · `clearButtonSize` · `clearButtonColor` · `clearButtonIconColor` · `clearButtonLabel` · `imageFormat` |
 | `Icon` | — | `name` · `size` · `color` · `strokeWidth` · `fill` · `fillOpacity` |
-| `Image` | — | `url` · `resizeMode` · `blurRadius` |
+| `Image` | — | `url` · `mode` · `resizeMode` · `blurRadius` |
 | `Input` | — | `variableName` · `placeholder` · `defaultValue` · `keyboardType` · `returnKeyType` · `autoCapitalize` · `secureTextEntry` · `maxLength` · `multiline` · `numberOfLines` · `editable` · `autoFocus` · `color` · `fontSize` · `fontWeight` · `fontFamily` · `fontStyle` · `lineHeight` · `letterSpacing` · `textAlign` · `placeholderColor` |
 | `KeyboardAvoidingView` | yes | `behavior` · `keyboardVerticalOffset` · `enabled` |
 | `Lottie` | — | `source` · `autoPlay` · `loop` · `speed` |

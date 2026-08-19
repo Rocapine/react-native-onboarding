@@ -261,7 +261,7 @@ Each override is a `Partial` of the overridable Button props: `BaseBoxProps` (in
 |---------|-------|-------|
 | Payload | `payload.elements: UIElement[]` | `payload.root`, `payload.variables` |
 | `Text` | `content` (string **or** span array), `mode: "expression"` for interp, `fontSize`/`fontWeight` | `text`, `variant` |
-| `Image` | `url: string` (WebP/AVIF via `expo-image` if installed; `.svg` URLs auto-render via `react-native-svg`, `resizeMode`→`preserveAspectRatio`); optional `blurRadius` (uniform px blur) | `source: { uri }`, `source: { localPathId }` |
+| `Image` | `url: string` (WebP/AVIF via `expo-image` if installed; `.svg` URLs auto-render via `react-native-svg`, `resizeMode`→`preserveAspectRatio`); `mode: "plain"\|"expression"` — `expression` interpolates `{{var}}` into `url` (resolves the variable's **value**, not its label) so one element replaces a duplicated subtree per case; optional `blurRadius` (uniform px blur) | `source: { uri }`, `source: { localPathId }`; expecting `{{var}}` to work without `mode: "expression"` |
 | `ProgressiveBlurImage` | `url`, `intensity` (0–100), `mask` (linear `{from,to,stops}` or radial `{type:"radial",center?,radius?,stops}`), optional `tint`/`maxBlurOpacity`/`blurAppear` (`{delay?,duration?,easing?}` fade-in of the blur layer) | `blurRadius` (that's `Image`); a color `mask` (mask opacity = blur strength, not a color) |
 | `Lottie` | `source: string` | `source: { localPathId }` |
 | `Rive` | `url: string` | `source` |

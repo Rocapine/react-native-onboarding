@@ -9,6 +9,25 @@ here.
 
 ---
 
+## [1.66.0] - 2026-08-19
+
+### Fixed
+
+- **`entering.once` defeated the entrance it was meant to protect (1.65.0, device-confirmed).** `decideEnteringPlay` returned a two-valued `{ play: boolean }`, and `OnceAnimatedBox` mapped both `false` cases to "strip `entering`" — which renders an `Animated.View` at full opacity. But "already played" and "not settled yet" are opposites: the first must render VISIBLE, the second must render HIDDEN. So a held element sat fully visible with no entrance, then blinked to opacity 0 and re-faded when the hold released — no entrance to see, plus a flash that did not exist before `once`. Now three states (`hold` / `play` / `done`), with `hidden` distinguishing `hold` from `done` in the OUTPUT rather than only in intent. The hide is applied on the wrapper while no entering builder is attached, and releasing the hold changes the key, so opacity and the builder never coexist and cannot fight.
+- **`enteringSettleDelayMs` was unreachable from the documented entry path.** 1.65.0 put it on `ScreenHost`, reasoning that the host is the only party that knows its navigator's transition duration — correct, except `OnboardingPage` *builds* the `ScreenHost` itself, so every consumer entering through it got `undefined` and was pinned to the 350ms default with no override. The escape hatch the 1.65.0 docs point at ("if an entrance still reads early, raise the delay before suspecting the mechanism") could not be taken, which also made the intended diagnosis — telling "the default doesn't match your transition" apart from "the deferral is broken" — impossible. Now threaded `OnboardingPage` → `ComposableScreenRenderer` → `ScreenHost`, following `keyboardVerticalOffset`'s existing path exactly.
+
+### Added
+
+- **A compile-time reachability gate on `OnboardingPage`**, so this class of defect cannot ship again. Every `ScreenHost` field not explicitly declared internally-provided must be settable from `OnboardingPageProps`, asserted in the type system with no runtime cost. Adding a new host field now fails the build until it is either threaded through `OnboardingPage` or deliberately marked as SDK-owned. Verified against both regressions: removing `enteringSettleDelayMs` from the props (the 1.65.0 bug) and adding an unthreaded host field each produce `Type 'false' does not satisfy the constraint 'true'`. `OnboardingPageProps` is now exported, which consumers wrapping the component wanted anyway.
+
+### Notes
+
+- The gate exists because nothing else could catch this: the tests exercise `ScreenRenderer` with a hand-built host — the one caller for whom every field is trivially reachable — so the consumer path (`OnboardingPage` → `ComposableScreenRenderer` → host) was never the thing under test. Thanks to the consuming session for proposing the check.
+- A host that renders `ScreenRenderer` directly with its own `ScreenHost` was never affected; this only fixes the `OnboardingPage` path, which is the one nearly everyone uses.
+- `PaywallHost` still hardcodes no delay, so a paywall's `entering.once` uses the default. Left alone deliberately: a modal presentation is a different transition from a stack push, and no one has asked for it — worth revisiting if a paywall ever needs a deferred entrance.
+
+---
+
 ## [1.65.0] - 2026-08-19
 
 ### Added

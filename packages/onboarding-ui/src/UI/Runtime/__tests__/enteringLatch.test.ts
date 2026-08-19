@@ -22,70 +22,99 @@ describe("createEnteringLatch", () => {
 });
 
 describe("decideEnteringPlay — the whole `once` contract", () => {
-  it("initial mount before settle: holds, does not play", () => {
-    // Bug 1: the entrance would otherwise burn during the host's push
-    // transition, before remote images have decoded.
-    expect(decideEnteringPlay(false, false)).toEqual({ play: false, keySuffix: "hold" });
+  it("initial mount before settle: HOLDS HIDDEN, does not play", () => {
+    // The entrance must not burn under the host's push transition — and the
+    // element must not be VISIBLE while it waits, or there is no entrance left
+    // to see when the hold releases.
+    expect(decideEnteringPlay(false, false)).toEqual({
+      phase: "hold",
+      playEntering: false,
+      hidden: true,
+      keySuffix: "hold",
+    });
   });
 
   it("releases the deferred play once the screen settles, via a key change", () => {
     const held = decideEnteringPlay(false, false);
     const released = decideEnteringPlay(false, true);
-    expect(released.play).toBe(true);
+    expect(released.playEntering).toBe(true);
+    expect(released.hidden).toBe(false);
     // The key MUST change, or the already-mounted wrapper never re-runs
     // `entering` — reanimated only fires it on mount.
     expect(released.keySuffix).not.toBe(held.keySuffix);
   });
 
   it("arriving later, screen already settled: plays immediately on mount", () => {
-    expect(decideEnteringPlay(false, true)).toEqual({ play: true, keySuffix: "play" });
+    expect(decideEnteringPlay(false, true)).toEqual({
+      phase: "play",
+      playEntering: true,
+      hidden: false,
+      keySuffix: "play",
+    });
   });
 
-  it("revisiting after it has played: never plays again, settled or not", () => {
-    // Bug 2: swiping back to a carousel slide re-mounts its gated decorations.
-    expect(decideEnteringPlay(true, true)).toEqual({ play: false, keySuffix: "hold" });
-    expect(decideEnteringPlay(true, false)).toEqual({ play: false, keySuffix: "hold" });
+  it("revisiting after it has played: VISIBLE, never plays again", () => {
+    for (const settled of [true, false]) {
+      expect(decideEnteringPlay(true, settled)).toEqual({
+        phase: "done",
+        playEntering: false,
+        hidden: false,
+        keySuffix: "done",
+      });
+    }
+  });
+
+  it("REGRESSION: hold and done must differ in OUTPUT, not merely in intent", () => {
+    // The shipped 1.65.0 bug. Both states correctly declined to play, and a
+    // boolean return collapsed them — so a held element rendered at full
+    // opacity (no entrance visible), then blinked to 0 and re-faded on release.
+    // The decision table was right; the return type could not express the
+    // difference. Assert the two are distinguishable in what they produce.
+    const hold = decideEnteringPlay(false, false);
+    const done = decideEnteringPlay(true, true);
+
+    expect(hold.playEntering).toBe(done.playEntering); // both decline to play...
+    expect(hold.hidden).not.toBe(done.hidden); // ...but must NOT render alike
+    expect(hold.keySuffix).not.toBe(done.keySuffix);
   });
 
   it("a played element's key is stable, so it never remounts on settle", () => {
     expect(decideEnteringPlay(true, false).keySuffix).toBe(decideEnteringPlay(true, true).keySuffix);
   });
 
-  it("full lifecycle: defer -> play -> latch -> silent on every revisit", () => {
+  it("full lifecycle: hidden hold -> play -> latch -> visible and silent on revisit", () => {
     const latch = createEnteringLatch();
     const id = "prop-1";
 
-    // mount 1, screen still arriving
     let playedAtMount = latch.hasPlayed(id);
-    expect(decideEnteringPlay(playedAtMount, false).play).toBe(false);
+    const held = decideEnteringPlay(playedAtMount, false);
+    expect(held).toMatchObject({ phase: "hold", hidden: true, playEntering: false });
 
-    // screen settles -> released, and the play marks the latch
     const released = decideEnteringPlay(playedAtMount, true);
-    expect(released.play).toBe(true);
+    expect(released).toMatchObject({ phase: "play", hidden: false, playEntering: true });
     latch.markPlayed(id);
 
     // swipe away and back: fresh mount re-samples the latch
     playedAtMount = latch.hasPlayed(id);
     expect(playedAtMount).toBe(true);
-    expect(decideEnteringPlay(playedAtMount, true).play).toBe(false);
-
-    // and again
-    expect(decideEnteringPlay(latch.hasPlayed(id), true).play).toBe(false);
+    expect(decideEnteringPlay(playedAtMount, true)).toMatchObject({
+      phase: "done",
+      hidden: false,
+      playEntering: false,
+    });
   });
 
   it("a mid-flight re-render cannot cancel a running animation", () => {
     // The decision is derived from the value sampled AT MOUNT, not from a live
-    // read. `markPlayed` runs while the animation is in flight; if the component
-    // re-renders for any unrelated reason, re-deriving from a live `hasPlayed`
-    // would flip play->hold, change the key, remount and cut the animation off.
+    // read. `markPlayed` runs while the animation is in flight; re-deriving from
+    // a live `hasPlayed` would flip play->done, change the key, remount and cut
+    // the animation off.
     const latch = createEnteringLatch();
     const playedAtMount = latch.hasPlayed("x"); // false, sampled once
     const first = decideEnteringPlay(playedAtMount, true);
     latch.markPlayed("x"); // animation now running, latch marked
 
-    const afterUnrelatedRerender = decideEnteringPlay(playedAtMount, true);
-    expect(afterUnrelatedRerender).toEqual(first);
-
+    expect(decideEnteringPlay(playedAtMount, true)).toEqual(first);
     // whereas a live read would have produced the destructive flip:
     expect(decideEnteringPlay(latch.hasPlayed("x"), true).keySuffix).not.toBe(first.keySuffix);
   });

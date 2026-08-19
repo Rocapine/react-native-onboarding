@@ -8,6 +8,14 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.66.0] - 2026-08-19
+
+### Notes
+
+- No headless changes. Version moves in lockstep with `@rocapine/react-native-onboarding-ui`, which fixes `enteringSettleDelayMs` being unreachable from `OnboardingPage` — see that package's changelog.
+
+---
+
 ## [1.65.0] - 2026-08-19
 
 ### Added

@@ -28,16 +28,43 @@ export const createEnteringLatch = (): EnteringLatch => {
   };
 };
 
+/**
+ * The three states an element with `once` can be in. They must be THREE, not two.
+ *
+ * The first version of this returned `{ play: boolean }`, and the consumer mapped
+ * both `false` cases to "render without an entrance". But "already played" and
+ * "not settled yet" are opposites: the first must render VISIBLE, the second must
+ * render HIDDEN. Collapsing them made a held element render at full opacity, so
+ * the entrance was never seen, and then blink to opacity 0 and re-fade when the
+ * hold released — defeating the entrance and adding a flash that did not exist
+ * before `once`. A table test over the old boolean passed, because the decision
+ * table was right; the return type simply could not express the difference.
+ */
+export type EnteringPhase =
+  /** Not played, screen still arriving — hidden, no entrance. */
+  | "hold"
+  /** Not played, screen settled — render the entrance now. */
+  | "play"
+  /** Already played on this screen — visible, no entrance. */
+  | "done";
+
 export type EnteringPlayDecision = {
-  /** Render the entrance builder this pass. */
-  play: boolean;
+  phase: EnteringPhase;
+  /** Attach the entering builder this pass. */
+  playEntering: boolean;
   /**
-   * Key suffix for the animated wrapper. It changes exactly once — when a
-   * deferred initial-mount entrance is released — which remounts the wrapper so
-   * reanimated fires `entering` then. Reanimated only runs an entering builder
-   * on mount, so a remount is the only way to start one late.
+   * Render the element invisible. True ONLY during `hold` — this is the field
+   * whose absence caused the bug, and the one distinguishing `hold` from `done`
+   * in the output rather than merely in intent.
    */
-  keySuffix: string;
+  hidden: boolean;
+  /**
+   * Key suffix for the animated wrapper. Changes exactly once, `hold` → `play`,
+   * which remounts the wrapper so reanimated fires `entering` then — it only
+   * ever runs an entering builder on mount, so a remount is the only way to
+   * start one late.
+   */
+  keySuffix: EnteringPhase;
 };
 
 /**
@@ -48,18 +75,16 @@ export type EnteringPlayDecision = {
  *   is non-reactive precisely so a stray re-render cannot turn a playing
  *   animation into an already-played one.
  * @param settled whether the screen has finished its entry transition.
- *
- * Three cases:
- *   • played before        → never animate again (the revisit case)
- *   • not played, settled  → animate now (arriving at a slide later)
- *   • not played, unsettled→ hold, then animate when `settled` flips (initial
- *                            mount — deferred so the host's push transition and
- *                            image decoding don't eat it)
  */
 export const decideEnteringPlay = (
   playedAtMount: boolean,
   settled: boolean
 ): EnteringPlayDecision => {
-  const play = !playedAtMount && settled;
-  return { play, keySuffix: play ? "play" : "hold" };
+  const phase: EnteringPhase = playedAtMount ? "done" : settled ? "play" : "hold";
+  return {
+    phase,
+    playEntering: phase === "play",
+    hidden: phase === "hold",
+    keySuffix: phase,
+  };
 };

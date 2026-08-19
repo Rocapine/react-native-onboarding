@@ -17,6 +17,8 @@ type ContentProps = {
   onContinue: () => void;
   /** Distance between the top of the screen and this page's top (e.g. a fixed host header). */
   keyboardVerticalOffset?: number;
+  /** See OnboardingPageProps — overrides the `entering.once` settle delay. */
+  enteringSettleDelayMs?: number;
 };
 
 /**
@@ -24,7 +26,7 @@ type ContentProps = {
  * contexts into a ScreenHost and supplies the onboarding chrome. All rendering
  * lives in UI/Runtime and is shared with the paywall renderer.
  */
-const ComposableScreenRendererBase = ({ step, onContinue, keyboardVerticalOffset }: ContentProps) => {
+const ComposableScreenRendererBase = ({ step, onContinue, keyboardVerticalOffset, enteringSettleDelayMs }: ContentProps) => {
   const { theme } = useTheme();
   const { headerHeight } = useOnboardingHeaderHeight();
   const validatedData = useMemo(() => ComposableScreenStepTypeSchema.parse(step), [step]);
@@ -68,6 +70,7 @@ const ComposableScreenRendererBase = ({ step, onContinue, keyboardVerticalOffset
       products,
       presentPaywall,
       keyboardVerticalOffset: keyboardVerticalOffset ?? headerHeight,
+      enteringSettleDelayMs,
     }),
     [
       composableVariables,
@@ -77,6 +80,7 @@ const ComposableScreenRendererBase = ({ step, onContinue, keyboardVerticalOffset
       products,
       presentPaywall,
       keyboardVerticalOffset,
+      enteringSettleDelayMs,
       headerHeight,
     ]
   );

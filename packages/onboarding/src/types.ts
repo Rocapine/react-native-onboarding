@@ -93,6 +93,16 @@ export interface ProgressHeaderConfiguration {
   paddingHorizontal?: number;
   /** Space below the bar in px. Defaults to 24. */
   paddingBottom?: number;
+  /**
+   * Space above the bar in px, **added on top of the top safe-area inset**.
+   * Defaults to 0.
+   *
+   * Additive rather than absolute on purpose: the inset is not optional, so a
+   * field that replaced it would let a payload push the header under the notch.
+   * `paddingBottom` has no inset to compose with, which is why only this one
+   * behaves that way.
+   */
+  paddingTop?: number;
   /** Gap between the back button, track and right spacer in px. Defaults to 16. */
   gap?: number;
   /**
@@ -105,6 +115,11 @@ export interface ProgressHeaderConfiguration {
   backButtonColor?: string;
   /** Back-chevron **glyph** size in px. Defaults to 24. See `backButtonContainerSize`. */
   backButtonSize?: number;
+  /**
+   * Back-chevron stroke weight. Defaults to 2. Worth reaching for at small glyph
+   * sizes, where the difference between 2 and 2.5 reads as "the icon changed".
+   */
+  backButtonStrokeWidth?: number;
   /** Hide the back chevron even when the router can go back. Defaults to false. */
   hideBackButton?: boolean;
 

@@ -162,10 +162,12 @@ The progress header is styled from the studio via `configuration.progressHeader`
       "borderRadius": 4,
       "paddingHorizontal": 20,
       "paddingBottom": 24,
+      "paddingTop": 8,
       "gap": 16,
       "trackFlex": 5,
       "backButtonColor": "#3A2E26",
       "backButtonSize": 24,
+      "backButtonStrokeWidth": 2.5,
       "hideBackButton": false,
 
       "backButtonBackgroundColor": "#FFFFFF",
@@ -191,6 +193,15 @@ Omitted fields keep the previous look: height `12`, a fully-rounded track (radiu
 - `backButtonContainerSize` makes the button square at that size, centres the glyph, and drops the default padding, so the chip measures exactly as authored.
 - `backButtonBorderColor` alone implies `backButtonBorderWidth: 1`, since React Native defaults border width to `0` and a lone colour would draw nothing. Pass `backButtonBorderWidth: 0` explicitly to suppress it.
 - With all five unset the button renders exactly as before: a bare chevron in a `padding: 4` touchable.
+- `backButtonStrokeWidth` (default `2`) sets the chevron's stroke weight — worth reaching for at small glyph sizes, where 2 vs 2.5 reads as "the icon changed" without anyone being able to say why.
+
+`paddingTop` (default `0`) is **added on top of the top safe-area inset**, never replacing it, so a payload cannot push the header under the notch. `paddingBottom` has no inset to compose with, which is why only the top field behaves additively.
+
+Author the *extra* space, not the total: a component that renders `paddingTop: insetTop + 8` is reproduced by `"paddingTop": 8`, **not** by the summed value. Passing a total silently double-counts the inset and pushes the header down by roughly the notch height again.
+
+:::note Retiring a forked bar
+The block now covers the track, the chevron and its container, so most forks are retirable. One structural difference remains: the SDK header is a three-column row (back button / track / right spacer, `1 / trackFlex / 1`), and the reserved right column cannot be removed — `trackFlex` shrinks it proportionally but never to zero. A fork whose track runs to the right padding edge will see the track's right end pull inward. Check that before deleting a fork, rather than after.
+:::
 
 ## Start & End Nodes
 

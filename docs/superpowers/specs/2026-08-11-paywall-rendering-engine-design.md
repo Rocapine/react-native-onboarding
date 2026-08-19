@@ -622,6 +622,93 @@ the UI mirror `.tsx` — which is exactly where untypechecked drift actually
 happens. Wrong before the extraction too; the file paths are now correct but the
 procedure is not.
 
+### 11.0.1 Follow-ups surfaced by Phase 6 (studio editor)
+
+Phase 6 landed in `onboarding-studio` (plan:
+`docs/superpowers/plans/2026-08-18-paywall-studio-editor.md` in that repo). The
+editor is built in **Studio Next only** — it supplies the classic
+`StepsContext` from paywall tables, presenting the paywall as one synthetic
+`ComposableScreen` pseudo-step, so the layers tree, inspector, every per-element
+form and the preview work unchanged. See `.claude/rules/paywalls.md` there.
+
+**The gap between "Phase 6 done" and "an author ships a paywall from the web UI":**
+
+- **Audience assignment UI is unbuilt.** A paywall becomes reachable to the SDK
+  only through `audiences_paywalls`, and targeting is still done with the
+  `set_paywall_audience_weights` MCP tool. The existing weights UI
+  (`components/Audience/AudienceOnboardingCard.tsx`) is hook-coupled to
+  onboardings, and §8 never listed it. This is the one thing standing between
+  the editor and an end-to-end web workflow.
+
+**Promised in the plan, not delivered:**
+
+- **Client-side element validation never landed.** The plan's design decision
+  said the studio would import the SDK's `ScreenElementsSchema` to validate an
+  element tree before writing it; no task's steps required it, so no task did
+  it, and `ScreenElementsSchema` is imported nowhere in the studio. Nothing
+  regressed — there was no such validation before Phase 6 either — but a
+  malformed tree still surfaces only at render time on device. Only *product
+  derivation* (`dist/products/derive`, `dist/products/toVariables`) is imported
+  from the SDK today.
+
+**Schema and data-model debt:**
+
+- **`paywalls_i18n."default"` is a vestigial `jsonb NOT NULL` column.**
+  `onboardings_i18n` dropped its equivalent in migration `20260504160000`;
+  `paywalls_i18n` (created 2026-08-14) copied the pre-drop shape. Nothing reads
+  it — the resolver treats the literal `"default"` as a sentinel mapping to a
+  *null column* — but every insert must pass `default: {}` or hit a not-null
+  violation.
+- **`paywalls.status` has no CHECK constraint.** The editor writes only
+  `'draft'` and `'published'`; pinning the set is a migration.
+- **`paywalls.edited_at` no longer means what its migration comment says.** It
+  documents NULL as "never edited since creation", but opening an MCP-authored
+  paywall now writes minted element ids, which stamps the column. No UI should
+  treat NULL as meaningful.
+- **`project_products` deletion exists only as a React hook** — no MCP tool
+  wraps it, so the agent-facing surface cannot remove a stale catalog entry.
+
+**Editor gaps:**
+
+- **No paywall i18n *tab* is possible on the current provider.** Several i18n
+  writers are deliberately **absent** rather than stubbed, so the element chips
+  render their unavailable state instead of pretending a write worked. The
+  element-level label/asset workflow is complete.
+- **No locale picker**, so the editor's preview-locale behaviour is unreachable
+  from the UI.
+- **Paywall hooks have no realtime subscription** while `useOnboardings.ts` does,
+  so a second editor's changes do not appear live.
+- **A failed element-id write-back can deploy ids the row lacks.** No-rollback is
+  deliberate (`retrySync` re-sends), but because the ids are random the
+  divergence is not self-correcting the way restored user content is.
+
+**Code-shape debt worth one cleanup pass:**
+
+- `PaywallCanvasPanel` is a 211-line copy of `CanvasPanel`, zoom/perf machinery
+  included. The right fix is a shared `ZoomableCanvas`; it was deferred because
+  it means editing a live onboarding-editor component mid-phase.
+- The identifier format `^[a-z][a-z0-9_]{0,63}$` now lives in **four** places —
+  the migration CHECK, the MCP tool's `IDENTIFIER_FORMAT`, `utils/paywallPlacement.ts`
+  and `utils/productKey.ts` — held in agreement by `fs`-based parity tests rather
+  than imports, because a cross-file import cannot satisfy both `tsc` (rejects
+  `.ts` extensions) and Node's test runner (requires them) for a file a test
+  imports directly. A fifth copy needs a fifth parity test.
+- `KIND_BG`/`KIND_FG` in `utils/diffEngine.ts` are Tamagui-only tokens living in
+  a module its own docstring frames as algorithm-only. One Tailwind caller keeps
+  a local class map; a second should trigger extracting `diffPresentation.ts`.
+- `utils/i18nLocale.ts`'s `I18N_RESERVED_COLUMNS` omits `paywall_id` and
+  `"default"`. Dead code today, but that is where the fix belongs.
+- `hooks/useOnboarding.ts` carries a now-redundant `as any` on its
+  `ensure_deployment_locale_column` RPC — the generated types have covered it
+  since `651a181`. Left alone because it is the live onboarding publish path.
+
+**Process finding, applicable beyond paywalls:**
+
+- **`pnpm build` is not in CI**, and it is the only gate that catches an import
+  which type-checks but does not bundle. Phase 6 ran it manually on every UI
+  task. Adding it to `.github/workflows/static-checks.yml` would close the one
+  verification gap this phase found in the existing gates.
+
 ### 11.1 This spec is a program, not one implementation plan
 
 Seven phases across two repos is too much for a single plan to hold usefully.

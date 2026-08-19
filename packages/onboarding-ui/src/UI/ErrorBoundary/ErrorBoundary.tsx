@@ -21,6 +21,28 @@ interface ErrorBoundaryProps {
    * changing the fallback rendered below, which the onboarding host still
    * relies on as-is (a back button already exists OUTSIDE that boundary
    * there).
+   *
+   * CAVEAT on that last parenthetical, found 2026-08-19 — it is CONDITIONAL,
+   * and the SDK cannot assume it. The host's back chevron lives in
+   * `<ProgressBar>`, whose entire subtree is behind
+   * `isProgressBarVisible && (…)`, and `isProgressBarVisible` is just the
+   * active step's `displayProgressHeader` (see `useOnboarding`). On a step with
+   * `displayProgressHeader: false` there is no bar and therefore NO back
+   * button, so the fallback below — which has no interactive control of its own
+   * — leaves the user with no exit in either direction: `onContinue` died with
+   * the subtree, and there is nothing outside it to retreat with.
+   *
+   * This is not hypothetical. In one shipped 26-step onboarding four steps have
+   * the header off, and they are the entry screen, the first question, and BOTH
+   * steps immediately before the paywall — i.e. the escape hatch is absent
+   * exactly where a render failure costs the most. Another onboarding could
+   * enable the header everywhere and the parenthetical would hold, which is
+   * precisely why it must not be relied on.
+   *
+   * Deliberately not fixed here: giving the onboarding host an `onError` escape
+   * like the paywall's is a product decision (skip the step? offer a retry?
+   * complete the flow?), not a mechanical one. Recorded so the next person
+   * weighing that decision starts from the real premise.
    */
   onError?: (error: Error) => void;
 }

@@ -56,6 +56,24 @@ export type TypewriterTextElementProps = BaseBoxProps & {
   cursor?: boolean;
   /** Caret glyph when `cursor` is on. Default "|". */
   cursorChar?: string;
+  /**
+   * Reserve the fully-revealed text's layout box up front, so the element never
+   * grows as it reveals and never pushes its siblings down.
+   *
+   * Only meaningful with `cursor: true`. Without a cursor every character is
+   * already mounted from frame 0 and only its opacity/transform animates, so the
+   * box is stable and this is a no-op. With `cursor` the characters mount
+   * progressively, so an unreserved block grows 1 → 2 → 3 lines mid-reveal and
+   * shoves everything below it down the screen.
+   *
+   * Implemented by laying out the fully resolved string invisibly to establish the
+   * box, then overlaying the animating characters on top of it. Because the
+   * reservation measures the REAL resolved string, it stays correct per locale —
+   * a hardcoded wrapper height is what breaks when e.g. `fr` runs 15-20% longer.
+   *
+   * Default false (unchanged behaviour).
+   */
+  reserveSpace?: boolean;
   fontSize?: number;
   fontWeight?: string;
   /**
@@ -83,6 +101,7 @@ export const TypewriterTextElementPropsSchema = BaseBoxPropsSchema.extend({
   loopDelay: z.number().min(0).optional(),
   cursor: z.boolean().optional(),
   cursorChar: z.string().optional(),
+  reserveSpace: z.boolean().optional(),
   fontSize: z.number().optional(),
   fontWeight: z.string().optional(),
   fontFamily: z.string().optional(),

@@ -36,12 +36,32 @@ const mediaTypeToKind = (type: unknown): AssetKind => {
   }
 };
 
+// An unresolved `{{var}}` placeholder. Such a url is a TEMPLATE, not an address:
+// prefetching it would fire a request for a literal "https://cdn/{{sign}}.png"
+// that always 404s, and the real url isn't knowable until the variable resolves.
+const hasPlaceholder = (url: string): boolean => url.includes("{{");
+
 // Push a url with kind, re-tagging SVG images so the runner HTTP-warms them.
 const pushAsset = (out: AssetRef[], url: unknown, kind: AssetKind): void => {
   if (typeof url !== "string" || url.length === 0) return;
+  // Skip templates. Reached by an `Image` with `mode: "expression"`, and by the
+  // template inside a `Repeat` (whose per-row urls are pushed separately, below,
+  // where the row data makes them resolvable).
+  if (hasPlaceholder(url)) return;
   const finalKind: AssetKind = kind === "image" && isSvgUrl(url) ? "image-svg" : kind;
   out.push({ url, kind: finalKind });
 };
+
+// Resolve `{{scope.field}}` against one Repeat row. Only the row scope is
+// substituted — anything referencing a runtime variable stays a placeholder and
+// is dropped by `pushAsset`, which is correct: it still isn't knowable up front.
+const resolveRowUrl = (url: string, row: Record<string, unknown>, scope: string): string =>
+  url.replace(/\{\{([^}]+?)\}\}/g, (match, key: string) => {
+    const trimmed = key.trim();
+    if (!trimmed.startsWith(`${scope}.`)) return match;
+    const value = row[trimmed.slice(scope.length + 1)];
+    return value == null ? match : String(value);
+  });
 
 // A `{ type, url }` MediaSource is remote (prefetchable); a `{ type, localPathId }`
 // MediaSource is a bundled asset — skip it.
@@ -76,8 +96,60 @@ const walkElement = (out: AssetRef[], element: any): void => {
       break;
   }
 
+  // A `Repeat` renders its template once per row, so the assets it actually
+  // shows are the template's url props resolved against each row — the template
+  // string itself is unfetchable and was skipped above. Walk the template once
+  // per row with the row substituted in, so repeated media still preloads.
+  if (element.type === "Repeat" && Array.isArray(props.data)) {
+    const scope = typeof props.as === "string" && props.as ? props.as : "item";
+    for (const row of props.data) {
+      if (!row || typeof row !== "object") continue;
+      const resolved: AssetRef[] = [];
+      if (Array.isArray(element.children)) {
+        for (const child of element.children) walkElementWithRow(resolved, child, row, scope);
+      }
+      out.push(...resolved);
+    }
+    return;
+  }
+
   if (Array.isArray(element.children)) {
     for (const child of element.children) walkElement(out, child);
+  }
+};
+
+// `walkElement`, but url props are resolved against a Repeat row first. Separate
+// from `walkElement` so the ordinary path stays allocation-free.
+const walkElementWithRow = (
+  out: AssetRef[],
+  element: any,
+  row: Record<string, unknown>,
+  scope: string
+): void => {
+  if (!element || typeof element !== "object") return;
+  const props = element.props ?? {};
+  const resolve = (u: unknown) => (typeof u === "string" ? resolveRowUrl(u, row, scope) : u);
+
+  switch (element.type) {
+    case "Image":
+    case "ProgressiveBlurImage":
+      pushAsset(out, resolve(props.url), "image");
+      break;
+    case "Video":
+      pushAsset(out, resolve(props.url), "video");
+      break;
+    case "Lottie":
+      pushAsset(out, resolve(props.source), "lottie");
+      break;
+    case "Rive":
+      pushAsset(out, resolve(props.url), "rive");
+      break;
+    default:
+      break;
+  }
+
+  if (Array.isArray(element.children)) {
+    for (const child of element.children) walkElementWithRow(out, child, row, scope);
   }
 };
 

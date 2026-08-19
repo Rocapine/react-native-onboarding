@@ -342,6 +342,24 @@ export const onboardingExample = {
                 },
               },
               {
+                // Cursor mode types characters in progressively, so the block would
+                // grow 1 -> 2 lines and shove everything below it down the screen.
+                // `reserveSpace` lays the finished string out invisibly first and
+                // overlays the animation, so the siblings never move. It measures
+                // the real resolved string, so it stays right in every locale.
+                id: "typewriter-reserved",
+                type: "TypewriterText",
+                props: {
+                  content: "Meet your AI journal companion",
+                  cursor: true,
+                  reserveSpace: true,
+                  stagger: 40,
+                  fontSize: 16,
+                  textAlign: "center",
+                  marginVertical: 8,
+                },
+              },
+              {
                 id: "hero-video",
                 type: "Video",
                 props: {
@@ -860,6 +878,10 @@ export const onboardingExample = {
                   marginVertical: 8,
                   defaultIndex: 0,
                   variableName: "carouselPage",
+                  // Snap-time variable (`carouselPage`) steps 0 -> 1 -> 2. This one
+                  // tracks the finger continuously, so siblings can animate DURING
+                  // the swipe instead of after it lands.
+                  progressVariableName: "carouselProgress",
                 },
                 children: [
                   {
@@ -888,6 +910,104 @@ export const onboardingExample = {
                       height: 220,
                       resizeMode: "cover",
                     },
+                  },
+                ],
+              },
+              {
+                // Gated on the CONTINUOUS position: `eq` compares the rounded value,
+                // so this mounts (and fades in) once the swipe passes halfway to
+                // slide 2 -- not when it snaps. Because the published value is
+                // normalized to [0, childCount), it behaves identically on every lap
+                // even though `loop` is on.
+                id: "carousel-swipe-reveal",
+                type: "Text",
+                renderWhen: { variable: "carouselProgress", operator: "eq", value: 1 },
+                props: {
+                  // `animation` is a BaseBoxProp -- inside `props`, not top level.
+                  animation: { entering: { preset: "FadeInDown", duration: 300 } },
+                  content: "Revealed mid-swipe on slide 2",
+                  fontSize: 13,
+                  textAlign: "center",
+                  marginVertical: 2,
+                },
+              },
+              {
+                // Data-driven Image: ONE element instead of one duplicated subtree
+                // per case. The URL rebuilds as `carouselPage` changes, so paging
+                // the carousel swaps this image. `{{var}}` resolves to the
+                // variable's VALUE (not its label) — a URL segment is an identifier.
+                id: "carousel-derived-image",
+                type: "Image",
+                props: {
+                  url: "https://picsum.photos/seed/{{carouselPage}}/120/120",
+                  mode: "expression",
+                  width: 120,
+                  height: 120,
+                  borderRadius: 12,
+                  alignSelf: "center",
+                  marginVertical: 4,
+                },
+              },
+              {
+                // `animation.replayWhen`: re-fires the entering animation each
+                // time `carouselPage` changes, WITHOUT the element disappearing.
+                // Previously the only way to replay was to toggle `renderWhen`,
+                // which couples "animate again" to "change visibility".
+                id: "carousel-replay-label",
+                type: "Text",
+                props: {
+                  content: "Slide {{carouselPage}}",
+                  mode: "expression",
+                  fontSize: 14,
+                  fontWeight: "600",
+                  textAlign: "center",
+                  marginVertical: 2,
+                  animation: {
+                    entering: { preset: "FadeInUp", duration: 260 },
+                    replayWhen: "carouselPage",
+                  },
+                },
+              },
+              {
+                // `Repeat`: ONE template materialized per row of payload-authored
+                // data, instead of three near-identical hand-written subtrees.
+                // Layout-transparent, so these rows become children of the
+                // enclosing YStack and its `gap` applies between them.
+                // Row fields are exposed as `{{item.*}}`; `item.index` is always
+                // available. A `renderWhen` on the template gates per row, which
+                // is how Repeat also covers the "switch" case without a separate
+                // Match element.
+                id: "feature-rows",
+                type: "Repeat",
+                props: {
+                  keyField: "key",
+                  data: [
+                    { key: "track", label: "Track every workout" },
+                    { key: "plan", label: "Plan your week" },
+                    { key: "coach", label: "Coaching that adapts" },
+                  ],
+                },
+                children: [
+                  {
+                    id: "feature-row",
+                    type: "XStack",
+                    props: { gap: 10, alignItems: "center", marginVertical: 2 },
+                    children: [
+                      {
+                        // Static: `Icon.name` has no `mode`, so it does NOT
+                        // interpolate — `{{item.icon}}` here would render as a
+                        // literal, unmatched icon name. Only props documented as
+                        // supporting `expression` accept `{{var}}`.
+                        id: "feature-icon",
+                        type: "Icon",
+                        props: { name: "check", size: 18 },
+                      },
+                      {
+                        id: "feature-label",
+                        type: "Text",
+                        props: { content: "{{item.label}}", mode: "expression", fontSize: 15 },
+                      },
+                    ],
                   },
                 ],
               },
@@ -984,6 +1104,26 @@ export const onboardingExample = {
                         },
                       },
                     ],
+                  },
+                  {
+                    // `inset`: declarative off-anchor placement. Supplying one side
+                    // per axis leaves this content-sized and pinned by its top-left
+                    // corner, instead of doing the arithmetic with
+                    // transform.translateX/Y. Percentages keep it stable across
+                    // device widths. Honoured only on a ZStack child.
+                    id: "zstack-inset-badge",
+                    type: "Text",
+                    props: {
+                      inset: { top: "12%", left: "62%" },
+                      content: "NEW",
+                      fontSize: 12,
+                      fontWeight: "700",
+                      color: "#fff",
+                      backgroundColor: "#E76F51",
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
+                      borderRadius: 999,
+                    },
                   },
                 ],
               },

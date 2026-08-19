@@ -59,6 +59,7 @@ this reference has claimed that twice about props that shipped.
 | `DrawingPad` | Freehand draw/signature canvas; serializes to a variable (`variableName` → SVG path string; `imageVariableName` → base64 image data URI). Needs `@shopify/react-native-skia` |
 | `Slider` | Continuous numeric input bound to a variable (stored as a float). Props: `min` (0), `max` (1), `step` (0 = continuous), `defaultValue`, `minimumTrackTintColor`, `maximumTrackTintColor`, `thumbTintColor`. Needs optional `@react-native-community/slider`; degrades to an empty box when absent |
 | `Carousel` | Inline horizontal pager |
+| `Repeat` | Materializes its `children` (one template) once per row of `props.data`. Layout-transparent — the rows become children of the enclosing stack, so that stack's `gap`/direction applies per row. Row fields read as `{{item.*}}` (`item.index` always present) in both `{{var}}` interpolation and `renderWhen`. **A `renderWhen` on the template gates per row, so Repeat also covers the "switch" case — there is no `Match` element.** Container (needs `children`) |
 | `ProgressIndicator` | Linear / circular progress bar; static `value`, bound `variableName`, or `autoplay` animation. `minValue`/`maxValue` set the range (default 0–100) for an animated count-up; `step` snaps label/variable, `labelSuffix` replaces `%` |
 | `AnimatedText` | Number that count-animates `from`→`to` on the UI thread (native TextInput) — **zero re-renders, no variable write**. The performant way to show an animated stat ("+1,028,709 members"); pair a static label as a sibling `Text`. `decimals`/`thousandsSeparator` format the number |
 | `TypewriterText` | Reveals its `content` string one character at a time, each char mounting its own reanimated entering animation (`preset`); per-char delay = `delay + charIndex * stagger`. The staggered-headline reveal — distinct from the whole-block `animation.entering` (fades the string at once) and from `AnimatedText` (an animated number). `stagger` is the typewriter knob; wraps by whole words. Leaf, non-interactive |
@@ -79,19 +80,34 @@ Authoritative prop shapes: `packages/onboarding/src/screens/elements/*.ts`.
 
 Two optional `BaseBoxProps` surfaces apply to **every** element type. Both mirror `react-native-reanimated`. Unknown presets degrade to a no-op (never crash).
 
+**`inset`** (declarative absolute placement — **`ZStack` children only**):
+
+```
+{ top?, left?, right?, bottom? }   // number = px, string = percentage of the stack ("62.1%")
+```
+
+`ZStack` gives every child an absolutely-positioned full-bleed wrapper and applies ONE shared `justifyContent`/`alignItems` to all of them, so without `inset` the 9 anchor points are the only declarative placement and anything off-anchor needs hand-computed `transform.translateX/translateY`. `inset` replaces that arithmetic.
+
+- **Omitting a side is not `0`** — that axis falls back to the ZStack's shared anchor. So `{ top: 40 }` pins vertically while still centering horizontally if the stack's `alignItems` is `center`.
+- **One side per axis (`top` + `left`) is the normal form**: it leaves the element content-sized and pinned by that corner. Setting BOTH sides of an axis resolves to a size instead and stretches the element.
+- When an axis is positioned, that axis's shared anchor is dropped for that child. (Keeping it would re-center the child inside the shrunken box — placement would look right at `flex-start` and be wrong at every other anchor.)
+- **Prefer percentages over px.** A px offset authored against one screen width drifts on devices of another; percentages survive. Same `number | string` convention as `width`/`height`.
+- Composes with `transform` rather than replacing it. Inert outside a `ZStack` — no other container absolutely-positions its children.
+
 **`transform`** (static, applied once):
 
 ```
 { translateX?, translateY?, scale?, scaleX?, scaleY?, rotate? }  // all numbers; rotate is in degrees
 ```
 
-**`animation`** — `{ entering?, exiting?, layout?, effect? }`:
+**`animation`** — `{ entering?, exiting?, layout?, effect?, replayWhen? }`:
 
 - `entering` / `exiting`: `{ preset, duration?, delay?, easing?, spring? }`. `preset` is the **exact reanimated builder name**.
   - Entering presets: `FadeIn`, `FadeInUp`, `FadeInDown`, `FadeInLeft`, `FadeInRight`, `SlideInUp`, `SlideInDown`, `SlideInLeft`, `SlideInRight`, `ZoomIn`, `ZoomInRotate`, `ZoomInUp`, `ZoomInDown`, `ZoomInLeft`, `ZoomInRight`, `ZoomInEasyUp`, `ZoomInEasyDown`, `BounceIn`, `BounceInUp`, `BounceInDown`, `BounceInLeft`, `BounceInRight`, `FlipInXUp`, `FlipInYLeft`, `FlipInXDown`, `FlipInYRight`, `FlipInEasyX`, `FlipInEasyY`, `StretchInX`, `StretchInY`, `RotateInDownLeft`, `RotateInDownRight`, `RotateInUpLeft`, `RotateInUpRight`, `RollInLeft`, `RollInRight`, `PinwheelIn`, `LightSpeedInLeft`, `LightSpeedInRight`.
   - Exiting presets: the matching `...Out...` names — e.g. `FadeOut`, `SlideOutLeft`, `ZoomOut`, `BounceOut`, `FlipOutXUp`, `StretchOutX`, `RotateOutDownLeft`, `RollOutLeft`, `PinwheelOut`, `LightSpeedOutLeft`, etc.
 - `layout`: `{ preset, duration?, spring? }`. Presets: `LinearTransition`, `FadingTransition`, `SequencedTransition`, `JumpingTransition`, `CurvedTransition`, `EntryExitTransition`.
 - `effect` (continuous loop — **NOT** a reanimated builder name): `{ preset, duration?, delay?, easing?, loop?, minScale?, maxScale?, minOpacity?, degrees? }`. `preset` ∈ `"pulse" | "fade" | "rotate" | "shimmer" | "bounce"`. `minScale`/`maxScale` apply to `pulse`; `minOpacity` to `fade`; `degrees` to `rotate`.
+- `replayWhen`: a variable NAME. Re-fires `entering` whenever that variable's value changes, so an element can re-animate **without** disappearing and coming back (previously only a `renderWhen` toggle could replay one). Mechanism worth knowing: the subtree is remounted, so transient state inside it resets and a continuous `effect` restarts — use it on presentational subtrees, not around an `Input`. Mount is not a replay.
 - `easing`: `"linear" | "ease-in" | "ease-out" | "ease-in-out"`. `spring`: `{ damping?, stiffness?, mass? }` — mirrors reanimated `.springify(config)`; **`spring` wins over `easing`** when both are present.
 
 Worked example (Image with static tilt, entrance/exit, and a continuous pulse):
@@ -261,7 +277,7 @@ Each override is a `Partial` of the overridable Button props: `BaseBoxProps` (in
 |---------|-------|-------|
 | Payload | `payload.elements: UIElement[]` | `payload.root`, `payload.variables` |
 | `Text` | `content` (string **or** span array), `mode: "expression"` for interp, `fontSize`/`fontWeight` | `text`, `variant` |
-| `Image` | `url: string` (WebP/AVIF via `expo-image` if installed; `.svg` URLs auto-render via `react-native-svg`, `resizeMode`→`preserveAspectRatio`); optional `blurRadius` (uniform px blur) | `source: { uri }`, `source: { localPathId }` |
+| `Image` | `url: string` (WebP/AVIF via `expo-image` if installed; `.svg` URLs auto-render via `react-native-svg`, `resizeMode`→`preserveAspectRatio`); `mode: "plain"\|"expression"` — `expression` interpolates `{{var}}` into `url` (resolves the variable's **value**, not its label) so one element replaces a duplicated subtree per case; optional `blurRadius` (uniform px blur) | `source: { uri }`, `source: { localPathId }`; expecting `{{var}}` to work without `mode: "expression"` |
 | `ProgressiveBlurImage` | `url`, `intensity` (0–100), `mask` (linear `{from,to,stops}` or radial `{type:"radial",center?,radius?,stops}`), optional `tint`/`maxBlurOpacity`/`blurAppear` (`{delay?,duration?,easing?}` fade-in of the blur layer) | `blurRadius` (that's `Image`); a color `mask` (mask opacity = blur strength, not a color) |
 | `Lottie` | `source: string` | `source: { localPathId }` |
 | `Rive` | `url: string` | `source` |
@@ -274,13 +290,38 @@ Each override is a `Partial` of the overridable Button props: `BaseBoxProps` (in
 | `Input` | `textAlign`, `keyboardType`, `autoCapitalize`, `maxLength`, `autoFocus` | `suffix`, `alignment` |
 | `ProgressIndicator` | `variant: "linear"\|"circular"`, `value`, `variableName`, `autoplay`, `minValue`/`maxValue` (default 0–100), `step`, `labelSuffix`, `duration`, `delay`, `easing` | `progress`, `percent`, `type` |
 | `AnimatedText` | `to` (required), `from` (default 0), `duration`, `delay`, `easing`, `autoplay`, `loop`, `decimals`, `thousandsSeparator` (default `","`) + text styling (`fontSize`/`fontWeight`/`color`/`textAlign`/…) | `variableName` (it never writes a variable — use a sibling expression `Text` if downstream needs the value) |
-| `TypewriterText` | `content` (required string), `mode` (`"plain"`/`"expression"`, default `plain`), `preset` (default `"FadeInDown"`; `"none"` disables the per-char animation), `duration` (400), `delay` (0), `stagger` (45), `easing`, `spring: {damping?,stiffness?,mass?}` (wins over `easing`), `loop` (false) + `loopDelay` (1200) for repeat mode, `cursor` (false) + `cursorChar` (`"\|"`) for a blinking caret + text styling (`fontSize`/`fontWeight`/`color`/`textAlign`/…) | `children` (leaf); spans in `content` |
+| `TypewriterText` | `content` (required string), `mode` (`"plain"`/`"expression"`, default `plain`), `preset` (default `"FadeInDown"`; `"none"` disables the per-char animation), `duration` (400), `delay` (0), `stagger` (45), `easing`, `spring: {damping?,stiffness?,mass?}` (wins over `easing`), `loop` (false) + `loopDelay` (1200) for repeat mode, `cursor` (false) + `cursorChar` (`"\|"`) for a blinking caret, `reserveSpace` (false — reserves the finished text's box so a `cursor` reveal never pushes siblings down; no-op without `cursor`) + text styling (`fontSize`/`fontWeight`/`color`/`textAlign`/…) | `children` (leaf); spans in `content` |
+| `Carousel` | `variableName` (writes the settled slide index on snap), `progressVariableName` (publishes the CONTINUOUS swipe position, normalized to `[0, childCount)` so it reads the same on every lap under `loop`; gate siblings on it to animate mid-gesture), `defaultIndex`, `carouselType`, `loop` (default true), `autoPlay`/`autoPlayInterval`, dot styling | expecting `progressVariableName` in the store — it is screen-scoped and UI-thread only, so `{{var}}` text cannot read it |
+| `Repeat` | `data` (required — array of FLAT scalar records, authored in the payload), `keyField` (row field used for the id suffix + React key; falls back to index), `as` (scope prefix, default `"item"`); template goes in `children` | `data` sourced from a variable holding JSON; nested objects in a row; box props (it renders no view, so they silently do nothing — it does not extend `BaseBoxProps`) |
 | Stacks / Carousel | `children` at element top-level | `children` inside `props` |
+
+## `Repeat` — one template, N rows
+
+```json
+{ "id": "signs", "type": "Repeat",
+  "props": { "keyField": "sign",
+             "data": [{ "sign": "aries", "titleKey": "zodiac_aries_title", "art": "https://cdn/z/aries.png" }] },
+  "children": [
+    { "id": "card", "type": "YStack", "props": {},
+      "renderWhen": { "variable": "item.sign", "operator": "eq", "value": "aries" },
+      "children": [
+        { "id": "art",   "type": "Image", "props": { "url": "{{item.art}}", "mode": "expression" } },
+        { "id": "title", "type": "Text",  "props": { "content": "{{item.titleKey}}", "mode": "expression" } }
+      ] }
+  ] }
+```
+
+- **Repeat + a per-row gate IS a switch.** Iterate-and-show-all and iterate-and-show-one are the same primitive, which is why no `Match` element exists. Gate the template's root on `item.<field>` and exactly one row renders.
+- **`data` is authored in the payload, never sourced from a variable holding JSON.** That keeps copy and asset URLs in the studio where designers and the translation pipeline are. Rows fed from the app move product copy into the binary, where a typo fix needs a store release.
+- **A translatable string in a row carries its own LITERAL i18n key** (`"titleKey": "zodiac_aries_title"`). Never a computed one (`"zodiac_{{item.sign}}_title"`): key coverage is measured by scanning payloads for literal key strings, so a computed key makes the scanner find nothing, report the screen 100% translated, and ship untranslated rows.
+- **Scope reaches press-time actions too**, so a repeated card can write its own row's value — `{ "type": "setVariable", "name": "pick", "valueMode": "expression", "value": "{{item.id}}" }`. Scoped values are read-only; every row's child writes the same variable NAME, distinguishing itself by the value it writes.
+- **Ids are suffixed per row** (`card` → `card__aries`), so N materializations never collide. Set `keyField` so those ids stay meaningful.
+- Only props documented as supporting `expression` accept `{{var}}`. `Icon.name`, for instance, does **not** interpolate — `{{item.icon}}` there renders as a literal, unmatched name.
 
 ## Anti-patterns
 
 - Don't write `payload.root` or `payload.variables` — they don't exist and crash Studio (`els is not iterable` when reading `payload.elements`).
-- **Every container element (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `ScrollView`, `KeyboardAvoidingView`, `Carousel`, `RichText`) MUST have a `children` field. Use `"children": []` for empty containers (spacers, blank panels).** Studio renderer does `el.children.map(...)` unconditionally — missing `children` crashes with `Cannot read properties of undefined (reading 'map')`. The headless Zod schema also requires it (`children: z.array(UIElementSchema)`). `RichText` is the exception to "any child": its `children` are restricted to `Text` elements only — a non-`Text` child fails schema parse.
+- **Every container element (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `ScrollView`, `KeyboardAvoidingView`, `Carousel`, `RichText`, `Repeat`) MUST have a `children` field. Use `"children": []` for empty containers (spacers, blank panels).** Studio renderer does `el.children.map(...)` unconditionally — missing `children` crashes with `Cannot read properties of undefined (reading 'map')`. The headless Zod schema also requires it (`children: z.array(UIElementSchema)`). `RichText` is the exception to "any child": its `children` are restricted to `Text` elements only — a non-`Text` child fails schema parse.
 - Don't omit `id` on any element, and don't reuse or content-derive it — generate a fresh UUID v4 per element.
 - Don't nest a `KeyboardAvoidingView` inside another `KeyboardAvoidingView` — the headless schema rejects it.
 - Don't use `{{var}}` in `Text.content` without `mode: "expression"` — interpolation silently disabled otherwise.

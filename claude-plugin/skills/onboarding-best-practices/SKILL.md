@@ -166,4 +166,4 @@ Every step in a multi-step flow uses the explicit multi-path link form:
 - Inventing font names not loaded by `expo-font`.
 - Long-form copy that won't translate (if multi-locale).
 - Writing `payload.root` or `payload.variables` — those keys do not exist in the ComposableScreen schema. Correct shape: `payload: { "elements": UIElement[] }`. Wrong shape crashes Studio with `els is not iterable`.
-- Emitting a container element (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `ScrollView`, `KeyboardAvoidingView`, `Carousel`, `RichText`) without a `children` array. Empty container → `"children": []`. Missing `children` crashes Studio with `Cannot read properties of undefined (reading 'map')`.
+- Emitting a container element (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `ScrollView`, `KeyboardAvoidingView`, `Carousel`, `RichText`, `Repeat`) without a `children` array. Empty container → `"children": []`. Missing `children` crashes Studio with `Cannot read properties of undefined (reading 'map')`.

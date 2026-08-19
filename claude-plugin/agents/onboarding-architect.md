@@ -104,7 +104,7 @@ Inside each `payload.elements`:
 - Use kebab/camelCase IDs matching app convention.
 - Match copy voice (CTA verb, sentence case).
 - Use canonical element prop names: `Text.content` (not `text`), `Image.url` (not `source`), `RadioGroup.items` (not `options`), `Button.actions` (not `action`), `Button.disabledWhen` (not `disabled`), `SafeAreaView.edges: ["top","bottom"]` (never `"always"`).
-- Every container element (`YStack`/`XStack`/`ZStack`/`SafeAreaView`/`ScrollView`/`KeyboardAvoidingView`/`Carousel`/`RichText`) must include `children: UIElement[]` — emit `"children": []` for empty containers (spacers). Missing `children` crashes Studio with `Cannot read properties of undefined (reading 'map')`.
+- Every container element (`YStack`/`XStack`/`ZStack`/`SafeAreaView`/`ScrollView`/`KeyboardAvoidingView`/`Carousel`/`RichText`/`Repeat`) must include `children: UIElement[]` — emit `"children": []` for empty containers (spacers). Missing `children` crashes Studio with `Cannot read properties of undefined (reading 'map')`.
 - `Text` with `{{var}}` interpolation must set `mode: "expression"`.
 
 ## Step 5: Recap

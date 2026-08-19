@@ -244,6 +244,13 @@ export type ElementAnimation = {
   exiting?: ExitingAnimation;
   layout?: LayoutAnimation;
   effect?: ElementEffect;
+  /**
+   * Replay `entering` whenever the named variable's value changes, by remounting
+   * the element's subtree (its React key derives from the value). Transient
+   * state inside resets and a continuous `effect` restarts. Mount is not a
+   * replay. See the headless schema for full semantics.
+   */
+  replayWhen?: string;
 };
 
 const ElementAnimationSchema = z.object({
@@ -251,9 +258,30 @@ const ElementAnimationSchema = z.object({
   exiting: ExitingAnimationSchema.optional(),
   layout: LayoutAnimationSchema.optional(),
   effect: EffectSchema.optional(),
+  replayWhen: z.string().min(1).optional(),
 });
 
 // Static transform surface — also what `effect` animates at runtime.
+// Declarative absolute placement for a ZStack child. Numbers are density-
+// independent pixels; strings are percentages of the stack ("62.1%"). ONLY
+// honoured on a direct child of a `ZStack` — the only container that
+// absolutely-positions its children. An omitted side falls back to the ZStack's
+// shared anchor for that axis rather than to 0. Mirror of the headless type.
+export type ElementInset = {
+  top?: number | string;
+  left?: number | string;
+  right?: number | string;
+  bottom?: number | string;
+};
+
+const InsetSide = z.union([z.number(), z.string()]);
+const InsetSchema = z.object({
+  top: InsetSide.optional(),
+  left: InsetSide.optional(),
+  right: InsetSide.optional(),
+  bottom: InsetSide.optional(),
+});
+
 export type ElementTransform = {
   translateX?: number;
   translateY?: number;
@@ -303,6 +331,8 @@ export type BaseBoxProps = {
   shadowOpacity?: number;
   shadowRadius?: number;
   elevation?: number;
+  /** Declarative absolute placement inside a `ZStack` (ignored elsewhere). */
+  inset?: ElementInset;
   transform?: ElementTransform;
   animation?: ElementAnimation;
   onPress?: ButtonAction[];
@@ -338,6 +368,7 @@ export const BaseBoxPropsSchema = z.object({
   shadowOpacity: z.number().min(0).max(1).optional(),
   shadowRadius: z.number().min(0).optional(),
   elevation: z.number().min(0).optional(),
+  inset: InsetSchema.optional(),
   transform: TransformSchema.optional(),
   animation: ElementAnimationSchema.optional(),
   onPress: z.array(ButtonActionSchema).optional(),

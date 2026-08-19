@@ -26,6 +26,7 @@ import { DatePickerElementComponent } from "./DatePickerElement";
 import { WheelPickerElementComponent } from "./WheelPickerElement";
 import { CarouselElementComponent } from "./CarouselElement";
 import { ZStackElementComponent } from "./ZStackElement";
+import { RepeatElementComponent } from "./RepeatElement";
 import { SafeAreaViewElementComponent } from "./SafeAreaViewElement";
 import { ScrollViewElementComponent } from "./ScrollViewElement";
 import { KeyboardAvoidingViewElementComponent } from "./KeyboardAvoidingViewElement";
@@ -34,7 +35,7 @@ import { AnimatedTextElementComponent } from "./AnimatedTextElement";
 import { TypewriterTextElementComponent } from "./TypewriterTextElement";
 import { DrawingPadElementComponent } from "./DrawingPadElement";
 import { SliderElementComponent } from "./SliderElement";
-import { AnimatedBox } from "./AnimatedBox";
+import { AnimatedBox, ReplayingAnimatedBox } from "./AnimatedBox";
 
 type ParentType = "XStack" | "YStack" | "ZStack" | "RichText" | "XScroll";
 
@@ -135,6 +136,14 @@ const renderConcrete = (
     return <CarouselElementComponent key={element.id} element={element} ctx={ctx} />;
   }
 
+  if (element.type === "Repeat") {
+    // Layout-transparent: forwards `parentType` so each materialized row is laid
+    // out by the container holding the Repeat, exactly as a hand-written row.
+    return (
+      <RepeatElementComponent key={element.id} element={element} ctx={ctx} parentType={parentType} />
+    );
+  }
+
   if (element.type === "ZStack") {
     return <ZStackElementComponent key={element.id} element={element} ctx={ctx} />;
   }
@@ -220,14 +229,28 @@ const renderConcrete = (
   // WheelPicker), but the animation/transform/flex/alignSelf fields are all
   // optional BaseBoxProps members and simply read as undefined when absent.
   if (content !== null && (p.animation || p.transform)) {
+    const boxProps = {
+      animation: p.animation,
+      transform: p.transform,
+      flex: p.flex,
+      alignSelf: p.alignSelf,
+    };
+    // `replayWhen` re-fires `entering` on a variable write by remounting; only
+    // that opt-in path subscribes to variables (see ReplayingAnimatedBox).
+    if (p.animation?.replayWhen) {
+      return (
+        <ReplayingAnimatedBox
+          key={element.id}
+          replayWhen={p.animation.replayWhen}
+          replayKeyPrefix={element.id}
+          {...boxProps}
+        >
+          {content}
+        </ReplayingAnimatedBox>
+      );
+    }
     return (
-      <AnimatedBox
-        key={element.id}
-        animation={p.animation}
-        transform={p.transform}
-        flex={p.flex}
-        alignSelf={p.alignSelf}
-      >
+      <AnimatedBox key={element.id} {...boxProps}>
         {content}
       </AnimatedBox>
     );

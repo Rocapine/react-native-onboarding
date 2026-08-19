@@ -59,7 +59,93 @@ export interface OnboardingMetadata {
  * (e.g. theme, fonts, entry point). Kept permissive — only the fields the SDK
  * reads are typed; everything else the studio ships passes through untouched.
  */
+/**
+ * Studio-authored styling for the onboarding progress header.
+ *
+ * Exists so "change the progress bar colour" is a Studio publish rather than an
+ * app release. Before this, `ProgressBar` exposed only `backgroundColor` /
+ * `progressColor` as props and hardcoded everything else (height 12, radius 10,
+ * the 1/5/1 three-column layout, paddings, back-chevron size), so a project
+ * needing a different bar forked its own component.
+ *
+ * Every field is optional; an omitted field falls back to the previous
+ * behaviour. Resolution order in `ProgressBar` is:
+ *   explicit prop  >  this block  >  theme  >  hardcoded default
+ * This block deliberately outranks the theme because a theme-only knob could not
+ * reach the screen at all today: `ThemeProvider` is fed solely by the host's
+ * `customTheme`/`customLightTheme`/`customDarkTheme` props, and nothing in the SDK
+ * reads `configuration.theme` — the edge function delivers the field and no
+ * consumer exists, so the host theme is the only theme at runtime. Wiring
+ * `configuration.theme` into `ThemeProvider` (config below host props, mirroring
+ * the order here) is a known open item; until then this block is the only way
+ * Studio can restyle the header.
+ */
+export interface ProgressHeaderConfiguration {
+  /** Track (unfilled) colour. Defaults to `theme.colors.neutral.lower`. */
+  backgroundColor?: string;
+  /** Filled colour. Defaults to `theme.colors.primary`. */
+  progressColor?: string;
+  /** Track thickness in px. Defaults to 12. */
+  height?: number;
+  /** Track corner radius in px. Defaults to half the height (fully rounded). */
+  borderRadius?: number;
+  /** Horizontal padding around the whole header row in px. Defaults to 16. */
+  paddingHorizontal?: number;
+  /** Space below the bar in px. Defaults to 24. */
+  paddingBottom?: number;
+  /** Gap between the back button, track and right spacer in px. Defaults to 16. */
+  gap?: number;
+  /**
+   * Width of the track relative to the side columns, as flex units. The header is
+   * a three-column row (back button / track / spacer) that defaults to 1 / 5 / 1;
+   * this sets the middle number. Larger = wider track.
+   */
+  trackFlex?: number;
+  /** Back-chevron colour. Defaults to `theme.colors.text.primary`. */
+  backButtonColor?: string;
+  /** Back-chevron **glyph** size in px. Defaults to 24. See `backButtonContainerSize`. */
+  backButtonSize?: number;
+  /** Hide the back chevron even when the router can go back. Defaults to false. */
+  hideBackButton?: boolean;
+
+  // --- Back-button CONTAINER chrome -----------------------------------------
+  // The fields above style the chevron itself; these style the tappable box
+  // around it. They exist because the glyph fields alone are not enough to stop
+  // a host forking the bar, which is what this whole block is for: the one host
+  // we know forked it wraps the chevron in a 32x32 white circle with a 1px
+  // border, and with only glyph fields that had no reachable expression, so the
+  // fork survived a feature built to retire it.
+  //
+  // All unset reproduces the previous rendering exactly: a bare chevron in a
+  // `padding: 4` touchable, no fill and no border.
+
+  /** Container fill. Unset = transparent (previous behaviour). */
+  backButtonBackgroundColor?: string;
+  /**
+   * Container border colour. Setting this alone implies `backButtonBorderWidth: 1`
+   * — RN defaults border width to 0, so a lone colour would otherwise draw
+   * nothing. Same convenience `buildShadowStyle` applies to `shadowColor`.
+   */
+  backButtonBorderColor?: string;
+  /** Container border width in px. Defaults to 1 when `backButtonBorderColor` is set, else 0. */
+  backButtonBorderWidth?: number;
+  /**
+   * Container width AND height in px — the button is square. Setting it also
+   * centres the glyph inside the box and drops the default padding, so the
+   * rendered size is exactly this value (e.g. 32 for a 32x32 chip).
+   */
+  backButtonContainerSize?: number;
+  /** Container corner radius in px. Half of `backButtonContainerSize` makes a circle. */
+  backButtonBorderRadius?: number;
+}
+
 export interface OnboardingConfiguration {
+  /**
+   * Studio-authored progress-header styling. Read directly off `configuration`
+   * (the edge function returns the whole configuration blob top-level), so it
+   * needs no backend change to start arriving.
+   */
+  progressHeader?: ProgressHeaderConfiguration;
   /**
    * Id of the unique step the onboarding starts on. Read first to resolve the
    * entry point (see `resolveStartStepNumber`). Optional; when absent or when it

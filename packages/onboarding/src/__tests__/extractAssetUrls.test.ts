@@ -168,3 +168,107 @@ describe("extractAssetUrls — robustness", () => {
     });
   });
 });
+
+describe("extractAssetUrls — {{var}} templates and Repeat rows", () => {
+  it("skips an unresolved template url instead of prefetching it literally", () => {
+    // An `Image` with mode:"expression" holds a template, not an address.
+    // Prefetching it fires a guaranteed 404 for the literal string.
+    const step = {
+      type: "ComposableScreen",
+      payload: {
+        elements: [
+          { type: "Image", props: { url: "https://cdn/zodiac/{{sign}}.png", mode: "expression" } },
+          { type: "Image", props: { url: "https://cdn/static.png" } },
+        ],
+      },
+    };
+    expect(byUrl(extractAssetUrls(onb([step])))).toEqual({
+      "https://cdn/static.png": "image",
+    });
+  });
+
+  it("resolves a Repeat template against each row so repeated media still preloads", () => {
+    const step = {
+      type: "ComposableScreen",
+      payload: {
+        elements: [
+          {
+            type: "Repeat",
+            props: {
+              keyField: "sign",
+              data: [
+                { sign: "aries", art: "https://cdn/z/aries.png" },
+                { sign: "leo", art: "https://cdn/z/leo.png" },
+              ],
+            },
+            children: [
+              { type: "Image", props: { url: "{{item.art}}", mode: "expression" } },
+            ],
+          },
+        ],
+      },
+    };
+    expect(byUrl(extractAssetUrls(onb([step])))).toEqual({
+      "https://cdn/z/aries.png": "image",
+      "https://cdn/z/leo.png": "image",
+    });
+  });
+
+  it("honours a custom `as` scope and resolves nested children", () => {
+    const step = {
+      type: "ComposableScreen",
+      payload: {
+        elements: [
+          {
+            type: "Repeat",
+            props: { as: "girl", data: [{ id: "a", photo: "https://cdn/g/a.png" }] },
+            children: [
+              {
+                type: "YStack",
+                props: {},
+                children: [{ type: "Image", props: { url: "{{girl.photo}}" } }],
+              },
+            ],
+          },
+        ],
+      },
+    };
+    expect(byUrl(extractAssetUrls(onb([step])))).toEqual({
+      "https://cdn/g/a.png": "image",
+    });
+  });
+
+  it("leaves a non-row variable unresolved, so it is skipped rather than mis-fetched", () => {
+    const step = {
+      type: "ComposableScreen",
+      payload: {
+        elements: [
+          {
+            type: "Repeat",
+            props: { data: [{ art: "https://cdn/z/aries.png" }] },
+            children: [
+              { type: "Image", props: { url: "{{item.art}}" } },
+              // references a runtime variable, not the row — still unknowable
+              { type: "Image", props: { url: "https://cdn/{{userTheme}}/bg.png" } },
+            ],
+          },
+        ],
+      },
+    };
+    expect(byUrl(extractAssetUrls(onb([step])))).toEqual({
+      "https://cdn/z/aries.png": "image",
+    });
+  });
+
+  it("a Repeat with no data contributes nothing", () => {
+    const step = {
+      type: "ComposableScreen",
+      payload: {
+        elements: [
+          { type: "Repeat", props: { data: [] }, children: [{ type: "Image", props: { url: "{{item.art}}" } }] },
+        ],
+      },
+    };
+    expect(extractAssetUrls(onb([step]))).toEqual([]);
+  });
+});

@@ -141,7 +141,7 @@ Variable: goal (string)
 ## Anti-patterns
 
 - Do NOT write `payload.root` or `payload.variables` — neither exists in the schema. Only `payload.elements: UIElement[]`. Writing `payload.root` causes Studio to crash with `"els is not iterable"`.
-- Do NOT emit a container element (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `ScrollView`, `KeyboardAvoidingView`, `Carousel`, `RichText`) without a `children` array. Empty container → `"children": []`. Missing `children` crashes Studio with `"Cannot read properties of undefined (reading 'map')"`.
+- Do NOT emit a container element (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `ScrollView`, `KeyboardAvoidingView`, `Carousel`, `RichText`, `Repeat`) without a `children` array. Empty container → `"children": []`. Missing `children` crashes Studio with `"Cannot read properties of undefined (reading 'map')"`.
 - Do NOT nest a `KeyboardAvoidingView` beneath another one — rejected by a step-level schema check.
 - Do NOT use these wrong prop names — they will cause silent renderer drift:
   - `Text.text` → use `Text.content`

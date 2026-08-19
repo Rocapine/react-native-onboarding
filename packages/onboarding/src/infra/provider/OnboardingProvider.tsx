@@ -8,12 +8,16 @@ import { ComposableVariableEntry } from "../../steps/ComposableScreen/types";
 import { FontLoaderGate } from "./FontLoader";
 import { extractAssetUrls } from "../preload/extractAssetUrls";
 import { preloadAssets } from "../preload/preloadAssets";
+import { collectUnknownKeysInSteps, formatUnknownElementKeys } from "../../screens/unknownKeys";
 import { OnboardingNavigationAdapter } from "../navigation/types";
 import { expoRouterAdapter } from "../navigation/expoRouterAdapter";
 import { useProducts } from "../../products/useProducts";
 import { ProductProvider, ProductRef, ProductRuntime } from "../../products/types";
 import { useProductRuntime } from "../../products/ProductRuntimeContext";
 import { mergeProductRuntimes } from "../../products/mergeProductRuntimes";
+
+// React Native's dev flag; guarded at every use so non-RN consumers are fine.
+declare const __DEV__: boolean;
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -173,6 +177,16 @@ const OnboardingDataGate = ({
     if (!data || preloadedRef.current === data) return;
     preloadedRef.current = data;
     preloadAssets(extractAssetUrls(data));
+
+    // Dev-only payload diagnostic: report keys sitting at an element's top level
+    // that the schema silently drops (classically `animation` outside `props`,
+    // which parses, renders, and simply never animates). Non-fatal by design —
+    // rejecting these would turn a no-op into a broken screen. Dev-gated and run
+    // once per payload, so it costs production nothing.
+    if (typeof __DEV__ !== "undefined" && __DEV__) {
+      const report = formatUnknownElementKeys(collectUnknownKeysInSteps(data.steps));
+      if (report) console.warn(report);
+    }
   }, [data]);
 
   if (error) throw error;

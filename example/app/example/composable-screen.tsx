@@ -797,6 +797,11 @@ export default function ComposableScreenExample() {
                 height: 220,
                 borderRadius: 16,
                 marginVertical: 8,
+                // Snap-time index, readable as `{{carouselPage}}` in text/URLs.
+                variableName: 'carouselPage',
+                // Publishes the CONTINUOUS swipe position (normalized to
+                // [0, childCount), so it reads the same on every lap under `loop`).
+                progressVariableName: 'carouselProgress',
               },
               children: [
                 {
@@ -827,6 +832,108 @@ export default function ComposableScreenExample() {
                   },
                 },
               ],
+            },
+            // Gated on the continuous carousel position: `eq` compares the rounded
+            // value, so this fades in as the swipe passes halfway to slide 2 rather
+            // than waiting for the snap. (This carousel autoplays, so it cycles.)
+            {
+              id: 'carousel-swipe-reveal',
+              type: 'Text' as const,
+              renderWhen: { variable: 'carouselProgress', operator: 'eq' as const, value: 1 },
+              props: {
+                // `animation` is a BaseBoxProp -- it lives inside `props`, not at the
+                // element top level, where it would be silently stripped at parse.
+                animation: { entering: { preset: 'FadeInDown' as const, duration: 300 } },
+                content: 'Revealed mid-swipe on slide 2',
+                fontSize: 13,
+                textAlign: 'center' as const,
+                marginVertical: 2,
+              },
+            },
+            // `animation.replayWhen`: re-fires the entering animation whenever
+            // `carouselPage` changes, without the element ever disappearing.
+            {
+              id: 'carousel-replay-label',
+              type: 'Text' as const,
+              props: {
+                content: 'Slide {{carouselPage}}',
+                mode: 'expression' as const,
+                fontSize: 14,
+                fontWeight: '600',
+                textAlign: 'center' as const,
+                marginVertical: 2,
+                animation: {
+                  entering: { preset: 'FadeInUp' as const, duration: 260 },
+                  replayWhen: 'carouselPage',
+                },
+              },
+            },
+            // `Repeat`: one template per row of payload-authored data. Layout-
+            // transparent, so the rows become children of the enclosing stack.
+            // Row fields read as `{{item.*}}`; a `renderWhen` on the template
+            // gates per row, which is how this also covers the "switch" case.
+            {
+              id: 'feature-rows',
+              type: 'Repeat' as const,
+              props: {
+                keyField: 'key',
+                data: [
+                  { key: 'track', label: 'Track every workout' },
+                  { key: 'plan', label: 'Plan your week' },
+                  { key: 'coach', label: 'Coaching that adapts' },
+                ],
+              },
+              children: [
+                {
+                  id: 'feature-row',
+                  type: 'XStack' as const,
+                  props: { gap: 10, alignItems: 'center' as const, marginVertical: 2 },
+                  children: [
+                    {
+                      // Static: `Icon.name` has no `mode`, so it does not interpolate.
+                      id: 'feature-icon',
+                      type: 'Icon' as const,
+                      props: { name: 'check', size: 18 },
+                    },
+                    {
+                      id: 'feature-label',
+                      type: 'Text' as const,
+                      props: { content: '{{item.label}}', mode: 'expression' as const, fontSize: 15 },
+                    },
+                  ],
+                },
+              ],
+            },
+            // Data-driven Image: the URL rebuilds from a variable, so ONE element
+            // replaces a duplicated subtree per case. Resolves to the variable's
+            // VALUE, not its label — a URL segment is an identifier.
+            {
+              id: 'carousel-derived-image',
+              type: 'Image' as const,
+              props: {
+                url: 'https://picsum.photos/seed/{{carouselPage}}/120/120',
+                mode: 'expression' as const,
+                width: 120,
+                height: 120,
+                borderRadius: 12,
+                alignSelf: 'center' as const,
+                marginVertical: 4,
+              },
+            },
+            // Cursor mode mounts characters progressively, so without reserveSpace
+            // this block grows and pushes every sibling below it down mid-reveal.
+            {
+              id: 'typewriter-reserved',
+              type: 'TypewriterText' as const,
+              props: {
+                content: 'Meet your AI journal companion',
+                cursor: true,
+                reserveSpace: true,
+                stagger: 40,
+                fontSize: 16,
+                textAlign: 'center' as const,
+                marginVertical: 8,
+              },
             },
             // ZStack: image with text overlay
             {
@@ -869,6 +976,24 @@ export default function ComposableScreenExample() {
                       },
                     },
                   ],
+                },
+                {
+                  // `inset`: declarative off-anchor placement on a ZStack child.
+                  // One side per axis => content-sized, pinned by its top-left
+                  // corner; percentages stay stable across device widths.
+                  id: 'zstack-inset-badge',
+                  type: 'Text' as const,
+                  props: {
+                    inset: { top: '12%', left: '62%' },
+                    content: 'NEW',
+                    fontSize: 12,
+                    fontWeight: '700',
+                    color: '#fff',
+                    backgroundColor: '#E76F51',
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                    borderRadius: 999,
+                  },
                 },
               ],
             },

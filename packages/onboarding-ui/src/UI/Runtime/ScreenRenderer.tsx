@@ -5,6 +5,10 @@ import type { UIElement } from "./types";
 import type { ScreenHost, CompleteOutcome } from "./ScreenHost";
 import { useTheme } from "../Theme/useTheme";
 import { RenderContext } from "./elements/shared";
+import {
+  EnteringLatchContext,
+  useEnteringLatchValue,
+} from "./elements/EnteringLatchContext";
 import type { BaseBoxProps } from "./elements/BaseBoxProps";
 import { renderElement } from "./elements/renderElement";
 import { VariablesContext } from "./elements/VariablesContext";
@@ -140,6 +144,10 @@ export const ScreenRenderer = ({ elements, host }: ScreenRendererProps) => {
   // Stable per-screen registry of animated variables (autoplay ProgressIndicator
   // sweeps). Its identity never changes, so this provider never re-renders consumers.
   const animatedVariables = useAnimatedVariablesRegistry();
+  // Per-screen `entering.once` latch + the settled signal that releases a
+  // deferred initial-mount entrance. Scoped here so each screen defers its own
+  // arrival and each screen's "once" means once on THAT screen.
+  const enteringLatch = useEnteringLatchValue(host.enteringSettleDelayMs);
 
   return (
     <KeyboardAvoidingView
@@ -149,9 +157,11 @@ export const ScreenRenderer = ({ elements, host }: ScreenRendererProps) => {
     >
       <View style={styles.flex}>
         <AnimatedVariablesContext.Provider value={animatedVariables}>
+          <EnteringLatchContext.Provider value={enteringLatch}>
           <VariablesContext.Provider value={variablesValue}>
             {elements.map((element) => renderElement(element, ctx))}
           </VariablesContext.Provider>
+          </EnteringLatchContext.Provider>
         </AnimatedVariablesContext.Provider>
       </View>
     </KeyboardAvoidingView>

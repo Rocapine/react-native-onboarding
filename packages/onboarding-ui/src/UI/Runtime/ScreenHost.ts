@@ -50,6 +50,25 @@ export type ScreenHost = {
   presentPaywall?: (placement: string) => void;
   /** Offset for keyboard avoidance — the measured progress header, or 0. */
   keyboardVerticalOffset: number;
+  /**
+   * How long to wait after mount before releasing a deferred
+   * `animation.entering.once` entrance, in ms. Defaults to
+   * `DEFAULT_ENTERING_SETTLE_MS`.
+   *
+   * This is a duration rather than a framework signal because
+   * `InteractionManager.runAfterInteractions` fails in two opposite ways: it is
+   * stubbed in RN 0.85+ (fires on the next tick, defers nothing), and on earlier
+   * versions where it is implemented, its queue reportedly does not drain while
+   * `react-native-screens` push transitions are active (fires late or never).
+   * The navigation adapter exposes no transition-complete hook either.
+   *
+   * The host is the only party that knows its own navigator's transition
+   * duration, so it is the right place to inject it. Set it to match the push
+   * animation; erring slightly long is safer than short — too long shows a beat
+   * of static screen, too short puts the entrance back under the transition,
+   * which is the bug being fixed.
+   */
+  enteringSettleDelayMs?: number;
 };
 
 export const noopScreenHost: ScreenHost = {

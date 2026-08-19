@@ -35,7 +35,7 @@ import { AnimatedTextElementComponent } from "./AnimatedTextElement";
 import { TypewriterTextElementComponent } from "./TypewriterTextElement";
 import { DrawingPadElementComponent } from "./DrawingPadElement";
 import { SliderElementComponent } from "./SliderElement";
-import { AnimatedBox, ReplayingAnimatedBox } from "./AnimatedBox";
+import { AnimatedBox, OnceAnimatedBox, ReplayingAnimatedBox } from "./AnimatedBox";
 
 type ParentType = "XStack" | "YStack" | "ZStack" | "RichText" | "XScroll";
 
@@ -235,6 +235,17 @@ const renderConcrete = (
       flex: p.flex,
       alignSelf: p.alignSelf,
     };
+    // `entering.once` latches the entrance to one play per screen and defers an
+    // initial-mount play until the screen settles. Checked BEFORE `replayWhen`
+    // because the two ask for opposite things (replay on every change vs never
+    // replay); `once` wins, and that precedence is documented on the schema.
+    if (p.animation?.entering?.once) {
+      return (
+        <OnceAnimatedBox key={element.id} elementId={element.id} {...boxProps}>
+          {content}
+        </OnceAnimatedBox>
+      );
+    }
     // `replayWhen` re-fires `entering` on a variable write by remounting; only
     // that opt-in path subscribes to variables (see ReplayingAnimatedBox).
     if (p.animation?.replayWhen) {

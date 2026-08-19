@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -11,6 +11,8 @@ import Animated, {
 import type { ElementAnimation, ElementTransform } from "@rocapine/react-native-onboarding";
 import { buildEntering, buildExiting, buildLayout, EASING_MAP } from "./buildAnimation";
 import { useVariables } from "./VariablesContext";
+import { useEnteringLatch } from "./EnteringLatchContext";
+import { decideEnteringPlay } from "./enteringLatch";
 
 type Props = {
   animation?: ElementAnimation;
@@ -186,4 +188,47 @@ export const ReplayingAnimatedBox = ({
   // replay, and two different labels for one value are the same state.
   const token = variables[replayWhen]?.value ?? "";
   return <AnimatedBox key={`${replayKeyPrefix}::${token}`} {...boxProps} />;
+};
+
+/**
+ * `animation.entering.once`: play the entrance exactly once per screen lifetime,
+ * deferring an initial-mount play until the screen has settled.
+ *
+ * Two bugs live here, both caused by `renderWhen` visibility being mount/unmount
+ * (a false gate returns `null`) while reanimated fires `entering` on mount:
+ *
+ *  • a gated element replays its entrance every time the gate flips back true —
+ *    swipe away from a carousel slide and back and the decorations animate again;
+ *  • an element visible at the screen's initial mount burns its entrance during
+ *    the host's push transition, before remote images have even decoded.
+ *
+ * `playedAtMount` is sampled ONCE per mount into a ref and never re-read. That
+ * is load-bearing: `markPlayed` runs while the animation is in flight, and if the
+ * decision were re-derived on a later re-render it would flip to "already
+ * played", change the key, remount the element and cut the animation off. The
+ * latch is a plain Set for the same reason — nothing about it is reactive.
+ */
+export const OnceAnimatedBox = ({
+  elementId,
+  animation,
+  ...boxProps
+}: Props & { elementId: string }): React.ReactElement => {
+  const { latch, settled } = useEnteringLatch();
+
+  const playedAtMountRef = useRef<boolean | null>(null);
+  if (playedAtMountRef.current === null) {
+    playedAtMountRef.current = latch.hasPlayed(elementId);
+  }
+
+  const { play, keySuffix } = decideEnteringPlay(playedAtMountRef.current, settled);
+
+  useEffect(() => {
+    if (play) latch.markPlayed(elementId);
+  }, [play, latch, elementId]);
+
+  // Strip `entering` when not playing. `exiting`/`layout`/`effect` are untouched
+  // — `once` is a statement about the entrance only.
+  const effective = play ? animation : animation && { ...animation, entering: undefined };
+
+  return <AnimatedBox key={`${elementId}::${keySuffix}`} animation={effective} {...boxProps} />;
 };

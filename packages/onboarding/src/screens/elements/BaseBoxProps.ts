@@ -168,6 +168,31 @@ export type EnteringAnimation = {
   delay?: number;
   easing?: AnimationEasing;
   spring?: SpringConfig;
+  /**
+   * Play this entrance **exactly once per screen lifetime**, on the first render
+   * where the element is visible.
+   *
+   * Exists because `renderWhen` visibility is mount/unmount — a false gate
+   * returns `null` — and reanimated fires `entering` on mount. So a gated
+   * element replays its entrance every single time the gate flips back to true:
+   * swipe away from a carousel slide and back, and its decorations animate in
+   * again. There is no payload-level fix (`gte` still unmounts when you swipe
+   * backwards, and `replayWhen` is the exact opposite — it remounts on *every*
+   * change), so the latch has to live here.
+   *
+   * If that first visible render is the screen's **initial mount**, the play is
+   * DEFERRED until the screen has settled rather than suppressed. Deferring, not
+   * vetoing, is the important half: an entrance that fires during the host's
+   * push transition is half-consumed by it, and remote images may not have
+   * decoded yet, so the user sees a partial reveal or none at all. Suppressing
+   * would "fix" that by never animating, which is the bug rather than the fix.
+   *
+   * Subsequent visibility flips never replay. Ignored when `replayWhen` is also
+   * set on the same element — the two ask for opposite things, and `once` wins.
+   *
+   * Default false (unchanged behaviour: every mount animates).
+   */
+  once?: boolean;
 };
 
 const EnteringAnimationSchema = z.object({
@@ -176,6 +201,7 @@ const EnteringAnimationSchema = z.object({
   delay: z.number().min(0).optional(),
   easing: AnimationEasingSchema.optional(),
   spring: SpringConfigSchema.optional(),
+  once: z.boolean().optional(),
 });
 
 export type ExitingAnimation = {

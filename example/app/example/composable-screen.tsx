@@ -843,7 +843,11 @@ export default function ComposableScreenExample() {
               props: {
                 // `animation` is a BaseBoxProp -- it lives inside `props`, not at the
                 // element top level, where it would be silently stripped at parse.
-                animation: { entering: { preset: 'FadeInDown' as const, duration: 300 } },
+                // `once: true` — first arrival only; without it the entrance
+                // replays on every swipe back (renderWhen is mount/unmount).
+                animation: {
+                  entering: { preset: 'FadeInDown' as const, duration: 300, once: true },
+                },
                 content: 'Revealed mid-swipe on slide 2',
                 fontSize: 13,
                 textAlign: 'center' as const,

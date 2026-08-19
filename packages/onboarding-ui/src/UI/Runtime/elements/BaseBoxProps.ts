@@ -168,6 +168,14 @@ export type EnteringAnimation = {
   delay?: number;
   easing?: AnimationEasing;
   spring?: SpringConfig;
+  /**
+   * Play this entrance exactly once per screen lifetime, on the first render
+   * where the element is visible; if that is the screen's initial mount the play
+   * is DEFERRED until the screen settles rather than suppressed. Later
+   * visibility flips never replay. Wins over `replayWhen`. See the headless
+   * schema for the full rationale.
+   */
+  once?: boolean;
 };
 
 const EnteringAnimationSchema = z.object({
@@ -176,6 +184,7 @@ const EnteringAnimationSchema = z.object({
   delay: z.number().min(0).optional(),
   easing: AnimationEasingSchema.optional(),
   spring: SpringConfigSchema.optional(),
+  once: z.boolean().optional(),
 });
 
 export type ExitingAnimation = {

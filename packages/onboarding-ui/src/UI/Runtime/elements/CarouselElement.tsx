@@ -7,6 +7,7 @@ import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import type { UIElement } from "../types";
 import { dim, type RenderContext } from "./shared";
 import { useVariables } from "./VariablesContext";
+import { useAnimatedVariables } from "./AnimatedVariablesContext";
 import { GradientBox } from "./GradientBox";
 
 export type CarouselElementProps = BaseBoxProps & {
@@ -27,6 +28,13 @@ export type CarouselElementProps = BaseBoxProps & {
   dotsMarginBottom?: number;
   defaultIndex?: number | null;
   variableName?: string;
+  /**
+   * Continuous swipe position, published as a screen-scoped animated variable.
+   * Always normalized to `[0, childCount)` — the library's `absoluteProgress` is
+   * UNBOUNDED under `loop: true` (which is the default), so the raw value would
+   * break gates after the first lap. See the headless schema for full semantics.
+   */
+  progressVariableName?: string;
 };
 
 export const CarouselElementPropsSchema = BaseBoxPropsSchema.extend({
@@ -47,6 +55,7 @@ export const CarouselElementPropsSchema = BaseBoxPropsSchema.extend({
   dotsMarginBottom: z.number().optional().default(0),
   defaultIndex: z.number().int().nonnegative().nullable().optional(),
   variableName: z.string().min(1).optional(),
+  progressVariableName: z.string().min(1).optional(),
 });
 
 type CarouselUIElement = Extract<UIElement, { type: "Carousel" }>;
@@ -61,6 +70,7 @@ type Props = {
 export function CarouselElementComponent({ element, ctx }: Props): React.ReactElement {
   const { theme } = ctx;
   const { variables } = useVariables();
+  const animatedVariables = useAnimatedVariables();
   const { props, children } = element;
   const progress = useSharedValue<number>(0);
   const ref = useRef<ICarouselInstance>(null);
@@ -82,6 +92,14 @@ export function CarouselElementComponent({ element, ctx }: Props): React.ReactEl
   }
   const lastSyncedIndexRef = useRef<number>(initialIndexRef.current);
 
+  // The continuous swipe position published to `progressVariableName`, kept
+  // separate from `progress` on purpose: `progress` must stay RAW because
+  // Pagination and the `scrollTo({ count: index - progress.value })` arithmetic
+  // both depend on the library's own unwrapped scale. This one is normalized.
+  // Seeded with the mount index so a gate evaluates correctly on the first frame,
+  // before the library's first onProgressChange lands.
+  const publishedProgress = useSharedValue<number>(initialIndexRef.current ?? 0);
+
   useEffect(() => {
     if (!variableName) return;
     const parsed = parseInt(variableValue ?? "", 10);
@@ -100,6 +118,33 @@ export function CarouselElementComponent({ element, ctx }: Props): React.ReactEl
     if (props.defaultIndex == null) return;
     ctx.setVariable(variableName, { value: String(clampIndex(props.defaultIndex)) });
   }, [variableName, variableValue, props.defaultIndex, childrenCount]);
+
+  // `absoluteProgress` is clamped to [0, n-1] under `loop: false`, but is
+  // UNBOUNDED under `loop: true` — the library never wraps its internal offset,
+  // so lap two reports n, n+1, ... Since `loop` defaults to true, publishing the
+  // raw value would silently break every gate after the first lap. Wrapping into
+  // [0, n) is a no-op when not looping and makes each lap read identically.
+  const progressVariableName = props.progressVariableName;
+  const normalizeProgress = (raw: number) => {
+    if (childrenCount <= 0) return 0;
+    return ((raw % childrenCount) + childrenCount) % childrenCount;
+  };
+
+  // Publish the live swipe position for `renderWhen` consumers on this screen to
+  // evaluate on the UI thread (see GatedElement). Mirrors the ProgressIndicator
+  // producer: register on mount, unregister on unmount. Purely additive — the
+  // snap-time store write via `variableName` is untouched.
+  useEffect(() => {
+    if (!progressVariableName) return;
+    animatedVariables.register(progressVariableName, publishedProgress);
+    return () => animatedVariables.unregister(progressVariableName);
+  }, [progressVariableName, animatedVariables, publishedProgress]);
+
+  // Keep the seed correct if the child count changes before the first swipe.
+  useEffect(() => {
+    if (!progressVariableName) return;
+    publishedProgress.value = normalizeProgress(progress.value);
+  }, [progressVariableName, childrenCount]);
 
   const onLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
@@ -218,6 +263,9 @@ export function CarouselElementComponent({ element, ctx }: Props): React.ReactEl
             renderItem={({ item }: { item: UIElement }) => ctx.renderChildren([item], "YStack")}
             onProgressChange={(_: number, absoluteProgress: number) => {
               progress.value = absoluteProgress;
+              if (progressVariableName) {
+                publishedProgress.value = normalizeProgress(absoluteProgress);
+              }
             }}
             onSnapToItem={(index: number) => {
               if (!variableName) return;

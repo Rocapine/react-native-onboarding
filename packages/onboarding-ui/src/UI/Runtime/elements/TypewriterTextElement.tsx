@@ -46,6 +46,12 @@ export type TypewriterTextElementProps = BaseBoxProps & {
   loopDelay?: number;
   cursor?: boolean;
   cursorChar?: string;
+  /**
+   * Reserve the fully-revealed text's box up front so the reveal never reflows
+   * siblings. Only meaningful with `cursor: true` — without a cursor all
+   * characters are mounted from frame 0 and the box is already stable.
+   */
+  reserveSpace?: boolean;
   fontSize?: number;
   fontWeight?: string;
   fontFamily?: string | "inherit";
@@ -69,6 +75,7 @@ export const TypewriterTextElementPropsSchema = BaseBoxPropsSchema.extend({
   loopDelay: z.number().min(0).optional(),
   cursor: z.boolean().optional(),
   cursorChar: z.string().optional(),
+  reserveSpace: z.boolean().optional(),
   fontSize: z.number().optional(),
   fontWeight: z.string().optional(),
   fontFamily: z.string().optional(),
@@ -278,11 +285,20 @@ export const TypewriterTextElementComponent = ({ element, ctx, parentType }: Pro
     lineHeight,
   } as const;
 
-  const containerStyle = {
+  const ABSOLUTE_FILL = { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 } as const;
+
+  // The character row's own layout, split out from the box because `reserveSpace`
+  // renders TWO stacked rows (the invisible reservation and the live overlay) that
+  // must wrap identically. Without reserveSpace both halves are merged back into a
+  // single style below, so that path renders exactly as before.
+  const rowLayout = {
     flexDirection: "row",
     flexWrap: "wrap",
     alignItems: "baseline",
     justifyContent: textAlign ? ALIGN_TO_JUSTIFY[textAlign] : "flex-start",
+  } as const;
+
+  const boxStyle = {
     flex: p.flex,
     flexShrink: p.flexShrink ?? (parentType === "XStack" ? 1 : undefined),
     flexGrow: p.flexGrow,
@@ -307,6 +323,8 @@ export const TypewriterTextElementComponent = ({ element, ctx, parentType }: Pro
     opacity: p.opacity,
   } as const;
 
+  const containerStyle = { ...rowLayout, ...boxStyle } as const;
+
   const cursorNode = p.cursor ? (
     <Animated.Text key="cursor" style={[charStyle, cursorStyle]}>
       {p.cursorChar ?? "|"}
@@ -319,14 +337,54 @@ export const TypewriterTextElementComponent = ({ element, ctx, parentType }: Pro
   // timing already supplies the stagger). Flat (not word-grouped): a caret line is
   // typically short; word integrity matters less than the caret hugging the text.
   if (p.cursor) {
+    const liveChars = chars.slice(0, typed).map(({ ch, i }) => (
+      <Animated.Text key={`${gen}-${i}`} entering={enteringWithDelay(0)} style={charStyle}>
+        {ch}
+      </Animated.Text>
+    ));
+
+    if (!p.reserveSpace) {
+      return (
+        <View style={containerStyle}>
+          {liveChars}
+          {cursorNode}
+        </View>
+      );
+    }
+
+    // `reserveSpace`: an invisible copy of the FULL resolved string is laid out in
+    // normal flow to establish the box, and the live characters are overlaid
+    // absolutely on top of it — so mounting them one by one never changes the box
+    // and never pushes siblings down. Measuring the real resolved string is what
+    // keeps this locale-correct; a hardcoded wrapper height is what breaks when a
+    // translation runs longer.
+    //
+    // The reservation is FLAT (not word-grouped) because cursor mode renders the
+    // live characters flat — it has to break lines at exactly the same points, or
+    // the overlay would drift off the box it reserved.
     return (
-      <View style={containerStyle}>
-        {chars.slice(0, typed).map(({ ch, i }) => (
-          <Animated.Text key={`${gen}-${i}`} entering={enteringWithDelay(0)} style={charStyle}>
-            {ch}
+      <View style={boxStyle}>
+        <View
+          style={rowLayout}
+          pointerEvents="none"
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        >
+          {chars.map(({ ch, i }) => (
+            <Animated.Text key={`reserve-${i}`} style={[charStyle, { opacity: 0 }]}>
+              {ch}
+            </Animated.Text>
+          ))}
+          {/* The caret occupies width at the end of the line, so it has to be part
+              of the reservation too — otherwise it can trigger a late wrap. */}
+          <Animated.Text key="reserve-cursor" style={[charStyle, { opacity: 0 }]}>
+            {p.cursorChar ?? "|"}
           </Animated.Text>
-        ))}
-        {cursorNode}
+        </View>
+        <View style={[rowLayout, ABSOLUTE_FILL]} pointerEvents="none">
+          {liveChars}
+          {cursorNode}
+        </View>
       </View>
     );
   }

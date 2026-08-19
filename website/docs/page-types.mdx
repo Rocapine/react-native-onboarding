@@ -1137,6 +1137,7 @@ Reveals its `content` string **one character at a time** — each character moun
 | `loopDelay` | `number` | Pause in ms between loop cycles (only when `loop`); defaults to `1200` |
 | `cursor` | `boolean` | Show a blinking typewriter caret after the text; defaults to `false` |
 | `cursorChar` | `string` | Caret glyph when `cursor` is on; defaults to `"\|"` |
+| `reserveSpace` | `boolean` | Lay the fully-revealed text out invisibly up front and overlay the animation on it, so the element never grows mid-reveal and never pushes siblings down. Only meaningful with `cursor` (without it every character is mounted from frame 0, so the box is already stable). Because it measures the real resolved string it stays correct per locale — unlike a hardcoded wrapper height. Defaults to `false` |
 | `fontSize` / `fontWeight` / `fontFamily` / `fontStyle` / `color` / `textAlign` / `letterSpacing` / `lineHeight` | — | Text styling, same as `Text` (`textAlign` maps to row justification) |
 | All `BaseBoxProps` | — | `width`, `height`, `margin*`, `padding*`, `alignSelf`, `opacity`, etc. |
 
@@ -1185,6 +1186,9 @@ npx expo install @shopify/react-native-skia
 | `dotsGap` | `number` | Gap between dots; defaults to `8` |
 | `dotsPosition` | `"top" \| "bottom"` | Render dot row above or below the carousel; defaults to `"bottom"` |
 | `dotsMarginTop` / `dotsMarginBottom` | `number` | Dot-row margins; default `12` / `0` |
+| `defaultIndex` | `number \| null` | Slide shown on mount; only applied at mount |
+| `variableName` | `string` | Writes the **settled** slide index to the variable store on snap (`0`, `1`, `2`) — use for branching, analytics and `{{var}}` text |
+| `progressVariableName` | `string` | Publishes the **continuous** swipe position as a screen-scoped animated variable, updated every frame, so sibling elements can gate `renderWhen` on the finger rather than on the settled slide. Always normalized to `[0, childCount)`: the underlying library value is unbounded when `loop` is on (lap two would report `3`, `4`, …), so the raw value would silently break gates after the first lap. Note `eq` compares the **rounded** value, so `eq 1` flips once the swipe passes halfway. UI-thread only — it is not written to the store, so `{{var}}` text cannot read it |
 | `height` | `number` | Slide height in dp; defaults to `220` |
 | `width` | `number` | Slide width; defaults to `useWindowDimensions().width` (overridden for `stack` and `left-align`) |
 | `borderRadius` | `number` | Applied to each slide's inner `View` |

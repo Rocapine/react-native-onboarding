@@ -342,6 +342,24 @@ export const onboardingExample = {
                 },
               },
               {
+                // Cursor mode types characters in progressively, so the block would
+                // grow 1 -> 2 lines and shove everything below it down the screen.
+                // `reserveSpace` lays the finished string out invisibly first and
+                // overlays the animation, so the siblings never move. It measures
+                // the real resolved string, so it stays right in every locale.
+                id: "typewriter-reserved",
+                type: "TypewriterText",
+                props: {
+                  content: "Meet your AI journal companion",
+                  cursor: true,
+                  reserveSpace: true,
+                  stagger: 40,
+                  fontSize: 16,
+                  textAlign: "center",
+                  marginVertical: 8,
+                },
+              },
+              {
                 id: "hero-video",
                 type: "Video",
                 props: {
@@ -860,6 +878,10 @@ export const onboardingExample = {
                   marginVertical: 8,
                   defaultIndex: 0,
                   variableName: "carouselPage",
+                  // Snap-time variable (`carouselPage`) steps 0 -> 1 -> 2. This one
+                  // tracks the finger continuously, so siblings can animate DURING
+                  // the swipe instead of after it lands.
+                  progressVariableName: "carouselProgress",
                 },
                 children: [
                   {
@@ -890,6 +912,24 @@ export const onboardingExample = {
                     },
                   },
                 ],
+              },
+              {
+                // Gated on the CONTINUOUS position: `eq` compares the rounded value,
+                // so this mounts (and fades in) once the swipe passes halfway to
+                // slide 2 -- not when it snaps. Because the published value is
+                // normalized to [0, childCount), it behaves identically on every lap
+                // even though `loop` is on.
+                id: "carousel-swipe-reveal",
+                type: "Text",
+                renderWhen: { variable: "carouselProgress", operator: "eq", value: 1 },
+                props: {
+                  // `animation` is a BaseBoxProp -- inside `props`, not top level.
+                  animation: { entering: { preset: "FadeInDown", duration: 300 } },
+                  content: "Revealed mid-swipe on slide 2",
+                  fontSize: 13,
+                  textAlign: "center",
+                  marginVertical: 2,
+                },
               },
               {
                 id: "carousel-page-label",

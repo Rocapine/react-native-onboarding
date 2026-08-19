@@ -797,6 +797,9 @@ export default function ComposableScreenExample() {
                 height: 220,
                 borderRadius: 16,
                 marginVertical: 8,
+                // Publishes the CONTINUOUS swipe position (normalized to
+                // [0, childCount), so it reads the same on every lap under `loop`).
+                progressVariableName: 'carouselProgress',
               },
               children: [
                 {
@@ -827,6 +830,38 @@ export default function ComposableScreenExample() {
                   },
                 },
               ],
+            },
+            // Gated on the continuous carousel position: `eq` compares the rounded
+            // value, so this fades in as the swipe passes halfway to slide 2 rather
+            // than waiting for the snap. (This carousel autoplays, so it cycles.)
+            {
+              id: 'carousel-swipe-reveal',
+              type: 'Text' as const,
+              renderWhen: { variable: 'carouselProgress', operator: 'eq' as const, value: 1 },
+              props: {
+                // `animation` is a BaseBoxProp -- it lives inside `props`, not at the
+                // element top level, where it would be silently stripped at parse.
+                animation: { entering: { preset: 'FadeInDown' as const, duration: 300 } },
+                content: 'Revealed mid-swipe on slide 2',
+                fontSize: 13,
+                textAlign: 'center' as const,
+                marginVertical: 2,
+              },
+            },
+            // Cursor mode mounts characters progressively, so without reserveSpace
+            // this block grows and pushes every sibling below it down mid-reveal.
+            {
+              id: 'typewriter-reserved',
+              type: 'TypewriterText' as const,
+              props: {
+                content: 'Meet your AI journal companion',
+                cursor: true,
+                reserveSpace: true,
+                stagger: 40,
+                fontSize: 16,
+                textAlign: 'center' as const,
+                marginVertical: 8,
+              },
             },
             // ZStack: image with text overlay
             {

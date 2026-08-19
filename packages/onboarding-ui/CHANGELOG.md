@@ -9,6 +9,19 @@ here.
 
 ---
 
+## [1.64.0] - 2026-08-19
+
+### Added
+
+- **`ProgressBar` honours `backButtonStrokeWidth` and `paddingTop`.** The chevron's stroke weight was hardcoded at `2`; the header's top padding was the bare safe-area inset. Both are now configurable from `configuration.progressHeader`, with `paddingTop` **added to** the inset rather than replacing it so a payload cannot push the header under the notch.
+
+### Notes
+
+- Defaults reproduce the previous rendering exactly.
+- The reserved right spacer column still cannot be removed — see the headless `1.64.0` notes. A fork whose track reaches the right padding edge will see it pull inward, and `trackFlex` cannot shrink the column to zero.
+
+---
+
 ## [1.63.0] - 2026-08-19
 
 ### Added

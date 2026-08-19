@@ -8,6 +8,20 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.64.0] - 2026-08-19
+
+### Added
+
+- **`progressHeader` covers the last two values a forked bar needed.** `backButtonStrokeWidth` (chevron stroke weight, default `2`) — `backButtonSize` covered the glyph's size but not its weight, and at a 20pt glyph the difference between `2` and `2.5` reads as "the icon changed" without anyone being able to say why. `paddingTop` (space above the bar, default `0`) — the block had `paddingBottom` but nothing for the top, so a fork's extra space above the bar had no expression and the header sat higher after retirement.
+- `paddingTop` is **added to** the top safe-area inset rather than replacing it. The inset is not optional, so a field that replaced it would let a payload push the header under the notch. `paddingBottom` has no inset to compose with, which is why only this one is additive — the asymmetry is spelled out in the type, the renderer and the docs.
+
+### Notes
+
+- Both default to the previous values, so nothing moves for anyone not setting them.
+- **One structural difference is documented rather than fixed.** The header is a three-column row (back button / track / right spacer, flex `1 / trackFlex / 1`) and the reserved right column cannot be removed, so a fork whose track runs to the right padding edge will see its right end pull inward after retirement. `trackFlex` shrinks that column proportionally but never to zero. Removing it means a two-column mode — a layout change rather than another optional prop — so it deserves its own decision. Net: a forked bar is retirable **at a cost**, not at parity.
+
+---
+
 ## [1.63.0] - 2026-08-19
 
 ### Added

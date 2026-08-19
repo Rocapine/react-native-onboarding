@@ -93,12 +93,16 @@ describe("decideEnteringPlay — the whole `once` contract", () => {
 
 describe("the settle signal's honest scope", () => {
   it("DEFAULT_ENTERING_SETTLE_MS approximates a push transition, not a decode wait", async () => {
-    // Regression guard on a real trap: React Native STUBBED InteractionManager
-    // (as of 0.85 `runAfterInteractions` is a bare setImmediate and
-    // `createInteractionHandle()` returns -1), so an implementation built on it
-    // resolves on the next tick and defers nothing at all. And RN's Image never
-    // registered an interaction handle in any version, so it would not have
-    // covered decode even unstubbed. Hence a duration.
+    // Regression guard on a real trap. `InteractionManager.runAfterInteractions`
+    // fails in two OPPOSITE ways, so "is it stubbed in my version?" is not a
+    // route back to it:
+    //   • RN 0.85+ — stubbed: a bare setImmediate, `createInteractionHandle()`
+    //     returns -1. Fires on the next tick and defers nothing.
+    //   • earlier, implemented — its queue reportedly does not drain while
+    //     react-native-screens push transitions are active, so it fires late or
+    //     never. That is the default navigator for a native stack.
+    // RN's Image also never registered an interaction handle, so it would not
+    // have covered decode either way. Hence a host-overridable duration.
     const { DEFAULT_ENTERING_SETTLE_MS } = await import("../elements/EnteringLatchContext");
     expect(DEFAULT_ENTERING_SETTLE_MS).toBeGreaterThan(16); // must outlast a frame
     expect(DEFAULT_ENTERING_SETTLE_MS).toBeLessThanOrEqual(1000); // must not read as broken

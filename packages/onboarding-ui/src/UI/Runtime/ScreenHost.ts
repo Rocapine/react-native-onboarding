@@ -55,11 +55,12 @@ export type ScreenHost = {
    * `animation.entering.once` entrance, in ms. Defaults to
    * `DEFAULT_ENTERING_SETTLE_MS`.
    *
-   * This is a duration rather than a framework signal because no usable signal
-   * exists: React Native **stubbed `InteractionManager`** (as of 0.85,
-   * `runAfterInteractions` is a bare `setImmediate` and `createInteractionHandle`
-   * returns `-1`), so it resolves on the next tick and waits for nothing. The
-   * navigation adapter exposes no transition-complete hook either.
+   * This is a duration rather than a framework signal because
+   * `InteractionManager.runAfterInteractions` fails in two opposite ways: it is
+   * stubbed in RN 0.85+ (fires on the next tick, defers nothing), and on earlier
+   * versions where it is implemented, its queue reportedly does not drain while
+   * `react-native-screens` push transitions are active (fires late or never).
+   * The navigation adapter exposes no transition-complete hook either.
    *
    * The host is the only party that knows its own navigator's transition
    * duration, so it is the right place to inject it. Set it to match the push

@@ -31,18 +31,33 @@ export const useEnteringLatch = (): EnteringLatchValue => useContext(EnteringLat
 /**
  * Default wait before a deferred initial-mount entrance is released.
  *
- * Approximates a typical native-stack push (~350ms). It is a duration and not a
- * framework signal because **no usable signal exists**: React Native stubbed
- * `InteractionManager` — as of 0.85 `runAfterInteractions` is a bare
- * `setImmediate` and `createInteractionHandle()` returns `-1` — so it resolves on
- * the next tick and waits for neither the navigation transition nor anything
- * else. Image loading never registered an interaction handle in any version
- * (`Libraries/Image` does not reference `InteractionManager` at all), so it would
- * not have covered decode even unstubbed. The navigation adapter exposes no
+ * Approximates a native-stack push. It is a duration, and not
+ * `InteractionManager.runAfterInteractions`, because that primitive fails in two
+ * OPPOSITE ways depending on the RN version — so "check whether it works in my
+ * version" is not a way back to it:
+ *
+ *  • **Stubbed (RN 0.85+, verified in this repo's own tree):**
+ *    `runAfterInteractions` is a bare `setImmediate` and
+ *    `createInteractionHandle()` returns `-1`. It resolves on the next tick and
+ *    defers nothing at all.
+ *  • **Implemented (e.g. RN 0.81) but never draining:** with
+ *    `react-native-screens` push transitions active, the task queue reportedly
+ *    does not drain for the duration of the transition, so the callback fires
+ *    late or not at all. Reported from a consuming app's own debugging notes,
+ *    not re-verified here — but it is the failure that matters in practice,
+ *    because react-native-screens is the default for a native stack.
+ *
+ * Either way the callback does not mean "the screen has arrived". Separately,
+ * RN's `Image` has never registered an interaction handle (`Libraries/Image`
+ * does not reference `InteractionManager`), so it would not have covered image
+ * decode even on a working implementation. The navigation adapter exposes no
  * transition-complete hook either.
  *
- * A host that knows its own transition duration should pass
- * `enteringSettleDelayMs` instead of relying on this.
+ * **Treat this default as a starting point, not a measurement.** A host that
+ * knows its own transition should pass `enteringSettleDelayMs`. One real data
+ * point: an app using a `react-native-screens` push shell measured ~520ms for
+ * its reveal to be safe, well above this default — so if an entrance still reads
+ * early, raise the delay before suspecting the mechanism.
  */
 export const DEFAULT_ENTERING_SETTLE_MS = 350;
 

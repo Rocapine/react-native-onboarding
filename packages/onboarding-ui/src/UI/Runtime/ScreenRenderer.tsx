@@ -147,7 +147,7 @@ export const ScreenRenderer = ({ elements, host }: ScreenRendererProps) => {
   // Per-screen `entering.once` latch + the settled signal that releases a
   // deferred initial-mount entrance. Scoped here so each screen defers its own
   // arrival and each screen's "once" means once on THAT screen.
-  const enteringLatch = useEnteringLatchValue();
+  const enteringLatch = useEnteringLatchValue(host.enteringSettleDelayMs);
 
   return (
     <KeyboardAvoidingView

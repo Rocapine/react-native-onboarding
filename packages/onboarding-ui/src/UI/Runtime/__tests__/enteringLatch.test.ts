@@ -90,3 +90,17 @@ describe("decideEnteringPlay — the whole `once` contract", () => {
     expect(decideEnteringPlay(latch.hasPlayed("x"), true).keySuffix).not.toBe(first.keySuffix);
   });
 });
+
+describe("the settle signal's honest scope", () => {
+  it("DEFAULT_ENTERING_SETTLE_MS approximates a push transition, not a decode wait", async () => {
+    // Regression guard on a real trap: React Native STUBBED InteractionManager
+    // (as of 0.85 `runAfterInteractions` is a bare setImmediate and
+    // `createInteractionHandle()` returns -1), so an implementation built on it
+    // resolves on the next tick and defers nothing at all. And RN's Image never
+    // registered an interaction handle in any version, so it would not have
+    // covered decode even unstubbed. Hence a duration.
+    const { DEFAULT_ENTERING_SETTLE_MS } = await import("../elements/EnteringLatchContext");
+    expect(DEFAULT_ENTERING_SETTLE_MS).toBeGreaterThan(16); // must outlast a frame
+    expect(DEFAULT_ENTERING_SETTLE_MS).toBeLessThanOrEqual(1000); // must not read as broken
+  });
+});

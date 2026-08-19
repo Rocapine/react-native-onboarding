@@ -103,10 +103,40 @@ export interface ProgressHeaderConfiguration {
   trackFlex?: number;
   /** Back-chevron colour. Defaults to `theme.colors.text.primary`. */
   backButtonColor?: string;
-  /** Back-chevron size in px. Defaults to 24. */
+  /** Back-chevron **glyph** size in px. Defaults to 24. See `backButtonContainerSize`. */
   backButtonSize?: number;
   /** Hide the back chevron even when the router can go back. Defaults to false. */
   hideBackButton?: boolean;
+
+  // --- Back-button CONTAINER chrome -----------------------------------------
+  // The fields above style the chevron itself; these style the tappable box
+  // around it. They exist because the glyph fields alone are not enough to stop
+  // a host forking the bar, which is what this whole block is for: the one host
+  // we know forked it wraps the chevron in a 32x32 white circle with a 1px
+  // border, and with only glyph fields that had no reachable expression, so the
+  // fork survived a feature built to retire it.
+  //
+  // All unset reproduces the previous rendering exactly: a bare chevron in a
+  // `padding: 4` touchable, no fill and no border.
+
+  /** Container fill. Unset = transparent (previous behaviour). */
+  backButtonBackgroundColor?: string;
+  /**
+   * Container border colour. Setting this alone implies `backButtonBorderWidth: 1`
+   * — RN defaults border width to 0, so a lone colour would otherwise draw
+   * nothing. Same convenience `buildShadowStyle` applies to `shadowColor`.
+   */
+  backButtonBorderColor?: string;
+  /** Container border width in px. Defaults to 1 when `backButtonBorderColor` is set, else 0. */
+  backButtonBorderWidth?: number;
+  /**
+   * Container width AND height in px — the button is square. Setting it also
+   * centres the glyph inside the box and drops the default padding, so the
+   * rendered size is exactly this value (e.g. 32 for a 32x32 chip).
+   */
+  backButtonContainerSize?: number;
+  /** Container corner radius in px. Half of `backButtonContainerSize` makes a circle. */
+  backButtonBorderRadius?: number;
 }
 
 export interface OnboardingConfiguration {

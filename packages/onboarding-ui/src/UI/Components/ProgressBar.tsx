@@ -69,6 +69,31 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   const trackFlex = config.trackFlex ?? 5;
   const backButtonSize = config.backButtonSize ?? 24;
   const showBackButton = !config.hideBackButton && router.canGoBack();
+
+  // Back-button CONTAINER chrome. Every field unset leaves `styles.backButton`
+  // (`padding: 4`, no fill, no border) exactly as before — the merged object is
+  // then all-undefined and RN ignores it.
+  const backButtonContainerSize = config.backButtonContainerSize;
+  // A lone border colour would draw nothing (RN defaults width to 0), so imply 1
+  // — the same convenience `buildShadowStyle` applies to a lone `shadowColor`.
+  const backButtonBorderWidth =
+    config.backButtonBorderWidth ?? (config.backButtonBorderColor != null ? 1 : undefined);
+  const backButtonStyle = [
+    styles.backButton,
+    {
+      width: backButtonContainerSize,
+      height: backButtonContainerSize,
+      borderRadius: config.backButtonBorderRadius,
+      backgroundColor: config.backButtonBackgroundColor,
+      borderColor: config.backButtonBorderColor,
+      borderWidth: backButtonBorderWidth,
+      // An explicit size means the box IS that size: centre the glyph and drop
+      // the default padding so the rendered chip measures exactly as authored.
+      ...(backButtonContainerSize != null
+        ? { alignItems: "center" as const, justifyContent: "center" as const, padding: 0 }
+        : null),
+    },
+  ];
   // Use Reanimated shared value for smooth animations
   const progress = useSharedValue(0);
 
@@ -106,7 +131,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
               <TouchableOpacity
                 onPress={() => router.goBack()}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                style={styles.backButton}
+                style={backButtonStyle}
               >
                 <ChevronLeft
                   size={backButtonSize}

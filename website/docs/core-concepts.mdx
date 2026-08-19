@@ -166,7 +166,13 @@ The progress header is styled from the studio via `configuration.progressHeader`
       "trackFlex": 5,
       "backButtonColor": "#3A2E26",
       "backButtonSize": 24,
-      "hideBackButton": false
+      "hideBackButton": false,
+
+      "backButtonBackgroundColor": "#FFFFFF",
+      "backButtonBorderColor": "#E5DED7",
+      "backButtonBorderWidth": 1,
+      "backButtonContainerSize": 32,
+      "backButtonBorderRadius": 16
     }
   }
 }
@@ -176,7 +182,15 @@ The progress header is styled from the studio via `configuration.progressHeader`
 
 Resolution order is **explicit prop → `configuration.progressHeader` → theme → default**. The studio block deliberately outranks the theme: a host app that passes its own `theme` / `lightTheme` to `OnboardingProvider` shadows the studio's theme entirely, so a theme-only knob would never reach the screen in precisely the apps that need it. Passing `backgroundColor` / `progressColor` directly to `<ProgressBar>` still wins over both.
 
-Omitted fields keep the previous look: height `12`, a fully-rounded track (radius = half the height), `16` horizontal padding, `24` bottom padding, `16` gap, a `1 / 5 / 1` three-column row, and a `24`px back chevron in `theme.colors.text.primary`.
+Omitted fields keep the previous look: height `12`, a fully-rounded track (radius = half the height), `16` horizontal padding, `24` bottom padding, `16` gap, a `1 / 5 / 1` three-column row, and a `24`px back chevron in `theme.colors.text.primary` inside a `padding: 4` touchable with no fill or border.
+
+### Back-button container
+
+`backButtonColor` / `backButtonSize` style the **chevron**; the five `backButton*` fields above style the **tappable box around it**. The block above renders the common case — a 32×32 white circle with a hairline border — which is otherwise only achievable by forking the component.
+
+- `backButtonContainerSize` makes the button square at that size, centres the glyph, and drops the default padding, so the chip measures exactly as authored.
+- `backButtonBorderColor` alone implies `backButtonBorderWidth: 1`, since React Native defaults border width to `0` and a lone colour would draw nothing. Pass `backButtonBorderWidth: 0` explicitly to suppress it.
+- With all five unset the button renders exactly as before: a bare chevron in a `padding: 4` touchable.
 
 ## Start & End Nodes
 

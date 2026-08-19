@@ -65,9 +65,13 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   const borderRadius = config.borderRadius ?? height / 2;
   const paddingHorizontal = config.paddingHorizontal ?? 16;
   const paddingBottom = config.paddingBottom ?? 24;
+  // Added ON TOP of the safe-area inset, never replacing it — a payload must not
+  // be able to push the header under the notch.
+  const paddingTop = top + (config.paddingTop ?? 0);
   const gap = config.gap ?? 16;
   const trackFlex = config.trackFlex ?? 5;
   const backButtonSize = config.backButtonSize ?? 24;
+  const backButtonStrokeWidth = config.backButtonStrokeWidth ?? 2;
   const showBackButton = !config.hideBackButton && router.canGoBack();
 
   // Back-button CONTAINER chrome. Every field unset leaves `styles.backButton`
@@ -121,7 +125,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   return (
     isProgressBarVisible && (
       <View
-        style={[styles.container, { paddingTop: top, paddingBottom }]}
+        style={[styles.container, { paddingTop, paddingBottom }]}
         onLayout={onContainerLayout}
       >
         <View style={[styles.progressBarContainer, { gap, paddingHorizontal }]}>
@@ -136,7 +140,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
                 <ChevronLeft
                   size={backButtonSize}
                   color={backButtonColor}
-                  strokeWidth={2}
+                  strokeWidth={backButtonStrokeWidth}
                 />
               </TouchableOpacity>
             )}

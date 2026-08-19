@@ -9,6 +9,28 @@ here.
 
 ---
 
+## [1.63.0] - 2026-08-19
+
+### Added
+
+- **`Repeat` renderer — layout-transparent materialization.** Returns a fragment rather than a view of its own, so the rows become direct children of the enclosing stack and that stack's `gap`/direction/alignment apply per row exactly as if the rows had been hand-written. Its props deliberately do **not** extend `BaseBoxProps`: with no view to style, box props would silently do nothing. Row scope is published on **two** paths, because the runtime reads variables two ways and a row needs both — `VariablesContext` for render-time reads (`{{item.x}}`, `renderWhen`) and a derived `RenderContext` with a wrapped `getVariables` for press-time reads, since `runActions` reads the live store ref rather than context. Without the second half a repeated card could be drawn but not answered (a `setVariable` expression on `{{item.id}}` would resolve empty). Ids are suffixed per row so N materializations never collide.
+- **`ReplayingAnimatedBox`** backs `animation.replayWhen`, deriving the wrapper's React key from the watched variable so `entering` re-fires on a write. Split from `AnimatedBox` rather than calling `useVariables()` inside it: a context subscription bypasses `React.memo`, so subscribing in the shared component would re-render every animated element on every variable write.
+- **`ProgressBar` honours `configuration.progressHeader`** — colours, `height`, `borderRadius`, `paddingHorizontal`/`paddingBottom`, `gap`, `trackFlex`, back-button colour/size/visibility. It reads the config itself via `useProgressHeaderConfig()` rather than taking props, because the header is host-rendered and prop-threading would need every host to change code. Resolution is **explicit prop → configuration → theme → default**; the config outranks the theme because a theme-only knob could not reach the screen at all (nothing in the SDK reads `configuration.theme`). Every default reproduces the previous rendering; `borderRadius` now derives from the height instead of a fixed `10`, which is visually identical at the default and keeps a taller configured bar a pill.
+- **`inset` applied on `ZStack` children**, dropping the opposite side's `0` and the shared anchor per positioned axis so the child ends up content-sized and corner-pinned.
+- **`Image` plain/expression component split**, mirroring `Text`, so the static case (nearly every image) keeps memo-skipping on variable writes.
+- **`Carousel` publishes its normalized swipe position** into the screen-scoped animated-variable registry, consumed on the UI thread by `GatedElement`. `progress` itself stays raw, because `Pagination` and the `scrollTo({ count: index - progress.value })` arithmetic depend on the library's unwrapped scale.
+
+### Changed
+
+- **`RenderContext.renderChildren` accepts an optional third `ctxOverride`.** `Repeat` uses it to render each row against a derived context; every other caller is unaffected.
+- **Peer dependency on `@rocapine/react-native-onboarding` tightened to `^1.63.0`** (was `^1.23.0`). `ProgressBar` now imports `useProgressHeaderConfig`, which does not exist in earlier headless versions, so the old range permitted a combination that crashes at runtime. The two packages have always shared a version by policy; the range now says so.
+
+### Fixed
+
+- **`ErrorBoundary`'s `onError` note corrected.** It justified withholding an escape callback from the onboarding host with "a back button already exists OUTSIDE that boundary" — which is conditional on the step opting into the progress header. `ProgressBar`'s whole subtree, back chevron included, sits behind `isProgressBarVisible` (`activeStep.displayProgressHeader`), so on a header-off step a caught error leaves no exit in either direction. Comment-only; giving the host an escape is a product decision.
+
+---
+
 ## [1.62.0] - 2026-08-17
 
 ### Added

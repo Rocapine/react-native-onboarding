@@ -7,7 +7,11 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ChevronLeft } from "lucide-react-native";
-import { useOnboardingNavigation, useOnboardingHeaderHeight } from "@rocapine/react-native-onboarding";
+import {
+  useOnboardingNavigation,
+  useOnboardingHeaderHeight,
+  useProgressHeaderConfig,
+} from "@rocapine/react-native-onboarding";
 import { defaultTheme, Theme } from "../Theme";
 
 interface ProgressBarProps {
@@ -30,6 +34,9 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   const router = useRouter();
   const { top } = useSafeAreaInsets();
   const { setHeaderHeight } = useOnboardingHeaderHeight();
+  // Studio-authored styling (`configuration.progressHeader`). Empty object when
+  // unauthored, so every field below falls back on its own.
+  const config = useProgressHeaderConfig();
 
   // Publish the bar's real measured footprint so step content can offset below
   // it instead of guessing. Reset to 0 when hidden (the View unmounts, so
@@ -42,7 +49,23 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
     setHeaderHeight(e.nativeEvent.layout.height);
   };
 
-  const height = 12
+  // Resolution order: explicit prop > studio configuration > theme > default.
+  // The studio block deliberately outranks the theme — a host app passing its own
+  // `customLightTheme` to the provider shadows Studio's theme entirely, so a
+  // theme-only knob would never reach the screen in the apps that need it most.
+  const height = config.height ?? 12;
+  // Half the height keeps the track a pill at ANY thickness. This renders
+  // identically to the previous hardcoded 10: RN clamps a radius to half the
+  // smaller dimension, so 10 on a 12px-tall bar was already drawing as 6.
+  // Deriving it means a taller configured bar stays rounded instead of turning
+  // into a slab with slightly soft corners.
+  const borderRadius = config.borderRadius ?? height / 2;
+  const paddingHorizontal = config.paddingHorizontal ?? 16;
+  const paddingBottom = config.paddingBottom ?? 24;
+  const gap = config.gap ?? 16;
+  const trackFlex = config.trackFlex ?? 5;
+  const backButtonSize = config.backButtonSize ?? 24;
+  const showBackButton = !config.hideBackButton && router.canGoBack();
   // Use Reanimated shared value for smooth animations
   const progress = useSharedValue(0);
 
@@ -63,25 +86,28 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
     };
   });
 
-  // Use theme colors with fallback to props
-  const trackBgColor = backgroundColor || theme.colors.neutral.lower;
-  const barColor = progressColor || theme.colors.primary;
+  const trackBgColor = backgroundColor ?? config.backgroundColor ?? theme.colors.neutral.lower;
+  const barColor = progressColor ?? config.progressColor ?? theme.colors.primary;
+  const backButtonColor = config.backButtonColor ?? theme.colors.text.primary;
 
   return (
     isProgressBarVisible && (
-      <View style={[styles.container, { paddingTop: top }]} onLayout={onContainerLayout}>
-        <View style={styles.progressBarContainer}>
+      <View
+        style={[styles.container, { paddingTop: top, paddingBottom }]}
+        onLayout={onContainerLayout}
+      >
+        <View style={[styles.progressBarContainer, { gap, paddingHorizontal }]}>
           {/* Left section: Back button */}
           <View style={styles.backButtonSection}>
-            {router.canGoBack() && (
+            {showBackButton && (
               <TouchableOpacity
                 onPress={() => router.goBack()}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 style={styles.backButton}
               >
                 <ChevronLeft
-                  size={24}
-                  color={theme.colors.text.primary}
+                  size={backButtonSize}
+                  color={backButtonColor}
                   strokeWidth={2}
                 />
               </TouchableOpacity>
@@ -89,15 +115,16 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
           </View>
 
           {/* Center section: Progress bar */}
-          <View style={styles.progressSection}>
+          <View style={[styles.progressSection, { flex: trackFlex }]}>
             <View
-              style={[styles.track, { height, backgroundColor: trackBgColor }]}
+              style={[styles.track, { height, borderRadius, backgroundColor: trackBgColor }]}
             >
               <Animated.View
                 style={[
                   styles.progress,
                   {
                     height,
+                    borderRadius,
                     backgroundColor: barColor,
                   },
                   animatedStyle,
@@ -122,14 +149,14 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 10,
     justifyContent: "center",
-    paddingBottom: 24,
+    // `paddingBottom` is applied inline from the resolved config (defaults to 24).
   },
   progressBarContainer: {
     width: "100%",
     flexDirection: "row",
     alignItems: "center",
-    gap: 16,
-    paddingHorizontal: 16,
+    // `gap` / `paddingHorizontal` are applied inline from the resolved config
+    // (they default to 16 / 16, the previous hardcoded values).
   },
   backButtonSection: {
     flex: 1,
@@ -139,7 +166,7 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   progressSection: {
-    flex: 5,
+    // `flex` is applied inline from the resolved config (defaults to 5).
     alignItems: "flex-end",
   },
   spacerSection: {
@@ -147,10 +174,9 @@ const styles = StyleSheet.create({
   },
   track: {
     width: "100%",
-    borderRadius: 10,
+    // `borderRadius` is applied inline from the resolved config (defaults to
+    // half the height, which is 10 at the default height of 12 — as before).
     overflow: "hidden",
   },
-  progress: {
-    borderRadius: 10,
-  },
+  progress: {},
 });

@@ -59,7 +59,58 @@ export interface OnboardingMetadata {
  * (e.g. theme, fonts, entry point). Kept permissive — only the fields the SDK
  * reads are typed; everything else the studio ships passes through untouched.
  */
+/**
+ * Studio-authored styling for the onboarding progress header.
+ *
+ * Exists so "change the progress bar colour" is a Studio publish rather than an
+ * app release. Before this, `ProgressBar` exposed only `backgroundColor` /
+ * `progressColor` as props and hardcoded everything else (height 12, radius 10,
+ * the 1/5/1 three-column layout, paddings, back-chevron size), so a project
+ * needing a different bar forked its own component.
+ *
+ * Every field is optional; an omitted field falls back to the previous
+ * behaviour. Resolution order in `ProgressBar` is:
+ *   explicit prop  >  this block  >  theme  >  hardcoded default
+ * This block deliberately outranks the theme: a host app that passes its own
+ * `customLightTheme` to the provider shadows Studio's theme entirely, so a
+ * theme-only knob would never reach the screen in exactly the apps that need it.
+ */
+export interface ProgressHeaderConfiguration {
+  /** Track (unfilled) colour. Defaults to `theme.colors.neutral.lower`. */
+  backgroundColor?: string;
+  /** Filled colour. Defaults to `theme.colors.primary`. */
+  progressColor?: string;
+  /** Track thickness in px. Defaults to 12. */
+  height?: number;
+  /** Track corner radius in px. Defaults to half the height (fully rounded). */
+  borderRadius?: number;
+  /** Horizontal padding around the whole header row in px. Defaults to 16. */
+  paddingHorizontal?: number;
+  /** Space below the bar in px. Defaults to 24. */
+  paddingBottom?: number;
+  /** Gap between the back button, track and right spacer in px. Defaults to 16. */
+  gap?: number;
+  /**
+   * Width of the track relative to the side columns, as flex units. The header is
+   * a three-column row (back button / track / spacer) that defaults to 1 / 5 / 1;
+   * this sets the middle number. Larger = wider track.
+   */
+  trackFlex?: number;
+  /** Back-chevron colour. Defaults to `theme.colors.text.primary`. */
+  backButtonColor?: string;
+  /** Back-chevron size in px. Defaults to 24. */
+  backButtonSize?: number;
+  /** Hide the back chevron even when the router can go back. Defaults to false. */
+  hideBackButton?: boolean;
+}
+
 export interface OnboardingConfiguration {
+  /**
+   * Studio-authored progress-header styling. Read directly off `configuration`
+   * (the edge function returns the whole configuration blob top-level), so it
+   * needs no backend change to start arriving.
+   */
+  progressHeader?: ProgressHeaderConfiguration;
   /**
    * Id of the unique step the onboarding starts on. Read first to resolve the
    * entry point (see `resolveStartStepNumber`). Optional; when absent or when it

@@ -148,6 +148,36 @@ switch (step.type) {
 
 This gives you complete control over the UI while still benefiting from the SDK's data fetching, caching, and type safety.
 
+## Progress header configuration
+
+The progress header is styled from the studio via `configuration.progressHeader`, so changing it is a publish rather than an app release. Every field is optional and falls back to the previous hardcoded default.
+
+```json
+{
+  "configuration": {
+    "progressHeader": {
+      "progressColor": "#C7B4A2",
+      "backgroundColor": "#EFE8E1",
+      "height": 8,
+      "borderRadius": 4,
+      "paddingHorizontal": 20,
+      "paddingBottom": 24,
+      "gap": 16,
+      "trackFlex": 5,
+      "backButtonColor": "#3A2E26",
+      "backButtonSize": 24,
+      "hideBackButton": false
+    }
+  }
+}
+```
+
+`<ProgressBar>` reads this itself through `useProgressHeaderConfig()`, so a host that already mounts the bar in its layout picks the styling up with no code change.
+
+Resolution order is **explicit prop → `configuration.progressHeader` → theme → default**. The studio block deliberately outranks the theme: a host app that passes its own `theme` / `lightTheme` to `OnboardingProvider` shadows the studio's theme entirely, so a theme-only knob would never reach the screen in precisely the apps that need it. Passing `backgroundColor` / `progressColor` directly to `<ProgressBar>` still wins over both.
+
+Omitted fields keep the previous look: height `12`, a fully-rounded track (radius = half the height), `16` horizontal padding, `24` bottom padding, `16` gap, a `1 / 5 / 1` three-column row, and a `24`px back chevron in `theme.colors.text.primary`.
+
 ## Start & End Nodes
 
 The onboarding is an `id`-based graph. Two optional, studio-authored markers make its entry and exit explicit. Both are additive — payloads without them behave exactly as before (start at the first step; end by running off the array).

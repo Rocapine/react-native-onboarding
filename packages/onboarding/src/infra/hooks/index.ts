@@ -3,3 +3,4 @@ export { useOnboardingStart } from "./useOnboardingStart";
 export { useOnboarding } from "./useOnboarding";
 export { useOnboardingHeaderHeight } from "./useOnboardingHeaderHeight";
 export { useOnboardingNavigation } from "./useOnboardingNavigation";
+export { useProgressHeaderConfig } from "./useProgressHeaderConfig";

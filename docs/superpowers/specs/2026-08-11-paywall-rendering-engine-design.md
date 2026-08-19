@@ -773,13 +773,20 @@ form and the preview work unchanged. See `.claude/rules/paywalls.md` there.
 
 ### 11.0.2 Follow-ups surfaced by the audience-assignment work
 
-- **`lib/audienceWeightValidation.ts` duplicates the weight rules.** It and
-  `supabase/shared/audienceWeights.ts`'s `validateSplit` are the only two
-  implementations of "weights must sum to 100" in the repo — no shared code, and
-  no test coverage on the frontend one. The paywall path imports the shared
-  module directly, so the onboarding rollout is the sole remaining duplicate.
-  Consolidating it touches the live onboarding path, which has neither tests nor
-  a render harness — worth a deliberate change, not a drive-by one.
+- **"Weights must total 100" is encoded in three independent places**, only one
+  of which is authoritative: `supabase/shared/audienceWeights.ts`'s
+  `validateSplit` (complete rule set, imported by the MCP tools, the serve path
+  and the paywall UI); `lib/audienceWeightValidation.ts` (a partial
+  re-implementation used by the onboarding rollout, untested); and
+  `supabase/functions/mcp/ui/audienceConsole.ts`, which re-implements both the
+  distribution maths and the gate in plain JS inside a template string, because
+  it runs in the viewer's browser and cannot import from `shared/`. The paywall
+  path imports the shared module rather than adding a fourth.
+
+  Worth noting how easily this was miscounted: the console copy lives inside a
+  string, so a grep for the usual TypeScript spellings does not find it. Two
+  separate passes here got the number wrong in opposite directions before anyone
+  actually enumerated them. If a count matters, enumerate; do not grep.
 
 - **`hooks/useAudiences.ts` keys its query `["audiences"]` with no project id**,
   so two projects share one cache entry. Pre-existing and unrelated to paywalls,

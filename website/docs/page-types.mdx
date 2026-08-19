@@ -972,6 +972,60 @@ Resolved store products are projected into the same variable map as flat dotted 
 }
 ```
 
+**Distinguishing "still loading" from "failed to load."** `products.loaded` is `"false"` for BOTH cases — it only means the store round-trip hasn't reached `"ready"` yet, not why. A paywall that treats the two as one thing shows a permanent spinner instead of telling the user something actually broke, which is worse than the App-Review-rejection risk the `products.loaded` gate above exists to avoid. Key the failure branch on `products.error` being non-empty instead, and the loading branch on `products.error` still being empty so it doesn't also match the failed case:
+
+```jsonc
+{
+  "id": "loading-text",
+  "type": "Text",
+  "renderWhen": {
+    "logic": "and",
+    "conditions": [
+      { "variable": "products.loaded", "operator": "eq", "value": "false" },
+      { "variable": "products.error", "operator": "is_empty" }
+    ]
+  },
+  "props": { "content": "Loading plans…" }
+}
+```
+
+```jsonc
+{
+  "id": "error-text",
+  "type": "Text",
+  "renderWhen": { "variable": "products.error", "operator": "is_not_empty" },
+  "props": { "content": "We couldn't load pricing. Please check your connection and try again later." }
+}
+```
+
+There is no `ButtonAction` to retry loading products — the runtime has no `reload()` (tracked as a follow-up in the spec). A failed load can only offer `dismiss` and rely on the host re-presenting the paywall later; don't paper over the gap with a `{ type: "custom" }` action naming a function no host implements.
+
+**Guarding a purchase against a double-tap.** `products.purchasing` is `"true"` for the duration of the store round-trip a `purchase` action started. Disable the buy button for that window with `disabledWhen`, and pair it with a visible label explaining why — a disabled button with no explanation looks broken, and a label with no `disabledWhen` doesn't actually stop the second tap:
+
+```jsonc
+{
+  "id": "buy-yearly",
+  "type": "Button",
+  "renderWhen": { "variable": "products.loaded", "operator": "eq", "value": "true" },
+  "props": {
+    "label": "Start free trial",
+    "disabledWhen": { "variable": "products.purchasing", "operator": "eq", "value": "true" },
+    "actions": [{ "type": "purchase", "product": "{{plan}}" }]
+  }
+}
+```
+
+```jsonc
+{
+  "id": "purchasing-text",
+  "type": "Text",
+  "renderWhen": { "variable": "products.purchasing", "operator": "eq", "value": "true" },
+  "props": { "content": "Completing your purchase…" }
+}
+```
+
+Both patterns ship as seeded templates in Onboarding Studio's template palette (**"Paywall — pricing block with failure state"** and **"Paywall — purchase button with in-flight state"**) and are exercised together in the SDK's own `example/app/example/paywall.tsx`.
+
 ```jsonc
 {
   "id": "primary-cta",

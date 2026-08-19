@@ -22,6 +22,16 @@ type Props = {
   // the child's relationship to its parent).
   flex?: number;
   alignSelf?: "auto" | "flex-start" | "flex-end" | "center" | "stretch" | "baseline";
+  /**
+   * Render the wrapper fully transparent. Used by `OnceAnimatedBox` to hold an
+   * element invisible until its deferred entrance is released.
+   *
+   * Safe to apply here because it is only ever set while there is NO entering
+   * builder on this view: the hold state strips `entering`, and releasing the
+   * hold changes the key, so a fresh view mounts carrying the builder and no
+   * `hidden`. The two never coexist and cannot fight over opacity.
+   */
+  hidden?: boolean;
   children: React.ReactNode;
 };
 
@@ -57,6 +67,7 @@ export const AnimatedBox = ({
   transform,
   flex,
   alignSelf,
+  hidden,
   children,
 }: Props): React.ReactElement => {
   // Memoize the reanimated builders on their (stable) spec objects. Rebuilding
@@ -140,7 +151,7 @@ export const AnimatedBox = ({
 
   if (!hasBuilder) {
     return (
-      <Animated.View style={[{ flex, alignSelf }, animatedStyle]}>
+      <Animated.View style={[{ flex, alignSelf }, animatedStyle, hidden ? { opacity: 0 } : null]}>
         {children}
       </Animated.View>
     );
@@ -220,15 +231,32 @@ export const OnceAnimatedBox = ({
     playedAtMountRef.current = latch.hasPlayed(elementId);
   }
 
-  const { play, keySuffix } = decideEnteringPlay(playedAtMountRef.current, settled);
+  const { playEntering, hidden, keySuffix } = decideEnteringPlay(
+    playedAtMountRef.current,
+    settled
+  );
 
   useEffect(() => {
-    if (play) latch.markPlayed(elementId);
-  }, [play, latch, elementId]);
+    if (playEntering) latch.markPlayed(elementId);
+  }, [playEntering, latch, elementId]);
 
   // Strip `entering` when not playing. `exiting`/`layout`/`effect` are untouched
   // — `once` is a statement about the entrance only.
-  const effective = play ? animation : animation && { ...animation, entering: undefined };
+  //
+  // `hidden` is what separates the two non-playing states. Both strip `entering`,
+  // but "already played" must render VISIBLE and "still holding" must render
+  // INVISIBLE. Without it a held element sat at full opacity — so the entrance
+  // was never seen — and then blinked to 0 and re-faded when the hold released.
+  const effective = playEntering
+    ? animation
+    : animation && { ...animation, entering: undefined };
 
-  return <AnimatedBox key={`${elementId}::${keySuffix}`} animation={effective} {...boxProps} />;
+  return (
+    <AnimatedBox
+      key={`${elementId}::${keySuffix}`}
+      animation={effective}
+      hidden={hidden}
+      {...boxProps}
+    />
+  );
 };

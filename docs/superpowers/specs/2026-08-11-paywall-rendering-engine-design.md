@@ -249,7 +249,20 @@ products.purchasing            "true" | "false"    // set during an in-flight pu
 - The expression tokenizer (`elements/expression.ts`) reads `{{...}}` as an
   opaque `.trim()`-ed name, so `{{product.yearly.priceAmount}} * 12` parses.
 - `evaluateCondition` reads `ctx.flatVariables` by the same flat lookup, so
-  `renderWhen: { "products.loaded": { eq: "true" } }` works.
+  `renderWhen: { "variable": "products.loaded", "operator": "eq", "value": "true" }`
+  works.
+
+**Correction (Phase 7):** every `renderWhen` example in this document originally
+wrote the shorthand `{ "products.loaded": { "eq": "true" } }` — a map keyed by
+variable name. That shape does not parse. The real wire shape, unchanged since
+`common.types.ts` was written, is a leaf `{ variable, operator, value? }` (unary
+operators — `is_empty`/`is_not_empty`/`is_null`/`is_not_null` — omit `value`) or
+a group `{ logic: "and" | "or", conditions: [...] }` of leaves/groups. This has
+been wrong in this spec since the original design; every example below is now
+corrected to the real shape. The §4.6 `Button` example had a second,
+independent bug alongside the shorthand: it nested `renderWhen` inside
+`props`, but every element schema declares `renderWhen` as a top-level field
+sibling to `type`/`props` — also fixed in place.
 
 ### 4.5 New ButtonActions
 
@@ -293,8 +306,8 @@ opens a paywall.
 { "type": "RadioGroup", "props": { "variableName": "plan", "defaultValue": "yearly",
     "items": [{ "value": "yearly",  "label": "{{product.yearly.price}} / year" },
               { "value": "monthly", "label": "{{product.monthly.price}} / month" }] } }
-{ "type": "Button", "props": { "label": "Start free trial",
-    "renderWhen": { "products.loaded": { "eq": "true" } },
+{ "type": "Button", "renderWhen": { "variable": "products.loaded", "operator": "eq", "value": "true" },
+  "props": { "label": "Start free trial",
     "actions": [{ "type": "purchase", "product": "{{plan}}",
                   "onSuccess": [{ "type": "dismiss" }] }] } }
 { "type": "Button", "props": { "label": "Restore", "actions": [{ "type": "restore" }] } }
@@ -810,6 +823,58 @@ form and the preview work unchanged. See `.claude/rules/paywalls.md` there.
   green while never being traversed. Both times this came up, the fix was to
   make the module reachable (or add a temporary probe import) and confirm the
   bundle actually grew.
+
+### 11.0.3 Follow-ups surfaced by Phase 7 (seeded paywall templates)
+
+Phase 7 authored the two paywall building-block templates referenced
+throughout §4.4/§4.6 above (plan: `docs/superpowers/plans/2026-08-19-paywall-
+seeded-templates.md` in `onboarding-studio`) — a pricing block with a
+loading/ready/failed split, and a purchase button with an in-flight guard —
+seeded into `composable_templates` via migration, plus the SDK's own example
+app (`example/app/example/paywall.tsx`) now exercises both.
+
+- **This spec's own `renderWhen` examples did not parse.** See the correction
+  in §4.4/§4.6 above — recorded here too because it is the biggest single
+  finding of this phase: anyone who learned the wire shape from this document
+  before the correction wrote payloads that fail at render time on a device.
+
+- **There is no way to retry loading products.** No `ButtonAction` variant for
+  it, and nothing on `ProductRuntime` exposes a reload. "Spinner → error → tap
+  retry → re-fetch in place" is ordinary paywall UX; the seeded failure
+  template can only offer `dismiss` and hope the host re-presents, which is a
+  real downgrade from what an author will expect. A `retryProducts`
+  `ButtonAction` (or a `reload()` on `ProductRuntime`) is the fix. **Do not
+  paper over this with a `{ type: "custom" }` action** naming a function no
+  host implements — that ships a dead control to every project, the same
+  failure mode Phase 6 had to fix elsewhere.
+
+- **`composable_templates` has no `kind`/`category` column**, so the two
+  seeded paywall templates appear in onboarding authors' template palette too
+  — there is no schema-level way to scope a template to "paywall content
+  only." The `"Paywall — …"` name prefix is the mitigation actually shipped;
+  a `kind` column is the real fix.
+
+- **`supabase/config.toml` declares `[db.seed] sql_paths = ["./seed.sql"]`
+  for a file that does not exist.** Confirmed absent. A configured-but-absent
+  seed hook is a trap for the next person who runs `supabase db reset`
+  expecting it to do something. Either create the file or drop the setting.
+
+- **Global templates are seeded by migration, so changing one is a migration,
+  not an edit.** By design (RLS has no path for a non-migration writer to
+  touch `scope = 'global'` rows) — if that becomes painful in practice, the
+  answer is an admin surface, not loosening RLS.
+
+- **`delete_composable_template` exists** (`supabase/functions/mcp/tools/
+  composable-templates.ts`), but `onboarding-studio-plugin/skills/
+  manage-templates/SKILL.md` still says MCP has no delete tool. Stale doc,
+  unrelated to the seeding work itself but found while reading the same
+  surface.
+
+- **Phase 7 shipped entirely unverified against a running system** — no
+  Docker, no `supabase` CLI, no render harness available in the environment
+  it was built in. `docs/paywall-template-verification.md` (in
+  `onboarding-studio`) is the hand-over: what to run and check once a real
+  Supabase instance is reachable.
 
 ### 11.1 This spec is a program, not one implementation plan
 

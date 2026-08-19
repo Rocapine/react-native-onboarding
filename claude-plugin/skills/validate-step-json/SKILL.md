@@ -9,6 +9,31 @@ argument-hint: [path-to-json-file or inline JSON]
 
 This plugin emits ComposableScreen only. This skill validates against `ComposableScreenStepTypeSchema`.
 
+## Misplaced keys parse clean — check for them explicitly
+
+Zod **strips** unrecognized keys rather than rejecting them, so a prop written at the wrong nesting level is completely silent: the step parses, the screen renders, and the prop does nothing. The classic case is a `BaseBoxProp` one level too high —
+
+```json
+{ "id": "hero", "type": "Image", "props": { "url": "..." },
+  "animation": { "entering": { "preset": "FadeInDown" } } }
+```
+
+`animation` is a **`BaseBoxProp`**, so it belongs in `props`. At the top level it is dropped and the element never animates. One live onboarding shipped six of these before anyone noticed. A green `safeParse` is therefore **not** evidence the payload is right.
+
+The SDK exports a non-fatal detector for exactly this class:
+
+```typescript
+import { collectUnknownKeysInSteps, formatUnknownElementKeys } from "@rocapine/react-native-onboarding";
+
+const found = collectUnknownKeysInSteps(steps);
+if (found.length) console.warn(formatUnknownElementKeys(found));
+// → elements[0] (Image "hero"): "animation" is not a top-level key — did you mean props.animation?
+```
+
+It derives the allowed key set per element type from `UIElementSchema` itself, so it cannot drift. `OnboardingProvider` already runs it once per payload under `__DEV__`, so the warning shows in the app console during development — but run it directly when validating a payload outside the app.
+
+Only these keys are valid at an element's top level: `id`, `name`, `type`, `props`, `renderWhen`, and `children` (containers only). **Everything else belongs in `props`.**
+
 ## When invoked
 
 1. Locate the step JSON: inline, file path, or clipboard. If unclear, ask.

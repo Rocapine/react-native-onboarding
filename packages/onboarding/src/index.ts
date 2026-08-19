@@ -47,6 +47,14 @@ export {
   generateWheelPickerRangeItems,
   resolveWheelPickerItems,
 } from "./steps/ComposableScreen/types";
+// Payload diagnostics — non-fatal detection of keys placed at an element's top
+// level that the schema silently drops (e.g. `animation` outside `props`).
+export {
+  collectUnknownElementKeys,
+  collectUnknownKeysInSteps,
+  formatUnknownElementKeys,
+} from "./screens/unknownKeys";
+export type { UnknownElementKey } from "./screens/unknownKeys";
 // Hooks and providers
 export * from "./infra";
 // Navigation adapter (dependency-injected navigation)

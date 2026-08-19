@@ -25,8 +25,50 @@ describe("collectUnknownElementKeys", () => {
       elementId: "hero",
       elementType: "Image",
       key: "animation",
+      kind: "misplaced",
       suggestion: "props.animation",
     });
+  });
+
+  it("distinguishes a STALE DUPLICATE from a misplaced prop", () => {
+    // The real corpus case: `props.animation` is already present and working
+    // (200ms), and a stale top-level copy (300ms) sits alongside it doing
+    // nothing. "did you mean props.animation?" would be actively misleading —
+    // they didn't forget it, they have two and are probably editing the dead one.
+    const found = collectUnknownElementKeys([
+      {
+        id: "loader-img-1",
+        type: "Image",
+        props: {
+          url: "https://x/y.png",
+          animation: { entering: { preset: "FadeIn", duration: 200, easing: "ease-in" } },
+        },
+        animation: { entering: { preset: "FadeIn", duration: 300, easing: "ease-in-out" } },
+      },
+    ]);
+
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatchObject({
+      key: "animation",
+      kind: "shadowed",
+      suggestion: "props.animation",
+      conflicts: true,
+    });
+  });
+
+  it("does not cry wolf when the duplicate is identical", () => {
+    const anim = { entering: { preset: "FadeIn", duration: 200 } };
+    const found = collectUnknownElementKeys([
+      { id: "i", type: "Image", props: { url: "u", animation: anim }, animation: { ...anim } },
+    ]);
+    expect(found[0]).toMatchObject({ kind: "shadowed", conflicts: false });
+  });
+
+  it("treats a key absent from props as misplaced even when props exists", () => {
+    const found = collectUnknownElementKeys([
+      { id: "i", type: "Image", props: { url: "u" }, onPress: [] },
+    ]);
+    expect(found[0]).toMatchObject({ kind: "misplaced", suggestion: "props.onPress" });
   });
 
   it("confirms the misplaced key really is dropped by the schema (why this exists)", () => {
@@ -61,6 +103,7 @@ describe("collectUnknownElementKeys", () => {
     ]);
     expect(found).toHaveLength(1);
     expect(found[0].key).toBe("wobble");
+    expect(found[0].kind).toBe("unknown");
     expect(found[0].suggestion).toBeUndefined();
   });
 
@@ -159,6 +202,23 @@ describe("collectUnknownKeysInSteps", () => {
 describe("formatUnknownElementKeys", () => {
   it("returns an empty string when there is nothing to report", () => {
     expect(formatUnknownElementKeys([])).toBe("");
+  });
+
+  it("says which copy wins for a stale duplicate, and never says 'did you mean'", () => {
+    const msg = formatUnknownElementKeys(
+      collectUnknownElementKeys([
+        {
+          id: "loader-img-1",
+          type: "Image",
+          props: { url: "u", animation: { entering: { duration: 200 } } },
+          animation: { entering: { duration: 300 } },
+        },
+      ])
+    );
+    expect(msg).toContain("is ignored");
+    expect(msg).toContain("different value");
+    expect(msg).toContain("taking effect");
+    expect(msg).not.toContain("did you mean");
   });
 
   it("names the fix for a misplaced prop", () => {

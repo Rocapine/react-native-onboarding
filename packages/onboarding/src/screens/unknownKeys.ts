@@ -27,11 +27,28 @@ export type UnknownElementKey = {
   /** The unrecognized top-level key. */
   key: string;
   /**
-   * Set when the key IS valid for this element but belongs somewhere else —
-   * today that means it is one of the element's own `props`. This is the
-   * actionable case: `animation` → `props.animation`.
+   * Which of three quite different mistakes this is. They need different advice:
+   *
+   * • `unknown`   — not a valid key anywhere on this element. Probably a typo or
+   *                 a prop from a different element type.
+   * • `misplaced` — a valid prop for this element, and `props` does NOT have it.
+   *                 Almost certainly meant to be inside `props`.
+   * • `shadowed`  — a valid prop, and `props` ALREADY has it. The top-level copy
+   *                 is inert and the `props` one is what runs. This is the nastiest
+   *                 of the three: telling someone "did you mean props.animation?"
+   *                 is wrong here, because props.animation is right there. The real
+   *                 risk is editing the dead copy, seeing no change, and concluding
+   *                 the renderer is broken.
    */
+  kind: "unknown" | "misplaced" | "shadowed";
+  /** For `misplaced`/`shadowed`: where the value belongs, or already lives. */
   suggestion?: string;
+  /**
+   * `shadowed` only — whether the live `props` value actually DIFFERS from the
+   * dead top-level copy. Two identical copies are harmless cruft; two that
+   * disagree are a trap, and only the disagreement is worth alarming about.
+   */
+  conflicts?: boolean;
 };
 
 type ElementKeySets = { topLevel: Set<string>; props: Set<string> };
@@ -83,6 +100,19 @@ const getRegistry = (): Map<string, ElementKeySets> => {
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
+// Structural comparison good enough to tell "same value duplicated" from "two
+// values that disagree". Falls back to "assume they differ" if the value can't be
+// serialized (circular / exotic), since a false alarm is cheaper here than
+// staying silent about a real conflict.
+const valuesDiffer = (a: unknown, b: unknown): boolean => {
+  if (a === b) return false;
+  try {
+    return JSON.stringify(a) !== JSON.stringify(b);
+  } catch {
+    return true;
+  }
+};
+
 /**
  * Walk an element tree and report unrecognized top-level keys.
  *
@@ -105,14 +135,21 @@ export const collectUnknownElementKeys = (
     const keySets = elementType ? known.get(elementType) : undefined;
 
     if (keySets) {
+      const props = isRecord(node.props) ? node.props : undefined;
       for (const key of Object.keys(node)) {
         if (keySets.topLevel.has(key)) continue;
+
+        const isValidProp = keySets.props.has(key);
+        const alreadyInProps = isValidProp && props !== undefined && key in props;
+
         found.push({
           path,
           elementId: typeof node.id === "string" ? node.id : "(no id)",
           elementType: elementType!,
           key,
-          suggestion: keySets.props.has(key) ? `props.${key}` : undefined,
+          kind: !isValidProp ? "unknown" : alreadyInProps ? "shadowed" : "misplaced",
+          suggestion: isValidProp ? `props.${key}` : undefined,
+          conflicts: alreadyInProps ? valuesDiffer(node[key], props![key]) : undefined,
         });
       }
     }
@@ -149,9 +186,21 @@ export const formatUnknownElementKeys = (found: UnknownElementKey[]): string => 
   if (found.length === 0) return "";
   const lines = found.map((f) => {
     const where = `${f.path} (${f.elementType} "${f.elementId}")`;
-    return f.suggestion
-      ? `  • ${where}: "${f.key}" is not a top-level key — did you mean ${f.suggestion}?`
-      : `  • ${where}: unrecognized top-level key "${f.key}"`;
+    if (f.kind === "shadowed") {
+      // Do NOT say "did you mean props.X?" here — props.X is already there. The
+      // useful warning is which copy wins, because the trap is editing the dead
+      // one and concluding the renderer is broken.
+      return f.conflicts
+        ? `  • ${where}: "${f.key}" is ignored — ${f.suggestion} is ALSO set, to a ` +
+          `different value, and that is the one taking effect. Editing this ` +
+          `top-level copy will do nothing; delete it.`
+        : `  • ${where}: "${f.key}" is ignored — ${f.suggestion} is already set to the ` +
+          `same value and is the one taking effect. Delete this top-level copy.`;
+    }
+    if (f.kind === "misplaced") {
+      return `  • ${where}: "${f.key}" is not a top-level key — did you mean ${f.suggestion}?`;
+    }
+    return `  • ${where}: unrecognized top-level key "${f.key}"`;
   });
   return (
     `[onboarding] ${found.length} unrecognized top-level ` +

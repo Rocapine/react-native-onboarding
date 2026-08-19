@@ -32,6 +32,16 @@ if (found.length) console.warn(formatUnknownElementKeys(found));
 
 It derives the allowed key set per element type from `UIElementSchema` itself, so it cannot drift. `OnboardingProvider` already runs it once per payload under `__DEV__`, so the warning shows in the app console during development — but run it directly when validating a payload outside the app.
 
+Each finding carries a `kind`, because the three cases need different fixes:
+
+| `kind` | Meaning | Fix |
+|---|---|---|
+| `misplaced` | Valid prop for this element, absent from `props` | Move it into `props` |
+| `shadowed` | Valid prop **and `props` already has it** — the top-level copy is inert | Delete the top-level copy; `props` is what runs |
+| `unknown` | Not valid anywhere on this element | Typo, or a prop from a different element type |
+
+`shadowed` is the one worth reading carefully. A real onboarding had six Images each carrying a stale top-level `animation` (300ms) alongside a working `props.animation` (200ms). Nothing was missing, so "did you mean `props.animation`?" would have been wrong advice — the trap is tuning the dead copy, seeing no change, and concluding the renderer is broken. When the two values disagree the report says so explicitly (`conflicts: true`).
+
 Only these keys are valid at an element's top level: `id`, `name`, `type`, `props`, `renderWhen`, and `children` (containers only). **Everything else belongs in `props`.**
 
 ## When invoked

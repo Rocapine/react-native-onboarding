@@ -54,27 +54,48 @@ const ZStackElementComponentBase = ({ element, ctx }: Props): React.ReactElement
         ...buildShadowStyle(p),
       }}
     >
-      {element.children.map((child) => (
-        <View
-          key={child.id}
-          pointerEvents="box-none"
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            // Anchor a content-sized child within the full-bleed stack (e.g. a
-            // floating bottom CTA with `justifyContent: "flex-end"`). A child
-            // that fills (flex/height) ignores these; the wrapper stays
-            // box-none so scroll content layered behind still receives touches.
-            justifyContent: p.justifyContent,
-            alignItems: p.alignItems,
-          }}
-        >
-          {ctx.renderChildren([child], "ZStack")}
-        </View>
-      ))}
+      {element.children.map((child) => {
+        // `inset` is declarative absolute placement, honoured only here because
+        // ZStack is the only container that absolutely-positions its children.
+        const inset = child.props?.inset;
+        // The wrapper is flexDirection:column, so `justifyContent` drives the
+        // VERTICAL axis and `alignItems` the HORIZONTAL one.
+        const pinnedV = inset?.top !== undefined || inset?.bottom !== undefined;
+        const pinnedH = inset?.left !== undefined || inset?.right !== undefined;
+
+        return (
+          <View
+            key={child.id}
+            pointerEvents="box-none"
+            style={{
+              position: "absolute",
+              // An axis with an inset uses ONLY the sides given. Keeping the
+              // opposite side's 0 would leave the wrapper full-bleed on that
+              // axis, and the shared anchor would then re-center the child
+              // inside it — placement would look correct at `flex-start` and be
+              // wrong at every other anchor. Dropping both the opposite 0 and
+              // the anchor leaves the wrapper content-sized and corner-pinned,
+              // which is what a drag-to-place gesture means. Supplying both
+              // sides of an axis resolves to a size instead, and stretches.
+              // `dim()` casts the number|percentage-string union to RN's DimensionValue.
+              top: dim(pinnedV ? inset?.top : 0),
+              bottom: dim(pinnedV ? inset?.bottom : 0),
+              left: dim(pinnedH ? inset?.left : 0),
+              right: dim(pinnedH ? inset?.right : 0),
+              // Anchor a content-sized child within the full-bleed stack (e.g. a
+              // floating bottom CTA with `justifyContent: "flex-end"`). A child
+              // that fills (flex/height) ignores these; the wrapper stays
+              // box-none so scroll content layered behind still receives touches.
+              // Skipped per-axis when that axis is explicitly positioned, so a
+              // partial inset still inherits the anchor on the other axis.
+              justifyContent: pinnedV ? undefined : p.justifyContent,
+              alignItems: pinnedH ? undefined : p.alignItems,
+            }}
+          >
+            {ctx.renderChildren([child], "ZStack")}
+          </View>
+        );
+      })}
     </GradientBox>
   );
 };

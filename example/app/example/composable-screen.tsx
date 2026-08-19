@@ -923,6 +923,24 @@ export default function ComposableScreenExample() {
                     },
                   ],
                 },
+                {
+                  // `inset`: declarative off-anchor placement on a ZStack child.
+                  // One side per axis => content-sized, pinned by its top-left
+                  // corner; percentages stay stable across device widths.
+                  id: 'zstack-inset-badge',
+                  type: 'Text' as const,
+                  props: {
+                    inset: { top: '12%', left: '62%' },
+                    content: 'NEW',
+                    fontSize: 12,
+                    fontWeight: '700',
+                    color: '#fff',
+                    backgroundColor: '#E76F51',
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                    borderRadius: 999,
+                  },
+                },
               ],
             },
             // Button element — runs a custom action with selected variables, then continues.

@@ -79,6 +79,20 @@ Authoritative prop shapes: `packages/onboarding/src/screens/elements/*.ts`.
 
 Two optional `BaseBoxProps` surfaces apply to **every** element type. Both mirror `react-native-reanimated`. Unknown presets degrade to a no-op (never crash).
 
+**`inset`** (declarative absolute placement — **`ZStack` children only**):
+
+```
+{ top?, left?, right?, bottom? }   // number = px, string = percentage of the stack ("62.1%")
+```
+
+`ZStack` gives every child an absolutely-positioned full-bleed wrapper and applies ONE shared `justifyContent`/`alignItems` to all of them, so without `inset` the 9 anchor points are the only declarative placement and anything off-anchor needs hand-computed `transform.translateX/translateY`. `inset` replaces that arithmetic.
+
+- **Omitting a side is not `0`** — that axis falls back to the ZStack's shared anchor. So `{ top: 40 }` pins vertically while still centering horizontally if the stack's `alignItems` is `center`.
+- **One side per axis (`top` + `left`) is the normal form**: it leaves the element content-sized and pinned by that corner. Setting BOTH sides of an axis resolves to a size instead and stretches the element.
+- When an axis is positioned, that axis's shared anchor is dropped for that child. (Keeping it would re-center the child inside the shrunken box — placement would look right at `flex-start` and be wrong at every other anchor.)
+- **Prefer percentages over px.** A px offset authored against one screen width drifts on devices of another; percentages survive. Same `number | string` convention as `width`/`height`.
+- Composes with `transform` rather than replacing it. Inert outside a `ZStack` — no other container absolutely-positions its children.
+
 **`transform`** (static, applied once):
 
 ```

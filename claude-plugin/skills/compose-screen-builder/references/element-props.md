@@ -19,7 +19,7 @@ _Generated from `packages/onboarding/src/screens` by
 
 **Box props** — accepted by every element, omitted from the per-element lists below:
 
-`width` · `height` · `minWidth` · `maxWidth` · `minHeight` · `maxHeight` · `flex` · `flexShrink` · `flexGrow` · `aspectRatio` · `alignSelf` · `opacity` · `backgroundColor` · `backgroundGradient` · `overflow` · `margin` · `marginHorizontal` · `marginVertical` · `padding` · `paddingHorizontal` · `paddingVertical` · `borderWidth` · `borderRadius` · `borderColor` · `shadowColor` · `shadowOffset` · `shadowOpacity` · `shadowRadius` · `elevation` · `transform` · `animation` · `onPress`
+`width` · `height` · `minWidth` · `maxWidth` · `minHeight` · `maxHeight` · `flex` · `flexShrink` · `flexGrow` · `aspectRatio` · `alignSelf` · `opacity` · `backgroundColor` · `backgroundGradient` · `overflow` · `margin` · `marginHorizontal` · `marginVertical` · `padding` · `paddingHorizontal` · `paddingVertical` · `borderWidth` · `borderRadius` · `borderColor` · `shadowColor` · `shadowOffset` · `shadowOpacity` · `shadowRadius` · `elevation` · `inset` · `transform` · `animation` · `onPress`
 
 ### Own props, per element
 

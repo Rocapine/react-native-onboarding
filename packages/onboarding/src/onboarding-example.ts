@@ -1042,6 +1042,26 @@ export const onboardingExample = {
                       },
                     ],
                   },
+                  {
+                    // `inset`: declarative off-anchor placement. Supplying one side
+                    // per axis leaves this content-sized and pinned by its top-left
+                    // corner, instead of doing the arithmetic with
+                    // transform.translateX/Y. Percentages keep it stable across
+                    // device widths. Honoured only on a ZStack child.
+                    id: "zstack-inset-badge",
+                    type: "Text",
+                    props: {
+                      inset: { top: "12%", left: "62%" },
+                      content: "NEW",
+                      fontSize: 12,
+                      fontWeight: "700",
+                      color: "#fff",
+                      backgroundColor: "#E76F51",
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
+                      borderRadius: 999,
+                    },
+                  },
                 ],
               },
               {

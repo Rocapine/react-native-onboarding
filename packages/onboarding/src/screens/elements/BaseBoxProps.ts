@@ -253,6 +253,34 @@ const ElementAnimationSchema = z.object({
   effect: EffectSchema.optional(),
 });
 
+// Declarative absolute placement for a ZStack child. Numbers are density-
+// independent pixels; strings are percentages of the stack ("62.1%") — the same
+// number|string convention `width`/`height` already use via `dim()`.
+//
+// ONLY honoured on a direct child of a `ZStack`, because that is the only
+// container that absolutely-positions its children; elsewhere it is inert.
+//
+// A side you omit is NOT treated as 0 — it falls back to the ZStack's shared
+// anchor for that axis, so partial placement works (`{ top: 40 }` pins vertically
+// while still honouring the anchor horizontally). Supplying exactly one side per
+// axis (`top` + `left`) leaves the child content-sized and pinned by that corner,
+// which is what a drag-to-place gesture means; supplying BOTH sides of an axis
+// resolves to a width/height instead, which stretches the child.
+export type ElementInset = {
+  top?: number | string;
+  left?: number | string;
+  right?: number | string;
+  bottom?: number | string;
+};
+
+const InsetSide = z.union([z.number(), z.string()]);
+const InsetSchema = z.object({
+  top: InsetSide.optional(),
+  left: InsetSide.optional(),
+  right: InsetSide.optional(),
+  bottom: InsetSide.optional(),
+});
+
 // Static transform surface — also what `effect` animates at runtime.
 export type ElementTransform = {
   translateX?: number;
@@ -303,6 +331,12 @@ export type BaseBoxProps = {
   shadowOpacity?: number;
   shadowRadius?: number;
   elevation?: number;
+  /**
+   * Declarative absolute placement inside a `ZStack` (ignored elsewhere).
+   * Replaces doing the arithmetic by hand with `transform.translateX/Y`;
+   * composes with `transform` rather than replacing it.
+   */
+  inset?: ElementInset;
   transform?: ElementTransform;
   animation?: ElementAnimation;
   /**
@@ -344,6 +378,7 @@ export const BaseBoxPropsSchema = z.object({
   shadowOpacity: z.number().min(0).max(1).optional(),
   shadowRadius: z.number().min(0).optional(),
   elevation: z.number().min(0).optional(),
+  inset: InsetSchema.optional(),
   transform: TransformSchema.optional(),
   animation: ElementAnimationSchema.optional(),
   onPress: z.array(ButtonActionSchema).optional(),

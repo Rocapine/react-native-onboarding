@@ -463,6 +463,16 @@ Build arbitrary onboarding screens entirely from CMS data — no custom renderer
 
 Every UIElement inherits an optional `transform` and `animation` from `BaseBoxProps`, so motion can be attached to any element type. The schema mirrors [react-native-reanimated](https://docs.swmansion.com/react-native-reanimated/) — `preset` values are the **exact reanimated builder names** and the modifier fields map to builder methods (`.duration().delay().springify().easing()`). `react-native-reanimated` `>=3` is a peer dependency (already required for `Carousel` / `ProgressIndicator`); no extra install.
 
+**`inset`** — declarative absolute placement, honoured on **`ZStack` children only**:
+
+```
+{ top?, left?, right?, bottom? }   // number = px, string = percentage of the stack ("62.1%")
+```
+
+A `ZStack` wraps each child in an absolutely-positioned full-bleed box and applies one shared `justifyContent`/`alignItems` to all of them, so the 9 anchor points are otherwise the only declarative placement. `inset` replaces hand-computed `transform.translateX/translateY` for off-anchor layers.
+
+An omitted side is **not** `0` — that axis falls back to the stack's shared anchor, so `{ top: 40 }` pins vertically while still honouring the horizontal anchor. Supplying one side per axis (`top` + `left`) keeps the element content-sized and pinned by that corner; supplying both sides of an axis resolves to a size and stretches it. When an axis is positioned its shared anchor is dropped for that child, so placement is correct at every anchor, not just `flex-start`. Prefer percentages — px offsets authored against one screen width drift on others. Composes with `transform`; inert outside a `ZStack`.
+
 **`transform`** — static, also the surface `effect` animates:
 
 | Field | Type | Notes |

@@ -529,6 +529,65 @@ New:
 
 ---
 
+## 8.1 Paywall audience assignment
+
+Part 6 shipped an editor but no way to make a paywall reachable: assignment ran
+only through the `set_paywall_audience_weights` MCP tool. §8 never listed it.
+This section records the surface that closes that gap, and the invariants a
+later phase must not break.
+
+**Where it lives.** The audiences screen, not the paywall editor —
+`components/studio/pages/audiences/AudiencePaywallsSection.tsx`, mounted inside
+the existing audience card beside the onboarding rollout. Studio Next only;
+classic carries a static pointer to it. No new route: the audiences route is
+already registered in `StudioShell`.
+
+**Weights sum to 100 per (audience, placement), never per audience.** This is
+the load-bearing invariant and the one real difference from onboardings.
+`selectPaywallPerPlacement` groups an audience's assignments by the paywall's
+placement and makes one *independent* weighted pick per placement, so a user can
+be in the A variant of `onboarding_end` and the B variant of `settings_upgrade`.
+The UI therefore renders one rollout block per placement, each with its own bar,
+validation and allocation line. A total spanning placements is a defect.
+
+**An all-zero group is not an off switch.** `pickWeighted` falls back to a
+uniform random pick when a group's weights total zero, so zeroing a placement
+randomises it rather than disabling it. Removing every paywall from the
+placement is the only way to serve nothing there, and the UI says so explicitly
+— an author cannot discover this from the interface otherwise, and the
+consequence is live traffic going somewhere they believed was switched off.
+
+Related asymmetry: an audience matching zero paywall assignments receives
+nothing, whereas the onboarding path falls back to the most recent onboarding.
+An unassigned placement is silently absent at runtime, which is why the paywalls
+list carries a "Not assigned" badge — it is the only signal an author gets.
+
+**The write is a full per-placement replacement.** One mutation handles add,
+remove and re-weight: upsert the placement's whole desired set, then delete that
+placement's omitted rows. A paywall omitted from a save is *unassigned*. This
+mirrors `set_paywall_audience_weights`, including its non-transactional shape —
+upsert and delete are separate statements, so a failed delete leaves the
+placement temporarily over 100, and the error surfaces to the caller. The studio
+matches the backend's guarantees rather than claiming better ones.
+
+Two deliberate divergences from that tool: an empty desired set is **allowed**
+in the UI and means "stop serving this placement" (the tool rejects it, because
+`[]` from an agent is likelier a mistake); and `placement` is **verified rather
+than derived**, since an empty set must still name the placement being cleared.
+That verification is not optional — `audiences_paywalls` has no placement
+column, so a mismatched row is not rejected by the database and would simply
+surface in a group whose total nobody validated.
+
+**The UI writes the tables directly under RLS**, re-implementing the tool's
+replacement semantics rather than calling it: MCP tools are not reachable over
+plain HTTP from the web client. The weight *rules* are not re-implemented —
+`validateSplit` is imported from the same `supabase/shared/audienceWeights`
+module the tool and the serve path use, so the two cannot drift on what a valid
+split is.
+
+**`deployment_id` is always written NULL.** Pinning exists nowhere in this API,
+here or in `publish_paywall`; every assignment serves the latest deployment.
+
 ## 9. Non-goals for v1
 
 Explicitly out of scope, to be revisited only with evidence:
@@ -633,12 +692,15 @@ form and the preview work unchanged. See `.claude/rules/paywalls.md` there.
 
 **The gap between "Phase 6 done" and "an author ships a paywall from the web UI":**
 
-- **Audience assignment UI is unbuilt.** A paywall becomes reachable to the SDK
-  only through `audiences_paywalls`, and targeting is still done with the
-  `set_paywall_audience_weights` MCP tool. The existing weights UI
-  (`components/Audience/AudienceOnboardingCard.tsx`) is hook-coupled to
-  onboardings, and §8 never listed it. This is the one thing standing between
-  the editor and an end-to-end web workflow.
+- ~~**Audience assignment UI is unbuilt.**~~ **RESOLVED** — built as a
+  follow-on to Phase 6 (plan:
+  `docs/superpowers/plans/2026-08-19-paywall-audience-assignment.md` in
+  `onboarding-studio`). Specified in §8.1 above. The existing weights UI turned
+  out to be coupled to onboardings in every dimension at once — table name,
+  column name, and the returned type — so it was mirrored as a sibling hook
+  rather than generalised. The backend needed no work: the MCP tool and
+  `get-paywalls` already implemented the whole write and read path; the gap was
+  purely a web surface.
 
 **Promised in the plan, not delivered:**
 
@@ -708,6 +770,46 @@ form and the preview work unchanged. See `.claude/rules/paywalls.md` there.
   which type-checks but does not bundle. Phase 6 ran it manually on every UI
   task. Adding it to `.github/workflows/static-checks.yml` would close the one
   verification gap this phase found in the existing gates.
+
+### 11.0.2 Follow-ups surfaced by the audience-assignment work
+
+- **"Weights must total 100" is encoded in three independent places**, only one
+  of which is authoritative: `supabase/shared/audienceWeights.ts`'s
+  `validateSplit` (complete rule set, imported by the MCP tools, the serve path
+  and the paywall UI); `lib/audienceWeightValidation.ts` (a partial
+  re-implementation used by the onboarding rollout, untested); and
+  `supabase/functions/mcp/ui/audienceConsole.ts`, which re-implements both the
+  distribution maths and the gate in plain JS inside a template string, because
+  it runs in the viewer's browser and cannot import from `shared/`. The paywall
+  path imports the shared module rather than adding a fourth.
+
+  Worth noting how easily this was miscounted: the console copy lives inside a
+  string, so a grep for the usual TypeScript spellings does not find it. Two
+  separate passes here got the number wrong in opposite directions before anyone
+  actually enumerated them. If a count matters, enumerate; do not grep.
+
+- **`hooks/useAudiences.ts` keys its query `["audiences"]` with no project id**,
+  so two projects share one cache entry. Pre-existing and unrelated to paywalls,
+  but it is the kind of bug that produces "I saw the other project's data once"
+  reports that never reproduce.
+
+- **A grep for a field name cannot find a type-level dependency on it.**
+  Reverting an embed broke two components that cast the query's result to a named
+  type; neither file mentions the field anywhere, so the field-name grep used to
+  check for consumers came back clean and was wrong. `tsc` found it immediately.
+  Worth remembering whenever a select string changes: the type checker is the
+  instrument, not grep.
+
+- **`pnpm build` is still not in CI** (`static-checks.yml` runs type:check, lint,
+  test, mcp:catalog:check and the Deno checks). It is the only gate that catches
+  an import which type-checks but does not bundle, and this work depended on it
+  twice. Adding it would close the one real hole in the existing gates.
+
+  Related, and sharper: a build gate proves nothing unless the changed module is
+  **reachable from an entry point**. A new hook that nothing imports yet bundles
+  green while never being traversed. Both times this came up, the fix was to
+  make the module reachable (or add a temporary probe import) and confirm the
+  bundle actually grew.
 
 ### 11.1 This spec is a program, not one implementation plan
 

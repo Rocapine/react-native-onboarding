@@ -291,21 +291,32 @@ function PaywallExampleScreen() {
 }
 
 export default function PaywallExample() {
-  // Refs, not state, so flipping a mode never re-creates the provider —
-  // `PaywallProvider` prefetches on mount, and a new provider identity would
-  // re-run that and reset the very state we are trying to observe. The provider
-  // reads the CURRENT value at call time instead.
-  const productMode = useRef<DemoProductMode>('success');
+  // The two modes are held DIFFERENTLY, and the asymmetry is the whole point.
+  //
+  // `purchaseMode` is a ref: `purchase()` is invoked per tap, so the provider
+  // reads the current value live. Holding it in state would re-create the
+  // provider mid-flight and reset the very in-flight state we want to watch.
+  //
+  // `productMode` must be STATE, and must remount the provider. `useProducts`
+  // fetches inside `useEffect(..., [refsKey, locale])` and `refsKey` is derived
+  // from a static catalog — so `getProducts()` is called exactly ONCE, at mount.
+  // A ref here reads as clever and is simply dead: the fetch has already
+  // happened (and resolved, since the stub has no delay) before anyone can
+  // press the toggle, so `productMode.current` is always still 'success' when
+  // it is read. That was the first version of this screen, and the failure
+  // branch was unreachable. Keying the provider on the mode forces a fresh
+  // mount, which is the only thing that re-runs the fetch.
+  const [productMode, setProductMode] = useState<DemoProductMode>('success');
   const purchaseMode = useRef<DemoPurchaseMode>('success');
   const [, forceRender] = useState(0);
 
   const provider = useMemo(
-    () => createDemoProductProvider(() => productMode.current, () => purchaseMode.current),
-    []
+    () => createDemoProductProvider(() => productMode, () => purchaseMode.current),
+    [productMode]
   );
 
   return (
-    <PaywallProvider client={client} productProvider={provider}>
+    <PaywallProvider key={productMode} client={client} productProvider={provider}>
       <PaywallExampleScreen />
       <View style={styles.demoToggles}>
         <Text style={styles.demoTogglesLabel}>
@@ -313,13 +324,12 @@ export default function PaywallExample() {
         </Text>
         <Pressable
           style={styles.demoToggle}
-          onPress={() => {
-            productMode.current = productMode.current === 'fail' ? 'success' : 'fail';
-            forceRender((n) => n + 1);
-          }}
+          // Remounts the provider (via its `key`), which is what re-runs the
+          // one-shot product fetch. Flip this, THEN press Present Paywall.
+          onPress={() => setProductMode((m) => (m === 'fail' ? 'success' : 'fail'))}
         >
           <Text style={styles.demoToggleText}>
-            Products: {productMode.current === 'fail' ? 'fail' : 'succeed'}
+            Products: {productMode === 'fail' ? 'fail (remounts provider)' : 'succeed'}
           </Text>
         </Pressable>
         <Pressable

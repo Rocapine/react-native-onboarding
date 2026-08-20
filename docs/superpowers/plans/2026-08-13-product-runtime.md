@@ -452,7 +452,7 @@ git commit -m "✨ feat(headless): product types + derived price fields"
 - Consumes: `ProductWithDerived`, `ProductRuntime` from Task 1's `products/types.ts`.
 - Produces: `productVariables(runtime: Pick<ProductRuntime, "products" | "status" | "error" | "purchasing">): Record<string, ComposableVariableEntry>` — flat dotted keys.
 
-Flat dotted keys are the whole trick: `interpolate()` resolves `{{key}}` with a flat `variables[key]` lookup and `evaluateCondition` reads `flatVariables` the same way, so `{{product.yearly.price}}` and `renderWhen: { "products.loaded": { eq: "true" } }` work with **no engine change**.
+Flat dotted keys are the whole trick: `interpolate()` resolves `{{key}}` with a flat `variables[key]` lookup and `evaluateCondition` reads `flatVariables` the same way, so `{{product.yearly.price}}` and `renderWhen: { variable: "products.loaded", operator: "eq", value: "true" }` work with **no engine change**.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1702,7 +1702,7 @@ Resolved store products are projected into the variable bag as FLAT DOTTED KEYS
 plus `products.loaded` / `products.purchasing` / `products.error`). `interpolate()`
 and `evaluateCondition` both do a flat `variables[key]` lookup, so this needs no
 engine change — `{{product.yearly.price}}` and
-`renderWhen: { "products.loaded": { eq: "true" } }` just work.
+`renderWhen: { variable: "products.loaded", operator: "eq", value: "true" }` just work.
 
 Products OVERLAY the merged bag and win over author variables
 (`withProductVariables` in `Runtime/variables.ts`): they are facts read from the

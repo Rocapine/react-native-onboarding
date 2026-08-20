@@ -197,7 +197,55 @@ Reference variables from `Text` ONLY when `Text.props.mode === "expression"`. Th
 - `{ "type": "dismiss" }` — close the current screen. Terminal, like `"continue"`: resolves `host.complete({ status: "dismissed" })`. On an onboarding step this behaves like any other terminal action; **in a paywall**, this is what resolves the pending `usePaywall().present()` call — a purchase closed via `onSuccess: [{ "type": "dismiss" }]` still reports `"purchased"` (the host upgrades a bare dismissal when a purchase actually happened during the presentation), so `dismiss` itself never needs to know about purchase state.
 - `{ "type": "presentPaywall", "placement": "onboarding_end" }` — present a studio-authored paywall by placement. NOT terminal — the action list continues after it fires. Works from **either** host: an onboarding step's own actions, or a paywall's own content (a paywall opening another, e.g. a downsell after a decline). No-ops (with a console warning) when nothing above wires `presentPaywall` — e.g. no `PaywallProvider` mounted anywhere in the tree.
 
-Both `purchase` and `restore` need a `ProductProvider` wired into `OnboardingProvider` to resolve real store products — never author a price into the payload; read it from the runtime's projected variables instead (`product.<slot>.price`, `product.<slot>.pricePerWeek`, `product.<slot>.savingsPct`, `product.<slot>.trialDays`, `products.loaded`). Gate any plan list / buy CTA on `products.loaded` being `"true"` via `renderWhen` so nothing is tappable before products resolve.
+Both `purchase` and `restore` need a `ProductProvider` wired into `OnboardingProvider` to resolve real store products — never author a price into the payload; read it from the runtime's projected variables instead (`product.<slot>.price`, `product.<slot>.pricePerWeek`, `product.<slot>.savingsPct`, `product.<slot>.trialDays`). Gate any plan list / buy CTA on `products.loaded` being `"true"` via `renderWhen` so nothing is tappable before products resolve — and read the next section before you do, because `products.loaded` alone cannot tell "loading" from "the store failed".
+
+## Product runtime state
+
+Three flat variables describe the runtime, and they are the whole state you can branch on:
+
+| Variable | Value |
+|---|---|
+| `products.loaded` | `"true"` **only** when status is `ready`. `"false"` for `idle`, `loading` **and** `error`. |
+| `products.error` | The failure message, or `""`. Always emitted, never absent. |
+| `products.purchasing` | `"true"` while a purchase is in flight, else `"false"`. |
+
+**`products.loaded === "false"` is not "loading".** It covers four situations that need different screens, and the pair `(loaded, error)` is what separates them:
+
+| Situation | `products.loaded` | `products.error` | What to render |
+|---|---|---|---|
+| Ready | `"true"` | `""` | Prices, plan list, buy CTA |
+| Loading | `"false"` | `""` | A neutral loading state. No price, no buy CTA |
+| Store failed | `"false"` | non-empty | A failure message and a way out |
+| No products configured at all | `"false"` | `""` | Same as loading — **permanently** |
+
+So a loading branch written as `products.loaded is "false"` also swallows every store failure: a network timeout renders your spinner forever, and the user has no price, no button, and no explanation. Always pair it with `products.error` `is_empty`:
+
+```json
+{ "logic": "and", "conditions": [
+  { "variable": "products.loaded", "operator": "eq", "value": "false" },
+  { "variable": "products.error",  "operator": "is_empty" }
+] }
+```
+
+and give the failure its own branch on `{ "variable": "products.error", "operator": "is_not_empty" }`.
+
+Use `is_empty` / `is_not_empty` on `products.error`, **not** `is_null` / `is_not_null`: it is emitted as `""` rather than omitted, so it is never null. (Per-product optional fields like `product.<slot>.savingsPct` are the opposite — omitted when absent, so `is_not_null` is the right test there.)
+
+The last row of the first table is the state a first-time author hits most: insert a paywall before configuring product slots and the runtime sits at `idle`, which is `loaded: "false"` with an empty `error` — indistinguishable from loading. The screen is not broken; it is waiting for something that will never arrive.
+
+**There is no retry action.** The SDK exposes no way to re-fetch products, so a "Try again" button on the failure branch would be a control that silently does nothing. Offer `{ "type": "dismiss" }` instead.
+
+**In-flight purchases need both halves.** `products.purchasing` guards the double-tap and explains the wait, and one without the other is a bug: `disabledWhen` alone leaves a dead button with no feedback, an in-flight label alone leaves the second tap live.
+
+```json
+{ "type": "Button", "props": {
+  "label": "Subscribe",
+  "disabledWhen": { "variable": "products.purchasing", "operator": "eq", "value": "true" },
+  "actions": [{ "type": "purchase", "product": "{{plan}}" }]
+} }
+```
+
+Two `scope: "global"` templates in the studio ("Paywall — pricing block with failure state", "Paywall — purchase button with in-flight state") are these two patterns, ready to insert — check the palette before hand-rolling either.
 
 The headless Zod schema enumerates all seven: `"continue" | CustomButtonAction | SetVariableButtonAction | PurchaseButtonAction | RestoreButtonAction | DismissButtonAction | PresentPaywallButtonAction` (`ButtonAction` in `common.types.ts`, re-exported from `ButtonElement.ts`). `setVariable` also accepts `kind: "int" | "float" | "string"` to tag the stored variable's type (overwrite mode only) and `arrayOp: "append" | "remove" | "toggle"` for multi-select collections. The **same `ButtonAction[]` shape** is reusable as `onPress` on any non-pressable element — see [onPress](#onpress--make-any-element-tappable-every-element).
 
@@ -222,6 +270,8 @@ Group form:
 ```
 
 (Note: `disabled` and `disabled-with-condition` are NOT prop names — only `disabledWhen`.)
+
+It belongs **inside `props`**. Put it at element level, beside `type`/`id`/`renderWhen`, and the schema accepts the step and strips the key — the button ships permanently enabled with nothing reported. TypeScript catches this; hand-written JSON does not.
 
 ### Condition operators
 

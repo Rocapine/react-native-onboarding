@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
@@ -8,6 +8,7 @@ import {
   stubProductProvider,
   type Paywall,
   type PaywallCatalog,
+  type ProductProvider,
   type ProductRef,
 } from '@rocapine/react-native-onboarding';
 import { PaywallHost, type UIElement } from '@rocapine/react-native-onboarding-ui';
@@ -50,7 +51,45 @@ const PRODUCT_REFS: ProductRef[] = [
   { key: 'monthly', ios: 'com.app.monthly' },
 ];
 
-const productProvider = stubProductProvider(PRODUCT_CATALOG);
+// Demo-only reachability switches (Task 5, phase 7) — this screen otherwise
+// has no way to exercise the failure or in-flight branches below, since
+// `stubProductProvider` always resolves successfully and instantly. Two
+// independent modes, each flipped by an on-screen button so a person running
+// the example can reach every branch without editing code:
+//   - `productMode: 'fail'` makes `getProducts` reject, driving `products.error`
+//     non-empty (§10 Risk 1's failure pattern).
+//   - `purchaseMode: 'slow'` makes `purchase` wait several seconds before
+//     resolving, keeping `products.purchasing` `"true"` long enough to see the
+//     disabled button + in-flight label (§10 Risk 6's in-flight pattern). A
+//     real bug would hang forever; a fixed multi-second delay is used instead
+//     so the example stays demoable — it always eventually resolves.
+type DemoProductMode = 'success' | 'fail';
+type DemoPurchaseMode = 'success' | 'slow';
+const SLOW_PURCHASE_DELAY_MS = 6000;
+
+const createDemoProductProvider = (
+  getProductMode: () => DemoProductMode,
+  getPurchaseMode: () => DemoPurchaseMode
+): ProductProvider => {
+  const base = stubProductProvider(PRODUCT_CATALOG);
+  return {
+    async getProducts(refs) {
+      if (getProductMode() === 'fail') {
+        throw new Error('Simulated failure: the store could not be reached.');
+      }
+      return base.getProducts(refs);
+    },
+    async purchase(product) {
+      if (getPurchaseMode() === 'slow') {
+        await new Promise((resolve) => setTimeout(resolve, SLOW_PURCHASE_DELAY_MS));
+      }
+      return base.purchase(product);
+    },
+    async restore() {
+      return base.restore();
+    },
+  };
+};
 
 // The paywall's own elements — parsed by `PaywallHost` via `ScreenElementsSchema`,
 // the same engine `OnboardingPage` uses for a `ComposableScreen` step. Exercises
@@ -94,9 +133,44 @@ const paywallElements: UIElement[] = [
             },
           },
           {
+            // "Still loading" is NOT simply the opposite of "loaded".
+            // `ProductStatus` is idle | loading | ready | error, and
+            // `products.loaded` collapses everything that is not `ready` — so
+            // it is "false" for a FAILED fetch too. Gating this branch on
+            // `loaded === "false"` alone would show "Loading plans…" forever
+            // after a store timeout, alongside the failure text below. The
+            // second condition is what separates the two states, and it is the
+            // single easiest thing to get wrong in this pattern.
             id: 'loading', type: 'Text',
-            renderWhen: { variable: 'products.loaded', operator: 'eq', value: 'false' },
+            renderWhen: {
+              logic: 'and',
+              conditions: [
+                { variable: 'products.loaded', operator: 'eq', value: 'false' },
+                { variable: 'products.error', operator: 'is_empty' },
+              ],
+            },
             props: { content: 'Loading plans…', fontSize: 14, textAlign: 'center', opacity: 0.5 },
+          },
+          {
+            // §10 Risk 1's named case: products FAILED, as distinct from still
+            // loading. `products.error` is the only signal that distinguishes
+            // them. Reachable in this example via the "Products: fail" toggle.
+            id: 'load-failed', type: 'Text',
+            renderWhen: { variable: 'products.error', operator: 'is_not_empty' },
+            props: {
+              content: "We couldn't load pricing. Please check your connection and try again later.",
+              fontSize: 14, textAlign: 'center', opacity: 0.7,
+            },
+          },
+          {
+            // Deliberately `dismiss`, not a retry: the SDK exposes no way to
+            // re-fetch products — there is no ButtonAction for it and nothing
+            // on the runtime. A `custom` action naming some `retryProducts`
+            // function would be a control that silently does nothing. Recorded
+            // as a spec follow-up; do not "improve" this into a fake retry.
+            id: 'load-failed-dismiss', type: 'Button',
+            renderWhen: { variable: 'products.error', operator: 'is_not_empty' },
+            props: { label: 'Close', variant: 'outlined', actions: [{ type: 'dismiss' }] },
           },
           {
             id: 'plans', type: 'RadioGroup',
@@ -119,8 +193,23 @@ const paywallElements: UIElement[] = [
             renderWhen: { variable: 'products.loaded', operator: 'eq', value: 'true' },
             props: {
               label: 'Start free trial',
+              // §10 Risk 6's in-flight guard. Note it lives in `props`, NOT
+              // beside `renderWhen` at the element level — `renderWhen` is on
+              // every element, `disabledWhen` is a Button prop. Putting it one
+              // level up is a type error here, but in hand-written JSON it
+              // would simply be ignored and the guard would silently not exist.
+              disabledWhen: { variable: 'products.purchasing', operator: 'eq', value: 'true' },
               actions: [{ type: 'purchase', product: '{{plan}}', onSuccess: [{ type: 'dismiss' }] }],
             },
+          },
+          {
+            // The other half of Risk 6, and it is not optional. `disabledWhen`
+            // alone leaves an inert button with no explanation — the user taps,
+            // nothing happens, and nothing says why. This label is what turns
+            // that into a state rather than a fault.
+            id: 'purchasing', type: 'Text',
+            renderWhen: { variable: 'products.purchasing', operator: 'eq', value: 'true' },
+            props: { content: 'Completing purchase…', fontSize: 14, textAlign: 'center', opacity: 0.6 },
           },
           {
             id: 'maybe-later', type: 'Button',
@@ -202,9 +291,59 @@ function PaywallExampleScreen() {
 }
 
 export default function PaywallExample() {
+  // The two modes are held DIFFERENTLY, and the asymmetry is the whole point.
+  //
+  // `purchaseMode` is a ref: `purchase()` is invoked per tap, so the provider
+  // reads the current value live. Holding it in state would re-create the
+  // provider mid-flight and reset the very in-flight state we want to watch.
+  //
+  // `productMode` must be STATE, and must remount the provider. `useProducts`
+  // fetches inside `useEffect(..., [refsKey, locale])` and `refsKey` is derived
+  // from a static catalog — so `getProducts()` is called exactly ONCE, at mount.
+  // A ref here reads as clever and is simply dead: the fetch has already
+  // happened (and resolved, since the stub has no delay) before anyone can
+  // press the toggle, so `productMode.current` is always still 'success' when
+  // it is read. That was the first version of this screen, and the failure
+  // branch was unreachable. Keying the provider on the mode forces a fresh
+  // mount, which is the only thing that re-runs the fetch.
+  const [productMode, setProductMode] = useState<DemoProductMode>('success');
+  const purchaseMode = useRef<DemoPurchaseMode>('success');
+  const [, forceRender] = useState(0);
+
+  const provider = useMemo(
+    () => createDemoProductProvider(() => productMode, () => purchaseMode.current),
+    [productMode]
+  );
+
   return (
-    <PaywallProvider client={client} productProvider={productProvider}>
+    <PaywallProvider key={productMode} client={client} productProvider={provider}>
       <PaywallExampleScreen />
+      <View style={styles.demoToggles}>
+        <Text style={styles.demoTogglesLabel}>
+          Demo modes — the failure and in-flight branches are unreachable without these
+        </Text>
+        <Pressable
+          style={styles.demoToggle}
+          // Remounts the provider (via its `key`), which is what re-runs the
+          // one-shot product fetch. Flip this, THEN press Present Paywall.
+          onPress={() => setProductMode((m) => (m === 'fail' ? 'success' : 'fail'))}
+        >
+          <Text style={styles.demoToggleText}>
+            Products: {productMode === 'fail' ? 'fail (remounts provider)' : 'succeed'}
+          </Text>
+        </Pressable>
+        <Pressable
+          style={styles.demoToggle}
+          onPress={() => {
+            purchaseMode.current = purchaseMode.current === 'slow' ? 'success' : 'slow';
+            forceRender((n) => n + 1);
+          }}
+        >
+          <Text style={styles.demoToggleText}>
+            Purchase: {purchaseMode.current === 'slow' ? `slow (${SLOW_PURCHASE_DELAY_MS / 1000}s)` : 'instant'}
+          </Text>
+        </Pressable>
+      </View>
       {/* Sibling of the screen's own content — same arrangement as the app-root
           precedent in `PaywallProvider.tsx`'s doc comment. */}
       <PaywallHost />
@@ -272,5 +411,28 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: '400',
     lineHeight: 32,
+  },
+  demoToggles: {
+    position: 'absolute',
+    bottom: 40,
+    left: 20,
+    right: 20,
+    gap: 8,
+  },
+  demoTogglesLabel: {
+    fontSize: 11,
+    color: '#8E8E93',
+    textAlign: 'center',
+  },
+  demoToggle: {
+    borderWidth: 1,
+    borderColor: '#D1D1D6',
+    borderRadius: 8,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  demoToggleText: {
+    fontSize: 13,
+    color: '#3A3A3C',
   },
 });

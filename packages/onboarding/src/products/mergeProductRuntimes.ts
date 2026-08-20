@@ -53,7 +53,8 @@ const mergeStatus = (a: ProductStatus, b: ProductStatus): ProductStatus => {
  * `"idle"` for the local runtime (it bails before ever calling a provider it
  * doesn't have — `useProducts.ts`), and a naive `mergeStatus` would drag the
  * context runtime's `"ready"` down to `"idle"` FOREVER, closing every
- * `renderWhen: {"products.loaded": {eq:"true"}}` gate for good — the same
+ * `renderWhen: {variable:"products.loaded",operator:"eq",value:"true"}`
+ * gate for good — the same
  * "idle blocks readiness when there's nothing to actually wait for" trap
  * `computeIsReady` (`present.ts`) already special-cases for an empty ref set.
  * When there is no local provider, the local runtime has nothing pending, so

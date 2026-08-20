@@ -264,7 +264,11 @@ Resolved store products are projected into the variable bag as FLAT DOTTED KEYS
 plus `products.loaded` / `products.purchasing` / `products.error`). `interpolate()`
 and `evaluateCondition` both do a flat `variables[key]` lookup, so this needs no
 engine change — `{{product.yearly.price}}` and
-`renderWhen: { "products.loaded": { eq: "true" } }` just work.
+`renderWhen: { "variable": "products.loaded", "operator": "eq", "value": "true" }`
+just work. (Corrected — this previously wrote the shorthand
+`{ "products.loaded": { eq: "true" } }`, which does not parse: a leaf
+`renderWhen` is always `{ variable, operator, value? }`, never a map keyed by
+variable name. See the spec's §4.4/§4.6 correction, same bug.)
 
 Products OVERLAY the merged bag and win over author variables
 (`withProductVariables` in `Runtime/variables.ts`): they are facts read from the

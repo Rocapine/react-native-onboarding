@@ -8,6 +8,14 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.68.1] - 2026-08-21
+
+### Notes
+
+- No headless changes. Version moves in lockstep with `@rocapine/react-native-onboarding-ui`, which pins the `react-native-reanimated-carousel` peer range to `^4.0.0` — a fresh install was resolving v5, whose named-only export made the `Carousel` element render `undefined` and red-box on device. See that package's changelog.
+
+---
+
 ## [1.68.0] - 2026-08-21
 
 ### Added

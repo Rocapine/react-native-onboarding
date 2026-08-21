@@ -85,6 +85,35 @@ describe("deriveProductFields", () => {
     expect(d.pricePerWeek).toBeUndefined();
     expect(d.pricePerWeekAmount).toBeUndefined();
   });
+
+  // `pricePerDay` exposes the value the other three were already derived FROM:
+  // `perDay(p)` was computed, used for week/month/year and savingsPct, and then
+  // thrown away. Per-day is the primary price-anchoring device on most trial
+  // paywalls ("$0.43 / day" beside "$39.99 / quarter"), so it could not be
+  // reproduced at all despite the number already existing.
+  it("exposes the per-day price it already computes internally", () => {
+    const d = deriveProductFields(make(), { locale: "en-US" });
+    // 59.99 / 365 days
+    expect(d.pricePerDayAmount).toBeCloseTo(0.1643, 3);
+    expect(d.pricePerDay).toBe("$0.16");
+  });
+
+  it("keeps pricePerDay consistent with the other per-period values", () => {
+    const d = deriveProductFields(make(), { locale: "en-US" });
+    // They are all the same daily figure scaled, so this guards a future
+    // refactor that recomputes one of them from a different base.
+    expect(d.pricePerWeekAmount!).toBeCloseTo(d.pricePerDayAmount! * 7, 6);
+    expect(d.pricePerMonthAmount!).toBeCloseTo(d.pricePerDayAmount! * 30, 6);
+    expect(d.pricePerYearAmount!).toBeCloseTo(d.pricePerDayAmount! * 365, 6);
+  });
+
+  it("omits pricePerDay when the period is unparseable, like its siblings", () => {
+    // The silent precondition worth guarding: no period means no per-day value,
+    // which looks identical to "the feature did not ship".
+    const d = deriveProductFields(make({ periodIso: null, period: null }));
+    expect(d.pricePerDay).toBeUndefined();
+    expect(d.pricePerDayAmount).toBeUndefined();
+  });
 });
 
 describe("deriveAll", () => {

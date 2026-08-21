@@ -236,13 +236,23 @@ export const CheckboxGroupComponent = ({ element, ctx }: Props): React.ReactElem
         const hasSubLabel = !!item.subLabel;
         // Interpolated for DISPLAY only, never before storing. `handleSelect` /
         // `handleToggle` below pass `item.label` RAW into
-        // `setVariable(name, { value, label })`, and `interpolate` favours a
-        // variable's `label` over its `value` — so interpolating before the
-        // store would put a resolved price into the selected entry's `label`
-        // and silently change what `{{thatVariable}}` renders elsewhere. The
-        // machine-identifier path (`purchase.product`, via
-        // `interpolateIdentifier`) reads `value` first and is unaffected
-        // either way, but only because these two stay display-only.
+        // `setVariable(name, { value, label })`, and that distinction is
+        // load-bearing:
+        //
+        //   interpolate("{{plan}}", …)            -> "Quarterly"      (label)
+        //   interpolateIdentifier("{{plan}}", …)  -> "quarterly_14d"  (value)
+        //
+        // Both read the SAME entry and differ only in which field they prefer.
+        // So if the label were interpolated before being stored, every
+        // `{{plan}}` in a Text — a plain, common authoring pattern for echoing
+        // the chosen plan — would render "$39.99" where the author meant
+        // "Quarterly". The variable bag is FLAT, so there is no `{{plan.label}}`
+        // accessor to reach the label another way; `{{plan}}` is the only
+        // reader, which is exactly why keeping the stored value raw matters.
+        //
+        // `purchase.product` resolves through `interpolateIdentifier` and so
+        // survives either way — but that is the narrower path, not the reason
+        // for this constraint. Do not "simplify" by interpolating earlier.
         const labelText = interpolate(item.label ?? "", variables);
         const subLabelText = interpolate(item.subLabel ?? "", variables);
         const itemGap = element.props.itemGap ?? 12;

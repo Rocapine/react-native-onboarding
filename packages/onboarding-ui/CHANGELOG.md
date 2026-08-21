@@ -9,6 +9,18 @@ here.
 
 ---
 
+## [1.68.0] - 2026-08-21
+
+### Fixed
+
+- **Corrected the comment defending the display-only interpolation constraint** added in 1.67.1. The behaviour was and is right — `handleSelect`/`handleToggle` store `item.label` raw while only the rendered text is interpolated — but the stated reason was not: it claimed this "keeps `{{plan.label}}` meaningful", and there is no such accessor. The variable bag is flat, so `{{plan.label}}` resolves to `""`. The real reader of a stored label is plain `{{plan}}` through `interpolate`, which prefers a variable's `label` while `interpolateIdentifier` prefers its `value`. That makes the risk **larger** than described: interpolating before the store would make every `{{plan}}` in a `Text` — a plain, common way to echo the chosen plan — render "$39.99" where the author meant "Quarterly". A comment that defends a constraint by naming a mechanism that does not exist invites a future refactor to conclude the constraint is vacuous and remove it, so this is a correctness risk in prose rather than a cosmetic fix. Both element files now state the mechanism with the two functions' outputs side by side.
+
+### Notes
+
+- No behaviour change in this package. Version moves in lockstep with `@rocapine/react-native-onboarding`, which adds `pricePerDay`.
+
+---
+
 ## [1.67.1] - 2026-08-21
 
 ### Fixed

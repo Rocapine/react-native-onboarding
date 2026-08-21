@@ -16,6 +16,8 @@ const yearly: ProductWithDerived = {
   periodIso: "P1Y",
   pricePerWeek: "$1.15",
   pricePerWeekAmount: 1.1504,
+  pricePerDay: "$0.16",
+  pricePerDayAmount: 0.1643,
   savingsPct: 51,
   trialDays: 7,
 };
@@ -38,6 +40,11 @@ describe("productVariables", () => {
     const v = productVariables({ products: { yearly }, status: "ready", purchasing: false });
     expect(v["product.yearly.price"].value).toBe("$59.99");
     expect(v["product.yearly.pricePerWeek"].value).toBe("$1.15");
+    // Projected like its siblings — an authored `{{product.yearly.pricePerDay}}`
+    // resolves to empty if this key is missing, which is a silent gap rather
+    // than a visible template (`interpolate` renders an unknown key as "").
+    expect(v["product.yearly.pricePerDay"].value).toBe("$0.16");
+    expect(v["product.yearly.pricePerDayAmount"].value).toBe("0.1643");
     expect(v["product.yearly.savingsPct"].value).toBe("51");
     expect(v["product.yearly.trialDays"].value).toBe("7");
     expect(v["product.yearly.title"].value).toBe("Yearly Plan");
@@ -65,7 +72,9 @@ describe("productVariables", () => {
         "product.complete.periodCount",
         "product.complete.pricePerWeek",
         "product.complete.pricePerWeekAmount",
-        "product.complete.pricePerMonth",
+        "product.complete.pricePerDay",
+      "product.complete.pricePerDayAmount",
+      "product.complete.pricePerMonth",
         "product.complete.pricePerMonthAmount",
         "product.complete.pricePerYear",
         "product.complete.pricePerYearAmount",

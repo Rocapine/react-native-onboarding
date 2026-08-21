@@ -49,6 +49,10 @@ export const deriveProductFields = (
     const week = daily * 7;
     const month = daily * 30;
     const year = daily * 365;
+    // `daily` itself, not just its multiples: emitted first so the ordering
+    // matches the ascending sequence below.
+    out.pricePerDayAmount = daily;
+    out.pricePerDay = formatCurrency(daily, p.currencyCode, locale);
     out.pricePerWeekAmount = week;
     out.pricePerWeek = formatCurrency(week, p.currencyCode, locale);
     out.pricePerMonthAmount = month;

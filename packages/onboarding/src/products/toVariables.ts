@@ -35,6 +35,8 @@ export const productVariables = (
     put(`${b}.currencyCode`, p.currencyCode);
     put(`${b}.period`, p.period);
     put(`${b}.periodCount`, p.periodCount);
+    put(`${b}.pricePerDay`, p.pricePerDay);
+    put(`${b}.pricePerDayAmount`, p.pricePerDayAmount);
     put(`${b}.pricePerWeek`, p.pricePerWeek);
     put(`${b}.pricePerWeekAmount`, p.pricePerWeekAmount);
     put(`${b}.pricePerMonth`, p.pricePerMonth);

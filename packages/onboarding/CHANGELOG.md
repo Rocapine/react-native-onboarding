@@ -8,6 +8,19 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.68.0] - 2026-08-21
+
+### Added
+
+- **`product.<slot>.pricePerDay` / `pricePerDayAmount`** — the per-day price, exposed at last. `deriveProductFields` already computed `perDay(p)` and derived week/month/year and `savingsPct` from it, then discarded the value itself, so the per-day framing that anchors most trial paywalls ("$0.43 / day" beside "$39.99 / quarter") could not be authored at all despite the number existing. Projected as a flat dotted variable like its siblings and covered by the exhaustive key-list test.
+
+### Notes
+
+- **Absent whenever the period is unparseable**, exactly like `pricePerWeek`/`Month`/`Year` — `perDay` needs a period. That matters because the failure is indistinguishable from "the feature did not ship": a product resolved without a period (or, in the studio editor's indicative preview, a catalog row with no `duration_iso`) yields an empty string rather than an error. There is a test pinning this.
+- **A misspelled product variable fails silently.** `interpolate` renders an unknown `{{key}}` as an EMPTY STRING, never as the literal template, so `{{product.yearly.pricePerDya}}` ships as a blank where a price should be and reads as a styling bug. Now that prices are authorable directly on `RadioGroup`/`CheckboxGroup` cards (1.67.1) that is the one authoring error that reaches production invisibly — called out in the `compose-screen-builder` skill.
+
+---
+
 ## [1.67.1] - 2026-08-21
 
 ### Fixed

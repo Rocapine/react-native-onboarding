@@ -951,7 +951,7 @@ Execution rules:
 
 **Selling with `purchase` / `restore`**
 
-Resolved store products are projected into the same variable map as flat dotted keys, so prices interpolate like any other variable: `product.<slot>.price`, `product.<slot>.pricePerWeek`, `product.<slot>.savingsPct`, `product.<slot>.trialDays`, plus `products.loaded` / `products.purchasing` / `products.error`. **Never author a price into the payload** — always read it from these variables, and gate the plan list / buy button on `products.loaded` so nothing is tappable before products resolve:
+Resolved store products are projected into the same variable map as flat dotted keys, so prices interpolate like any other variable: `product.<slot>.price`, `product.<slot>.pricePerDay`, `product.<slot>.pricePerWeek`, `product.<slot>.savingsPct`, `product.<slot>.trialDays`, plus `products.loaded` / `products.purchasing` / `products.error`. **Never author a price into the payload** — always read it from these variables, and gate the plan list / buy button on `products.loaded` so nothing is tappable before products resolve:
 
 ```jsonc
 {

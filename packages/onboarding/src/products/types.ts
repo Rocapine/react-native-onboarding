@@ -43,6 +43,14 @@ export type ResolvedProduct = {
  * identical semantics and formatting.
  */
 export type DerivedProductFields = {
+  /**
+   * Per-day price. The value the other three are derived FROM — it was computed
+   * and discarded before 1.68.0, so the per-day framing that anchors most trial
+   * paywalls ("$0.43 / day" beside "$39.99 / quarter") could not be authored at
+   * all. Absent whenever the period is unparseable, exactly like its siblings.
+   */
+  pricePerDay?: string;
+  pricePerDayAmount?: number;
   pricePerWeek?: string;
   pricePerWeekAmount?: number;
   pricePerMonth?: string;

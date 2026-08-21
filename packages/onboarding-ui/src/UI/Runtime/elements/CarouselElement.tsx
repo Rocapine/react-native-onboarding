@@ -263,6 +263,18 @@ export function CarouselElementComponent({ element, ctx }: Props): React.ReactEl
         backgroundColor: activeDotBg,
       }}
       containerStyle={{ gap: dotsGap, marginTop: dotsMarginTop, marginBottom: dotsMarginBottom }}
+      // Each dot is a button whose accessibility label the library builds as
+      // `Slide ${i+1} of ${n} - ${carouselName}` — interpolated UNGUARDED even
+      // though `carouselName` is optional (Pagination/Custom/index.tsx:84). So
+      // omitting it makes a screen reader say "Slide 1 of 6 - undefined" out
+      // loud, once per dot. Confirmed on device.
+      //
+      // The authored `name` is the right source: it is already the human label
+      // for this element everywhere else, and it distinguishes two carousels on
+      // one screen. `name` is optional, so the fallback is a literal rather than
+      // another `undefined` — passing through an absent name would reproduce
+      // exactly the bug this fixes.
+      carouselName={element.name ?? "Carousel"}
       horizontal
       onPress={(index: number) => {
         ref.current?.scrollTo({ count: index - progress.value, animated: true });

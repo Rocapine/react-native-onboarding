@@ -9,6 +9,20 @@ here.
 
 ---
 
+## [1.68.2] - 2026-08-21
+
+### Fixed
+
+- **A `Carousel`'s pagination dots announced "Slide 1 of 6 - undefined" to screen readers**, once per dot. The library builds each dot's accessibility label as `Slide ${i+1} of ${n} - ${carouselName}` and interpolates it **unguarded** even though `carouselName` is optional (`Pagination/Custom/index.tsx:84`), so omitting the prop puts the literal string "undefined" into speech. `CarouselElement` now passes the element's authored `name` — already the human label for the element everywhere else, and it distinguishes two carousels on one screen — falling back to `"Carousel"` when unnamed, because passing an absent `name` through would reproduce the same bug. Found on device via an accessibility inspector.
+
+### Notes
+
+- **Testing 1.68.1's Carousel fix with Metro already running will show the OLD crash.** Metro caches module resolution, so after reinstalling `react-native-reanimated-carousel` the app keeps red-boxing until the bundler is restarted — which reads as "the fix didn't land". Restart Metro after the reinstall. (Recorded here because it cost a real testing cycle.)
+- **1.68.1's narrowed peer range does downgrade an existing install**, not just a fresh one: an app that had transitively resolved 5.1.1 dropped to 4.0.3 on reinstall, verified with `npm ls`. Caveat on generalising — that app never listed the package in its own `package.json`, so npm had no direct dependency entry to honour. A host that pinned 5.x explicitly still has to change its own manifest.
+- `dotsMarginTop` is the gap ABOVE the dots container; the space between the dots and whatever follows is `dotsMarginBottom`, which **defaults to 0**. Both are applied to the pagination container itself, not to the slides.
+
+---
+
 ## [1.68.1] - 2026-08-21
 
 ### Fixed

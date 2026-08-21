@@ -8,6 +8,14 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.68.2] - 2026-08-21
+
+### Notes
+
+- No headless changes. Version moves in lockstep with `@rocapine/react-native-onboarding-ui`, which fixes a `Carousel` pagination dot announcing "Slide 1 of 6 - undefined" to screen readers. See that package's changelog — it also records the Metro-cache gotcha when testing 1.68.1's Carousel fix.
+
+---
+
 ## [1.68.1] - 2026-08-21
 
 ### Notes

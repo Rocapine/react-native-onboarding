@@ -7,6 +7,8 @@ import {
   collectProductRefs,
   computeIsReady,
   purchaseOutcomeFromResult,
+  computeCatalogStatus,
+  type CatalogStatus,
   resolvePresentDecision,
   shouldBreakPresentationWedge,
   resolvePresentedOutcome,
@@ -14,7 +16,7 @@ import {
   type PurchaseOutcomeDuringPresentation,
 } from "./present";
 import { useProducts } from "../products/useProducts";
-import { ProductProvider } from "../products/types";
+import { ProductProvider, ProductStatus } from "../products/types";
 import { ProductRuntimeContext } from "../products/ProductRuntimeContext";
 import type { CustomActions } from "../infra/provider/OnboardingProvider";
 
@@ -51,6 +53,19 @@ export type PaywallContextValue = {
   present: (placement: string) => Promise<PresentResult>;
   isReady: boolean;
   catalog: PaywallCatalog | null;
+  /**
+   * What the catalog is doing — the states `isReady` collapses into one
+   * boolean. See `CatalogStatus`; `"revalidating"` in particular means the
+   * catalog on hand may be superseded within moments, so a missing placement
+   * does not yet mean an absent one.
+   */
+  catalogStatus: CatalogStatus;
+  /**
+   * What the store products are doing. The other half of `isReady`: a host that
+   * sees `catalogStatus: "ready"` but `isReady: false` can tell it is waiting on
+   * the store rather than on us.
+   */
+  productsStatus: ProductStatus;
   /** The paywall currently being presented, or null. Read by `usePaywallHost()` — not by `usePaywall()`. */
   activePaywall: Paywall | null;
   /**
@@ -78,6 +93,9 @@ const EMPTY_PAYWALL_CONTEXT: PaywallContextValue = {
   present: async () => ({ status: "error", reason: "unknown-placement" }),
   isReady: false,
   catalog: null,
+  // No provider above: nothing is loading and nothing will arrive.
+  catalogStatus: "loading",
+  productsStatus: "idle",
   activePaywall: null,
   complete: () => {},
   acknowledgePresentation: () => {},
@@ -164,10 +182,14 @@ const PaywallProviderInner = ({
   // for why the query still needs `paywallQueryClient` for the ONE case
   // `data` alone can't cover: a background revalidation pushing a fresh
   // payload while this query call already resolved with the cached one.
-  const { data, error } = useQuery<PaywallCatalog>(
+  const { data, error, isFetching } = useQuery<PaywallCatalog>(
     getPaywallsQuery(client, locale, customAudienceParams, paywallQueryClient)
   );
   const catalog = data ?? null;
+  // `isFetching` (not `isLoading`) on purpose: it is also true for a BACKGROUND
+  // revalidation behind an already-served cached catalog, which is precisely the
+  // case a host needs to see — see `CatalogStatus`.
+  const catalogStatus = computeCatalogStatus(catalog, error, isFetching);
 
   useEffect(() => {
     if (!error) return;
@@ -380,12 +402,24 @@ const PaywallProviderInner = ({
       present,
       isReady,
       catalog,
+      catalogStatus,
+      productsStatus: productRuntime.status,
       activePaywall,
       complete,
       acknowledgePresentation,
       customActions,
     }),
-    [present, isReady, catalog, activePaywall, complete, acknowledgePresentation, customActions]
+    [
+      present,
+      isReady,
+      catalog,
+      catalogStatus,
+      productRuntime.status,
+      activePaywall,
+      complete,
+      acknowledgePresentation,
+      customActions,
+    ]
   );
 
   return (

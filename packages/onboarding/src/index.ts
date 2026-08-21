@@ -101,4 +101,7 @@ export type {
 export { PaywallProvider, usePaywallHost } from "./paywalls/PaywallProvider";
 export type { PaywallContextValue } from "./paywalls/PaywallProvider";
 export { usePaywall } from "./paywalls/usePaywall";
+// Exported so a host can switch exhaustively on what the catalog is doing
+// rather than inferring it from `isReady` plus a non-null check.
+export type { CatalogStatus } from "./paywalls/present";
 export type { UsePaywallResult } from "./paywalls/usePaywall";

@@ -1,6 +1,8 @@
 import { useContext } from "react";
 import { PaywallContext } from "./PaywallProvider";
 import { PaywallCatalog, PresentResult } from "./types";
+import type { CatalogStatus } from "./present";
+import type { ProductStatus } from "../products/types";
 
 export type UsePaywallResult = {
   /**
@@ -21,6 +23,19 @@ export type UsePaywallResult = {
   isReady: boolean;
   /** The full resolved catalog (every placement), or `null` before it loads. */
   catalog: PaywallCatalog | null;
+  /**
+   * What the catalog is doing, for hosts that need more than `isReady`'s one
+   * bit. `"revalidating"` is the important one: the catalog on hand was served
+   * from disk and a fresh fetch is in flight, so a placement missing from it may
+   * simply not have arrived yet. Gate "fall back to another engine" on
+   * `"ready"`, not merely on a non-null catalog.
+   */
+  catalogStatus: CatalogStatus;
+  /**
+   * What the store products are doing — the other half of `isReady`. Lets a
+   * host tell "still waiting on the store" from "still waiting on us".
+   */
+  productsStatus: ProductStatus;
 };
 
 /**
@@ -30,6 +45,7 @@ export type UsePaywallResult = {
  * `useProductRuntime()` degrades to `null` with no ancestor.
  */
 export const usePaywall = (): UsePaywallResult => {
-  const { present, isReady, catalog } = useContext(PaywallContext);
-  return { present, isReady, catalog };
+  const { present, isReady, catalog, catalogStatus, productsStatus } =
+    useContext(PaywallContext);
+  return { present, isReady, catalog, catalogStatus, productsStatus };
 };

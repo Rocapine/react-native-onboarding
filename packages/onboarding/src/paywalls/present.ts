@@ -100,6 +100,49 @@ export const shouldBreakPresentationWedge = (
 ): boolean => activePlacement !== null && !hostAcknowledged && timedOut;
 
 /**
+ * What the catalog is doing right now — the states `isReady` collapses.
+ *
+ * `isReady` is a single boolean over at least three distinct situations (no
+ * catalog yet, a catalog whose products are still resolving, and a failed query
+ * — which also presents as `catalog === null`). A host deciding "wait for the
+ * catalog" versus "fall back to another paywall engine" cannot tell those apart
+ * from one boolean, and every host that needs the distinction ends up building
+ * its own multi-input gate.
+ *
+ * `"revalidating"` is the state that motivated this, and it is not cosmetic.
+ * In production the catalog is served CACHE-FIRST from AsyncStorage under a key
+ * that is NOT scoped by `customAudienceParams` (`getPaywalls.query.ts` — the
+ * react-query key is param-scoped, the disk key is a bare constant). So a host
+ * sending volatile params gets an instantly-available catalog that was resolved
+ * under DIFFERENT params, with a fresh fetch in flight behind it. That catalog
+ * is present and non-null, so it reads as ready — and a host gating on
+ * `catalog.paywalls[placement]` can conclude the placement does not exist and
+ * route away, milliseconds before the correct catalog arrives.
+ *
+ * Observed consequence, reported from a production pilot: for an audience gated
+ * on a threshold (`hoursSinceOnboardingPaywall >= 44`), the launch where a user
+ * first becomes eligible is served the PRE-threshold catalog, so the arm under
+ * test loses exactly the launch that matters. `"revalidating"` is how a host
+ * distinguishes "this catalog is final" from "this catalog may be superseded in
+ * a moment", and therefore whether a missing placement means absent or not-yet.
+ *
+ * A present catalog outranks an error deliberately: if a background
+ * revalidation fails, react-query keeps the cached `data` AND sets `error`, and
+ * a usable catalog should not be reported as a failure.
+ */
+export type CatalogStatus = "loading" | "ready" | "revalidating" | "error";
+
+export const computeCatalogStatus = (
+  catalog: PaywallCatalog | null,
+  error: unknown,
+  isFetching: boolean
+): CatalogStatus => {
+  if (catalog !== null) return isFetching ? "revalidating" : "ready";
+  if (error) return "error";
+  return "loading";
+};
+
+/**
  * `isReady` = catalog resolved AND products resolved — the one flag a caller
  * needs to know "presenting now will not show a spinner".
  *

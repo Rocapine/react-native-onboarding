@@ -316,13 +316,51 @@ const TextUIElementSchema = z.object({
   props: TextElementPropsSchema,
 });
 
+// DISCRIMINATED on `type`, not a plain union — this is load-bearing for more
+// than speed. A plain `z.union` of these ~25 recursive variants has to try
+// every branch at every node, and each container branch re-parses the whole
+// subtree on the way, so any shape that misses on all of them costs
+// exponential time and memory rather than linear. Three observed consequences,
+// all of them crashes rather than validation errors:
+//
+//  - a real 52-node paywall with every `id` stripped exhausted a 512 MB heap
+//    in ~10s ("Ineffective mark-compacts near heap limit") instead of
+//    reporting a missing `id`. `PaywallHost` parses serve-path payloads
+//    deliberately outside its error boundary — and a boundary cannot catch an
+//    OOM anyway — so that was an app-kill vector reachable from data.
+//  - a single container missing its `children` key threw
+//    `RangeError: Invalid string length` from `JSON.stringify` INSIDE zod's own
+//    error constructor: the error object was too large to build, so nothing
+//    could report it.
+//  - even when it did return, the top-level issue was always `invalid_union` /
+//    "Invalid input" at the array index, with the real cause buried under 25
+//    nested branch errors — which is why callers saw `0: Invalid input`.
+//
+// Note `id` being REQUIRED on every variant is what made the first case
+// maximal rather than mild: a missing `id` misses every branch at every node.
+// So "make `id` required and fail fast" cannot work — a required field has no
+// way to fail fast inside a non-discriminated union. The discriminator is the
+// fix, and it makes all three cases return in ~0ms with the exact path.
+//
+// Consequence for maintainers: every variant needs exactly ONE literal `type`.
+// That is why YStack and XStack are two entries below sharing one props
+// schema, rather than one entry with `z.union([literal, literal])` — a
+// discriminated union cannot key off a union of literals.
 export const UIElementSchema: z.ZodType<UIElement> = z.lazy(() =>
-  z.union([
+  z.discriminatedUnion("type", [
     z.object({
       id: z.string(),
       name: z.string().optional(),
       renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
-      type: z.union([z.literal("YStack"), z.literal("XStack")]),
+      type: z.literal("YStack"),
+      props: StackElementPropsSchema,
+      children: z.array(UIElementSchema),
+    }),
+    z.object({
+      id: z.string(),
+      name: z.string().optional(),
+      renderWhen: z.union([LeafConditionSchema, ConditionGroupSchema]).optional(),
+      type: z.literal("XStack"),
       props: StackElementPropsSchema,
       children: z.array(UIElementSchema),
     }),

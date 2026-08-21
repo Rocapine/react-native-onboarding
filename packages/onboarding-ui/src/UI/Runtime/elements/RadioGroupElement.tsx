@@ -4,7 +4,7 @@ import { View, Text, TouchableOpacity } from "react-native";
 import { useResolvedFontStyle } from "@rocapine/react-native-onboarding";
 import { BaseBoxProps, BaseBoxPropsSchema, type ShadowOffset, ShadowOffsetSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
-import { RenderContext, dim, resolveInheritedFontFamily, buildShadowStyle } from "./shared";
+import { RenderContext, dim, interpolate, resolveInheritedFontFamily, buildShadowStyle } from "./shared";
 import { useVariables } from "./VariablesContext";
 import { GradientBox } from "./GradientBox";
 import { triggerHaptic, type HapticStyle } from "./haptics";
@@ -221,6 +221,17 @@ export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement
         const innerDotSize = tickSize / 2;
         const hasLabel = !!item.label;
         const hasSubLabel = !!item.subLabel;
+        // Interpolated for DISPLAY only, never before storing. `handleSelect` /
+        // `handleToggle` below pass `item.label` RAW into
+        // `setVariable(name, { value, label })`, and `interpolate` favours a
+        // variable's `label` over its `value` — so interpolating before the
+        // store would put a resolved price into the selected entry's `label`
+        // and silently change what `{{thatVariable}}` renders elsewhere. The
+        // machine-identifier path (`purchase.product`, via
+        // `interpolateIdentifier`) reads `value` first and is unaffected
+        // either way, but only because these two stay display-only.
+        const labelText = interpolate(item.label ?? "", variables);
+        const subLabelText = interpolate(item.subLabel ?? "", variables);
         const itemGap = element.props.itemGap ?? 12;
 
         const imageNode = item.image
@@ -279,7 +290,7 @@ export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement
                   textAlign: itemTextAlign,
                 }}
               >
-                {item.label}
+                {labelText}
               </Text>
             )}
             {hasSubLabel && (
@@ -295,7 +306,7 @@ export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement
                   textAlign: itemTextAlign,
                 }}
               >
-                {item.subLabel}
+                {subLabelText}
               </Text>
             )}
           </View>
@@ -328,7 +339,7 @@ export const RadioGroupComponent = ({ element, ctx }: Props): React.ReactElement
             onPress={() => handleSelect(item.value, item.label)}
             accessibilityRole="radio"
             accessibilityState={{ selected: isSelected, checked: isSelected }}
-            accessibilityLabel={item.label ?? item.subLabel ?? item.value}
+            accessibilityLabel={hasLabel ? labelText : hasSubLabel ? subLabelText : item.value}
             style={{
               flexDirection: "row",
               alignItems: element.props.itemAlignItems ?? "center",

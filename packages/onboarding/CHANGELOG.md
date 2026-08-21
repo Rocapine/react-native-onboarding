@@ -8,6 +8,20 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.67.1] - 2026-08-21
+
+### Fixed
+
+- **A malformed element tree could crash the app instead of failing validation.** `UIElementSchema` was a plain `z.union` of ~27 recursive variants, so it tried every branch at every node and each container branch re-parsed the whole subtree on the way — making any shape that missed on all of them exponential rather than linear. Three consequences, all reproduced against a real 52-node paywall, and all crashes rather than errors: every `id` stripped **exhausted a 512 MB heap in ~10 s** ("Ineffective mark-compacts near heap limit"); one container missing its `children` key threw **`RangeError: Invalid string length` from inside zod's own error constructor** (the error object was too large to build, so nothing could report it); and even when it did return, the only readable issue was `invalid_union` / "Invalid input" at the array index. `PaywallHost` parses serve-path payloads deliberately outside its error boundary — and a boundary cannot catch an OOM anyway — so the first case was an app-kill vector reachable from authored data. Now `z.discriminatedUnion("type", …)`: all three cases return in single-digit milliseconds with the exact failing path (`0.id`, `0.children`, `…props.variant`), and an unknown `type` reports a discriminator miss naming every valid element.
+
+### Notes
+
+- **`id` being required was not a fix for this, it was the trigger.** `id: z.string()` is required on every variant, so a missing one misses every branch at every node — which is precisely what made that case maximal-cost. A required field cannot fail fast inside a non-discriminated union, so "require `id` and fail early" was a no-op; the discriminator is what makes it fast.
+- **Every variant now needs exactly ONE literal `type`.** `YStack` and `XStack` are therefore two entries sharing one props schema rather than one entry with `z.union([literal, literal])`, which a discriminated union cannot key off. Element count is unchanged (27) and no previously-valid payload becomes invalid.
+- Error *messages* change shape for invalid payloads — precise paths instead of `invalid_union`. Nothing that parsed before parses differently now.
+
+---
+
 ## [1.67.0] - 2026-08-21
 
 ### Fixed

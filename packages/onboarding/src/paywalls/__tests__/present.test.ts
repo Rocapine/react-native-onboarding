@@ -5,6 +5,7 @@ import {
   purchaseOutcomeFromResult,
   resolvePresentDecision,
   resolvePresentedOutcome,
+  shouldBreakPresentationWedge,
   shouldRecordPurchaseOutcome,
 } from "../present";
 import type { Paywall, PaywallCatalog } from "../types";
@@ -81,26 +82,94 @@ describe("resolvePresentDecision", () => {
     expect(decision).toEqual({ type: "start", paywall });
   });
 
-  it("resolves 'error' immediately when the placement is absent from the catalog", () => {
+  // Every error below carries a `reason`. The bare `{status:"error"}` these
+  // used to assert is what made two conditions with OPPOSITE correct responses
+  // — "retry later, the catalog may still arrive" vs "do not retry, something
+  // is stuck" — indistinguishable to the caller.
+  it("resolves 'unknown-placement' when the placement is absent from the catalog", () => {
     const decision = resolvePresentDecision(catalog, null, "does_not_exist");
-    expect(decision).toEqual({ type: "immediate", result: { status: "error" } });
+    expect(decision).toEqual({
+      type: "immediate",
+      result: { status: "error", reason: "unknown-placement" },
+    });
   });
 
-  it("resolves 'error' immediately when the catalog has not resolved yet (null)", () => {
+  it("resolves 'unknown-placement' when the catalog has not resolved yet (null)", () => {
     const decision = resolvePresentDecision(null, null, "hard_paywall");
-    expect(decision).toEqual({ type: "immediate", result: { status: "error" } });
+    expect(decision).toEqual({
+      type: "immediate",
+      result: { status: "error", reason: "unknown-placement" },
+    });
   });
 
-  it("resolves 'error' immediately when another paywall is already showing, even for a valid placement", () => {
+  it("resolves 'already-presenting' AND names the placement that is showing", () => {
+    // The placement is the difference between "I double-called for the same
+    // one" (caller adds a guard) and "something else is stuck" (caller cannot
+    // fix it) — different diagnoses, so the bare status could serve neither.
     const decision = resolvePresentDecision(catalog, "already_showing", "hard_paywall");
-    expect(decision).toEqual({ type: "immediate", result: { status: "error" } });
+    expect(decision).toEqual({
+      type: "immediate",
+      result: {
+        status: "error",
+        reason: "already-presenting",
+        activePlacement: "already_showing",
+      },
+    });
+  });
+
+  it("reports 'already-presenting' when the caller re-presents the SAME placement", () => {
+    const decision = resolvePresentDecision(catalog, "hard_paywall", "hard_paywall");
+    expect(decision).toEqual({
+      type: "immediate",
+      result: {
+        status: "error",
+        reason: "already-presenting",
+        activePlacement: "hard_paywall",
+      },
+    });
   });
 
   it("the concurrent-present check takes priority over the unknown-placement check", () => {
     // Both conditions are true at once: prove the function still resolves
-    // rather than e.g. throwing on the first branch it happens to hit.
+    // rather than e.g. throwing on the first branch it happens to hit, and
+    // that the reason reflects the branch actually taken.
     const decision = resolvePresentDecision(catalog, "already_showing", "does_not_exist");
-    expect(decision).toEqual({ type: "immediate", result: { status: "error" } });
+    expect(decision).toEqual({
+      type: "immediate",
+      result: {
+        status: "error",
+        reason: "already-presenting",
+        activePlacement: "already_showing",
+      },
+    });
+  });
+});
+
+describe("shouldBreakPresentationWedge", () => {
+  // The confirmed production failure this exists for: iOS refuses to present a
+  // view controller over one that is already presenting (another Modal, a
+  // `presentation: "modal"` route, a StoreKit alert). `present()` has already
+  // set `activePlacement`, the host's Modal never actually appears, so nothing
+  // ever calls `complete()` — and because `activePaywall` is non-null the
+  // OTHER self-heal (which requires it to be null) cannot fire. Every later
+  // `present()` then returns "error" for the life of the process, with no
+  // error and no log, on a monetisation surface.
+  it("breaks the wedge once a presentation has timed out unacknowledged", () => {
+    expect(shouldBreakPresentationWedge("hard_paywall", false, true)).toBe(true);
+  });
+
+  it("does NOT fire while nothing is being presented", () => {
+    expect(shouldBreakPresentationWedge(null, false, true)).toBe(false);
+  });
+
+  it("does NOT fire once the host has acknowledged — a real paywall may stay up for minutes", () => {
+    // The whole point of requiring an acknowledgement rather than a bare
+    // timeout: a user reading a paywall must never have it torn down.
+    expect(shouldBreakPresentationWedge("hard_paywall", true, true)).toBe(false);
+  });
+
+  it("does NOT fire before the timeout elapses, even unacknowledged", () => {
+    expect(shouldBreakPresentationWedge("hard_paywall", false, false)).toBe(false);
   });
 });
 

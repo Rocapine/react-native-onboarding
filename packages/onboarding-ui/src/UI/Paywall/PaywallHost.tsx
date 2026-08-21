@@ -12,7 +12,10 @@ import { ScreenRenderer } from "../Runtime/ScreenRenderer";
 import type { ScreenHost, CompleteOutcome } from "../Runtime/ScreenHost";
 import { withErrorBoundary } from "../ErrorBoundary";
 import { useTheme } from "../Theme/useTheme";
-import { resolvePaywallModalDecision } from "./resolvePaywallModalDecision";
+import {
+  describePaywallParseError,
+  resolvePaywallModalDecision,
+} from "./resolvePaywallModalDecision";
 
 // `usePaywallHost().complete` takes the CLOSED `PresentResult` union
 // (required argument); `ScreenHost.complete` takes the OPEN `CompleteOutcome`
@@ -158,7 +161,8 @@ const PaywallContent = withErrorBoundary(PaywallContentBase, "Paywall");
  *   insets without this nested provider.
  */
 export const PaywallHost = () => {
-  const { activePaywall, complete: resolvePresent, customActions } = usePaywallHost();
+  const { activePaywall, complete: resolvePresent, acknowledgePresentation, customActions } =
+    usePaywallHost();
 
   // Adapts the engine's open `ScreenHost.complete` (optional CompleteOutcome)
   // into `usePaywallHost().complete`'s closed, required `PresentResult` — see
@@ -184,9 +188,13 @@ export const PaywallHost = () => {
   // transparent Modal. Symmetric fix: resolve the pending `present()` call
   // with `"error"` the same way a parse failure does, closing the trap
   // completely instead of narrowing it.
+  // `resolvePresent` directly, not the `complete` wrapper above: that wrapper
+  // goes through `toPresentResult`, which narrows to `{status}` alone and would
+  // drop the reason. The reason is the whole point — a caller must be able to
+  // tell a crashed render from a refused presentation from an unknown placement.
   const handleRenderError = useCallback(() => {
-    complete({ status: "error" });
-  }, [complete]);
+    resolvePresent({ status: "error", reason: "render-error" });
+  }, [resolvePresent]);
 
   // Parsed OUTSIDE `PaywallContent`'s error boundary — Finding 2, 2026-08-17
   // final review — so a malformed payload never reaches the Modal at all. See
@@ -202,10 +210,21 @@ export const PaywallHost = () => {
   // effect, not a render-time call); `complete` no-ops safely if this ever
   // ran with nothing pending.
   useEffect(() => {
-    if (decision.type === "parse-error") {
-      complete({ status: "error" });
-    }
-  }, [decision, complete]);
+    if (decision.type !== "parse-error") return;
+    // LOG IT. `safeParse` already computed exactly which prop is wrong, and
+    // discarding that was its own bug: a paywall that can never render
+    // resolved a bare "error", with no log at any level, so the cause was only
+    // reachable by fetching the payload and re-running the schema by hand.
+    // Almost always a CMS data bug (a wrong enum value), which the host cannot
+    // fix and the author must — so name the path and the value.
+    console.error(
+      `[PaywallHost] Paywall "${activePaywall?.placement ?? "?"}" (${activePaywall?.id ?? "?"}) ` +
+        "was NOT shown: its elements failed validation. This is a data problem in the " +
+        `authored paywall, not a device problem — fix it in the studio. ` +
+        describePaywallParseError(decision.error, activePaywall?.elements),
+    );
+    resolvePresent({ status: "error", reason: "parse-error" });
+  }, [decision, resolvePresent, activePaywall]);
 
   return (
     <Modal
@@ -214,6 +233,15 @@ export const PaywallHost = () => {
       presentationStyle="fullScreen"
       transparent={false}
       onRequestClose={handleRequestClose}
+      // The host's confirmation that the paywall is genuinely on screen.
+      // `PaywallProvider` abandons an unacknowledged presentation after its
+      // timeout, because iOS silently REFUSES to present over an
+      // already-presenting view controller (another Modal, a
+      // `presentation: "modal"` route, a StoreKit alert) — and without this
+      // signal that refusal wedged every later present() call for the life of
+      // the process. onShow never fires when the platform refuses, which is
+      // exactly what makes it the right signal.
+      onShow={acknowledgePresentation}
     >
       <SafeAreaProvider>
         {decision.type === "show" && activePaywall && (

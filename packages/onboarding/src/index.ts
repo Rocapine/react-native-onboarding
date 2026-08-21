@@ -94,6 +94,9 @@ export type {
   PaywallOptions,
   GetPaywallsResponseHeaders,
   PresentResult,
+  // Exported so a host can switch exhaustively on WHY a presentation failed
+  // rather than pattern-matching the message.
+  PresentErrorReason,
 } from "./paywalls/types";
 export { PaywallProvider, usePaywallHost } from "./paywalls/PaywallProvider";
 export type { PaywallContextValue } from "./paywalls/PaywallProvider";

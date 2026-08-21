@@ -9,6 +9,20 @@ here.
 
 ---
 
+## [1.67.0] - 2026-08-21
+
+### Fixed
+
+- **A paywall that failed validation reported nothing at all.** `PaywallHost` parses `elements` before opening the Modal (so a malformed payload can never reach the escape-less fullScreen Modal), but the decision kept only `success` and threw the `ZodError` away — so a paywall that could never render resolved a bare `"error"` with **no log at any level**, and the cause was only reachable by fetching the served payload and re-running the schema by hand. It cost two multi-hour investigations to identify a real case by elimination: a `Button` authored with `variant: "plain"`, which is not in `filled|outlined|ghost`. The validation error is now carried on the decision and logged with the failing path AND the value the author actually wrote, e.g. `0.children.0.children.0.props.variant: Invalid option: expected one of "filled"|"outlined"|"ghost" (authored value: "plain")`. Almost always a CMS **data** bug the host cannot fix and the author must, so the message says so.
+- **`PaywallHost` now confirms the paywall actually appeared**, via the Modal's `onShow` → `acknowledgePresentation`. Without that signal, a presentation the platform silently refused was indistinguishable from one the user was reading, and the refused case wedged every later `present()` call for the life of the process — see the headless 1.67.0 entry.
+- **`parse-error` and `render-error` now reach the caller as reasons.** Both went through the `ScreenHost` narrowing wrapper, which reduces an outcome to `{status}` and dropped the reason; they now resolve the pending `present()` directly.
+
+### Added
+
+- **`describePaywallParseError(error, elements?)`** — renders a Zod failure as one line naming the offending paths and the authored values. Exported and pure because this package has no render harness, and the entire value of the message is that it is precise. It **walks the issue tree**: the element schema is a 26-member union of unions, so the top-level issue is always `invalid_union` / "Invalid input" at the array index, and reporting only that prints `0: Invalid input` — no better than the discarded error it replaces. It also ranks paths the author actually WROTE above missing-prop complaints from non-matching variants, which is what separates "your data is wrong" from "you are not a Text element"; in the real case, depth alone surfaced `props.content/url/intensity: expected string, received undefined` while the true cause sat at the same depth.
+
+---
+
 ## [1.66.0] - 2026-08-19
 
 ### Fixed

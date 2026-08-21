@@ -8,6 +8,25 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.67.0] - 2026-08-21
+
+### Fixed
+
+- **One refused presentation permanently disabled paywalls for the rest of the process.** iOS will not present a view controller over one that is already presenting — another `Modal`, a `presentation: "modal"` route, a StoreKit alert. `present()` had already set the active placement by then, but the host's Modal never appeared, so nothing ever called `complete()`: the pending promise never settled, the placement stayed set for the life of the app, and **every later `present()` — for any placement — resolved `"error"` with no error and no log.** Confirmed in production on a monetisation surface, where the failure is invisible to the host and to us. The existing self-heal structurally could not catch it: that one requires `activePaywall` to be null, and here it is non-null (the catalog holds the paywall perfectly well — only the platform refused to show it). `PaywallProvider` now abandons a presentation the host never confirmed, after `presentAckTimeoutMs` (default 5000 ms), resolving `{status:"error", reason:"host-never-presented"}` and logging why. An **acknowledgement** rather than a bare timeout, because a paywall a user is reading legitimately stays active for minutes, so elapsed time alone cannot tell "still on screen" from "never appeared" — only an unacknowledged presentation is ever torn down.
+
+### Added
+
+- **`PresentResult.reason`** — every `"error"` now says WHY: `unknown-placement`, `already-presenting`, `parse-error`, `render-error`, `host-never-presented`, `paywall-disappeared`. The bare status conflated conditions whose correct recovery is opposite: `unknown-placement` means the catalog may not have arrived yet and retrying is right, `already-presenting` means retrying is wrong and something may be stuck. A caller given only the status could act correctly on neither, and two separate multi-hour production investigations were spent reconstructing by elimination what this value already knew. Exported as `PresentErrorReason` so a host can switch exhaustively.
+- **`PresentResult.activePlacement`** — set alongside `reason: "already-presenting"`, naming the placement that holds the surface. The same placement means the caller double-called and wants its own in-flight guard; a different one means something else is stuck, which the caller cannot fix. Different diagnoses, so the bare status served neither.
+- **`presentAckTimeoutMs`** on `PaywallProvider` — tunes the window above. `null` disables the recovery, which reinstates the permanent-wedge failure; only pass it if the host cannot acknowledge.
+- **`acknowledgePresentation`** on the paywall context (`usePaywallHost()`) — how a host confirms a paywall genuinely reached the screen. `@rocapine/react-native-onboarding-ui` wires it to its Modal's `onShow`, which never fires when the platform refuses; that is what makes it the right signal.
+
+### Notes
+
+- **Both packages must move together for this release.** The recovery depends on the host acknowledging, so a newer headless paired with a `-ui` older than 1.67.0 would never receive an acknowledgement and would abandon legitimate presentations after the timeout. The two packages share a version by policy and `npm run publish:all` ships them together, so this is a caveat for hand-pinned installs, not the normal path.
+
+---
+
 ## [1.66.0] - 2026-08-19
 
 ### Notes

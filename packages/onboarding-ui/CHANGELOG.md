@@ -9,6 +9,21 @@ here.
 
 ---
 
+## [1.68.1] - 2026-08-21
+
+### Fixed
+
+- **`Carousel` could not render at all in a fresh install** — red box on device, paywall dead. The peer range for `react-native-reanimated-carousel` was `"*"` and not optional, so npm resolved the newest major and every fresh install got **v5**. v4 exports Carousel as a DEFAULT (`export default Carousel`); v5 removed that and exports named (`export { Carousel }`), so the default import in `CarouselElement.tsx` bound `undefined` and React threw *"Element type is invalid … got: undefined. Check the render method of `Carousel`."* `Pagination` is named in both majors and resolved fine, which is exactly what made the failure look like an element bug rather than a dependency one. This repo never saw it because its devDependency pins `^4.0.3`. Found on a real device; nothing offline could have caught it, because a payload cannot express a runtime peer requirement and the tree was schema-valid throughout.
+- **The peer range is now `^4.0.0`**, matching the major the code is written against and tested on. That is the whole fix: fresh installs resolve v4 again and the existing default import is correct.
+
+### Notes
+
+- **How it failed is worse than that it failed.** The render error is caught by `PaywallContent`'s error boundary, which resolves `complete({status:"error"})` — so on a home placement it is a silently missed impression, and a host that falls through to another paywall engine on `"error"` sees conversion quietly route away with no red box in production. A dead element and an invisible one are not the same severity.
+- **v5 is a migration, not an import fix, and the range must not be widened without it.** v5 also drops `autoPlay`, `autoPlayInterval`, `snapEnabled`, `pagingEnabled`, `mode` and `modeConfig` — all used by this element and all authored in payloads — and narrows `onProgressChange` from `(offsetProgress, absoluteProgress)` to `(progress)` while the element reads the second argument. It additionally requires `react-native` >= 0.80, `react-native-reanimated` >= 4.1 and `react-native-worklets`. Reasoning recorded at the import so a future "modernize the import" change cannot land alone.
+- **Same class elsewhere, not fixed here.** An audit of both packages found many peers still on `"*"`: required ones include `react-native-safe-area-context`, `react`, `react-native` and `@types/react`; optional ones include `expo-image`, `expo-video`, `expo-haptics`, `lottie-react-native`, `rive-react-native`, `@react-native-picker/picker`, `@react-native-community/slider` and `datetimepicker`. Each needs its own judgement about which majors the code supports, so they are not swept into a bug fix. Separately, **`react-native-reanimated` is used but declared as a peer nowhere**, so a host missing it gets a runtime failure with no npm warning.
+
+---
+
 ## [1.68.0] - 2026-08-21
 
 ### Fixed

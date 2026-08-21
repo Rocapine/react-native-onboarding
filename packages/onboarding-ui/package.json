@@ -1,6 +1,6 @@
 {
   "name": "@rocapine/react-native-onboarding-ui",
-  "version": "1.68.0",
+  "version": "1.68.1",
   "description": "UI components and renderers for Rocapine Onboarding Studio - Built on top of the headless SDK",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -65,7 +65,7 @@
     "lottie-react-native": "*",
     "react": "*",
     "react-native": "*",
-    "react-native-reanimated-carousel": "*",
+    "react-native-reanimated-carousel": "^4.0.0",
     "react-native-safe-area-context": "*",
     "rive-react-native": "*"
   },

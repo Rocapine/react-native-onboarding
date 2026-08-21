@@ -9,6 +9,14 @@ here.
 
 ---
 
+## [1.69.0] - 2026-08-21
+
+### Notes
+
+- No UI changes. Version moves in lockstep with `@rocapine/react-native-onboarding`, which adds `catalogStatus` / `productsStatus` to `usePaywall()` so a host can tell a settled catalog from one that is still being revalidated behind a cache hit. See that package's changelog.
+
+---
+
 ## [1.68.2] - 2026-08-21
 
 ### Fixed

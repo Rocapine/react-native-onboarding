@@ -8,6 +8,23 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.69.0] - 2026-08-21
+
+### Added
+
+- **`usePaywall().catalogStatus`** — `"loading" | "ready" | "revalidating" | "error"`, exported as `CatalogStatus`. `isReady` is a single boolean over at least three distinct situations (no catalog yet, a catalog whose products are still resolving, and a failed query — which also presents as `catalog === null`), so a host deciding "wait for the catalog" versus "fall back to another paywall engine" could not tell them apart, and every host needing that distinction ended up building its own multi-input gate.
+- **`usePaywall().productsStatus`** — the other half of `isReady`, so a host seeing `catalogStatus: "ready"` with `isReady: false` can tell it is waiting on the store rather than on us.
+
+### Notes
+
+- **`"revalidating"` is the state this was actually built for, and it is not cosmetic.** In production the catalog is served CACHE-FIRST from AsyncStorage under a key that is **not** scoped by `customAudienceParams` — the react-query key is param-scoped, the disk key is a bare constant (`getPaywalls.query.ts` / `infra/queries/cacheKey.ts`). So a host sending volatile params gets an instantly-available catalog **resolved under different params**, with a fresh fetch in flight behind it. That catalog is non-null, so it reads as ready, and a host gating on `catalog.paywalls[placement]` can conclude the placement does not exist and route away milliseconds before the correct catalog lands.
+- Reported from a production pilot, where the consequence was specific: for an audience gated on a threshold (`hoursSinceOnboardingPaywall >= 44`), the launch on which a user first becomes eligible was served the PRE-threshold catalog, so the arm under test lost exactly the launch that mattered — turning an A/B into a measurement of cache behaviour. `catalogStatus === "revalidating"` is how a host now distinguishes "this catalog is final" from "this may be superseded in a moment", and therefore whether a missing placement means absent or not-yet.
+- **The disk cache is deliberately left unkeyed.** Scoping it by params would cause a miss on every param change and destroy the fast first paint the cache exists for, which is the correct trade-off for the common case of stable params. Exposing the state is strictly more useful than changing the caching, and was what the reporting host asked for.
+- A present catalog outranks an error on purpose: when a background revalidation fails, react-query keeps the cached `data` and sets `error`, and a usable catalog must not be reported as a failure.
+- Additive. `isReady` is unchanged and still the right single check for "presenting now will not show a spinner".
+
+---
+
 ## [1.68.2] - 2026-08-21
 
 ### Notes

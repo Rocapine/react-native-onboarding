@@ -2,6 +2,33 @@ import React, { useEffect, useRef, useState } from "react";
 import { View, type LayoutChangeEvent } from "react-native";
 import { z } from "zod";
 import { useSharedValue } from "react-native-reanimated";
+// DEFAULT import, and the peer range in package.json is pinned to `^4.0.0`
+// because of it. These two facts are one decision and must move together.
+//
+// `react-native-reanimated-carousel@4` exports Carousel as a DEFAULT only
+// (`export default Carousel`). v5 removed that default and exports named
+// (`export { Carousel }`) — so under v5 this binding is `undefined` and the
+// element red-boxes on device with "Element type is invalid … got: undefined",
+// pointing at `Carousel` rather than at the import. `Pagination` is named in
+// both majors and resolves fine, which is what makes the failure look like an
+// element bug instead of a dependency one.
+//
+// That shipped: the peer range was `"*"` and not optional, so npm resolved the
+// newest major and every FRESH install got v5 and a dead Carousel — while this
+// repo kept working, because its devDependency pins ^4.0.3. Confirmed on a real
+// device before it was found here.
+//
+// Do NOT "modernize" this to `import { Carousel }` on its own. v5 is a
+// migration, not an import fix: it also drops `autoPlay`, `autoPlayInterval`,
+// `snapEnabled`, `pagingEnabled`, `mode` and `modeConfig` — all used below and
+// all authored in payloads — and narrows `onProgressChange` from
+// `(offsetProgress, absoluteProgress)` to `(progress)`, while the handler below
+// reads the SECOND argument. Supporting v5 means reworking this element's props
+// and its progress plumbing, and widening the peer range without that is how
+// the crash comes back.
+//
+// `ICarouselInstance` is v4's ref type; v5 renamed it `CarouselRef`. Type-only,
+// so it erases at runtime and did not contribute to the crash.
 import Carousel, { Pagination, ICarouselInstance } from "react-native-reanimated-carousel";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import type { UIElement } from "../types";

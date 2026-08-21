@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   collectProductRefs,
+  computeCatalogStatus,
   computeIsReady,
   purchaseOutcomeFromResult,
   resolvePresentDecision,
@@ -255,5 +256,49 @@ describe("shouldRecordPurchaseOutcome", () => {
 
   it("does NOT record for a generation older than the current one by more than one step either", () => {
     expect(shouldRecordPurchaseOutcome(1, 5)).toBe(false);
+  });
+});
+
+describe("computeCatalogStatus", () => {
+  const catalog = makeCatalog([makePaywall({ id: "1", placement: "hard_paywall" })]);
+
+  it("is 'loading' before anything arrives", () => {
+    expect(computeCatalogStatus(null, null, true)).toBe("loading");
+    expect(computeCatalogStatus(null, null, false)).toBe("loading");
+  });
+
+  it("is 'error' only when there is no catalog to fall back on", () => {
+    expect(computeCatalogStatus(null, new Error("network"), false)).toBe("error");
+  });
+
+  it("is 'ready' for a settled catalog", () => {
+    expect(computeCatalogStatus(catalog, null, false)).toBe("ready");
+  });
+
+  it("is 'revalidating' when a catalog is on hand AND a fetch is in flight", () => {
+    // The state this type exists for. In production the catalog is served
+    // cache-first from a disk key that is NOT scoped by customAudienceParams,
+    // so this catalog may have been resolved under DIFFERENT params and be
+    // superseded in a moment. A host must be able to tell that a placement
+    // missing HERE might simply not have arrived yet.
+    expect(computeCatalogStatus(catalog, null, true)).toBe("revalidating");
+  });
+
+  it("prefers a usable catalog over reporting a failed revalidation", () => {
+    // react-query keeps cached `data` and sets `error` when a background
+    // refetch fails. Reporting "error" there would make a host discard a
+    // perfectly serviceable catalog.
+    expect(computeCatalogStatus(catalog, new Error("revalidation failed"), false)).toBe("ready");
+    expect(computeCatalogStatus(catalog, new Error("revalidation failed"), true)).toBe("revalidating");
+  });
+
+  it("distinguishes every state `isReady` collapses", () => {
+    // isReady is false for all three of these; catalogStatus separates them,
+    // which is the whole point.
+    const loading = computeCatalogStatus(null, null, true);
+    const errored = computeCatalogStatus(null, new Error("x"), false);
+    const productsPending = computeCatalogStatus(catalog, null, false);
+    expect(computeIsReady(null, [], "idle")).toBe(false);
+    expect(new Set([loading, errored, productsPending]).size).toBe(3);
   });
 });

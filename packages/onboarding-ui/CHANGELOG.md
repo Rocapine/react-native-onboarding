@@ -9,6 +9,16 @@ here.
 
 ---
 
+## [1.67.1] - 2026-08-21
+
+### Fixed
+
+- **`RadioGroup` and `CheckboxGroup` item text did not interpolate `{{variables}}`.** `{item.label}` and `{item.subLabel}` were rendered raw — `interpolate` appeared nowhere in either file, while `TextElement` has always used it. The practical effect: **a price could not appear on a plan card**, so a multi-plan paywall (the canonical subscription paywall, and the one job these elements exist for) could not show per-plan pricing, strikethrough comparisons, or any product value at all. Authors were pushed into laying prices out in a parallel row that only aligns while every item happens to be the same width. Both elements already subscribe to the variable store via `useVariables()`, so this needed no new plumbing.
+- **Interpolation is DISPLAY-only, deliberately.** `handleSelect` / `handleToggle` still pass `item.label` **raw** into `setVariable(name, { value, label })`. Interpolating before the store would put a resolved price into the selected entry's `label`, and `interpolate` favours a variable's `label` over its `value` — so `{{thatVariable}}` would silently start rendering a price elsewhere on the screen. The machine-identifier path (`purchase.product` via `interpolateIdentifier`, which reads `value` first) is unaffected either way, but only because these two stay display-only. `accessibilityLabel` interpolates too — a screen reader must not read a raw template.
+- **Mirrored the discriminated-union conversion** in `UI/Runtime/types.ts` — see the headless 1.67.1 entry for what it fixes. The UI copy is the one `PaywallHost` actually parses with, so it carries the crash fix.
+
+---
+
 ## [1.67.0] - 2026-08-21
 
 ### Fixed

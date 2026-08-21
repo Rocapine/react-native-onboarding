@@ -57,14 +57,47 @@ export const resolvePresentDecision = (
   placement: string
 ): PresentDecision => {
   if (activePlacement !== null) {
-    return { type: "immediate", result: { status: "error" } };
+    // `activePlacement` is echoed back deliberately — see PresentErrorReason.
+    return {
+      type: "immediate",
+      result: { status: "error", reason: "already-presenting", activePlacement },
+    };
   }
   const paywall = catalog?.paywalls[placement];
   if (!paywall) {
-    return { type: "immediate", result: { status: "error" } };
+    return { type: "immediate", result: { status: "error", reason: "unknown-placement" } };
   }
   return { type: "start", paywall };
 };
+
+/**
+ * Whether an in-progress presentation should be abandoned because the host
+ * never confirmed it appeared.
+ *
+ * The failure this recovers from, observed in production: iOS refuses to
+ * present a view controller over one that is already presenting — another
+ * `Modal`, a `presentation: "modal"` route, a StoreKit alert. `present()` has
+ * already set `activePlacement` by then, but the host's Modal never actually
+ * appears, so nothing ever calls `complete()`. The pending promise never
+ * settles and `activePlacement` stays set for the life of the process, which
+ * makes EVERY later `present()` resolve `"already-presenting"` — for any
+ * placement, silently, on a monetisation surface.
+ *
+ * The sibling self-heal in `PaywallProvider` cannot cover it: that one requires
+ * `activePaywall` to be null, and here it is non-null (the catalog still holds
+ * the paywall perfectly well — only the platform refused to show it).
+ *
+ * Why an ACKNOWLEDGEMENT and not a bare timeout: a paywall a user is reading
+ * legitimately stays active for minutes, so elapsed time alone cannot
+ * distinguish "still on screen" from "never appeared". The host confirms
+ * presentation (the UI host wires this to its Modal's `onShow`), and only an
+ * unacknowledged presentation is ever torn down.
+ */
+export const shouldBreakPresentationWedge = (
+  activePlacement: string | null,
+  hostAcknowledged: boolean,
+  timedOut: boolean
+): boolean => activePlacement !== null && !hostAcknowledged && timedOut;
 
 /**
  * `isReady` = catalog resolved AND products resolved — the one flag a caller

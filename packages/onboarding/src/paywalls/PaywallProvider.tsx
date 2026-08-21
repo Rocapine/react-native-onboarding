@@ -8,6 +8,7 @@ import {
   computeIsReady,
   purchaseOutcomeFromResult,
   resolvePresentDecision,
+  shouldBreakPresentationWedge,
   resolvePresentedOutcome,
   shouldRecordPurchaseOutcome,
   type PurchaseOutcomeDuringPresentation,
@@ -58,18 +59,38 @@ export type PaywallContextValue = {
    * `PaywallHost`) — never from an ordinary consumer.
    */
   complete: (result: PresentResult) => void;
+  /**
+   * Called by the paywall HOST once the paywall is actually on screen (the UI
+   * host wires this to its Modal's `onShow`) — never by an ordinary consumer.
+   *
+   * Without it a presentation the platform silently refused is
+   * indistinguishable from one the user is reading, and the refused case wedges
+   * the surface permanently. See `shouldBreakPresentationWedge` in `present.ts`.
+   */
+  acknowledgePresentation: () => void;
   /** Forwarded into the presented paywall's `ScreenHost.customActions`. */
   customActions: CustomActions;
 };
 
 const EMPTY_PAYWALL_CONTEXT: PaywallContextValue = {
-  present: async () => ({ status: "error" }),
+  // No provider above: there is no catalog at all, which is the same answer
+  // `resolvePresentDecision` gives for an unresolved one.
+  present: async () => ({ status: "error", reason: "unknown-placement" }),
   isReady: false,
   catalog: null,
   activePaywall: null,
   complete: () => {},
+  acknowledgePresentation: () => {},
   customActions: EMPTY_CUSTOM_ACTIONS,
 };
+
+/**
+ * How long a presentation may go unacknowledged by the host before it is
+ * abandoned. Generous on purpose: a real Modal appears in well under a second,
+ * so this only ever elapses when the platform refused outright — and erring
+ * long keeps a slow-but-successful presentation from being torn down.
+ */
+const DEFAULT_PRESENT_ACK_TIMEOUT_MS = 5000;
 
 export const PaywallContext = createContext<PaywallContextValue>(EMPTY_PAYWALL_CONTEXT);
 
@@ -80,9 +101,13 @@ export const PaywallContext = createContext<PaywallContextValue>(EMPTY_PAYWALL_C
  * internals it has no reason to touch (which paywall is active, how to
  * resolve it).
  */
-export const usePaywallHost = (): Pick<PaywallContextValue, "activePaywall" | "complete" | "customActions"> => {
-  const { activePaywall, complete, customActions } = useContext(PaywallContext);
-  return { activePaywall, complete, customActions };
+export const usePaywallHost = (): Pick<
+  PaywallContextValue,
+  "activePaywall" | "complete" | "acknowledgePresentation" | "customActions"
+> => {
+  const { activePaywall, complete, acknowledgePresentation, customActions } =
+    useContext(PaywallContext);
+  return { activePaywall, complete, acknowledgePresentation, customActions };
 };
 
 interface PaywallProviderProps {
@@ -100,6 +125,16 @@ interface PaywallProviderProps {
   productProvider?: ProductProvider;
   /** Handlers for `{ type: "custom" }` ButtonActions inside a paywall's elements. */
   customActions?: CustomActions;
+  /**
+   * How long to wait for the host to confirm a paywall actually appeared
+   * before abandoning the presentation and resolving
+   * `{status:"error", reason:"host-never-presented"}`. Defaults to 5000 ms.
+   *
+   * `null` disables the recovery entirely, which reinstates the failure it
+   * exists to prevent: one refused presentation then disables paywalls for the
+   * rest of the process. Only pass `null` if the host cannot acknowledge.
+   */
+  presentAckTimeoutMs?: number | null;
 }
 
 interface PaywallProviderInnerProps {
@@ -109,6 +144,7 @@ interface PaywallProviderInnerProps {
   customAudienceParams: Record<string, any>;
   productProvider?: ProductProvider;
   customActions: CustomActions;
+  presentAckTimeoutMs: number | null;
 }
 
 const PaywallProviderInner = ({
@@ -118,6 +154,7 @@ const PaywallProviderInner = ({
   customAudienceParams,
   productProvider,
   customActions,
+  presentAckTimeoutMs,
 }: PaywallProviderInnerProps) => {
   // `data` straight off `useQuery` is the single source of truth (Finding 1,
   // 2026-08-17 final review) — react-query's own cache already gets both a
@@ -194,6 +231,10 @@ const PaywallProviderInner = ({
   );
 
   const [activePlacement, setActivePlacement] = useState<string | null>(null);
+  // Whether the host has confirmed THIS presentation is on screen. State, not
+  // a ref, because the timeout effect below must re-run (and cancel) the moment
+  // it flips.
+  const [hostAcknowledged, setHostAcknowledged] = useState(false);
   // Refs so `present`/`complete` stay referentially stable (empty deps) while
   // still reading current state — same pattern `useProducts.ts` uses for its
   // `purchase`/`restore` callbacks.
@@ -236,6 +277,10 @@ const PaywallProviderInner = ({
     activePlacementRef.current = placement;
     return new Promise<PresentResult>((resolve) => {
       pendingResolveRef.current = resolve;
+      // A new presentation is unacknowledged until the host says otherwise —
+      // reset before it starts, or the previous presentation's confirmation
+      // would vouch for this one and disable the recovery.
+      setHostAcknowledged(false);
       setActivePlacement(placement);
     });
   }, []);
@@ -260,7 +305,14 @@ const PaywallProviderInner = ({
     // next commit.
     activePlacementRef.current = null;
     setActivePlacement(null);
+    setHostAcknowledged(false);
     resolve?.(resolvePresentedOutcome(result, lastPurchaseOutcomeRef.current));
+  }, []);
+
+  // Stable (empty deps) like `present`/`complete`: the host wires this straight
+  // into a Modal prop, and an identity change per render would churn it.
+  const acknowledgePresentation = useCallback(() => {
+    setHostAcknowledged(true);
   }, []);
 
   const activePaywall = activePlacement ? catalog?.paywalls[activePlacement] ?? null : null;
@@ -286,8 +338,37 @@ const PaywallProviderInner = ({
   // pending promise, so it cannot race with or double-resolve this branch.
   useEffect(() => {
     if (!activePlacement || activePaywall) return;
-    complete({ status: "error" });
+    complete({ status: "error", reason: "paywall-disappeared" });
   }, [activePlacement, activePaywall, complete]);
+
+  // The OTHER way a presentation never completes, and the one the guard above
+  // structurally cannot catch: `activePaywall` is perfectly non-null — the
+  // catalog still holds the paywall — but it never reaches the screen because
+  // the platform refused to present it (iOS will not present over an
+  // already-presenting view controller: another Modal, a
+  // `presentation: "modal"` route, a StoreKit alert). Nothing calls
+  // `complete()`, so without this the pending promise never settles,
+  // `activePlacement` stays set for the life of the process, and every later
+  // `present()` — for any placement — resolves "already-presenting" with no
+  // error and no log. Confirmed in production on a monetisation surface, which
+  // is why this recovers rather than merely reports.
+  //
+  // Cancels itself as soon as the host acknowledges, so a paywall a user is
+  // reading is never torn down; see `shouldBreakPresentationWedge`.
+  useEffect(() => {
+    if (presentAckTimeoutMs === null) return;
+    if (!shouldBreakPresentationWedge(activePlacement, hostAcknowledged, true)) return;
+    const timer = setTimeout(() => {
+      console.warn(
+        `[paywalls] "${activePlacement}" was never confirmed on screen within ` +
+          `${presentAckTimeoutMs}ms and has been abandoned, so later present() calls keep working. ` +
+          "The platform most likely refused to present it — on iOS, something else was already " +
+          "presenting (another Modal, a `presentation: \"modal\"` route, or a StoreKit alert).",
+      );
+      complete({ status: "error", reason: "host-never-presented" });
+    }, presentAckTimeoutMs);
+    return () => clearTimeout(timer);
+  }, [activePlacement, hostAcknowledged, presentAckTimeoutMs, complete]);
 
   const isReady = useMemo(
     () => computeIsReady(catalog, productRefs, productRuntime.status),
@@ -295,8 +376,16 @@ const PaywallProviderInner = ({
   );
 
   const contextValue = useMemo<PaywallContextValue>(
-    () => ({ present, isReady, catalog, activePaywall, complete, customActions }),
-    [present, isReady, catalog, activePaywall, complete, customActions]
+    () => ({
+      present,
+      isReady,
+      catalog,
+      activePaywall,
+      complete,
+      acknowledgePresentation,
+      customActions,
+    }),
+    [present, isReady, catalog, activePaywall, complete, acknowledgePresentation, customActions]
   );
 
   return (
@@ -325,6 +414,7 @@ export const PaywallProvider = ({
   customAudienceParams = {},
   productProvider,
   customActions = EMPTY_CUSTOM_ACTIONS,
+  presentAckTimeoutMs = DEFAULT_PRESENT_ACK_TIMEOUT_MS,
 }: PaywallProviderProps) => {
   return (
     <QueryClientProvider client={paywallQueryClient}>
@@ -334,6 +424,7 @@ export const PaywallProvider = ({
         customAudienceParams={customAudienceParams}
         productProvider={productProvider}
         customActions={customActions}
+        presentAckTimeoutMs={presentAckTimeoutMs}
       >
         {children}
       </PaywallProviderInner>

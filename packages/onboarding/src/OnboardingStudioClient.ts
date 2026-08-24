@@ -130,11 +130,11 @@ export class OnboardingStudioClient {
 
   /**
    * Fetches the paywall catalog for this project/audience/locale from
-   * `get-paywalls`. By design **omits `placement` by default** — the endpoint
-   * deliberately returns every placement in one round-trip so a paywall can
+   * `get-paywalls`. By design **omits `moment` by default** — the endpoint
+   * deliberately returns every moment in one round-trip so a paywall can
    * be presented the instant the user taps upgrade, without a network call at
-   * that moment (spec §6.1). Pass `paywallOptions.placement` only when a
-   * single placement is genuinely all that's needed.
+   * that moment (spec §6.1). Pass `paywallOptions.moment` only when a
+   * single moment is genuinely all that's needed.
    *
    * Unlike `getSteps`, there is no fallback-payload option here: a
    * non-`ok` response or a network failure always rejects rather than
@@ -174,8 +174,8 @@ export class OnboardingStudioClient {
 
     // Narrows the response to a single paywall. Omitted unless explicitly
     // requested — see the method doc above.
-    if (paywallOptions?.placement) {
-      urlParams.append("placement", paywallOptions.placement);
+    if (paywallOptions?.moment) {
+      urlParams.append("moment", paywallOptions.moment);
     }
 
     // Deliberately NOT sending spec §6.1's `omitNulls=true`: it's a
@@ -209,7 +209,7 @@ export class OnboardingStudioClient {
       return {
         data,
         headers: {
-          "ONBS-Audience-Id": response.headers.get("ONBS-Audience-Id"),
+          "ONBS-Audience-Ids": response.headers.get("ONBS-Audience-Ids"),
           "ONBS-Paywall-Ids": response.headers.get("ONBS-Paywall-Ids"),
         },
       };

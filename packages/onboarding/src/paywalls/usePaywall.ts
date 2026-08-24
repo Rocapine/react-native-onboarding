@@ -6,27 +6,27 @@ import type { ProductStatus } from "../products/types";
 
 export type UsePaywallResult = {
   /**
-   * Present a paywall by placement. Never fetches — the catalog and its
+   * Present a paywall by moment. Never fetches — the catalog and its
    * products are already resolved (or resolving) from `PaywallProvider`
    * mount, which is the whole point: a paywall must render the instant the
    * user taps upgrade.
    *
-   * Resolves `{ status: "error" }` — never throws — when `placement` is
+   * Resolves `{ status: "error" }` — never throws — when `moment` is
    * absent from the catalog, or when another paywall is already being
    * presented. See `resolvePresentDecision` in `present.ts`.
    */
-  present: (placement: string) => Promise<PresentResult>;
+  present: (moment: string) => Promise<PresentResult>;
   /**
    * `true` once BOTH the catalog and its products have resolved — the one
    * flag meaning "calling `present()` now will not show a spinner".
    */
   isReady: boolean;
-  /** The full resolved catalog (every placement), or `null` before it loads. */
+  /** The full resolved catalog (every moment), or `null` before it loads. */
   catalog: PaywallCatalog | null;
   /**
    * What the catalog is doing, for hosts that need more than `isReady`'s one
    * bit. `"revalidating"` is the important one: the catalog on hand was served
-   * from disk and a fresh fetch is in flight, so a placement missing from it may
+   * from disk and a fresh fetch is in flight, so a moment missing from it may
    * simply not have arrived yet. Gate "fall back to another engine" on
    * `"ready"`, not merely on a non-null catalog.
    */

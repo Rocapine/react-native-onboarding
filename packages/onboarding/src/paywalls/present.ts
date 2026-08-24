@@ -35,13 +35,13 @@ export type PresentDecision =
   | { type: "immediate"; result: PresentResult };
 
 /**
- * `present(placement)`'s edge-case decision, extracted so both documented
+ * `present(moment)`'s edge-case decision, extracted so both documented
  * edge cases are covered by an importable test rather than only inspection:
  *
- * - **Unknown placement** (absent from the catalog, or the catalog hasn't
- *   resolved yet — both look identical here: `catalog?.paywalls[placement]`
+ * - **Unknown moment** (absent from the catalog, or the catalog hasn't
+ *   resolved yet — both look identical here: `catalog?.paywalls[moment]`
  *   is `undefined` either way) → resolves `"error"`, never throws. A missing
- *   placement must not crash a host app mid-flow.
+ *   moment must not crash a host app mid-flow.
  * - **`present()` called while another paywall is already showing** → also
  *   resolves `"error"` immediately, leaving the in-progress presentation
  *   untouched. This SDK shows one paywall at a time. Silently replacing the
@@ -49,23 +49,23 @@ export type PresentDecision =
  *   resolved — that caller hangs forever); queueing the new request would
  *   need its own cancellation/timeout story that nothing here asks for.
  *   Resolving the new call immediately applies the same "resolve, don't
- *   throw" contract as the unknown-placement case, consistently.
+ *   throw" contract as the unknown-moment case, consistently.
  */
 export const resolvePresentDecision = (
   catalog: PaywallCatalog | null,
-  activePlacement: string | null,
-  placement: string
+  activeMoment: string | null,
+  moment: string
 ): PresentDecision => {
-  if (activePlacement !== null) {
-    // `activePlacement` is echoed back deliberately — see PresentErrorReason.
+  if (activeMoment !== null) {
+    // `activeMoment` is echoed back deliberately — see PresentErrorReason.
     return {
       type: "immediate",
-      result: { status: "error", reason: "already-presenting", activePlacement },
+      result: { status: "error", reason: "already-presenting", activeMoment },
     };
   }
-  const paywall = catalog?.paywalls[placement];
+  const paywall = catalog?.paywalls[moment];
   if (!paywall) {
-    return { type: "immediate", result: { status: "error", reason: "unknown-placement" } };
+    return { type: "immediate", result: { status: "error", reason: "unknown-moment" } };
   }
   return { type: "start", paywall };
 };
@@ -116,7 +116,7 @@ export const shouldBreakPresentationWedge = (
  * sending volatile params gets an instantly-available catalog that was resolved
  * under DIFFERENT params, with a fresh fetch in flight behind it. That catalog
  * is present and non-null, so it reads as ready — and a host gating on
- * `catalog.paywalls[placement]` can conclude the placement does not exist and
+ * `catalog.paywalls[moment]` can conclude the moment does not exist and
  * route away, milliseconds before the correct catalog arrives.
  *
  * Observed consequence, reported from a production pilot: for an audience gated
@@ -124,7 +124,7 @@ export const shouldBreakPresentationWedge = (
  * first becomes eligible is served the PRE-threshold catalog, so the arm under
  * test loses exactly the launch that matters. `"revalidating"` is how a host
  * distinguishes "this catalog is final" from "this catalog may be superseded in
- * a moment", and therefore whether a missing placement means absent or not-yet.
+ * a moment", and therefore whether a missing moment means absent or not-yet.
  *
  * A present catalog outranks an error deliberately: if a background
  * revalidation fails, react-query keeps the cached `data` AND sets `error`, and
@@ -166,7 +166,7 @@ export const computeIsReady = (
  * `"error"` are not: they don't describe what happened to the STORE PURCHASE
  * in a way that should override how the paywall itself reports closing (an
  * `"error"` here would collide with `PresentResult`'s existing `"error"`,
- * which means something structurally different — an unknown placement or a
+ * which means something structurally different — an unknown moment or a
  * mistimed `present()` call, not a failed purchase attempt).
  */
 export type PurchaseOutcomeDuringPresentation = "purchased" | "cancelled" | null;
@@ -207,7 +207,7 @@ export const resolvePresentedOutcome = (
  * generation again after — only an unchanged generation means the write is
  * still for the presentation that started it.
  *
- * A monotonic counter, not the placement string: the same placement can
+ * A monotonic counter, not the moment string: the same moment can
  * legitimately be presented twice in a row, and a string comparison would
  * let a stale write from the FIRST of those two land in the second.
  */

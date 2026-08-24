@@ -12,8 +12,10 @@ import {
 import type { Paywall, PaywallCatalog } from "../types";
 import type { PurchaseResult } from "../../products/types";
 
-const makePaywall = (overrides: Partial<Paywall> & Pick<Paywall, "id" | "placement">): Paywall => ({
+const makePaywall = (overrides: Partial<Paywall> & Pick<Paywall, "id" | "moment">): Paywall => ({
   name: overrides.name ?? "Paywall",
+  audienceId: overrides.audienceId ?? null,
+  audienceName: overrides.audienceName ?? null,
   elements: overrides.elements ?? [],
   products: overrides.products ?? [],
   configuration: overrides.configuration ?? null,
@@ -21,8 +23,8 @@ const makePaywall = (overrides: Partial<Paywall> & Pick<Paywall, "id" | "placeme
 });
 
 const makeCatalog = (paywalls: Paywall[]): PaywallCatalog => ({
-  metadata: { audienceId: null, audienceName: null, locale: "en", draft: false },
-  paywalls: Object.fromEntries(paywalls.map((p) => [p.placement, p])),
+  metadata: { locale: "en", draft: false },
+  paywalls: Object.fromEntries(paywalls.map((p) => [p.moment, p])),
   fonts: null,
 });
 
@@ -32,14 +34,14 @@ describe("collectProductRefs", () => {
   });
 
   it("returns an empty array when no paywall declares any products", () => {
-    const catalog = makeCatalog([makePaywall({ id: "1", placement: "a", products: [] })]);
+    const catalog = makeCatalog([makePaywall({ id: "1", moment: "a", products: [] })]);
     expect(collectProductRefs(catalog)).toEqual([]);
   });
 
-  it("flattens products from every placement into one array", () => {
+  it("flattens products from every moment into one array", () => {
     const catalog = makeCatalog([
-      makePaywall({ id: "1", placement: "a", products: [{ key: "yearly", ios: "com.app.yr" }] }),
-      makePaywall({ id: "2", placement: "b", products: [{ key: "monthly", ios: "com.app.mo" }] }),
+      makePaywall({ id: "1", moment: "a", products: [{ key: "yearly", ios: "com.app.yr" }] }),
+      makePaywall({ id: "2", moment: "b", products: [{ key: "monthly", ios: "com.app.mo" }] }),
     ]);
     expect(collectProductRefs(catalog)).toEqual([
       { key: "yearly", ios: "com.app.yr" },
@@ -47,11 +49,11 @@ describe("collectProductRefs", () => {
     ]);
   });
 
-  it("dedupes identical refs (same key + ios + android + compareTo) across placements", () => {
+  it("dedupes identical refs (same key + ios + android + compareTo) across moments", () => {
     const shared = { key: "yearly", ios: "com.app.yr", android: "com.app.yr:p1y" };
     const catalog = makeCatalog([
-      makePaywall({ id: "1", placement: "a", products: [shared] }),
-      makePaywall({ id: "2", placement: "b", products: [shared, { key: "monthly", ios: "com.app.mo" }] }),
+      makePaywall({ id: "1", moment: "a", products: [shared] }),
+      makePaywall({ id: "2", moment: "b", products: [shared, { key: "monthly", ios: "com.app.mo" }] }),
     ]);
     expect(collectProductRefs(catalog)).toEqual([
       shared,
@@ -63,7 +65,7 @@ describe("collectProductRefs", () => {
     const catalog = makeCatalog([
       makePaywall({
         id: "1",
-        placement: "a",
+        moment: "a",
         products: [
           { key: "yearly", ios: "com.app.yr" },
           { key: "yearly", ios: "com.app.yr", compareTo: "monthly" },
@@ -75,10 +77,10 @@ describe("collectProductRefs", () => {
 });
 
 describe("resolvePresentDecision", () => {
-  const paywall = makePaywall({ id: "1", placement: "hard_paywall", products: [] });
+  const paywall = makePaywall({ id: "1", moment: "hard_paywall", products: [] });
   const catalog = makeCatalog([paywall]);
 
-  it("starts when the placement exists and nothing is currently showing", () => {
+  it("starts when the moment exists and nothing is currently showing", () => {
     const decision = resolvePresentDecision(catalog, null, "hard_paywall");
     expect(decision).toEqual({ type: "start", paywall });
   });
@@ -87,24 +89,32 @@ describe("resolvePresentDecision", () => {
   // used to assert is what made two conditions with OPPOSITE correct responses
   // — "retry later, the catalog may still arrive" vs "do not retry, something
   // is stuck" — indistinguishable to the caller.
-  it("resolves 'unknown-placement' when the placement is absent from the catalog", () => {
+  it("resolves 'unknown-moment' when the moment is absent from the catalog", () => {
     const decision = resolvePresentDecision(catalog, null, "does_not_exist");
     expect(decision).toEqual({
       type: "immediate",
-      result: { status: "error", reason: "unknown-placement" },
+      result: { status: "error", reason: "unknown-moment" },
     });
   });
 
-  it("resolves 'unknown-placement' when the catalog has not resolved yet (null)", () => {
+  it("resolves 'unknown-moment' when the catalog has not resolved yet (null)", () => {
     const decision = resolvePresentDecision(null, null, "hard_paywall");
     expect(decision).toEqual({
       type: "immediate",
-      result: { status: "error", reason: "unknown-placement" },
+      result: { status: "error", reason: "unknown-moment" },
     });
   });
 
-  it("resolves 'already-presenting' AND names the placement that is showing", () => {
-    // The placement is the difference between "I double-called for the same
+  it("reports unknown-moment when the key is absent from the catalog", () => {
+    const decision = resolvePresentDecision(catalog, null, "not_a_moment");
+    expect(decision).toEqual({
+      type: "immediate",
+      result: { status: "error", reason: "unknown-moment" },
+    });
+  });
+
+  it("resolves 'already-presenting' AND names the moment that is showing", () => {
+    // The moment is the difference between "I double-called for the same
     // one" (caller adds a guard) and "something else is stuck" (caller cannot
     // fix it) — different diagnoses, so the bare status could serve neither.
     const decision = resolvePresentDecision(catalog, "already_showing", "hard_paywall");
@@ -113,24 +123,24 @@ describe("resolvePresentDecision", () => {
       result: {
         status: "error",
         reason: "already-presenting",
-        activePlacement: "already_showing",
+        activeMoment: "already_showing",
       },
     });
   });
 
-  it("reports 'already-presenting' when the caller re-presents the SAME placement", () => {
+  it("reports 'already-presenting' when the caller re-presents the SAME moment", () => {
     const decision = resolvePresentDecision(catalog, "hard_paywall", "hard_paywall");
     expect(decision).toEqual({
       type: "immediate",
       result: {
         status: "error",
         reason: "already-presenting",
-        activePlacement: "hard_paywall",
+        activeMoment: "hard_paywall",
       },
     });
   });
 
-  it("the concurrent-present check takes priority over the unknown-placement check", () => {
+  it("the concurrent-present check takes priority over the unknown-moment check", () => {
     // Both conditions are true at once: prove the function still resolves
     // rather than e.g. throwing on the first branch it happens to hit, and
     // that the reason reflects the branch actually taken.
@@ -140,7 +150,7 @@ describe("resolvePresentDecision", () => {
       result: {
         status: "error",
         reason: "already-presenting",
-        activePlacement: "already_showing",
+        activeMoment: "already_showing",
       },
     });
   });
@@ -236,7 +246,7 @@ describe("resolvePresentedOutcome", () => {
   });
 
   it("never upgrades a status other than 'dismissed', even if a purchase occurred", () => {
-    // "error" here means "unknown placement / already showing" (resolvePresentDecision) —
+    // "error" here means "unknown moment / already showing" (resolvePresentDecision) —
     // a purchase outcome must never be allowed to clobber that different meaning.
     expect(resolvePresentedOutcome({ status: "error" }, "purchased")).toEqual({ status: "error" });
   });
@@ -260,7 +270,7 @@ describe("shouldRecordPurchaseOutcome", () => {
 });
 
 describe("computeCatalogStatus", () => {
-  const catalog = makeCatalog([makePaywall({ id: "1", placement: "hard_paywall" })]);
+  const catalog = makeCatalog([makePaywall({ id: "1", moment: "hard_paywall" })]);
 
   it("is 'loading' before anything arrives", () => {
     expect(computeCatalogStatus(null, null, true)).toBe("loading");
@@ -279,7 +289,7 @@ describe("computeCatalogStatus", () => {
     // The state this type exists for. In production the catalog is served
     // cache-first from a disk key that is NOT scoped by customAudienceParams,
     // so this catalog may have been resolved under DIFFERENT params and be
-    // superseded in a moment. A host must be able to tell that a placement
+    // superseded in a moment. A host must be able to tell that a moment
     // missing HERE might simply not have arrived yet.
     expect(computeCatalogStatus(catalog, null, true)).toBe("revalidating");
   });

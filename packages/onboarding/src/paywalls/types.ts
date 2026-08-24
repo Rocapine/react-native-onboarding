@@ -1,16 +1,26 @@
 /**
  * Response types for `OnboardingStudioClient.getPaywalls()` (spec §6.1). The
- * endpoint returns every placement for the project/audience/locale in one
+ * endpoint returns every moment for the project/audience/locale in one
  * payload — a paywall must render the instant the user taps upgrade, and a
  * network round-trip at that moment is a conversion bug, so there is no
- * per-placement fetch in the common path (see `PaywallOptions.placement`).
+ * per-moment fetch in the common path (see `PaywallOptions.moment`).
  */
 
-/** A single studio-authored paywall, keyed by `placement` in `PaywallCatalog.paywalls`. */
+/**
+ * A single studio-authored paywall, keyed by `moment` in `PaywallCatalog.paywalls`.
+ *
+ * `audienceId`/`audienceName` are resolved PER MOMENT, not once for the whole
+ * catalog: each moment (an onboarding-end upsell, a settings-screen upgrade,
+ * …) runs its own independent audience waterfall, so two entries in the same
+ * catalog can legitimately have matched different audiences. That is why
+ * these fields live here and not on `PaywallCatalog.metadata`.
+ */
 export type Paywall = {
   id: string;
   name: string;
-  placement: string;
+  moment: string;
+  audienceId: number | null;
+  audienceName: string | null;
   /** UIElement[] — parsed by the UI adapter (Task 7's `ScreenElementsSchema`), not here. */
   elements: unknown[];
   products: Array<{
@@ -25,12 +35,10 @@ export type Paywall = {
 /** Full response body of `GET get-paywalls`. */
 export type PaywallCatalog = {
   metadata: {
-    audienceId: number | null;
-    audienceName: string | null;
     locale: string | null;
     draft: boolean;
   };
-  /** Keyed by placement, not by paywall id. */
+  /** Keyed by moment, not by paywall id. */
   paywalls: Record<string, Paywall>;
   fonts: Record<string, unknown> | null;
 };
@@ -38,14 +46,14 @@ export type PaywallCatalog = {
 /**
  * Options for `OnboardingStudioClient.getPaywalls()`.
  *
- * `placement` narrows the response to a single paywall — the exception, not
- * the default. Omit it to get every placement in one round-trip, which is
+ * `moment` narrows the response to a single paywall — the exception, not
+ * the default. Omit it to get every moment in one round-trip, which is
  * what lets a paywall render instantly at buy-tap time (see the module doc
  * above).
  */
 export type PaywallOptions = {
   locale?: string;
-  placement?: string;
+  moment?: string;
 };
 
 /**
@@ -53,22 +61,27 @@ export type PaywallOptions = {
  * trio (`ONBS-Onboarding-Id` / `ONBS-Audience-Id` / `ONBS-Onboarding-Name`) —
  * the paywall endpoint has no single onboarding/audience-name concept and
  * instead reports which paywall ids came back.
+ *
+ * `ONBS-Audience-Ids` is plural (comma-separated) and parallel in order to
+ * `ONBS-Paywall-Ids`: each moment resolves its own audience waterfall (see
+ * `Paywall.audienceId`), so there is no single catalog-level audience left
+ * to report under a singular header.
  */
 export interface GetPaywallsResponseHeaders {
-  "ONBS-Audience-Id": string | null;
+  "ONBS-Audience-Ids": string | null;
   "ONBS-Paywall-Ids": string | null;
 }
 
 /**
- * Resolved outcome of a `usePaywall().present(placement)` call (spec §7).
+ * Resolved outcome of a `usePaywall().present(moment)` call (spec §7).
  * Closed union, not the open-ended `ScreenHost.CompleteOutcome` — a
  * presentation ends in exactly one of these four ways, and `present()`'s
  * caller (typically an `await`) should be able to switch over it exhaustively.
  *
- * `"error"` covers both: (a) `placement` is absent from the catalog (or the
+ * `"error"` covers both: (a) `moment` is absent from the catalog (or the
  * catalog hasn't resolved yet), and (b) `present()` was called while another
  * paywall is already being presented. Both resolve rather than throw — a
- * missing placement or a mistimed call must not crash a host app mid-flow.
+ * missing moment or a mistimed call must not crash a host app mid-flow.
  * See `resolvePresentDecision` in `present.ts` for the exact decision logic.
  *
  * `"purchased"` / `"cancelled"` are NOT produced by any ButtonAction directly
@@ -99,18 +112,18 @@ export interface GetPaywallsResponseHeaders {
  * absent on every other status.
  *
  * This exists because `"error"` alone conflates conditions whose correct
- * recovery is OPPOSITE. `"unknown-placement"` means the catalog may simply not
+ * recovery is OPPOSITE. `"unknown-moment"` means the catalog may simply not
  * have arrived yet, so retrying later is right. `"already-presenting"` means a
  * presentation is in progress, so retrying is wrong and something may be
  * stuck. A caller given only the status can act correctly on neither, and two
  * separate multi-hour production investigations were spent reconstructing by
  * elimination what the SDK already knew here.
  *
- * - `unknown-placement` — absent from the catalog, or the catalog has not
+ * - `unknown-moment` — absent from the catalog, or the catalog has not
  *   resolved yet. The two are indistinguishable at this layer, and both are
  *   worth retrying once `usePaywall().isReady` is true.
- * - `already-presenting` — one paywall shows at a time. `activePlacement` on
- *   the result names the one that IS showing: the same placement means the
+ * - `already-presenting` — one paywall shows at a time. `activeMoment` on
+ *   the result names the one that IS showing: the same moment means the
  *   caller double-called and wants its own in-flight guard, a different one
  *   means something else holds the surface.
  * - `parse-error` — `elements` failed the UI schema, so the Modal was never
@@ -125,11 +138,11 @@ export interface GetPaywallsResponseHeaders {
  *   keep the surface usable. In practice the platform refused to present
  *   (iOS will not present over an already-presenting view controller — another
  *   Modal, a `presentation: "modal"` route, a StoreKit alert).
- * - `paywall-disappeared` — the placement vanished from the catalog while it
+ * - `paywall-disappeared` — the moment vanished from the catalog while it
  *   was on screen (a studio publish, or a query-key change mid-presentation).
  */
 export type PresentErrorReason =
-  | "unknown-placement"
+  | "unknown-moment"
   | "already-presenting"
   | "parse-error"
   | "render-error"
@@ -141,9 +154,9 @@ export type PresentResult = {
   /** Why it failed. Set on `"error"` only — see `PresentErrorReason`. */
   reason?: PresentErrorReason;
   /**
-   * The placement currently being presented. Set only alongside
-   * `reason: "already-presenting"`, where knowing WHICH placement holds the
+   * The moment currently being presented. Set only alongside
+   * `reason: "already-presenting"`, where knowing WHICH moment holds the
    * surface is what distinguishes a caller double-call from an unrelated stall.
    */
-  activePlacement?: string;
+  activeMoment?: string;
 };

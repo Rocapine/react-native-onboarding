@@ -29,12 +29,14 @@ const CUSTOM_KEY = "v2";
 const CUSTOM_CACHE_KEY = "rocapine-paywalls-sdk-v2";
 
 const catalog: PaywallCatalog = {
-  metadata: { audienceId: 1, audienceName: "default", locale: "en", draft: false },
+  metadata: { locale: "en", draft: false },
   paywalls: {
     onboarding_end: {
       id: "pw1",
       name: "End paywall",
-      placement: "onboarding_end",
+      moment: "onboarding_end",
+      audienceId: 1,
+      audienceName: "default",
       elements: [],
       products: [{ key: "monthly", ios: "com.app.monthly" }],
       configuration: null,
@@ -70,10 +72,10 @@ describe("OnboardingStudioClient.getPaywalls", () => {
     vi.unstubAllGlobals();
   });
 
-  it("builds the URL against get-paywalls with projectId/platform/appVersion/locale, and omits placement by default", async () => {
+  it("builds the URL against get-paywalls with projectId/platform/appVersion/locale, and omits moment by default", async () => {
     fetchMock.mockResolvedValue(
       fakeResponse(catalog, {
-        headers: { "ONBS-Audience-Id": "42", "ONBS-Paywall-Ids": "pw1" },
+        headers: { "ONBS-Audience-Ids": "42", "ONBS-Paywall-Ids": "pw1" },
       })
     );
     const client = new OnboardingStudioClient("proj-1", { appVersion: "1.2.3" });
@@ -87,18 +89,18 @@ describe("OnboardingStudioClient.getPaywalls", () => {
     expect(requestedUrl.searchParams.get("platform")).toBe("ios");
     expect(requestedUrl.searchParams.get("appVersion")).toBe("1.2.3");
     expect(requestedUrl.searchParams.get("locale")).toBe("fr");
-    expect(requestedUrl.searchParams.has("placement")).toBe(false);
+    expect(requestedUrl.searchParams.has("moment")).toBe(false);
     expect(requestedUrl.searchParams.has("draft")).toBe(false);
   });
 
-  it("includes placement only when explicitly requested (the exception, not the default)", async () => {
+  it("includes moment only when explicitly requested (the exception, not the default)", async () => {
     fetchMock.mockResolvedValue(fakeResponse(catalog));
     const client = new OnboardingStudioClient("proj-1", {});
 
-    await client.getPaywalls({ locale: "en", placement: "onboarding_end" });
+    await client.getPaywalls({ locale: "en", moment: "onboarding_end" });
 
     const requestedUrl = new URL(fetchMock.mock.calls[0][0] as string);
-    expect(requestedUrl.searchParams.get("placement")).toBe("onboarding_end");
+    expect(requestedUrl.searchParams.get("moment")).toBe("onboarding_end");
   });
 
   it("appends draft=true in sandbox mode, same as getSteps", async () => {
@@ -121,10 +123,10 @@ describe("OnboardingStudioClient.getPaywalls", () => {
     expect(requestedUrl.searchParams.get("experimentGroup")).toBe("b");
   });
 
-  it("extracts ONBS-Audience-Id and ONBS-Paywall-Ids — not the onboarding header trio", async () => {
+  it("extracts ONBS-Audience-Ids and ONBS-Paywall-Ids — not the onboarding header trio", async () => {
     fetchMock.mockResolvedValue(
       fakeResponse(catalog, {
-        headers: { "ONBS-Audience-Id": "7", "ONBS-Paywall-Ids": "pw1,pw2" },
+        headers: { "ONBS-Audience-Ids": "7", "ONBS-Paywall-Ids": "pw1,pw2" },
       })
     );
     const client = new OnboardingStudioClient("proj-1", {});
@@ -133,7 +135,7 @@ describe("OnboardingStudioClient.getPaywalls", () => {
 
     expect(data).toEqual(catalog);
     expect(headers).toEqual({
-      "ONBS-Audience-Id": "7",
+      "ONBS-Audience-Ids": "7",
       "ONBS-Paywall-Ids": "pw1,pw2",
     });
     expect(headers).not.toHaveProperty("ONBS-Onboarding-Id");
@@ -182,7 +184,7 @@ const makeClient = (
   const getPaywalls = vi.fn().mockResolvedValue({
     data,
     headers: {
-      "ONBS-Audience-Id": "1",
+      "ONBS-Audience-Ids": "1",
       "ONBS-Paywall-Ids": Object.keys(data.paywalls).join(","),
     },
   });

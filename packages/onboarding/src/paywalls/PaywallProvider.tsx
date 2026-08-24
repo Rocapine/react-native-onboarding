@@ -69,7 +69,7 @@ export type PaywallContextValue = {
   /** The paywall currently being presented, or null. Read by `usePaywallHost()` — not by `usePaywall()`. */
   activePaywall: Paywall | null;
   /**
-   * Resolve the pending `present()` call and clear the active placement.
+   * Resolve the pending `present()` call and clear the active moment.
    * Call this from the presented paywall's `ScreenHost.complete` (Task 7's
    * `PaywallHost`) — never from an ordinary consumer.
    */
@@ -309,7 +309,7 @@ const PaywallProviderInner = ({
 
   // Called by PaywallHost (Task 7) from the presented paywall's
   // `ScreenHost.complete`. Resolves whatever `present()` call is pending and
-  // clears the active placement, hiding the Modal and allowing a new
+  // clears the active moment, hiding the Modal and allowing a new
   // `present()` to start. Safe to call with nothing pending (no-ops).
   //
   // `resolvePresentedOutcome` upgrades a bare "dismissed" to "purchased" (or

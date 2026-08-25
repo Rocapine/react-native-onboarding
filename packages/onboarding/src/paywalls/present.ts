@@ -1,5 +1,5 @@
 import type { Paywall, PaywallCatalog, PresentResult } from "./types";
-import type { ProductRef, ProductStatus, PurchaseResult } from "../products/types";
+import type { ProductRef, ProductRuntime, ProductStatus, PurchaseResult } from "../products/types";
 import { productRefIdentity } from "../products/refIdentity";
 
 /**
@@ -216,3 +216,37 @@ export const shouldRecordPurchaseOutcome = (
   startedInGeneration: number,
   currentGeneration: number
 ): boolean => startedInGeneration === currentGeneration;
+
+/**
+ * Which of the two resolved product runtimes to publish.
+ *
+ * `PaywallProvider` resolves the catalog's product union TWICE — once through
+ * the host's store adapter, once through its Stripe adapter — because the
+ * runtime is published as one map keyed by product key, and a `store` paywall
+ * and a `stripe` paywall declaring the same key would otherwise fight over
+ * `product.<key>.price`. Only one paywall is ever presented at a time
+ * (`activeMoment`), so "the active one" is unambiguous.
+ *
+ * This is cheap rather than wasteful because the Stripe pass performs no
+ * network call (`stripeLinkProductProvider`) and each provider silently drops
+ * refs it cannot resolve, so neither pass does work for the other's paywalls.
+ *
+ * The statuses are deliberately NOT merged. Merging is the trap
+ * `mergeProductRuntimes` documents from the other direction: an `"idle"`
+ * runtime with nothing to wait for drags a `"ready"` one down and closes every
+ * `products.loaded` gate for the life of the process.
+ *
+ * `hasStripeProvider` is the guard for a misconfigured host: a `stripe`
+ * paywall with no `stripeProductProvider` passed leaves `useProducts` at
+ * `"idle"` forever (it bails before calling a provider it does not have), so
+ * `computeIsReady` would never turn true and paywalls would stop appearing
+ * with no error. Falling back to the store runtime keeps the app alive; the
+ * caller warns.
+ */
+export const selectActiveProductRuntime = (args: {
+  storeRuntime: ProductRuntime;
+  stripeRuntime: ProductRuntime;
+  billing: "store" | "stripe" | undefined;
+  hasStripeProvider: boolean;
+}): ProductRuntime =>
+  args.billing === "stripe" && args.hasStripeProvider ? args.stripeRuntime : args.storeRuntime;

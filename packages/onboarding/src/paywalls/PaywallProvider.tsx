@@ -10,6 +10,7 @@ import {
   computeCatalogStatus,
   type CatalogStatus,
   resolvePresentDecision,
+  selectActiveProductRuntime,
   shouldBreakPresentationWedge,
   resolvePresentedOutcome,
   shouldRecordPurchaseOutcome,
@@ -141,6 +142,15 @@ interface PaywallProviderProps {
    * there is one store round-trip and one `purchasing` flag for both.
    */
   productProvider?: ProductProvider;
+  /**
+   * Billing adapter for `billing: "stripe"` paywalls — normally
+   * `stripeLinkProductProvider`. The catalog's product union is resolved
+   * through BOTH this and `productProvider`, and the runtime published is the
+   * one matching the presented paywall's `billing` (see
+   * `selectActiveProductRuntime`). Omit it and every paywall uses
+   * `productProvider`, exactly as before this prop existed.
+   */
+  stripeProductProvider?: ProductProvider;
   /** Handlers for `{ type: "custom" }` ButtonActions inside a paywall's elements. */
   customActions?: CustomActions;
   /**
@@ -161,6 +171,7 @@ interface PaywallProviderInnerProps {
   locale: string;
   customAudienceParams: Record<string, any>;
   productProvider?: ProductProvider;
+  stripeProductProvider?: ProductProvider;
   customActions: CustomActions;
   presentAckTimeoutMs: number | null;
 }
@@ -171,6 +182,7 @@ const PaywallProviderInner = ({
   locale,
   customAudienceParams,
   productProvider,
+  stripeProductProvider,
   customActions,
   presentAckTimeoutMs,
 }: PaywallProviderInnerProps) => {
@@ -204,11 +216,58 @@ const PaywallProviderInner = ({
     console.warn("[paywalls] Failed to load paywall catalog:", error);
   }, [error]);
 
+  // Hoisted above `productRefs`/the product runtimes below: `activeMoment`
+  // (state) and `activePaywall` (derived from it) are read by the runtime
+  // selection that follows. Bare `useState(null)` with no dependencies, so
+  // hoisting past the effects and refs below it changes nothing about hook
+  // order.
+  const [activeMoment, setActiveMoment] = useState<string | null>(null);
+  // Finding 6, 2026-08-17 final review, widened by N2 (round 2): a background
+  // catalog revalidation (see `getPaywalls.query.ts`) can push a fresh catalog
+  // that no longer contains the moment currently on screen (a studio
+  // publish renamed or removed it mid-session) — OR the query KEY itself can
+  // change while a paywall is showing (`locale`/`customAudienceParams`
+  // changed as a prop), which makes react-query report `data: undefined`
+  // while the new key is fetching (Finding 1's fix reads `catalog` straight
+  // from that `data`). Both collapse `activePaywall` to null the same way, so
+  // guarding on THAT — not on `catalog` being non-null — catches both: the
+  // original guard (`!catalog` check) missed the query-key case entirely,
+  // because a null `catalog` made it bail out before ever checking whether
+  // the moment was still present.
+  const activePaywall = activeMoment ? catalog?.paywalls[activeMoment] ?? null : null;
+
   // Union of every moment's products, deduplicated, resolved ONCE — never
   // re-keyed per presented paywall. See `present.ts`'s `collectProductRefs`
   // doc for why (spec §6.1's "render instantly on tap" requirement).
   const productRefs = useMemo(() => collectProductRefs(catalog), [catalog]);
-  const productRuntime = useProducts(productRefs, productProvider, locale);
+  // Resolved TWICE — once per billing adapter — because the runtime is
+  // published as one map keyed by product key, and a `store` paywall and a
+  // `stripe` paywall declaring the same key would otherwise fight over
+  // `product.<key>.price`. See `selectActiveProductRuntime`'s doc for why
+  // this is cheap rather than wasteful, and why the statuses must not merge.
+  const storeRuntime = useProducts(productRefs, productProvider, locale);
+  // Free in practice: `stripeLinkProductProvider.getProducts` makes no network
+  // call, and refs without a `stripe` block are dropped.
+  const stripeRuntime = useProducts(productRefs, stripeProductProvider, locale);
+  const productRuntime = selectActiveProductRuntime({
+    storeRuntime,
+    stripeRuntime,
+    billing: activePaywall?.billing,
+    hasStripeProvider: stripeProductProvider !== undefined,
+  });
+
+  // A studio author can set `billing: "stripe"` on a paywall before the host
+  // ships the adapter. Loud, because the symptom otherwise is a paywall that
+  // charges through the store while the dashboard says Stripe.
+  useEffect(() => {
+    if (activePaywall?.billing === "stripe" && !stripeProductProvider) {
+      console.warn(
+        `[paywalls] "${activePaywall.name}" is set to Stripe billing, but no ` +
+          "`stripeProductProvider` was passed to PaywallProvider — falling back to the store " +
+          "adapter. Pass `stripeLinkProductProvider({ clientReferenceId })` to honour it.",
+      );
+    }
+  }, [activePaywall, stripeProductProvider]);
 
   // Tracks what a purchase attempt resolved to during the CURRENT
   // presentation — read by `complete()` to upgrade a generic "dismissed"
@@ -252,7 +311,8 @@ const PaywallProviderInner = ({
     [productRuntime, purchase]
   );
 
-  const [activeMoment, setActiveMoment] = useState<string | null>(null);
+  // `activeMoment`'s `useState` was hoisted above `productRefs` — see the
+  // comment there. Only `hostAcknowledged` is declared here.
   // Whether the host has confirmed THIS presentation is on screen. State, not
   // a ref, because the timeout effect below must re-run (and cancel) the moment
   // it flips.
@@ -337,20 +397,9 @@ const PaywallProviderInner = ({
     setHostAcknowledged(true);
   }, []);
 
-  const activePaywall = activeMoment ? catalog?.paywalls[activeMoment] ?? null : null;
-
-  // Finding 6, 2026-08-17 final review, widened by N2 (round 2): a background
-  // catalog revalidation (see `getPaywalls.query.ts`) can push a fresh catalog
-  // that no longer contains the moment currently on screen (a studio
-  // publish renamed or removed it mid-session) — OR the query KEY itself can
-  // change while a paywall is showing (`locale`/`customAudienceParams`
-  // changed as a prop), which makes react-query report `data: undefined`
-  // while the new key is fetching (Finding 1's fix reads `catalog` straight
-  // from that `data`). Both collapse `activePaywall` to null the same way, so
-  // guarding on THAT — not on `catalog` being non-null — catches both: the
-  // original guard (`!catalog` check) missed the query-key case entirely,
-  // because a null `catalog` made it bail out before ever checking whether
-  // the moment was still present.
+  // `activePaywall` was hoisted above `productRefs` — see the comment there
+  // (Finding 6, 2026-08-17 final review) for why it is derived from
+  // `activeMoment` rather than guarded on `catalog` alone.
   //
   // Either way, the Modal closes itself WITHOUT going through `complete()`,
   // so the pending `present()` promise would never settle and
@@ -447,6 +496,7 @@ export const PaywallProvider = ({
   locale = "en",
   customAudienceParams = {},
   productProvider,
+  stripeProductProvider,
   customActions = EMPTY_CUSTOM_ACTIONS,
   presentAckTimeoutMs = DEFAULT_PRESENT_ACK_TIMEOUT_MS,
 }: PaywallProviderProps) => {
@@ -457,6 +507,7 @@ export const PaywallProvider = ({
         locale={locale}
         customAudienceParams={customAudienceParams}
         productProvider={productProvider}
+        stripeProductProvider={stripeProductProvider}
         customActions={customActions}
         presentAckTimeoutMs={presentAckTimeoutMs}
       >

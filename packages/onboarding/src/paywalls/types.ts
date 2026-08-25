@@ -28,7 +28,7 @@ export type Paywall = {
   /**
    * Which billing path this paywall's buy actions take. `"store"` uses the
    * host's store adapter (`PaywallProvider`'s `productProvider`); `"stripe"`
-   * uses `stripeProductProvider` and opens a Payment Link.
+   * uses `PaywallProvider`'s `stripeProductProvider` and opens a Payment Link.
    *
    * A property of the PAYWALL, not the moment or the project, so one moment
    * audience can weight a `store` variant against a `stripe` variant and ramp

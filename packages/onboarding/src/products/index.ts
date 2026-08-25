@@ -20,3 +20,5 @@ export { ProductRuntimeContext, useProductRuntime } from "./ProductRuntimeContex
 export { stubProductProvider } from "./adapters/stub";
 export { revenueCatProductProvider } from "./adapters/revenueCat";
 export { expoIapProductProvider } from "./adapters/expoIap";
+export { stripeLinkProductProvider } from "./adapters/stripeLink";
+export type { StripeLinkProviderConfig } from "./adapters/stripeLink";

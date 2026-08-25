@@ -117,6 +117,27 @@ describe("stripeLinkProductProvider.purchase", () => {
     expect(result.status).toBe("error");
     expect(opened).toHaveLength(0);
   });
+
+  it("resolves status: error (never rejects) for a malformed payment link", async () => {
+    const { provider, opened } = harness();
+    const [p] = await provider.getProducts([
+      { key: "k", stripe: { paymentLink: "not a url", amount: 1, currency: "USD" } },
+    ]);
+    const result = await provider.purchase(p);
+    expect(result.status).toBe("error");
+    expect(opened).toHaveLength(0);
+  });
+
+  it("does not serve a stale link once a key's stripe block is dropped from the catalog", async () => {
+    const { provider, opened } = harness();
+    const ref: ProductRef = { key: "k", stripe: { paymentLink: "https://buy.stripe.com/x", amount: 1, currency: "USD" } };
+    const [p] = await provider.getProducts([ref]);
+    // Re-authored off Stripe billing: the same key, now with no stripe block.
+    await provider.getProducts([{ key: "k" }]);
+    const result = await provider.purchase(p);
+    expect(result.status).toBe("error");
+    expect(opened).toHaveLength(0);
+  });
 });
 
 describe("stripeLinkProductProvider.restore", () => {

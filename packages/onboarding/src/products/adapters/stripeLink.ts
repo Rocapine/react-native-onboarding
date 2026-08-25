@@ -108,6 +108,12 @@ export const stripeLinkProductProvider = (config: StripeLinkProviderConfig): Pro
 
   return {
     async getProducts(refs: ProductRef[]): Promise<ResolvedProduct[]> {
+      // Cleared, not merged: this call's `refs` is the full current catalog, so
+      // it defines the resolvable set on its own. A key that carried a stripe
+      // block last call but not this one (re-authored off Stripe billing) must
+      // stop resolving — an accumulating map would keep `purchase()` opening
+      // that stale link indefinitely instead of taking the "no link" error path.
+      linkByKey.clear();
       const out: ResolvedProduct[] = [];
       for (const ref of refs) {
         const s = ref.stripe;
@@ -158,12 +164,28 @@ export const stripeLinkProductProvider = (config: StripeLinkProviderConfig): Pro
           ),
         };
       }
-      await openUrl(
-        withParams(link, {
-          client_reference_id: clientReferenceId(),
-          prefilled_email: prefilledEmail?.(),
-        }),
-      );
+      // `withParams` throws synchronously on a malformed link (`new URL`) —
+      // a plausible failure mode for an author-pasted Stripe URL. That throw
+      // happens before any `await`, so left unguarded it would make
+      // `purchase()` return a REJECTED promise instead of the resolved
+      // `{ status: "error", error }` every other failure path in this file
+      // uses. Callers awaiting `purchase()` should only ever see it resolve.
+      try {
+        await openUrl(
+          withParams(link, {
+            client_reference_id: clientReferenceId(),
+            prefilled_email: prefilledEmail?.(),
+          }),
+        );
+      } catch (e) {
+        // Always renamed to name the offending link — a bare `Invalid URL`
+        // (what `new URL` throws) gives an author nothing to act on.
+        const reason = e instanceof Error ? e.message : String(e);
+        return {
+          status: "error",
+          error: new Error(`stripeLinkProductProvider: failed to open payment link "${link}": ${reason}`),
+        };
+      }
       // Never "purchased": the browser has taken over and, on web, this JS
       // context is about to be destroyed. RevenueCat reports the entitlement.
       return { status: "pending" };

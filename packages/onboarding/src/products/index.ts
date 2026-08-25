@@ -1,5 +1,6 @@
 export type {
   ProductRef,
+  StripeProductRef,
   ProductPeriod,
   ResolvedProduct,
   DerivedProductFields,
@@ -13,6 +14,7 @@ export type {
 export { parseIsoDuration } from "./duration";
 export { formatCurrency, deriveProductFields, deriveAll } from "./derive";
 export { productVariables } from "./toVariables";
+export { productRefIdentity } from "./refIdentity";
 export { useProducts } from "./useProducts";
 export { ProductRuntimeContext, useProductRuntime } from "./ProductRuntimeContext";
 export { stubProductProvider } from "./adapters/stub";

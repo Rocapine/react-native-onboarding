@@ -38,6 +38,7 @@ const catalog: PaywallCatalog = {
       audienceId: 1,
       audienceName: "default",
       elements: [],
+      billing: "store",
       products: [{ key: "monthly", ios: "com.app.monthly" }],
       configuration: null,
     },

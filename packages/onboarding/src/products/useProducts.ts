@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { deriveAll } from "./derive";
+import { productRefIdentity } from "./refIdentity";
 import type {
   ProductProvider,
   ProductRef,
@@ -39,10 +40,12 @@ export const useProducts = (
 
   // Key the effect on the refs' identity CONTENT, not the array identity — a
   // host passing an inline array literal would otherwise refetch every render.
-  const refsKey = useMemo(
-    () => (refs ?? []).map((r) => `${r.key}|${r.ios ?? ""}|${r.android ?? ""}|${r.compareTo ?? ""}`).join(","),
-    [refs]
-  );
+  // `productRefIdentity` owns the field list; see its doc for why it is shared
+  // with `collectProductRefs` rather than duplicated here.
+  // "\u001E" (record separator) BETWEEN refs, distinct from the "\u001F"
+  // `productRefIdentity` puts between FIELDS — one separator for each nesting
+  // level, so no arrangement of ids can produce two identical keys.
+  const refsKey = useMemo(() => (refs ?? []).map(productRefIdentity).join("\u001E"), [refs]);
   const refsRef = useRef(refs);
   refsRef.current = refs;
 

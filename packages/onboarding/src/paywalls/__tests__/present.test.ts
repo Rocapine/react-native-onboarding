@@ -17,6 +17,7 @@ const makePaywall = (overrides: Partial<Paywall> & Pick<Paywall, "id" | "moment"
   audienceId: overrides.audienceId ?? null,
   audienceName: overrides.audienceName ?? null,
   elements: overrides.elements ?? [],
+  billing: overrides.billing ?? "store",
   products: overrides.products ?? [],
   configuration: overrides.configuration ?? null,
   ...overrides,

@@ -1,3 +1,30 @@
+/**
+ * A Stripe Payment Link and the price to render beside it.
+ *
+ * Unlike `ios`/`android` — which are ids a store resolves at runtime — this
+ * block is the RESOLVED product. There is no Stripe runtime to ask: listing a
+ * price needs a secret key, and by design nobody in this system holds one
+ * (not the host, not Onboarding Studio). So the studio copies the authored
+ * price onto the ref, and `stripeLinkProductProvider` synthesises a
+ * `ResolvedProduct` from it without any network call.
+ *
+ * Consequence the author owns: this price can DRIFT from Stripe. Nothing
+ * reconciles them.
+ */
+export type StripeProductRef = {
+  /** `https://buy.stripe.com/...`, pre-created in Stripe. Required — nothing to open without it. */
+  paymentLink: string;
+  /** `price_...`. Informational in this version; kept for reconciliation and a future proxy mode. */
+  priceId?: string;
+  /** Major units (79, not 7900), matching `project_products.stripe_price.amount`. */
+  amount: number;
+  /** ISO-4217, e.g. "USD". */
+  currency: string;
+  /** ISO-8601, e.g. "P1Y". Drives `pricePerWeek` and friends via `deriveProductFields`. */
+  periodIso?: string | null;
+  trialDays?: number;
+};
+
 /** A product slot declared by the author: a stable key plus per-store ids. */
 export type ProductRef = {
   /** Author-chosen slot name used in variables, e.g. "yearly" → product.yearly.price */
@@ -6,6 +33,8 @@ export type ProductRef = {
   ios?: string;
   /** Play product identifier. `productId:basePlanId` — RevenueCat's convention. */
   android?: string;
+  /** Stripe Payment Link + authored price. Present only on a `billing: "stripe"` paywall's refs. */
+  stripe?: StripeProductRef;
   /** Another slot's key; savingsPct is computed against it. */
   compareTo?: string;
 };
@@ -17,7 +46,7 @@ export type ResolvedProduct = {
   key: string;
   /** The identifier resolved for THIS platform. */
   productId: string;
-  store: "app_store" | "play_store";
+  store: "app_store" | "play_store" | "stripe";
   title: string;
   description: string;
   /** Store-localized, pre-formatted, e.g. "$59.99". Display this. */

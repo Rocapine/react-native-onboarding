@@ -1,12 +1,13 @@
 import type { Paywall, PaywallCatalog, PresentResult } from "./types";
 import type { ProductRef, ProductStatus, PurchaseResult } from "../products/types";
+import { productRefIdentity } from "../products/refIdentity";
 
 /**
  * Union of every `paywall.products[]` across the WHOLE catalog, deduplicated
  * by content — the same identity notion `useProducts`' `refsKey` uses
- * (`products/useProducts.ts:41-45`: keyed on ref CONTENT, not array
- * identity), so this array is exactly as cheap to pass as a hand-written one:
- * `useProducts` resolves it once and does not refetch on every render.
+ * (`products/refIdentity.ts`: keyed on ref CONTENT, not array identity), so
+ * this array is exactly as cheap to pass as a hand-written one: `useProducts`
+ * resolves it once and does not refetch on every render.
  *
  * Resolving the whole catalog's union ONCE at load — rather than re-keying
  * `useProducts` per presented paywall — is the deliberate design decision:
@@ -20,7 +21,7 @@ export const collectProductRefs = (catalog: PaywallCatalog | null): ProductRef[]
   const refs: ProductRef[] = [];
   for (const paywall of Object.values(catalog.paywalls)) {
     for (const ref of paywall.products) {
-      const identity = `${ref.key}|${ref.ios ?? ""}|${ref.android ?? ""}|${ref.compareTo ?? ""}`;
+      const identity = productRefIdentity(ref);
       if (seen.has(identity)) continue;
       seen.add(identity);
       refs.push(ref);

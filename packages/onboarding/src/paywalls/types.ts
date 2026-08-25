@@ -1,3 +1,5 @@
+import type { StripeProductRef } from "../products/types";
+
 /**
  * Response types for `OnboardingStudioClient.getPaywalls()` (spec §6.1). The
  * endpoint returns every moment for the project/audience/locale in one
@@ -23,11 +25,22 @@ export type Paywall = {
   audienceName: string | null;
   /** UIElement[] — parsed by the UI adapter (Task 7's `ScreenElementsSchema`), not here. */
   elements: unknown[];
+  /**
+   * Which billing path this paywall's buy actions take. `"store"` uses the
+   * host's store adapter (`PaywallProvider`'s `productProvider`); `"stripe"`
+   * uses `stripeProductProvider` and opens a Payment Link.
+   *
+   * A property of the PAYWALL, not the moment or the project, so one moment
+   * audience can weight a `store` variant against a `stripe` variant and ramp
+   * the billing change as an A/B test.
+   */
+  billing: "store" | "stripe";
   products: Array<{
     key: string;
     ios?: string;
     android?: string;
     compareTo?: string;
+    stripe?: StripeProductRef;
   }>;
   configuration: Record<string, unknown> | null;
 };

@@ -135,10 +135,18 @@ interface PaywallProviderProps {
   locale?: string;
   customAudienceParams?: Record<string, any>;
   /**
-   * Billing adapter. Products are resolved once, over the union of every
-   * `paywall.products[]` in the catalog (deduplicated), and published via
+   * Billing adapter for `billing: "store"` paywalls — also the default while
+   * no paywall is active, and the fallback for `"stripe"` when
+   * `stripeProductProvider` (see that prop) was not passed. Resolved once,
+   * over the union of every `paywall.products[]` in the catalog
+   * (deduplicated).
+   *
+   * This adapter's result is NOT unconditionally what gets published: which
+   * of `productProvider`'s and `stripeProductProvider`'s resolution reaches
+   * `ProductRuntimeContext` depends on the active paywall's `billing` (see
+   * `selectActiveProductRuntime`). Whichever one is live, it is published via
    * `ProductRuntimeContext` — an `OnboardingProvider` mounted anywhere inside
-   * this tree picks up the SAME runtime instead of resolving its own, so
+   * this tree picks up that SAME runtime instead of resolving its own, so
    * there is one store round-trip and one `purchasing` flag for both.
    */
   productProvider?: ProductProvider;

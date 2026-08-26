@@ -6,17 +6,19 @@ import {
   purchaseOutcomeFromResult,
   resolvePresentDecision,
   resolvePresentedOutcome,
+  selectActiveProductRuntime,
   shouldBreakPresentationWedge,
   shouldRecordPurchaseOutcome,
 } from "../present";
 import type { Paywall, PaywallCatalog } from "../types";
-import type { PurchaseResult } from "../../products/types";
+import type { ProductRuntime, PurchaseResult } from "../../products/types";
 
 const makePaywall = (overrides: Partial<Paywall> & Pick<Paywall, "id" | "moment">): Paywall => ({
   name: overrides.name ?? "Paywall",
   audienceId: overrides.audienceId ?? null,
   audienceName: overrides.audienceName ?? null,
   elements: overrides.elements ?? [],
+  billing: overrides.billing ?? "store",
   products: overrides.products ?? [],
   configuration: overrides.configuration ?? null,
   ...overrides,
@@ -310,5 +312,114 @@ describe("computeCatalogStatus", () => {
     const productsPending = computeCatalogStatus(catalog, null, false);
     expect(computeIsReady(null, [], "idle")).toBe(false);
     expect(new Set([loading, errored, productsPending]).size).toBe(3);
+  });
+});
+
+const runtime = (over: Partial<ProductRuntime> = {}): ProductRuntime => ({
+  products: {},
+  status: "ready",
+  purchasing: false,
+  purchase: async () => ({ status: "cancelled" }),
+  restore: async () => ({ status: "nothing_to_restore" }),
+  ...over,
+});
+
+describe("selectActiveProductRuntime", () => {
+  const storeRuntime = runtime({ status: "ready" });
+  const stripeRuntime = runtime({ status: "loading" });
+
+  it("publishes the store runtime when billing is 'store'", () => {
+    expect(
+      selectActiveProductRuntime({
+        storeRuntime,
+        stripeRuntime,
+        billing: "store",
+        hasStripeProvider: true,
+        hasStoreProvider: true,
+      }),
+    ).toBe(storeRuntime);
+  });
+
+  it("publishes the store runtime when no paywall is active and both providers exist", () => {
+    // Neither is more likely to be "the" right one just because nothing is
+    // active yet, so this keeps the pre-existing store-first default.
+    expect(
+      selectActiveProductRuntime({
+        storeRuntime,
+        stripeRuntime,
+        billing: undefined,
+        hasStripeProvider: true,
+        hasStoreProvider: true,
+      }),
+    ).toBe(storeRuntime);
+  });
+
+  it("publishes the store runtime when no paywall is active and neither provider exists", () => {
+    expect(
+      selectActiveProductRuntime({
+        storeRuntime,
+        stripeRuntime,
+        billing: undefined,
+        hasStripeProvider: false,
+        hasStoreProvider: false,
+      }),
+    ).toBe(storeRuntime);
+  });
+
+  it("publishes the stripe runtime when no paywall is active and only a stripe provider was passed", () => {
+    // A stripe-only host (no `productProvider` at all) must not sit on an
+    // "idle" store runtime forever — see this function's doc for why that
+    // used to keep `products.loaded` at "false" for every screen before the
+    // first paywall presents.
+    expect(
+      selectActiveProductRuntime({
+        storeRuntime,
+        stripeRuntime,
+        billing: undefined,
+        hasStripeProvider: true,
+        hasStoreProvider: false,
+      }),
+    ).toBe(stripeRuntime);
+  });
+
+  it("publishes the stripe runtime when billing is 'stripe'", () => {
+    expect(
+      selectActiveProductRuntime({
+        storeRuntime,
+        stripeRuntime,
+        billing: "stripe",
+        hasStripeProvider: true,
+        hasStoreProvider: true,
+      }),
+    ).toBe(stripeRuntime);
+  });
+
+  it("falls back to the store runtime when billing is 'stripe' but no stripe provider was passed", () => {
+    // Without this, `useProducts` leaves the stripe runtime at "idle" forever
+    // (it bails before calling a provider it does not have), `computeIsReady`
+    // never turns true, and every paywall silently stops presenting — the same
+    // trap `mergeProductRuntimes` documents for its own status merge.
+    const idleStripe = runtime({ status: "idle" });
+    expect(
+      selectActiveProductRuntime({
+        storeRuntime,
+        stripeRuntime: idleStripe,
+        billing: "stripe",
+        hasStripeProvider: false,
+        hasStoreProvider: true,
+      }),
+    ).toBe(storeRuntime);
+  });
+
+  it("never merges the two statuses", () => {
+    // A store paywall must not be held un-ready by the stripe pass.
+    const selected = selectActiveProductRuntime({
+      storeRuntime: runtime({ status: "ready" }),
+      stripeRuntime: runtime({ status: "loading" }),
+      billing: "store",
+      hasStripeProvider: true,
+      hasStoreProvider: true,
+    });
+    expect(selected.status).toBe("ready");
   });
 });

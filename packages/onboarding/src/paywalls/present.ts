@@ -1,12 +1,13 @@
 import type { Paywall, PaywallCatalog, PresentResult } from "./types";
-import type { ProductRef, ProductStatus, PurchaseResult } from "../products/types";
+import type { ProductRef, ProductRuntime, ProductStatus, PurchaseResult } from "../products/types";
+import { productRefIdentity } from "../products/refIdentity";
 
 /**
  * Union of every `paywall.products[]` across the WHOLE catalog, deduplicated
  * by content — the same identity notion `useProducts`' `refsKey` uses
- * (`products/useProducts.ts:41-45`: keyed on ref CONTENT, not array
- * identity), so this array is exactly as cheap to pass as a hand-written one:
- * `useProducts` resolves it once and does not refetch on every render.
+ * (`products/refIdentity.ts`: keyed on ref CONTENT, not array identity), so
+ * this array is exactly as cheap to pass as a hand-written one: `useProducts`
+ * resolves it once and does not refetch on every render.
  *
  * Resolving the whole catalog's union ONCE at load — rather than re-keying
  * `useProducts` per presented paywall — is the deliberate design decision:
@@ -20,7 +21,7 @@ export const collectProductRefs = (catalog: PaywallCatalog | null): ProductRef[]
   const refs: ProductRef[] = [];
   for (const paywall of Object.values(catalog.paywalls)) {
     for (const ref of paywall.products) {
-      const identity = `${ref.key}|${ref.ios ?? ""}|${ref.android ?? ""}|${ref.compareTo ?? ""}`;
+      const identity = productRefIdentity(ref);
       if (seen.has(identity)) continue;
       seen.add(identity);
       refs.push(ref);
@@ -215,3 +216,55 @@ export const shouldRecordPurchaseOutcome = (
   startedInGeneration: number,
   currentGeneration: number
 ): boolean => startedInGeneration === currentGeneration;
+
+/**
+ * Which of the two resolved product runtimes to publish.
+ *
+ * `PaywallProvider` resolves the catalog's product union TWICE — once through
+ * the host's store adapter, once through its Stripe adapter — because the
+ * runtime is published as one map keyed by product key, and a `store` paywall
+ * and a `stripe` paywall declaring the same key would otherwise fight over
+ * `product.<key>.price`. Only one paywall is ever presented at a time
+ * (`activeMoment`), so "the active one" is unambiguous.
+ *
+ * This is cheap rather than wasteful because the Stripe pass performs no
+ * network call (`stripeLinkProductProvider`) and each provider silently drops
+ * refs it cannot resolve, so neither pass does work for the other's paywalls.
+ *
+ * The statuses are deliberately NOT merged. Merging is the trap
+ * `mergeProductRuntimes` documents from the other direction: an `"idle"`
+ * runtime with nothing to wait for drags a `"ready"` one down and closes every
+ * `products.loaded` gate for the life of the process.
+ *
+ * `hasStripeProvider` is the guard for a misconfigured host: a `stripe`
+ * paywall with no `stripeProductProvider` passed leaves `useProducts` at
+ * `"idle"` forever (it bails before calling a provider it does not have), so
+ * `computeIsReady` would never turn true and paywalls would stop appearing
+ * with no error. Falling back to the store runtime keeps the app alive; the
+ * caller warns.
+ *
+ * `billing` is `undefined` whenever no paywall is active (`activePaywall` is
+ * null before the first `present()`, and after every `complete()`) — there is
+ * no `.billing` to read yet. That USED to fall through to the store runtime
+ * unconditionally, which meant a host that passes ONLY
+ * `stripeProductProvider` (no `productProvider` at all) sat on an `"idle"`
+ * `storeRuntime` — forever, for every screen before a paywall first presents,
+ * since nothing ever calls a `present()` to select the stripe runtime instead
+ * — so `products.loaded` read `"false"` everywhere and `isReady` never turned
+ * true. `hasStoreProvider` closes that gap: with no active paywall, prefer
+ * whichever provider was actually SUPPLIED. When both or neither exist there
+ * is no asymmetry to correct, so this keeps the pre-existing store-first
+ * default — unchanged for every host that already worked.
+ */
+export const selectActiveProductRuntime = (args: {
+  storeRuntime: ProductRuntime;
+  stripeRuntime: ProductRuntime;
+  billing: "store" | "stripe" | undefined;
+  hasStripeProvider: boolean;
+  hasStoreProvider: boolean;
+}): ProductRuntime => {
+  if (args.billing === "stripe" && args.hasStripeProvider) return args.stripeRuntime;
+  if (args.billing !== undefined) return args.storeRuntime;
+  if (args.hasStripeProvider && !args.hasStoreProvider) return args.stripeRuntime;
+  return args.storeRuntime;
+};

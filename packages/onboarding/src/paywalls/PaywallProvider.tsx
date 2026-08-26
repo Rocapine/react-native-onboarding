@@ -10,6 +10,7 @@ import {
   computeCatalogStatus,
   type CatalogStatus,
   resolvePresentDecision,
+  selectActiveProductRuntime,
   shouldBreakPresentationWedge,
   resolvePresentedOutcome,
   shouldRecordPurchaseOutcome,
@@ -50,13 +51,13 @@ const EMPTY_CUSTOM_ACTIONS: CustomActions = Object.freeze({});
  * `infra/hooks/` slicing `OnboardingProgressContext`.
  */
 export type PaywallContextValue = {
-  present: (placement: string) => Promise<PresentResult>;
+  present: (moment: string) => Promise<PresentResult>;
   isReady: boolean;
   catalog: PaywallCatalog | null;
   /**
    * What the catalog is doing — the states `isReady` collapses into one
    * boolean. See `CatalogStatus`; `"revalidating"` in particular means the
-   * catalog on hand may be superseded within moments, so a missing placement
+   * catalog on hand may be superseded within moments, so a missing moment
    * does not yet mean an absent one.
    */
   catalogStatus: CatalogStatus;
@@ -69,7 +70,7 @@ export type PaywallContextValue = {
   /** The paywall currently being presented, or null. Read by `usePaywallHost()` — not by `usePaywall()`. */
   activePaywall: Paywall | null;
   /**
-   * Resolve the pending `present()` call and clear the active placement.
+   * Resolve the pending `present()` call and clear the active moment.
    * Call this from the presented paywall's `ScreenHost.complete` (Task 7's
    * `PaywallHost`) — never from an ordinary consumer.
    */
@@ -90,7 +91,7 @@ export type PaywallContextValue = {
 const EMPTY_PAYWALL_CONTEXT: PaywallContextValue = {
   // No provider above: there is no catalog at all, which is the same answer
   // `resolvePresentDecision` gives for an unresolved one.
-  present: async () => ({ status: "error", reason: "unknown-placement" }),
+  present: async () => ({ status: "error", reason: "unknown-moment" }),
   isReady: false,
   catalog: null,
   // No provider above: nothing is loading and nothing will arrive.
@@ -134,13 +135,30 @@ interface PaywallProviderProps {
   locale?: string;
   customAudienceParams?: Record<string, any>;
   /**
-   * Billing adapter. Products are resolved once, over the union of every
-   * `paywall.products[]` in the catalog (deduplicated), and published via
+   * Billing adapter for `billing: "store"` paywalls — also the default while
+   * no paywall is active, and the fallback for `"stripe"` when
+   * `stripeProductProvider` (see that prop) was not passed. Resolved once,
+   * over the union of every `paywall.products[]` in the catalog
+   * (deduplicated).
+   *
+   * This adapter's result is NOT unconditionally what gets published: which
+   * of `productProvider`'s and `stripeProductProvider`'s resolution reaches
+   * `ProductRuntimeContext` depends on the active paywall's `billing` (see
+   * `selectActiveProductRuntime`). Whichever one is live, it is published via
    * `ProductRuntimeContext` — an `OnboardingProvider` mounted anywhere inside
-   * this tree picks up the SAME runtime instead of resolving its own, so
+   * this tree picks up that SAME runtime instead of resolving its own, so
    * there is one store round-trip and one `purchasing` flag for both.
    */
   productProvider?: ProductProvider;
+  /**
+   * Billing adapter for `billing: "stripe"` paywalls — normally
+   * `stripeLinkProductProvider`. The catalog's product union is resolved
+   * through BOTH this and `productProvider`, and the runtime published is the
+   * one matching the presented paywall's `billing` (see
+   * `selectActiveProductRuntime`). Omit it and every paywall uses
+   * `productProvider`, exactly as before this prop existed.
+   */
+  stripeProductProvider?: ProductProvider;
   /** Handlers for `{ type: "custom" }` ButtonActions inside a paywall's elements. */
   customActions?: CustomActions;
   /**
@@ -161,6 +179,7 @@ interface PaywallProviderInnerProps {
   locale: string;
   customAudienceParams: Record<string, any>;
   productProvider?: ProductProvider;
+  stripeProductProvider?: ProductProvider;
   customActions: CustomActions;
   presentAckTimeoutMs: number | null;
 }
@@ -171,6 +190,7 @@ const PaywallProviderInner = ({
   locale,
   customAudienceParams,
   productProvider,
+  stripeProductProvider,
   customActions,
   presentAckTimeoutMs,
 }: PaywallProviderInnerProps) => {
@@ -198,17 +218,68 @@ const PaywallProviderInner = ({
     // but `PaywallProvider` wraps the WHOLE app (spec §7:
     // `<PaywallProvider><App/><PaywallHost/></PaywallProvider>`), so throwing
     // here would crash every screen over a paywall-catalog failure alone.
-    // Instead: `catalog` simply stays null, `present()` on any placement
+    // Instead: `catalog` simply stays null, `present()` on any moment
     // resolves "error" (see `resolvePresentDecision` — an unresolved catalog
-    // looks identical to an unknown placement), and `isReady` stays false.
+    // looks identical to an unknown moment), and `isReady` stays false.
     console.warn("[paywalls] Failed to load paywall catalog:", error);
   }, [error]);
 
-  // Union of every placement's products, deduplicated, resolved ONCE — never
+  // Hoisted above `productRefs`/the product runtimes below: `activeMoment`
+  // (state) and `activePaywall` (derived from it) are read by the runtime
+  // selection that follows. Bare `useState(null)` with no dependencies, so
+  // hoisting past the effects and refs below it changes nothing about hook
+  // order.
+  const [activeMoment, setActiveMoment] = useState<string | null>(null);
+  // Finding 6, 2026-08-17 final review, widened by N2 (round 2): a background
+  // catalog revalidation (see `getPaywalls.query.ts`) can push a fresh catalog
+  // that no longer contains the moment currently on screen (a studio
+  // publish renamed or removed it mid-session) — OR the query KEY itself can
+  // change while a paywall is showing (`locale`/`customAudienceParams`
+  // changed as a prop), which makes react-query report `data: undefined`
+  // while the new key is fetching (Finding 1's fix reads `catalog` straight
+  // from that `data`). Both collapse `activePaywall` to null the same way, so
+  // guarding on THAT — not on `catalog` being non-null — catches both: the
+  // original guard (`!catalog` check) missed the query-key case entirely,
+  // because a null `catalog` made it bail out before ever checking whether
+  // the moment was still present.
+  const activePaywall = activeMoment ? catalog?.paywalls[activeMoment] ?? null : null;
+
+  // Union of every moment's products, deduplicated, resolved ONCE — never
   // re-keyed per presented paywall. See `present.ts`'s `collectProductRefs`
   // doc for why (spec §6.1's "render instantly on tap" requirement).
   const productRefs = useMemo(() => collectProductRefs(catalog), [catalog]);
-  const productRuntime = useProducts(productRefs, productProvider, locale);
+  // Resolved TWICE — once per billing adapter — because the runtime is
+  // published as one map keyed by product key, and a `store` paywall and a
+  // `stripe` paywall declaring the same key would otherwise fight over
+  // `product.<key>.price`. See `selectActiveProductRuntime`'s doc for why
+  // this is cheap rather than wasteful, and why the statuses must not merge.
+  const storeRuntime = useProducts(productRefs, productProvider, locale);
+  // Free in practice: `stripeLinkProductProvider.getProducts` makes no network
+  // call, and refs without a `stripe` block are dropped.
+  const stripeRuntime = useProducts(productRefs, stripeProductProvider, locale);
+  const productRuntime = selectActiveProductRuntime({
+    storeRuntime,
+    stripeRuntime,
+    billing: activePaywall?.billing,
+    hasStripeProvider: stripeProductProvider !== undefined,
+    // Lets `selectActiveProductRuntime` prefer the stripe runtime while no
+    // paywall is active yet, for a host that passed ONLY
+    // `stripeProductProvider` — see that function's doc.
+    hasStoreProvider: productProvider !== undefined,
+  });
+
+  // A studio author can set `billing: "stripe"` on a paywall before the host
+  // ships the adapter. Loud, because the symptom otherwise is a paywall that
+  // charges through the store while the dashboard says Stripe.
+  useEffect(() => {
+    if (activePaywall?.billing === "stripe" && !stripeProductProvider) {
+      console.warn(
+        `[paywalls] "${activePaywall.name}" is set to Stripe billing, but no ` +
+          "`stripeProductProvider` was passed to PaywallProvider — falling back to the store " +
+          "adapter. Pass `stripeLinkProductProvider({ clientReferenceId })` to honour it.",
+      );
+    }
+  }, [activePaywall, stripeProductProvider]);
 
   // Tracks what a purchase attempt resolved to during the CURRENT
   // presentation — read by `complete()` to upgrade a generic "dismissed"
@@ -252,7 +323,8 @@ const PaywallProviderInner = ({
     [productRuntime, purchase]
   );
 
-  const [activePlacement, setActivePlacement] = useState<string | null>(null);
+  // `activeMoment`'s `useState` was hoisted above `productRefs` — see the
+  // comment there. Only `hostAcknowledged` is declared here.
   // Whether the host has confirmed THIS presentation is on screen. State, not
   // a ref, because the timeout effect below must re-run (and cancel) the moment
   // it flips.
@@ -262,7 +334,7 @@ const PaywallProviderInner = ({
   // `purchase`/`restore` callbacks.
   const catalogRef = useRef(catalog);
   catalogRef.current = catalog;
-  // `activePlacementRef` is made AUTHORITATIVE below — assigned inside
+  // `activeMomentRef` is made AUTHORITATIVE below — assigned inside
   // `present()`'s start branch and inside `complete()`, not just here. Finding
   // 4, 2026-08-17 final review: this line alone only resyncs the ref from
   // state AFTER React commits, so between a `present()` call and the next
@@ -274,17 +346,17 @@ const PaywallProviderInner = ({
   // orphaning this whole ref/resolver scheme exists to prevent. Assigning
   // synchronously inside `present`/`complete` closes that window; this
   // render-body line stays only as a resync for the (rare) case something
-  // external changes `activePlacement` state without going through either
+  // external changes `activeMoment` state without going through either
   // callback.
-  const activePlacementRef = useRef(activePlacement);
-  activePlacementRef.current = activePlacement;
+  const activeMomentRef = useRef(activeMoment);
+  activeMomentRef.current = activeMoment;
   const pendingResolveRef = useRef<((result: PresentResult) => void) | null>(null);
 
   // present() must not fetch anything — the catalog and products are already
   // resolved (or resolving) from mount. It only decides, synchronously,
   // whether to show the Modal.
-  const present = useCallback((placement: string): Promise<PresentResult> => {
-    const decision = resolvePresentDecision(catalogRef.current, activePlacementRef.current, placement);
+  const present = useCallback((moment: string): Promise<PresentResult> => {
+    const decision = resolvePresentDecision(catalogRef.current, activeMomentRef.current, moment);
     if (decision.type === "immediate") {
       return Promise.resolve(decision.result);
     }
@@ -296,20 +368,20 @@ const PaywallProviderInner = ({
     // Authoritative NOW, synchronously — see the ref's doc above. A second
     // `present()` call before React commits reads this value, not the stale
     // pre-commit state, and correctly takes the "already showing" branch.
-    activePlacementRef.current = placement;
+    activeMomentRef.current = moment;
     return new Promise<PresentResult>((resolve) => {
       pendingResolveRef.current = resolve;
       // A new presentation is unacknowledged until the host says otherwise —
       // reset before it starts, or the previous presentation's confirmation
       // would vouch for this one and disable the recovery.
       setHostAcknowledged(false);
-      setActivePlacement(placement);
+      setActiveMoment(moment);
     });
   }, []);
 
   // Called by PaywallHost (Task 7) from the presented paywall's
   // `ScreenHost.complete`. Resolves whatever `present()` call is pending and
-  // clears the active placement, hiding the Modal and allowing a new
+  // clears the active moment, hiding the Modal and allowing a new
   // `present()` to start. Safe to call with nothing pending (no-ops).
   //
   // `resolvePresentedOutcome` upgrades a bare "dismissed" to "purchased" (or
@@ -325,8 +397,8 @@ const PaywallProviderInner = ({
     // opening from the previous paywall's resolution is a canonical pattern,
     // spec §4.5) must see "nothing showing" immediately, not wait for the
     // next commit.
-    activePlacementRef.current = null;
-    setActivePlacement(null);
+    activeMomentRef.current = null;
+    setActiveMoment(null);
     setHostAcknowledged(false);
     resolve?.(resolvePresentedOutcome(result, lastPurchaseOutcomeRef.current));
   }, []);
@@ -337,31 +409,20 @@ const PaywallProviderInner = ({
     setHostAcknowledged(true);
   }, []);
 
-  const activePaywall = activePlacement ? catalog?.paywalls[activePlacement] ?? null : null;
-
-  // Finding 6, 2026-08-17 final review, widened by N2 (round 2): a background
-  // catalog revalidation (see `getPaywalls.query.ts`) can push a fresh catalog
-  // that no longer contains the placement currently on screen (a studio
-  // publish renamed or removed it mid-session) — OR the query KEY itself can
-  // change while a paywall is showing (`locale`/`customAudienceParams`
-  // changed as a prop), which makes react-query report `data: undefined`
-  // while the new key is fetching (Finding 1's fix reads `catalog` straight
-  // from that `data`). Both collapse `activePaywall` to null the same way, so
-  // guarding on THAT — not on `catalog` being non-null — catches both: the
-  // original guard (`!catalog` check) missed the query-key case entirely,
-  // because a null `catalog` made it bail out before ever checking whether
-  // the placement was still present.
+  // `activePaywall` was hoisted above `productRefs` — see the comment there
+  // (Finding 6, 2026-08-17 final review) for why it is derived from
+  // `activeMoment` rather than guarded on `catalog` alone.
   //
   // Either way, the Modal closes itself WITHOUT going through `complete()`,
   // so the pending `present()` promise would never settle and
-  // `activePlacement` would stay set forever, silently failing every later
+  // `activeMoment` would stay set forever, silently failing every later
   // `present()` call with `"error"` for the rest of the app's life.
-  // `complete()` always clears `activePlacement` together with resolving the
+  // `complete()` always clears `activeMoment` together with resolving the
   // pending promise, so it cannot race with or double-resolve this branch.
   useEffect(() => {
-    if (!activePlacement || activePaywall) return;
+    if (!activeMoment || activePaywall) return;
     complete({ status: "error", reason: "paywall-disappeared" });
-  }, [activePlacement, activePaywall, complete]);
+  }, [activeMoment, activePaywall, complete]);
 
   // The OTHER way a presentation never completes, and the one the guard above
   // structurally cannot catch: `activePaywall` is perfectly non-null — the
@@ -370,8 +431,8 @@ const PaywallProviderInner = ({
   // already-presenting view controller: another Modal, a
   // `presentation: "modal"` route, a StoreKit alert). Nothing calls
   // `complete()`, so without this the pending promise never settles,
-  // `activePlacement` stays set for the life of the process, and every later
-  // `present()` — for any placement — resolves "already-presenting" with no
+  // `activeMoment` stays set for the life of the process, and every later
+  // `present()` — for any moment — resolves "already-presenting" with no
   // error and no log. Confirmed in production on a monetisation surface, which
   // is why this recovers rather than merely reports.
   //
@@ -379,10 +440,10 @@ const PaywallProviderInner = ({
   // reading is never torn down; see `shouldBreakPresentationWedge`.
   useEffect(() => {
     if (presentAckTimeoutMs === null) return;
-    if (!shouldBreakPresentationWedge(activePlacement, hostAcknowledged, true)) return;
+    if (!shouldBreakPresentationWedge(activeMoment, hostAcknowledged, true)) return;
     const timer = setTimeout(() => {
       console.warn(
-        `[paywalls] "${activePlacement}" was never confirmed on screen within ` +
+        `[paywalls] "${activeMoment}" was never confirmed on screen within ` +
           `${presentAckTimeoutMs}ms and has been abandoned, so later present() calls keep working. ` +
           "The platform most likely refused to present it — on iOS, something else was already " +
           "presenting (another Modal, a `presentation: \"modal\"` route, or a StoreKit alert).",
@@ -390,7 +451,7 @@ const PaywallProviderInner = ({
       complete({ status: "error", reason: "host-never-presented" });
     }, presentAckTimeoutMs);
     return () => clearTimeout(timer);
-  }, [activePlacement, hostAcknowledged, presentAckTimeoutMs, complete]);
+  }, [activeMoment, hostAcknowledged, presentAckTimeoutMs, complete]);
 
   const isReady = useMemo(
     () => computeIsReady(catalog, productRefs, productRuntime.status),
@@ -447,6 +508,7 @@ export const PaywallProvider = ({
   locale = "en",
   customAudienceParams = {},
   productProvider,
+  stripeProductProvider,
   customActions = EMPTY_CUSTOM_ACTIONS,
   presentAckTimeoutMs = DEFAULT_PRESENT_ACK_TIMEOUT_MS,
 }: PaywallProviderProps) => {
@@ -457,6 +519,7 @@ export const PaywallProvider = ({
         locale={locale}
         customAudienceParams={customAudienceParams}
         productProvider={productProvider}
+        stripeProductProvider={stripeProductProvider}
         customActions={customActions}
         presentAckTimeoutMs={presentAckTimeoutMs}
       >

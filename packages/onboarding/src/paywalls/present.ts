@@ -1,12 +1,13 @@
 import type { Paywall, PaywallCatalog, PresentResult } from "./types";
-import type { ProductRef, ProductStatus, PurchaseResult } from "../products/types";
+import type { ProductRef, ProductRuntime, ProductStatus, PurchaseResult } from "../products/types";
+import { productRefIdentity } from "../products/refIdentity";
 
 /**
  * Union of every `paywall.products[]` across the WHOLE catalog, deduplicated
  * by content — the same identity notion `useProducts`' `refsKey` uses
- * (`products/useProducts.ts:41-45`: keyed on ref CONTENT, not array
- * identity), so this array is exactly as cheap to pass as a hand-written one:
- * `useProducts` resolves it once and does not refetch on every render.
+ * (`products/refIdentity.ts`: keyed on ref CONTENT, not array identity), so
+ * this array is exactly as cheap to pass as a hand-written one: `useProducts`
+ * resolves it once and does not refetch on every render.
  *
  * Resolving the whole catalog's union ONCE at load — rather than re-keying
  * `useProducts` per presented paywall — is the deliberate design decision:
@@ -20,7 +21,7 @@ export const collectProductRefs = (catalog: PaywallCatalog | null): ProductRef[]
   const refs: ProductRef[] = [];
   for (const paywall of Object.values(catalog.paywalls)) {
     for (const ref of paywall.products) {
-      const identity = `${ref.key}|${ref.ios ?? ""}|${ref.android ?? ""}|${ref.compareTo ?? ""}`;
+      const identity = productRefIdentity(ref);
       if (seen.has(identity)) continue;
       seen.add(identity);
       refs.push(ref);
@@ -35,13 +36,13 @@ export type PresentDecision =
   | { type: "immediate"; result: PresentResult };
 
 /**
- * `present(placement)`'s edge-case decision, extracted so both documented
+ * `present(moment)`'s edge-case decision, extracted so both documented
  * edge cases are covered by an importable test rather than only inspection:
  *
- * - **Unknown placement** (absent from the catalog, or the catalog hasn't
- *   resolved yet — both look identical here: `catalog?.paywalls[placement]`
+ * - **Unknown moment** (absent from the catalog, or the catalog hasn't
+ *   resolved yet — both look identical here: `catalog?.paywalls[moment]`
  *   is `undefined` either way) → resolves `"error"`, never throws. A missing
- *   placement must not crash a host app mid-flow.
+ *   moment must not crash a host app mid-flow.
  * - **`present()` called while another paywall is already showing** → also
  *   resolves `"error"` immediately, leaving the in-progress presentation
  *   untouched. This SDK shows one paywall at a time. Silently replacing the
@@ -49,23 +50,23 @@ export type PresentDecision =
  *   resolved — that caller hangs forever); queueing the new request would
  *   need its own cancellation/timeout story that nothing here asks for.
  *   Resolving the new call immediately applies the same "resolve, don't
- *   throw" contract as the unknown-placement case, consistently.
+ *   throw" contract as the unknown-moment case, consistently.
  */
 export const resolvePresentDecision = (
   catalog: PaywallCatalog | null,
-  activePlacement: string | null,
-  placement: string
+  activeMoment: string | null,
+  moment: string
 ): PresentDecision => {
-  if (activePlacement !== null) {
-    // `activePlacement` is echoed back deliberately — see PresentErrorReason.
+  if (activeMoment !== null) {
+    // `activeMoment` is echoed back deliberately — see PresentErrorReason.
     return {
       type: "immediate",
-      result: { status: "error", reason: "already-presenting", activePlacement },
+      result: { status: "error", reason: "already-presenting", activeMoment },
     };
   }
-  const paywall = catalog?.paywalls[placement];
+  const paywall = catalog?.paywalls[moment];
   if (!paywall) {
-    return { type: "immediate", result: { status: "error", reason: "unknown-placement" } };
+    return { type: "immediate", result: { status: "error", reason: "unknown-moment" } };
   }
   return { type: "start", paywall };
 };
@@ -116,7 +117,7 @@ export const shouldBreakPresentationWedge = (
  * sending volatile params gets an instantly-available catalog that was resolved
  * under DIFFERENT params, with a fresh fetch in flight behind it. That catalog
  * is present and non-null, so it reads as ready — and a host gating on
- * `catalog.paywalls[placement]` can conclude the placement does not exist and
+ * `catalog.paywalls[moment]` can conclude the moment does not exist and
  * route away, milliseconds before the correct catalog arrives.
  *
  * Observed consequence, reported from a production pilot: for an audience gated
@@ -124,7 +125,7 @@ export const shouldBreakPresentationWedge = (
  * first becomes eligible is served the PRE-threshold catalog, so the arm under
  * test loses exactly the launch that matters. `"revalidating"` is how a host
  * distinguishes "this catalog is final" from "this catalog may be superseded in
- * a moment", and therefore whether a missing placement means absent or not-yet.
+ * a moment", and therefore whether a missing moment means absent or not-yet.
  *
  * A present catalog outranks an error deliberately: if a background
  * revalidation fails, react-query keeps the cached `data` AND sets `error`, and
@@ -166,7 +167,7 @@ export const computeIsReady = (
  * `"error"` are not: they don't describe what happened to the STORE PURCHASE
  * in a way that should override how the paywall itself reports closing (an
  * `"error"` here would collide with `PresentResult`'s existing `"error"`,
- * which means something structurally different — an unknown placement or a
+ * which means something structurally different — an unknown moment or a
  * mistimed `present()` call, not a failed purchase attempt).
  */
 export type PurchaseOutcomeDuringPresentation = "purchased" | "cancelled" | null;
@@ -207,7 +208,7 @@ export const resolvePresentedOutcome = (
  * generation again after — only an unchanged generation means the write is
  * still for the presentation that started it.
  *
- * A monotonic counter, not the placement string: the same placement can
+ * A monotonic counter, not the moment string: the same moment can
  * legitimately be presented twice in a row, and a string comparison would
  * let a stale write from the FIRST of those two land in the second.
  */
@@ -215,3 +216,55 @@ export const shouldRecordPurchaseOutcome = (
   startedInGeneration: number,
   currentGeneration: number
 ): boolean => startedInGeneration === currentGeneration;
+
+/**
+ * Which of the two resolved product runtimes to publish.
+ *
+ * `PaywallProvider` resolves the catalog's product union TWICE — once through
+ * the host's store adapter, once through its Stripe adapter — because the
+ * runtime is published as one map keyed by product key, and a `store` paywall
+ * and a `stripe` paywall declaring the same key would otherwise fight over
+ * `product.<key>.price`. Only one paywall is ever presented at a time
+ * (`activeMoment`), so "the active one" is unambiguous.
+ *
+ * This is cheap rather than wasteful because the Stripe pass performs no
+ * network call (`stripeLinkProductProvider`) and each provider silently drops
+ * refs it cannot resolve, so neither pass does work for the other's paywalls.
+ *
+ * The statuses are deliberately NOT merged. Merging is the trap
+ * `mergeProductRuntimes` documents from the other direction: an `"idle"`
+ * runtime with nothing to wait for drags a `"ready"` one down and closes every
+ * `products.loaded` gate for the life of the process.
+ *
+ * `hasStripeProvider` is the guard for a misconfigured host: a `stripe`
+ * paywall with no `stripeProductProvider` passed leaves `useProducts` at
+ * `"idle"` forever (it bails before calling a provider it does not have), so
+ * `computeIsReady` would never turn true and paywalls would stop appearing
+ * with no error. Falling back to the store runtime keeps the app alive; the
+ * caller warns.
+ *
+ * `billing` is `undefined` whenever no paywall is active (`activePaywall` is
+ * null before the first `present()`, and after every `complete()`) — there is
+ * no `.billing` to read yet. That USED to fall through to the store runtime
+ * unconditionally, which meant a host that passes ONLY
+ * `stripeProductProvider` (no `productProvider` at all) sat on an `"idle"`
+ * `storeRuntime` — forever, for every screen before a paywall first presents,
+ * since nothing ever calls a `present()` to select the stripe runtime instead
+ * — so `products.loaded` read `"false"` everywhere and `isReady` never turned
+ * true. `hasStoreProvider` closes that gap: with no active paywall, prefer
+ * whichever provider was actually SUPPLIED. When both or neither exist there
+ * is no asymmetry to correct, so this keeps the pre-existing store-first
+ * default — unchanged for every host that already worked.
+ */
+export const selectActiveProductRuntime = (args: {
+  storeRuntime: ProductRuntime;
+  stripeRuntime: ProductRuntime;
+  billing: "store" | "stripe" | undefined;
+  hasStripeProvider: boolean;
+  hasStoreProvider: boolean;
+}): ProductRuntime => {
+  if (args.billing === "stripe" && args.hasStripeProvider) return args.stripeRuntime;
+  if (args.billing !== undefined) return args.storeRuntime;
+  if (args.hasStripeProvider && !args.hasStoreProvider) return args.stripeRuntime;
+  return args.storeRuntime;
+};

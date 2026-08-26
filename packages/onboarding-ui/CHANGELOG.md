@@ -9,6 +9,24 @@ here.
 
 ---
 
+## [1.70.0] - 2026-08-26
+
+### Fixed
+
+- `PaywallHost`'s parse-error log read `activePaywall.placement`, which the
+  rename removed from `Paywall` — so `build:ui` failed while
+  `packages/onboarding`'s own type-check passed. The two are separate
+  workspaces; only the monorepo-root scripts see across them.
+
+### Note
+
+- The `placement` argument on `presentPaywall(placement)` and on the
+  `presentPaywall` ButtonAction is **unchanged**. That is element-contract
+  surface, not the `Paywall` wire type, and renaming it would touch all five
+  element mirrors.
+
+---
+
 ## [1.69.0] - 2026-08-21
 
 ### Notes

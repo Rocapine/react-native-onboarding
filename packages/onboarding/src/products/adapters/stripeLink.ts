@@ -77,7 +77,7 @@ const toPeriod = (iso: string | null | undefined): { period: ProductPeriod | nul
   return { period: PERIOD_FROM_UNIT[m[2]] ?? null, count: Number(m[1]) };
 };
 
-const lazyLinking = (url: string): void => {
+const lazyLinking = (url: string): void | Promise<void> => {
   // Required lazily and defensively: this provider's whole point is running on
   // web, where react-native may be absent entirely.
   try {

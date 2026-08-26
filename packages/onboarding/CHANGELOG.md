@@ -6,6 +6,12 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- `onPending?: ButtonAction[]` on `PurchaseButtonAction` (type + schema), mirroring
+  `@rocapine/react-native-onboarding-ui`'s dispatcher. A `"pending"` result is
+  unconfirmed, not successful — a Stripe Payment Link purchase always resolves it.
+
 ---
 
 ## [1.70.0] - 2026-08-26

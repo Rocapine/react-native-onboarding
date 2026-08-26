@@ -7,6 +7,23 @@ here.
 
 ## [Unreleased]
 
+### Added
+
+- **`onPending` on the `purchase` ButtonAction.** A `"pending"` purchase result
+  now dispatches its own follow-up actions instead of only logging a warning.
+  This is not a rare branch: a **Stripe Payment Link purchase always resolves
+  `"pending"`**, because `purchase()` opens the link and the browser takes over
+  — so before this, a Stripe buy button could not dismiss the paywall or
+  navigate, and the user returned from Safari to an untouched screen.
+
+  Deliberately its own hook rather than falling through to `onSuccess`: pending
+  means **unconfirmed**, and routing it to success would let a paywall grant
+  access for a purchase that may never complete. Never grant access from
+  `onPending` — read entitlement state.
+
+  Optional and additive; a purchase action with no `onPending` still warns, as
+  before.
+
 ---
 
 ## [1.70.0] - 2026-08-26

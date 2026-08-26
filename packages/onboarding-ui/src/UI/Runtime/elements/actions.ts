@@ -51,6 +51,17 @@ export type PurchaseButtonAction = {
   onSuccess?: ButtonAction[];
   onCancel?: ButtonAction[];
   onError?: ButtonAction[];
+  /**
+   * Runs when the purchase resolves `"pending"` — unconfirmed, not successful.
+   *
+   * Not a rare branch on every path: a Stripe Payment Link purchase ALWAYS
+   * resolves pending, because `purchase()` opens the link and the browser takes
+   * over. Without this hook such a button could not dismiss the paywall or
+   * navigate, so the user returned from Safari to an untouched screen.
+   *
+   * Do NOT grant access here — nothing is paid yet. Read entitlement state.
+   */
+  onPending?: ButtonAction[];
 };
 
 export type RestoreButtonAction = {
@@ -101,6 +112,7 @@ export const PurchaseButtonActionSchema: z.ZodType<PurchaseButtonAction> = z.laz
     onSuccess: z.array(ButtonActionSchema).optional(),
     onCancel: z.array(ButtonActionSchema).optional(),
     onError: z.array(ButtonActionSchema).optional(),
+    onPending: z.array(ButtonActionSchema).optional(),
   })
 );
 

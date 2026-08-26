@@ -163,9 +163,34 @@ describe("runActions — purchase", () => {
     expect(ctx.getVariables().bailed.value).toBe("yes");
   });
 
-  // Ask-to-Buy / deferred transactions resolve "pending" — the purchase is
-  // genuinely in flight, so this must warn rather than silently doing nothing.
-  it("warns and runs no follow-up actions when the purchase is pending", async () => {
+  // "pending" is not an edge case on every path: a Stripe Payment Link purchase
+  // ALWAYS resolves pending, because the browser takes over and nothing is
+  // confirmed yet. So an author must be able to react to it — before
+  // `onPending` existed, a Stripe buy button could not dismiss the paywall or
+  // navigate, and the user came back from Safari to an untouched screen.
+  it("runs onPending when the purchase is pending", async () => {
+    const products = makeProducts({ purchase: vi.fn(async () => ({ status: "pending" as const })) });
+    const ctx = makeCtx({ products } as any);
+    await runActions(
+      [
+        {
+          type: "purchase",
+          product: "yearly",
+          onPending: [{ type: "setVariable", name: "awaiting", value: "yes" }],
+          onSuccess: [{ type: "setVariable", name: "bought", value: "yes" }],
+        },
+      ],
+      ctx
+    );
+    expect(ctx.getVariables().awaiting.value).toBe("yes");
+    // Pending is NOT success — a deferred or link-out purchase is unconfirmed,
+    // so onSuccess must stay untouched or the UI grants access unpaid.
+    expect(ctx.getVariables().bought).toBeUndefined();
+  });
+
+  // Kept from before `onPending`: silence is the wrong default for a purchase
+  // that is genuinely in flight, so an undeclared hook still warns.
+  it("warns when the purchase is pending and no onPending is declared", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const products = makeProducts({ purchase: vi.fn(async () => ({ status: "pending" as const })) });
     const ctx = makeCtx({ products } as any);
@@ -178,6 +203,32 @@ describe("runActions — purchase", () => {
     expect(ctx.getVariables().bought).toBeUndefined();
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
+  });
+
+  // The other three branches must not have been re-routed by adding a fourth.
+  it("still routes purchased/cancelled/error to their own hooks, not onPending", async () => {
+    for (const [status, hook] of [
+      ["purchased", "onSuccess"],
+      ["cancelled", "onCancel"],
+      ["error", "onError"],
+    ] as const) {
+      const products = makeProducts({
+        purchase: vi.fn(async () => ({ status, ...(status === "error" ? { error: new Error("x") } : {}) }) as any),
+      });
+      const ctx = makeCtx({ products } as any);
+      await runActions(
+        [
+          {
+            type: "purchase",
+            product: "yearly",
+            [hook]: [{ type: "setVariable", name: "hit", value: hook }],
+            onPending: [{ type: "setVariable", name: "hit", value: "onPending" }],
+          } as any,
+        ],
+        ctx
+      );
+      expect(ctx.getVariables().hit.value).toBe(hook);
+    }
   });
 
   // Without a provider the action must be inert and loud, never a silent no-op

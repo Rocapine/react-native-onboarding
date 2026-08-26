@@ -56,7 +56,7 @@ const client = new OnboardingStudioClient(
 
 <PaywallProvider client={client} productProvider={provider}>
   <App />
-  <PaywallModalHost />   {/* see "Host the modal" */}
+  <PaywallHost />   {/* see "Host the modal" */}
 </PaywallProvider>
 ```
 
@@ -121,31 +121,29 @@ Four things about this adapter that are not guessable:
 
 ## Host the modal
 
-`PaywallProvider` decides *what* to present; the host decides *how*. Read `usePaywallHost()` and render `PaywallHost` inside whatever modal your app uses.
+`PaywallHost` takes **no props**. It owns its own full-screen `Modal`, reads which paywall is active itself, and wires the acknowledgement — so mounting it is the whole job. Render it as a **sibling** of your app, inside `PaywallProvider`, never as a child of a screen (navigation would unmount it mid-presentation).
+
+```tsx
+import { PaywallHost } from "@rocapine/react-native-onboarding-ui";
+
+<PaywallProvider client={client} productProvider={provider}>
+  <App />
+  <PaywallHost />
+</PaywallProvider>
+```
+
+That is the whole integration. Do **not** hand it `elements`, `complete` or `customActions` — it has no such props and TypeScript will reject them.
+
+### Only if you must supply your own modal
+
+`usePaywallHost()` (from the headless package) is the seam for a host that cannot use the bundled Modal — a custom transition, a non-Modal container. Taking it on means taking on both invariants below yourself; `PaywallHost` already satisfies them.
 
 ```tsx
 import { usePaywallHost } from "@rocapine/react-native-onboarding";
-import { PaywallHost } from "@rocapine/react-native-onboarding-ui";
 
-function PaywallModalHost() {
-  const { activePaywall, complete, acknowledgePresentation, customActions } = usePaywallHost();
-
-  return (
-    <Modal
-      visible={activePaywall !== null}
-      onShow={acknowledgePresentation}          // REQUIRED — see below
-      onRequestClose={() => complete({ status: "dismissed" })}
-    >
-      {activePaywall && (
-        <PaywallHost
-          elements={activePaywall.elements as any}
-          complete={complete}
-          customActions={customActions}
-        />
-      )}
-    </Modal>
-  );
-}
+const { activePaywall, complete, acknowledgePresentation, customActions } = usePaywallHost();
+// …render activePaywall.elements through your own ScreenRenderer,
+// call acknowledgePresentation once it is on screen, complete() exactly once.
 ```
 
 **`acknowledgePresentation` is not optional.** iOS refuses to present over an already-presenting view controller — another Modal, a `presentation: "modal"` route, a StoreKit alert. Without the acknowledgement the SDK cannot tell "shown" from "silently refused", and one refused presentation would leave `activeMoment` set for the life of the process, making every later `present()` resolve `"already-presenting"` with no error and no log. The acknowledgement is what lets it recover.
@@ -169,7 +167,7 @@ const result = await present("onboarding_end");
 |---|---|
 | `unknown-moment` | the moment key does not exist in this project's catalog |
 | `already-presenting` | a paywall is already up; `activeMoment` names which |
-| `host-never-presented` | the platform refused; you probably did not call `acknowledgePresentation` |
+| `host-never-presented` | the platform refused. With `PaywallHost` this means something else was already presenting; with your own modal, that you never called `acknowledgePresentation` |
 | `parse-error` | authored data is invalid — fix it in the studio, the app cannot |
 | `render-error` | the element tree threw |
 | `paywall-disappeared` | a studio publish removed the moment mid-presentation |
@@ -180,7 +178,7 @@ Gate a "fall back to another engine" decision on `catalogStatus === "ready"`, **
 
 1. `npx tsc --noEmit` — clean.
 2. Launch and confirm the catalog fetch fires **at mount**, before any tap (network tab or the `get-paywalls` request).
-3. `present("<a real moment key>")` shows the paywall; the modal's `onShow` fires.
+3. `present("<a real moment key>")` shows the paywall, and resolves rather than sitting pending — a `present()` that never settles is the acknowledgement failing.
 4. Dismiss it and confirm `present()` resolves and a second `present()` still works — that proves `complete` is wired.
 5. On a Stripe paywall: tap buy and confirm the browser opens with `client_reference_id` in the URL. If `purchase()` returns an error instead, `clientReferenceId` resolved null.
 
@@ -188,7 +186,7 @@ Gate a "fall back to another engine" decision on `catalogStatus === "ready"`, **
 
 - **Don't** mount two `PaywallProvider`s, or mount one per screen. One, at the root.
 - **Don't** call `present()` before `isReady` and expect no spinner — that flag is what "no spinner" means.
-- **Don't** skip `acknowledgePresentation`. See above; the failure is silent and permanent.
+- **Don't** hand-roll the modal without wiring `acknowledgePresentation`. `PaywallHost` does it for you; skip it in a custom host and the failure is silent and permanent.
 - **Don't** render a price you computed yourself. Interpolate `{{product.<key>.price}}` so the store's own formatting and currency are used.
 - **Don't** treat `purchase()` returning `"pending"` as failure. On the Stripe path it is the normal outcome.
 - **Don't** hardcode moment keys the studio does not have. `unknown-moment` is the single most common wiring bug.

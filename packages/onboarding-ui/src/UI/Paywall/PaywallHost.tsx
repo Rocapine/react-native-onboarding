@@ -218,7 +218,7 @@ export const PaywallHost = () => {
     // Almost always a CMS data bug (a wrong enum value), which the host cannot
     // fix and the author must — so name the path and the value.
     console.error(
-      `[PaywallHost] Paywall "${activePaywall?.placement ?? "?"}" (${activePaywall?.id ?? "?"}) ` +
+      `[PaywallHost] Paywall "${activePaywall?.moment ?? "?"}" (${activePaywall?.id ?? "?"}) ` +
         "was NOT shown: its elements failed validation. This is a data problem in the " +
         `authored paywall, not a device problem — fix it in the studio. ` +
         describePaywallParseError(decision.error, activePaywall?.elements),

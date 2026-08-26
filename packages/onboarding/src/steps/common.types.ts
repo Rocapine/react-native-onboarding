@@ -112,6 +112,8 @@ export type PurchaseButtonAction = {
   onSuccess?: ButtonAction[];
   onCancel?: ButtonAction[];
   onError?: ButtonAction[];
+  /** Runs on `"pending"` — unconfirmed, not paid. A Stripe Payment Link always resolves this. */
+  onPending?: ButtonAction[];
 };
 
 export type RestoreButtonAction = {
@@ -162,6 +164,7 @@ export const PurchaseButtonActionSchema: z.ZodType<PurchaseButtonAction> = z.laz
     onSuccess: z.array(ButtonActionSchema).optional(),
     onCancel: z.array(ButtonActionSchema).optional(),
     onError: z.array(ButtonActionSchema).optional(),
+    onPending: z.array(ButtonActionSchema).optional(),
   })
 );
 

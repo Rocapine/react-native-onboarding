@@ -193,8 +193,21 @@ Gate a "fall back to another engine" decision on `catalogStatus === "ready"`, **
 - **Don't** treat `purchase()` returning `"pending"` as failure. On the Stripe path it is the normal outcome.
 - **Don't** hardcode moment keys the studio does not have. `unknown-moment` is the single most common wiring bug.
 
-## Known limitation (1.70.0)
+## Wire `onPending` — a Stripe buy button needs it
 
-**A `"pending"` purchase result runs no ButtonActions.** `onSuccess` and `onError` are not dispatched for it, so on the Stripe path an authored buy button cannot dismiss the paywall or navigate — the user returns from the browser to the same untouched screen, and `present()` resolves `"dismissed"` even for a completed purchase.
+**A Stripe Payment Link purchase always resolves `"pending"`**, never `"purchased"`: `purchase()` opens the link, the browser takes over, and nothing is confirmed yet. So the authored buy button must declare `onPending`, or tapping it runs nothing and the user returns from Safari to an untouched screen.
 
-Until that is closed, a Stripe paywall needs the host to drive what happens next: dismiss it yourself when the app returns to the foreground, and read entitlement state rather than the `present()` result to decide what the user now has access to.
+```json
+{
+  "type": "purchase",
+  "product": "{{plan}}",
+  "onPending": [{ "type": "dismiss" }],
+  "onError":   [{ "type": "custom", "function": "showPurchaseError" }]
+}
+```
+
+`onSuccess` still fires for a store purchase, so the same button works on both billing paths — declare both.
+
+**Never grant access from `onPending`.** Pending means unconfirmed: the user may never pay. Use it to close the paywall or show a "finish in your browser" state, and read entitlement state (RevenueCat) to decide what the user actually has.
+
+For the same reason `present()` resolves `"dismissed"` rather than `"purchased"` on this path. That is honest, not a bug — treat entitlement state as the source of truth for access, and the `present()` result only as "how the paywall closed".

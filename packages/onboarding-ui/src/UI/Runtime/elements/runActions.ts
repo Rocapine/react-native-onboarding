@@ -142,9 +142,15 @@ export async function runActions(
             result.error
           );
       } else if (result.status === "pending") {
-        console.warn(
-          "[ComposableScreen] `purchase` returned pending (e.g. Ask-to-Buy / deferred transaction) — no follow-up actions run. Handle deferred purchases in the host."
-        );
+        // Pending means UNCONFIRMED, not successful — deliberately its own hook
+        // rather than falling through to `onSuccess`, which would let a paywall
+        // grant access for a purchase that may never complete. On the Stripe
+        // path this is the ONLY outcome `purchase()` ever returns.
+        if (act.onPending) await runActions(act.onPending, ctx);
+        else
+          console.warn(
+            "[ComposableScreen] `purchase` returned pending (a Stripe Payment Link always does; Ask-to-Buy and deferred store transactions also) with no `onPending` actions declared — nothing ran, so the screen is unchanged. Declare `onPending`, or handle it in the host."
+          );
       }
       continue;
     }

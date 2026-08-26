@@ -6,11 +6,58 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ## [Unreleased]
 
+---
+
+## [1.71.0] - 2026-08-26
+
+### Fixed
+
+- **`expoIapProductProvider` was broken against expo-iap 5.x** — every product
+  silently failed to resolve. Five separate API mismatches, none of which any
+  test exercised (the only existing coverage asserted that the adapter fails
+  politely when expo-iap is *absent*):
+
+  - `getProducts(skus)` **no longer exists** in expo-iap 5.x; it is
+    `fetchProducts({ skus, type })`, an object argument. The old call threw
+    `M.getProducts is not a function`. The legacy name is still used as a
+    fallback so a host pinned to expo-iap ≤4 keeps working.
+  - **`initConnection()` was never called.** Nothing opens the store connection
+    implicitly — `useIAP` does it for hook consumers, but an adapter is not a
+    hook — so every query failed. Now opened once per provider and cleared on
+    failure, so a first call during a network outage does not poison the
+    provider for the rest of the session.
+  - **`periodIso` was always `null`,** because expo-iap 5.x publishes no
+    `subscriptionPeriodISO`: iOS splits it into `subscriptionPeriodUnitIOS` +
+    `subscriptionPeriodNumberIOS`, and Android buries it in the first pricing
+    phase of the first subscription offer. This was the most damaging one —
+    `deriveProductFields` computes `pricePerDay` / `pricePerWeek` /
+    `pricePerMonth` / `pricePerYear` and `savingsPct` from `periodIso` alone, so
+    a null did not degrade them, it **removed** them, and an unknown variable
+    interpolates to EMPTY rather than to a literal. A per-week-framed paywall
+    silently lost its headline number.
+  - **`requestPurchase` was sent the wrong shape.** 5.x wants
+    `{ request: { ios, android }, type }`; the old flat `{ request: { sku } }`
+    reached neither platform branch, so StoreKit received an undefined sku.
+    `type` (`"in-app"` / `"subs"`) is now derived from the store product.
+  - **`finishTransaction` was never called,** so StoreKit re-delivered every
+    transaction on each launch.
+
+### Changed
+
+- **`expoIapProductProvider.purchase()` resolves `"pending"` where it used to
+  resolve `"purchased"`,** when `requestPurchase` resolves `null` — which is the
+  normal expo-iap 5.x outcome, because the transaction is delivered to
+  `purchaseUpdatedListener` instead. Reporting `"purchased"` there granted
+  access for a purchase that had not completed and might still fail. Hosts whose
+  buy button relies on `onSuccess` firing on this path must declare `onPending`
+  (added below) — that is what it is for.
+
 ### Added
 
 - `onPending?: ButtonAction[]` on `PurchaseButtonAction` (type + schema), mirroring
   `@rocapine/react-native-onboarding-ui`'s dispatcher. A `"pending"` result is
-  unconfirmed, not successful — a Stripe Payment Link purchase always resolves it.
+  unconfirmed, not successful — a Stripe Payment Link purchase always resolves it,
+  and so now does an expo-iap purchase awaiting its listener.
 
 ---
 

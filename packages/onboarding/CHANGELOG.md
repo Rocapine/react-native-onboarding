@@ -6,6 +6,25 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING — `Paywall.placement` is now `Paywall.moment`.** `placement` was a
+  column on `paywalls`; the addressable entity is now a `moment`, and the key a
+  host passes to `present()` is `moments.key`. Same meaning, new name. Onboarding
+  Studio already serves this shape, so a host on the old field reads `undefined`.
+- **BREAKING — `audienceId` / `audienceName` moved from `PaywallCatalog.metadata`
+  onto each `Paywall`.** Each moment now runs its own independent audience
+  waterfall, so two entries in one response can legitimately have matched
+  different audiences. A single catalog-level field could no longer describe
+  that; keeping one would have been quietly wrong rather than merely imprecise.
+- **BREAKING — the `ONBS-Audience-Id` response header is now `ONBS-Audience-Ids`,**
+  a parallel array alongside `ONBS-Paywall-Ids`, because a response carries
+  several moments and each resolves its own audience.
+
+### Fixed
+
+- `PaywallProvider`'s doc comments no longer refer to `placement`.
+
 ---
 
 ## [1.69.0] - 2026-08-21

@@ -242,11 +242,29 @@ export const shouldRecordPurchaseOutcome = (
  * `computeIsReady` would never turn true and paywalls would stop appearing
  * with no error. Falling back to the store runtime keeps the app alive; the
  * caller warns.
+ *
+ * `billing` is `undefined` whenever no paywall is active (`activePaywall` is
+ * null before the first `present()`, and after every `complete()`) — there is
+ * no `.billing` to read yet. That USED to fall through to the store runtime
+ * unconditionally, which meant a host that passes ONLY
+ * `stripeProductProvider` (no `productProvider` at all) sat on an `"idle"`
+ * `storeRuntime` — forever, for every screen before a paywall first presents,
+ * since nothing ever calls a `present()` to select the stripe runtime instead
+ * — so `products.loaded` read `"false"` everywhere and `isReady` never turned
+ * true. `hasStoreProvider` closes that gap: with no active paywall, prefer
+ * whichever provider was actually SUPPLIED. When both or neither exist there
+ * is no asymmetry to correct, so this keeps the pre-existing store-first
+ * default — unchanged for every host that already worked.
  */
 export const selectActiveProductRuntime = (args: {
   storeRuntime: ProductRuntime;
   stripeRuntime: ProductRuntime;
   billing: "store" | "stripe" | undefined;
   hasStripeProvider: boolean;
-}): ProductRuntime =>
-  args.billing === "stripe" && args.hasStripeProvider ? args.stripeRuntime : args.storeRuntime;
+  hasStoreProvider: boolean;
+}): ProductRuntime => {
+  if (args.billing === "stripe" && args.hasStripeProvider) return args.stripeRuntime;
+  if (args.billing !== undefined) return args.storeRuntime;
+  if (args.hasStripeProvider && !args.hasStoreProvider) return args.stripeRuntime;
+  return args.storeRuntime;
+};

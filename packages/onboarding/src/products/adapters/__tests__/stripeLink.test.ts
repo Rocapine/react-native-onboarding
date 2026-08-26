@@ -90,10 +90,34 @@ describe("stripeLinkProductProvider.purchase", () => {
     expect(new URL(opened[0]).searchParams.get("prefilled_email")).toBe("a@b.com");
   });
 
-  it("omits client_reference_id rather than sending the string 'null'", async () => {
+  it("refuses (fails closed) rather than open the link with no client_reference_id", async () => {
     const { provider, opened } = harness({ clientReferenceId: () => null });
     const [p] = await provider.getProducts([YEARLY]);
-    await provider.purchase(p);
+    const result = await provider.purchase(p);
+    expect(result.status).toBe("error");
+    // The whole point: nothing opens, so no money moves for a purchase
+    // RevenueCat could never attribute.
+    expect(opened).toHaveLength(0);
+  });
+
+  it("also refuses for an undefined or empty-string client_reference_id", async () => {
+    for (const value of [undefined, ""]) {
+      const { provider, opened } = harness({ clientReferenceId: () => value });
+      const [p] = await provider.getProducts([YEARLY]);
+      const result = await provider.purchase(p);
+      expect(result.status).toBe("error");
+      expect(opened).toHaveLength(0);
+    }
+  });
+
+  it("allowAnonymous: true opens the link anyway, omitting client_reference_id", async () => {
+    const { provider, opened } = harness({ clientReferenceId: () => null, allowAnonymous: true });
+    const [p] = await provider.getProducts([YEARLY]);
+    const result = await provider.purchase(p);
+    expect(result).toEqual({ status: "pending" });
+    expect(opened).toHaveLength(1);
+    // Still omitted rather than sent as the literal string "null" —
+    // `allowAnonymous` opts into opening the link, not into a bad param.
     expect(new URL(opened[0]).searchParams.has("client_reference_id")).toBe(false);
   });
 

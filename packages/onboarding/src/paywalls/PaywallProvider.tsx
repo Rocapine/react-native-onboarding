@@ -262,6 +262,10 @@ const PaywallProviderInner = ({
     stripeRuntime,
     billing: activePaywall?.billing,
     hasStripeProvider: stripeProductProvider !== undefined,
+    // Lets `selectActiveProductRuntime` prefer the stripe runtime while no
+    // paywall is active yet, for a host that passed ONLY
+    // `stripeProductProvider` — see that function's doc.
+    hasStoreProvider: productProvider !== undefined,
   });
 
   // A studio author can set `billing: "stripe"` on a paywall before the host

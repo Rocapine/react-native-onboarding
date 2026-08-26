@@ -22,7 +22,9 @@ import type {
  *    which is why `clientReferenceId` MUST return the RevenueCat App User ID:
  *    it is the key RevenueCat's webhook matches on, and the only thing tying
  *    the payment to the user. Return the wrong id and the money is taken with
- *    no entitlement granted.
+ *    no entitlement granted. An ABSENT id (null/undefined/empty) is handled
+ *    differently: `purchase()` refuses before opening anything, unless
+ *    `allowAnonymous` opts in — see `StripeLinkProviderConfig.allowAnonymous`.
  *  - import `react-native` at module scope, so this file is safe to load on
  *    web. URL opening is injected (`openUrl`) for the same reason, and so the
  *    provider is testable under Node.
@@ -48,6 +50,16 @@ export type StripeLinkProviderConfig = {
   restore?: ProductProvider["restore"];
   /** Passed to `Intl.NumberFormat` when formatting the authored price. */
   locale?: string;
+  /**
+   * Opt-in for checkout with no `clientReferenceId()`. Default `false`:
+   * `purchase()` refuses (fails closed) rather than open a Payment Link it
+   * cannot attribute to a RevenueCat user, because a payment that opens
+   * anyway is taken with NO way to grant the entitlement afterwards — see
+   * `purchase()` below. Set `true` only if you genuinely want anonymous
+   * checkout; entitlements from those purchases cannot be attributed
+   * automatically and must be reconciled out of band.
+   */
+  allowAnonymous?: boolean;
 };
 
 const PERIOD_FROM_UNIT: Record<string, ProductPeriod> = {
@@ -70,7 +82,7 @@ const lazyLinking = (url: string): void => {
   // web, where react-native may be absent entirely.
   try {
     const RN = require("react-native");
-    RN.Linking.openURL(url);
+    return RN.Linking.openURL(url);
   } catch {
     if (typeof globalThis !== "undefined" && (globalThis as any).location) {
       (globalThis as any).location.assign(url);
@@ -98,7 +110,8 @@ const withParams = (
 };
 
 export const stripeLinkProductProvider = (config: StripeLinkProviderConfig): ProductProvider => {
-  const { clientReferenceId, prefilledEmail, openUrl = lazyLinking, restore, locale } = config;
+  const { clientReferenceId, prefilledEmail, openUrl = lazyLinking, restore, locale, allowAnonymous = false } =
+    config;
 
   // `ResolvedProduct` has no field for the payment link and widening it would
   // put a Stripe concern on every store product, so the link is remembered
@@ -164,6 +177,32 @@ export const stripeLinkProductProvider = (config: StripeLinkProviderConfig): Pro
           ),
         };
       }
+      // Resolved and checked BEFORE the link opens — once it opens, the
+      // browser has left the app and the payment cannot be stopped. A
+      // null/undefined/empty id is not exotic: a getter wired to
+      // RevenueCat's `appUserID` before `Purchases.configure()` resolves, or
+      // read while the user is logged out, returns null. Without this check
+      // the link would still open, `purchase()` would still resolve
+      // "pending", the user would pay, and RevenueCat would have nothing to
+      // match the payment to — nothing fails loudly at any layer. See this
+      // file's top comment: "Return the wrong id and the money is taken with
+      // no entitlement granted" — this is that, for the ABSENT case.
+      const refId = clientReferenceId();
+      const hasRefId = refId !== null && refId !== undefined && refId !== "";
+      if (!hasRefId && !allowAnonymous) {
+        return {
+          status: "error",
+          error: new Error(
+            "stripeLinkProductProvider: clientReferenceId() returned no id — refusing to open the " +
+              "Payment Link. Opening it anyway would take payment with no way to attribute the " +
+              "entitlement RevenueCat grants afterwards. Wire `clientReferenceId` to the RevenueCat App " +
+              "User ID and make sure it resolves AFTER `Purchases.configure()` completes (reading it " +
+              "before configure() finishes, or while the user is logged out, is what returns null). " +
+              "Pass `allowAnonymous: true` in the provider config if anonymous checkout — with no " +
+              "automatic entitlement attribution — is genuinely what you want.",
+          ),
+        };
+      }
       // `withParams` throws synchronously on a malformed link (`new URL`) —
       // a plausible failure mode for an author-pasted Stripe URL. That throw
       // happens before any `await`, so left unguarded it would make
@@ -173,7 +212,7 @@ export const stripeLinkProductProvider = (config: StripeLinkProviderConfig): Pro
       try {
         await openUrl(
           withParams(link, {
-            client_reference_id: clientReferenceId(),
+            client_reference_id: refId,
             prefilled_email: prefilledEmail?.(),
           }),
         );

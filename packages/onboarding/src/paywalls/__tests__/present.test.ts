@@ -330,19 +330,67 @@ describe("selectActiveProductRuntime", () => {
 
   it("publishes the store runtime when billing is 'store'", () => {
     expect(
-      selectActiveProductRuntime({ storeRuntime, stripeRuntime, billing: "store", hasStripeProvider: true }),
+      selectActiveProductRuntime({
+        storeRuntime,
+        stripeRuntime,
+        billing: "store",
+        hasStripeProvider: true,
+        hasStoreProvider: true,
+      }),
     ).toBe(storeRuntime);
   });
 
-  it("publishes the store runtime when no paywall is active (billing undefined)", () => {
+  it("publishes the store runtime when no paywall is active and both providers exist", () => {
+    // Neither is more likely to be "the" right one just because nothing is
+    // active yet, so this keeps the pre-existing store-first default.
     expect(
-      selectActiveProductRuntime({ storeRuntime, stripeRuntime, billing: undefined, hasStripeProvider: true }),
+      selectActiveProductRuntime({
+        storeRuntime,
+        stripeRuntime,
+        billing: undefined,
+        hasStripeProvider: true,
+        hasStoreProvider: true,
+      }),
     ).toBe(storeRuntime);
+  });
+
+  it("publishes the store runtime when no paywall is active and neither provider exists", () => {
+    expect(
+      selectActiveProductRuntime({
+        storeRuntime,
+        stripeRuntime,
+        billing: undefined,
+        hasStripeProvider: false,
+        hasStoreProvider: false,
+      }),
+    ).toBe(storeRuntime);
+  });
+
+  it("publishes the stripe runtime when no paywall is active and only a stripe provider was passed", () => {
+    // A stripe-only host (no `productProvider` at all) must not sit on an
+    // "idle" store runtime forever — see this function's doc for why that
+    // used to keep `products.loaded` at "false" for every screen before the
+    // first paywall presents.
+    expect(
+      selectActiveProductRuntime({
+        storeRuntime,
+        stripeRuntime,
+        billing: undefined,
+        hasStripeProvider: true,
+        hasStoreProvider: false,
+      }),
+    ).toBe(stripeRuntime);
   });
 
   it("publishes the stripe runtime when billing is 'stripe'", () => {
     expect(
-      selectActiveProductRuntime({ storeRuntime, stripeRuntime, billing: "stripe", hasStripeProvider: true }),
+      selectActiveProductRuntime({
+        storeRuntime,
+        stripeRuntime,
+        billing: "stripe",
+        hasStripeProvider: true,
+        hasStoreProvider: true,
+      }),
     ).toBe(stripeRuntime);
   });
 
@@ -358,6 +406,7 @@ describe("selectActiveProductRuntime", () => {
         stripeRuntime: idleStripe,
         billing: "stripe",
         hasStripeProvider: false,
+        hasStoreProvider: true,
       }),
     ).toBe(storeRuntime);
   });
@@ -369,6 +418,7 @@ describe("selectActiveProductRuntime", () => {
       stripeRuntime: runtime({ status: "loading" }),
       billing: "store",
       hasStripeProvider: true,
+      hasStoreProvider: true,
     });
     expect(selected.status).toBe("ready");
   });

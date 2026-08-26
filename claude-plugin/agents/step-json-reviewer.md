@@ -67,7 +67,7 @@ For each step:
   - `RadioGroup.items` / `CheckboxGroup.items` (not `options`); each `{label, value}`
   - `Button.actions: [...]` (not `action`); `Button.disabledWhen` (not `disabled`)
   - `SafeAreaView.edges`: array of edge names OR object with modes `"off" | "additive" | "maximum"` — flag `"always"`
-- All `Button.actions` entries are `"continue"` or `{type:"custom", function, variables?}` or `{type:"setVariable", name, value, valueMode?}`.
+- All `Button.actions` entries are one of the seven `ButtonAction` shapes: `"continue"`, `{type:"custom", function, variables?}`, `{type:"setVariable", name, value, valueMode?, kind?, arrayOp?}`, `{type:"purchase", product, onSuccess?, onCancel?, onError?, onPending?}`, `{type:"restore", onSuccess?, onNothingToRestore?, onError?}`, `{type:"dismiss"}`, or `{type:"presentPaywall", placement}`. Every follow-up array is an optional `ButtonAction[]` — a bare `{type:"purchase", product:"yearly"}` is valid, so do NOT flag one for having no follow-ups. Do flag a missing `onPending` on a Stripe paywall: a Payment Link purchase always resolves `"pending"`, so without it the buy button runs nothing.
 - All `disabledWhen` conditions are valid `LeafCondition` / `ConditionGroup` referencing variables that any step actually captures (`variableName` on Input/RadioGroup/CheckboxGroup/DatePicker, or via setVariable action).
 - `nextStep.defaultTargetStepId` points at a real step ID in the array.
 - **Step chain (auto-link via multi-path)** — when reviewing a flow array:

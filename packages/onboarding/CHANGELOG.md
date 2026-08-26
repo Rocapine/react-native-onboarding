@@ -6,6 +6,10 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ## [Unreleased]
 
+---
+
+## [1.70.0] - 2026-08-26
+
 ### Changed
 
 - **BREAKING — `Paywall.placement` is now `Paywall.moment`.** `placement` was a
@@ -21,9 +25,41 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   a parallel array alongside `ONBS-Paywall-Ids`, because a response carries
   several moments and each resolves its own audience.
 
+### Added
+
+- **Stripe as a third billing path.** `ProductRef.stripe` carries a pre-created
+  Stripe Payment Link plus the authored price, and the new
+  `stripeLinkProductProvider` synthesises a `ResolvedProduct` from it with **no
+  network call** — listing a Stripe price needs a secret key, and by design
+  nobody holds one. `ResolvedProduct.store` gains `"stripe"`.
+- `PaywallProvider` gains a `stripeProductProvider` prop. The catalog's product
+  union is resolved through both providers and the runtime published is the one
+  matching the presented paywall's `billing`, because the runtime is a single
+  map keyed by product key — a `store` and a `stripe` paywall both declaring
+  `yearly` would otherwise fight over `product.yearly.price`.
+- `Paywall.billing` (`"store" | "stripe"`) on the wire type.
+- `productRefIdentity`, now the single enumeration of `ProductRef`'s identity
+  fields, replacing two hand-maintained copies that never failed loudly when
+  stale.
+
 ### Fixed
 
 - `PaywallProvider`'s doc comments no longer refer to `placement`.
+
+### Notes on the Stripe path
+
+- `purchase()` resolves `"pending"`, never `"purchased"` — the browser leaves
+  the app and on web the JS context is destroyed. The entitlement arrives via
+  RevenueCat's Stripe integration, matched on `client_reference_id`, which
+  **must** be the RevenueCat App User ID. `purchase()` **fails closed** if that
+  value is absent rather than taking money that can never be attributed;
+  genuine anonymous checkout is an explicit `allowAnonymous` opt-in.
+- **A `"pending"` result runs no ButtonActions** (`onSuccess`/`onError` are not
+  dispatched), so an authored Stripe buy button cannot yet dismiss the paywall
+  or navigate. Closing this needs an `onPending` action or a host callback and
+  is the top follow-up — the Stripe path is not usable end to end until then.
+- Authored prices are not reconciled with Stripe; a price changed in Stripe and
+  not in the studio renders stale.
 
 ---
 

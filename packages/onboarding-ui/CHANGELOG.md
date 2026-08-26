@@ -7,6 +7,10 @@ here.
 
 ## [Unreleased]
 
+---
+
+## [1.70.0] - 2026-08-26
+
 ### Fixed
 
 - `PaywallHost`'s parse-error log read `activePaywall.placement`, which the

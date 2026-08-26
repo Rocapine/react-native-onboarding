@@ -7,6 +7,10 @@ here.
 
 ## [Unreleased]
 
+---
+
+## [1.71.0] - 2026-08-26
+
 ### Added
 
 - **`onPending` on the `purchase` ButtonAction.** A `"pending"` purchase result

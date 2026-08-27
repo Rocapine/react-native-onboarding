@@ -8,6 +8,49 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.72.0] - 2026-08-27
+
+### Added
+
+- **`Paywall.renderMode`, `.customScreenId` and `.customPayload`** — a paywall
+  can now be a host-rendered custom screen instead of an authored element tree.
+  `renderMode: "custom"` means the HOST draws it: `customScreenId` names a
+  screen registered on `PaywallHost` (UI package), and `customPayload` is a map
+  of slot key to per-platform store product id
+  (`{ monthly: { ios, android } }`) — the one thing a native paywall cannot get
+  from anywhere else, since the moment waterfall picked *this* variant and which
+  products it offers is an authoring decision.
+
+  All three are **optional, and an absent `renderMode` reads as `"elements"`**.
+  Not because the studio omits them — it always sends a value — but because a
+  device on this SDK can be talking to an older `get-paywalls` that predates the
+  fields, and on that pairing every existing paywall must behave exactly as
+  before.
+
+  A property of the PAYWALL rather than the moment, the same as `billing`: one
+  moment audience can weight an element-tree variant against a native-screen
+  variant and ramp the change as an A/B test.
+
+- **`PaywallCustomPayload`** — exported so a host's custom screen can type the
+  product map it receives without restating the shape.
+
+- **`PresentErrorReason: "unknown-custom-screen"`** — a `renderMode: "custom"`
+  paywall named a screen this host did not register (or named none at all), so
+  nothing could be rendered and the Modal was never opened. Deliberately NOT
+  folded into `"parse-error"`: that one is a CMS data bug the studio author must
+  fix, this is a wiring bug the app must fix. **Hosts switching exhaustively on
+  `PresentErrorReason` must widen that switch.**
+
+### Changed
+
+- **No store products are resolved for a custom paywall.**
+  `collectProductRefs` does not walk `customPayload`, so such a paywall issues
+  no store round-trip at all and its screen receives product ids rather than
+  prices. A native paywall asks the store for its own display prices, which is
+  precisely what it does not need the studio for.
+
+---
+
 ## [1.71.0] - 2026-08-26
 
 ### Fixed

@@ -43,7 +43,60 @@ export type Paywall = {
     stripe?: StripeProductRef;
   }>;
   configuration: Record<string, unknown> | null;
+  /**
+   * Who draws this paywall. `"elements"` (the default) renders the authored
+   * `elements` tree; `"custom"` hands it to a screen the HOST registered under
+   * `customScreenId` (see `PaywallHost`'s `customScreens` prop in the UI
+   * package), and `elements` is then ignored entirely.
+   *
+   * A property of the PAYWALL, not the moment — the same reasoning as
+   * `billing` above: one moment audience can weight an element-tree variant
+   * against a native-screen variant and ramp the change as an A/B test.
+   *
+   * OPTIONAL, and absent means `"elements"`. Not because the studio omits it
+   * (it always sends a value) but because a device on a NEW SDK can be talking
+   * to an OLDER `get-paywalls` that predates the field. Treating absent as
+   * `"custom"`, or as an error, would break every existing paywall on that
+   * pairing; treating it as `"elements"` is exactly the old behaviour.
+   */
+  renderMode?: "elements" | "custom";
+  /**
+   * Which host-registered screen renders this paywall. Meaningful only when
+   * `renderMode` is `"custom"`.
+   *
+   * Nullable as well as optional: the studio accepts a custom paywall with no
+   * screen id (it warns rather than refusing), so an empty value is a state
+   * that genuinely arrives. `PaywallHost` reports it as
+   * `{ status: "error", reason: "unknown-custom-screen" }` rather than opening
+   * an empty full-screen Modal.
+   */
+  customScreenId?: string | null;
+  /**
+   * The product map handed to that screen: slot key to per-platform store
+   * product id. This is the one thing a native paywall cannot get from
+   * anywhere else — the moment waterfall picked THIS variant, and which
+   * products it offers is an authoring decision, not something compiled into
+   * the app.
+   *
+   * Deliberately NOT the same thing as `products` above. Those slots exist to
+   * feed `{{product.<key>.price}}` interpolation into an element tree, and a
+   * custom screen has no interpolation — so a custom paywall carries product
+   * IDS and no prices, and the SDK resolves no store products for it at all
+   * (`collectProductRefs` does not walk this map). A native paywall asks the
+   * store for its own display prices, which is exactly what it does not need
+   * the studio for.
+   */
+  customPayload?: PaywallCustomPayload;
 };
+
+/**
+ * `Paywall.customPayload` — slot key to per-platform product id.
+ *
+ * Both platform fields are optional: a paywall shipped on one platform only is
+ * legitimate, and so is a key whose ids have not been filled in yet (the
+ * studio warns about that rather than refusing to save it).
+ */
+export type PaywallCustomPayload = Record<string, { ios?: string; android?: string }>;
 
 /** Full response body of `GET get-paywalls`. */
 export type PaywallCatalog = {
@@ -153,6 +206,14 @@ export interface GetPaywallsResponseHeaders {
  *   Modal, a `presentation: "modal"` route, a StoreKit alert).
  * - `paywall-disappeared` — the moment vanished from the catalog while it
  *   was on screen (a studio publish, or a query-key change mid-presentation).
+ * - `unknown-custom-screen` — the paywall is `renderMode: "custom"` and names
+ *   a `customScreenId` this host did not register (or names none at all), so
+ *   there was nothing to render and the Modal was never opened. Deliberately
+ *   NOT folded into `parse-error`: that one is a CMS **data** bug the author
+ *   must fix, this is a HOST **wiring** bug the app must fix — opposite
+ *   remedies, and conflating them is the exact mistake this union's split
+ *   already exists to avoid. `PaywallHost` logs both the missing id and the
+ *   ids that ARE registered, which is usually the whole diagnosis.
  */
 export type PresentErrorReason =
   | "unknown-moment"
@@ -160,7 +221,8 @@ export type PresentErrorReason =
   | "parse-error"
   | "render-error"
   | "host-never-presented"
-  | "paywall-disappeared";
+  | "paywall-disappeared"
+  | "unknown-custom-screen";
 
 export type PresentResult = {
   status: "purchased" | "dismissed" | "cancelled" | "error";

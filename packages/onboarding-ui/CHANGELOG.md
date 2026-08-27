@@ -9,6 +9,58 @@ here.
 
 ---
 
+## [1.72.0] - 2026-08-27
+
+### Added
+
+- **`PaywallHost` renders host-registered custom screens.** New `customScreens`
+  prop — a map from the studio's `customScreenId` to a component — so a paywall
+  the author set to Render mode "Custom screen" draws your own screen instead of
+  an element tree:
+
+  ```tsx
+  const SCREENS = { "paywall-native-v2": NativePaywall }; // module scope: stable
+  <PaywallHost customScreens={SCREENS} />
+  ```
+
+  `PaywallHost`'s only prop, and its first. Registered here rather than on
+  `PaywallProvider` (where `customActions` lives) because the provider is the
+  headless half and has no business holding a map of React components.
+
+- **`CustomPaywallScreenProps` / `CustomPaywallScreens`** — the contract a
+  registered screen implements: `payload` (the product map, never `undefined` —
+  an absent `customPayload` on the wire arrives as `{}`), `complete`, and
+  `paywall` (`id` / `name` / `moment` / `customScreenId`, enough to report a
+  conversion without also handing over an `elements` tree it has no use for).
+  No product runtime, deliberately: see the headless changelog.
+
+  `complete` MUST be called on every exit path, including your screen's own
+  close button — until it is, the paywall stays active and every later
+  `present()` resolves `"already-presenting"`. The acknowledgement timeout
+  covers a presentation that never *appeared*, not one never *closed*.
+
+### Changed
+
+- **A custom screen renders inside the SAME `Modal` as an element tree**, so it
+  inherits the `onShow` acknowledgement (the iOS refused-presentation
+  recovery), Android `onRequestClose`, and the nested `SafeAreaProvider` without
+  doing anything. That is the whole reason this lives in the SDK rather than
+  being left to each host to rebuild. It is also wrapped in the same error
+  boundary, so a crash in the host's own screen resolves `"render-error"`
+  instead of trapping the user behind an escape-less full-screen Modal.
+
+- **`resolvePaywallModalDecision` does not call the element parser in custom
+  mode** — skipped, not merely ignored. Flipping a paywall to custom does not
+  destroy its element tree (so flipping back restores it), and that leftover
+  tree must not be parsed or rendered on the way past. Two new decisions,
+  `"show-custom"` and `"unknown-custom-screen"`.
+
+- **No theme background is drawn behind a custom screen.** The registered
+  component owns the whole surface; wrapping it would mean a host fighting a
+  colour it never asked for.
+
+---
+
 ## [1.71.0] - 2026-08-26
 
 ### Added

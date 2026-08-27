@@ -90,6 +90,9 @@ export * from "./products";
 // Paywalls (paywall phase 5) — catalog types, provider, and the `usePaywall` hook
 export type {
   Paywall,
+  // Exported so a host's custom paywall screen can type the product map it
+  // receives without restating the shape.
+  PaywallCustomPayload,
   PaywallCatalog,
   PaywallOptions,
   GetPaywallsResponseHeaders,

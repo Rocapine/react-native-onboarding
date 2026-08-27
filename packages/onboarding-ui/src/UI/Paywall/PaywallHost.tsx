@@ -16,6 +16,7 @@ import {
   describePaywallParseError,
   resolvePaywallModalDecision,
 } from "./resolvePaywallModalDecision";
+import type { CustomPaywallScreenProps, CustomPaywallScreens } from "./CustomPaywallScreen";
 
 // `usePaywallHost().complete` takes the CLOSED `PresentResult` union
 // (required argument); `ScreenHost.complete` takes the OPEN `CompleteOutcome`
@@ -123,6 +124,31 @@ const PaywallContentBase = ({ elements, complete, customActions }: PaywallConten
 
 const PaywallContent = withErrorBoundary(PaywallContentBase, "Paywall");
 
+type CustomPaywallContentProps = CustomPaywallScreenProps & {
+  Screen: React.ComponentType<CustomPaywallScreenProps>;
+};
+
+/**
+ * Renders a host-registered screen in place of the element tree.
+ *
+ * Wrapped in the SAME error boundary as `PaywallContent`, deliberately: this
+ * is the host's own component, so a crash in it is a host bug rather than a
+ * data bug — but the consequence is identical either way. Without the
+ * boundary, a throw here leaves the boundary-less fullScreen, non-transparent
+ * Modal on screen with no interactive control and the pending `present()`
+ * promise unsettled, which on iOS means force-quit. The boundary routes it to
+ * `render-error`, exactly as it does for an element renderer that throws.
+ *
+ * No theme background `View` and no `ScreenRenderer`: the registered screen
+ * owns the whole surface, and wrapping it in the SDK's own background would
+ * mean a host fighting a colour it never asked for.
+ */
+const CustomPaywallContentBase = ({ Screen, ...props }: CustomPaywallContentProps) => (
+  <Screen {...props} />
+);
+
+const CustomPaywallContent = withErrorBoundary(CustomPaywallContentBase, "Paywall");
+
 /**
  * The second `ScreenHost` implementation — sibling to
  * `Pages/ComposableScreen/Renderer.tsx`, sharing the same screen-agnostic
@@ -136,8 +162,21 @@ const PaywallContent = withErrorBoundary(PaywallContentBase, "Paywall");
  * ```
  *
  * Reads `usePaywallHost()` for which paywall (if any) is active and renders
- * it in a fullScreen `Modal`. This is the first `Modal` in the repo, so each
- * of its properties is a decision made here, not a copy of precedent:
+ * it in a fullScreen `Modal` — either the authored element tree, or, for a
+ * `renderMode: "custom"` paywall, a screen the host registered:
+ *
+ * ```tsx
+ * const SCREENS = { "paywall-native-v2": NativePaywall }; // module scope: stable
+ * <PaywallHost customScreens={SCREENS} />
+ * ```
+ *
+ * Both paths share this one Modal, which is the whole reason the custom path
+ * lives here rather than being left to the host: `onShow` (the iOS
+ * refused-presentation recovery), Android `onRequestClose`, and the nested
+ * `SafeAreaProvider` all apply to a custom screen without it doing anything.
+ *
+ * This is the first `Modal` in the repo, so each of its properties is a
+ * decision made here, not a copy of precedent:
  *
  * - `presentationStyle="fullScreen"` + `transparent={false}`: a paywall is a
  *   full interstitial screen, not a popover or a dimmed sheet over visible
@@ -160,7 +199,26 @@ const PaywallContent = withErrorBoundary(PaywallContentBase, "Paywall");
  *   authored `SafeAreaView` inside a paywall would silently measure zero
  *   insets without this nested provider.
  */
-export const PaywallHost = () => {
+export type PaywallHostProps = {
+  /**
+   * Screens for `renderMode: "custom"` paywalls, keyed by the `customScreenId`
+   * authored in the studio.
+   *
+   * Registered HERE rather than on `PaywallProvider` (where `customActions`
+   * lives) because this is the component that renders: the provider is the
+   * headless half and has no business holding a map of React components. A
+   * paywall naming a key absent from this map never opens the Modal — it
+   * resolves `{ status: "error", reason: "unknown-custom-screen" }` and logs
+   * both the missing id and the ones that are registered.
+   *
+   * MUST be referentially stable (module scope, or `useMemo`). It is a
+   * `useMemo` dependency of the decision below, so a fresh object every render
+   * re-derives that decision every render.
+   */
+  customScreens?: CustomPaywallScreens;
+};
+
+export const PaywallHost = ({ customScreens }: PaywallHostProps = {}) => {
   const { activePaywall, complete: resolvePresent, acknowledgePresentation, customActions } =
     usePaywallHost();
 
@@ -200,8 +258,13 @@ export const PaywallHost = () => {
   // final review — so a malformed payload never reaches the Modal at all. See
   // `resolvePaywallModalDecision`'s doc for the full reasoning.
   const decision = useMemo(
-    () => resolvePaywallModalDecision(activePaywall, (elements) => ScreenElementsSchema.safeParse(elements)),
-    [activePaywall]
+    () =>
+      resolvePaywallModalDecision(
+        activePaywall,
+        (elements) => ScreenElementsSchema.safeParse(elements),
+        customScreens
+      ),
+    [activePaywall, customScreens]
   );
 
   // A parse failure resolves the pending `present()` call with `"error"` —
@@ -226,9 +289,34 @@ export const PaywallHost = () => {
     resolvePresent({ status: "error", reason: "parse-error" });
   }, [decision, resolvePresent, activePaywall]);
 
+  // The custom-mode twin of the effect above, and the same trap it closes: a
+  // paywall that cannot render must resolve the pending `present()` call
+  // rather than opening an empty Modal. The distinct reason is the point —
+  // `parse-error` is a data bug for the studio author, this is a wiring bug in
+  // the host app, and the log below is written for whoever has to fix THAT:
+  // naming the ids that ARE registered turns "why is nothing showing" into a
+  // typo you can see.
+  useEffect(() => {
+    if (decision.type !== "unknown-custom-screen") return;
+    const registered = Object.keys(customScreens ?? {});
+    console.error(
+      `[PaywallHost] Paywall "${activePaywall?.moment ?? "?"}" (${activePaywall?.id ?? "?"}) ` +
+        "was NOT shown: it is set to render a custom screen, but " +
+        (decision.customScreenId
+          ? `no screen is registered under "${decision.customScreenId}". `
+          : "the studio gave it no customScreenId at all. ") +
+        (registered.length > 0
+          ? `Registered ids: ${registered.map((id) => `"${id}"`).join(", ")}. `
+          : "No customScreens were passed to <PaywallHost /> at all. ") +
+        "Pass the screen via <PaywallHost customScreens={{ ... }} />, or set the paywall's " +
+        "Render mode back to Elements in the studio.",
+    );
+    resolvePresent({ status: "error", reason: "unknown-custom-screen" });
+  }, [decision, resolvePresent, activePaywall, customScreens]);
+
   return (
     <Modal
-      visible={decision.type === "show"}
+      visible={decision.type === "show" || decision.type === "show-custom"}
       animationType="slide"
       presentationStyle="fullScreen"
       transparent={false}
@@ -250,6 +338,26 @@ export const PaywallHost = () => {
             elements={decision.elements}
             complete={complete}
             customActions={customActions}
+            onError={handleRenderError}
+          />
+        )}
+        {/* Same Modal, same `onShow` acknowledgement, same Android
+            `onRequestClose`, same nested SafeAreaProvider — only the content
+            differs. That is why a custom screen gets the iOS
+            refused-presentation recovery and the hardware-back escape for
+            free, rather than each host having to reimplement both. */}
+        {decision.type === "show-custom" && activePaywall && (
+          <CustomPaywallContent
+            key={activePaywall.id}
+            Screen={decision.Screen}
+            payload={decision.payload}
+            complete={complete}
+            paywall={{
+              id: activePaywall.id,
+              name: activePaywall.name,
+              moment: activePaywall.moment,
+              customScreenId: decision.customScreenId,
+            }}
             onError={handleRenderError}
           />
         )}

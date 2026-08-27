@@ -4,6 +4,7 @@ import {
   LoaderStepType,
   MediaContentStepType,
   ComposableScreenStepType,
+  PaywallStepType,
   PickerStepType,
   RatingsStepType,
   QuestionStepType,
@@ -35,6 +36,7 @@ export type OnboardingStepType =
   | RatingsStepType
   | MediaContentStepType
   | ComposableScreenStepType
+  | PaywallStepType
   | PickerStepType
   | CommitmentStepType
   | CarouselStepType

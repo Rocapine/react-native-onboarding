@@ -3,6 +3,7 @@ import { PaywallContext } from "./PaywallProvider";
 import { PaywallCatalog, PresentResult } from "./types";
 import type { CatalogStatus } from "./present";
 import type { ProductStatus } from "../products/types";
+import type { CustomPaywallScreens } from "./customScreens";
 
 export type UsePaywallResult = {
   /**
@@ -36,6 +37,19 @@ export type UsePaywallResult = {
    * host tell "still waiting on the store" from "still waiting on us".
    */
   productsStatus: ProductStatus;
+  /**
+   * Whether a real `PaywallProvider` is above this consumer — see the field's
+   * doc on `PaywallContextValue`. Needed by any consumer that renders a
+   * spinner while the catalog loads, because with no provider
+   * `catalogStatus` reports `"loading"` and nothing ever arrives.
+   */
+  isProviderMounted: boolean;
+  /**
+   * Host-registered screens for `renderMode: "custom"` paywalls, keyed by
+   * `customScreenId`. Exposed here because the inline `Paywall` onboarding
+   * step renders them itself, never going through `PaywallHost`.
+   */
+  customScreens: CustomPaywallScreens;
 };
 
 /**
@@ -45,7 +59,15 @@ export type UsePaywallResult = {
  * `useProductRuntime()` degrades to `null` with no ancestor.
  */
 export const usePaywall = (): UsePaywallResult => {
-  const { present, isReady, catalog, catalogStatus, productsStatus } =
+  const { present, isReady, catalog, catalogStatus, productsStatus, isProviderMounted, customScreens } =
     useContext(PaywallContext);
-  return { present, isReady, catalog, catalogStatus, productsStatus };
+  return {
+    present,
+    isReady,
+    catalog,
+    catalogStatus,
+    productsStatus,
+    isProviderMounted,
+    customScreens,
+  };
 };

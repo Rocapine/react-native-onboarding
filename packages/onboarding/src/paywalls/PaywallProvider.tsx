@@ -20,6 +20,7 @@ import { useProducts } from "../products/useProducts";
 import { ProductProvider, ProductStatus } from "../products/types";
 import { ProductRuntimeContext } from "../products/ProductRuntimeContext";
 import type { CustomActions } from "../infra/provider/OnboardingProvider";
+import type { CustomPaywallScreens } from "./customScreens";
 
 // Module-scope, private to this file — mirrors `OnboardingProvider.tsx:17-23`.
 // `OnboardingProvider`'s QueryClient is not exported, so it cannot be reused
@@ -43,6 +44,12 @@ const paywallQueryClient = new QueryClient({
 // way `EMPTY_CUSTOM_ACTIONS` in `OnboardingProvider.tsx` documents.
 const EMPTY_CUSTOM_ACTIONS: CustomActions = Object.freeze({});
 
+// Frozen at module scope for the same reason as EMPTY_CUSTOM_ACTIONS above: it
+// sits in the published context value, and an unstable identity would defeat
+// memoization in every consumer that lists it as a dependency (the inline
+// `Paywall` step's decision memo does).
+const EMPTY_CUSTOM_SCREENS: CustomPaywallScreens = Object.freeze({});
+
 /**
  * Everything a paywall consumer or a paywall HOST needs. Deliberately one
  * context carrying both, mirroring how `OnboardingProgressContext` bundles
@@ -61,6 +68,22 @@ export type PaywallContextValue = {
    * does not yet mean an absent one.
    */
   catalogStatus: CatalogStatus;
+  /**
+   * Whether a real `PaywallProvider` is above this consumer.
+   *
+   * Exists because `EMPTY_PAYWALL_CONTEXT` reports `catalogStatus: "loading"` —
+   * honest for `present()`'s contract (nothing is loading and nothing will
+   * arrive, so `"error"` is the answer) but INDISTINGUISHABLE from a genuine
+   * first load. A consumer that renders a spinner while loading would spin
+   * forever under no provider, and the inline `Paywall` onboarding step
+   * (`UI/Pages/Paywall/Renderer.tsx` in the UI package) is exactly that
+   * consumer.
+   *
+   * Deliberately NOT a new `CatalogStatus` member: widening that union breaks
+   * every host switching exhaustively over it, and "no provider" is not a
+   * catalog state.
+   */
+  isProviderMounted: boolean;
   /**
    * What the store products are doing. The other half of `isReady`: a host that
    * sees `catalogStatus: "ready"` but `isReady: false` can tell it is waiting on
@@ -86,6 +109,17 @@ export type PaywallContextValue = {
   acknowledgePresentation: () => void;
   /** Forwarded into the presented paywall's `ScreenHost.customActions`. */
   customActions: CustomActions;
+  /**
+   * Host-registered screens for `renderMode: "custom"` paywalls, keyed by
+   * `customScreenId`.
+   *
+   * Published HERE — rather than only on `PaywallHost`, where it started in
+   * 1.72.0 — because there are now two renderers: that Modal, and the inline
+   * `Paywall` onboarding step, which never goes through `PaywallHost` at all.
+   * One registration has to serve both, and this is the provider every host
+   * already mounts. `PaywallHost`'s own prop still wins for that host.
+   */
+  customScreens: CustomPaywallScreens;
 };
 
 const EMPTY_PAYWALL_CONTEXT: PaywallContextValue = {
@@ -96,11 +130,15 @@ const EMPTY_PAYWALL_CONTEXT: PaywallContextValue = {
   catalog: null,
   // No provider above: nothing is loading and nothing will arrive.
   catalogStatus: "loading",
+  // The one value that distinguishes this object from a real provider's — see
+  // the field's doc above for why `catalogStatus` cannot do that job.
+  isProviderMounted: false,
   productsStatus: "idle",
   activePaywall: null,
   complete: () => {},
   acknowledgePresentation: () => {},
   customActions: EMPTY_CUSTOM_ACTIONS,
+  customScreens: EMPTY_CUSTOM_SCREENS,
 };
 
 /**
@@ -122,11 +160,11 @@ export const PaywallContext = createContext<PaywallContextValue>(EMPTY_PAYWALL_C
  */
 export const usePaywallHost = (): Pick<
   PaywallContextValue,
-  "activePaywall" | "complete" | "acknowledgePresentation" | "customActions"
+  "activePaywall" | "complete" | "acknowledgePresentation" | "customActions" | "customScreens"
 > => {
-  const { activePaywall, complete, acknowledgePresentation, customActions } =
+  const { activePaywall, complete, acknowledgePresentation, customActions, customScreens } =
     useContext(PaywallContext);
-  return { activePaywall, complete, acknowledgePresentation, customActions };
+  return { activePaywall, complete, acknowledgePresentation, customActions, customScreens };
 };
 
 interface PaywallProviderProps {
@@ -162,6 +200,20 @@ interface PaywallProviderProps {
   /** Handlers for `{ type: "custom" }` ButtonActions inside a paywall's elements. */
   customActions?: CustomActions;
   /**
+   * Screens for `renderMode: "custom"` paywalls, keyed by the
+   * `customScreenId` authored in the studio.
+   *
+   * THE canonical place to register them: both renderers read from here —
+   * `PaywallHost`'s Modal and the inline `Paywall` onboarding step, which never
+   * goes through `PaywallHost`. `PaywallHost` still accepts its own
+   * `customScreens` prop (1.72.0's API), and that prop overrides this for that
+   * host; prefer this one.
+   *
+   * MUST be referentially stable (module scope, or `useMemo`) — it lands in the
+   * context value and in consumers' dependency arrays.
+   */
+  customScreens?: CustomPaywallScreens;
+  /**
    * How long to wait for the host to confirm a paywall actually appeared
    * before abandoning the presentation and resolving
    * `{status:"error", reason:"host-never-presented"}`. Defaults to 5000 ms.
@@ -181,6 +233,7 @@ interface PaywallProviderInnerProps {
   productProvider?: ProductProvider;
   stripeProductProvider?: ProductProvider;
   customActions: CustomActions;
+  customScreens: CustomPaywallScreens;
   presentAckTimeoutMs: number | null;
 }
 
@@ -192,6 +245,7 @@ const PaywallProviderInner = ({
   productProvider,
   stripeProductProvider,
   customActions,
+  customScreens,
   presentAckTimeoutMs,
 }: PaywallProviderInnerProps) => {
   // `data` straight off `useQuery` is the single source of truth (Finding 1,
@@ -464,11 +518,15 @@ const PaywallProviderInner = ({
       isReady,
       catalog,
       catalogStatus,
+      // A literal `true` — no dependency-array entry needed, unlike every
+      // other member of this object.
+      isProviderMounted: true,
       productsStatus: productRuntime.status,
       activePaywall,
       complete,
       acknowledgePresentation,
       customActions,
+      customScreens,
     }),
     [
       present,
@@ -480,6 +538,7 @@ const PaywallProviderInner = ({
       complete,
       acknowledgePresentation,
       customActions,
+      customScreens,
     ]
   );
 
@@ -510,6 +569,7 @@ export const PaywallProvider = ({
   productProvider,
   stripeProductProvider,
   customActions = EMPTY_CUSTOM_ACTIONS,
+  customScreens = EMPTY_CUSTOM_SCREENS,
   presentAckTimeoutMs = DEFAULT_PRESENT_ACK_TIMEOUT_MS,
 }: PaywallProviderProps) => {
   return (
@@ -521,6 +581,7 @@ export const PaywallProvider = ({
         productProvider={productProvider}
         stripeProductProvider={stripeProductProvider}
         customActions={customActions}
+        customScreens={customScreens}
         presentAckTimeoutMs={presentAckTimeoutMs}
       >
         {children}

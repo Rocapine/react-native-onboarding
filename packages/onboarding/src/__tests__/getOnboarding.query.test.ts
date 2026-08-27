@@ -1,13 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // AsyncStorage is mocked — the query reads/writes the production cache through it.
-const { getItem, setItem, removeItem } = vi.hoisted(() => ({
+const { getItem, setItem, removeItem, getAllKeys, multiRemove } = vi.hoisted(() => ({
   getItem: vi.fn<(key: string) => Promise<string | null>>(),
   setItem: vi.fn<(key: string, value: string) => Promise<void>>(),
   removeItem: vi.fn<(key: string) => Promise<void>>(),
+  // `clearCache` scans by prefix now, because the keys are scoped by a hash of
+  // the resolved audience params and are no longer predictable one-by-one.
+  getAllKeys: vi.fn<() => Promise<string[]>>(),
+  multiRemove: vi.fn<(keys: string[]) => Promise<void>>(),
 }));
 vi.mock("@react-native-async-storage/async-storage", () => ({
-  default: { getItem, setItem, removeItem },
+  default: { getItem, setItem, removeItem, getAllKeys, multiRemove },
 }));
 // OnboardingStudioClient (used by the clearCache test) imports `react-native`
 // for `Platform`; stub it so the class loads under Node.
@@ -156,17 +160,52 @@ describe("getOnboardingCacheKey", () => {
 });
 
 describe("OnboardingStudioClient.clearCache", () => {
-  beforeEach(() => removeItem.mockReset());
-
-  it("removes the default key when no custom key is configured", async () => {
-    const client = new OnboardingStudioClient("p1", {});
-    await client.clearCache();
-    expect(removeItem).toHaveBeenCalledWith(CACHE_KEY);
+  beforeEach(() => {
+    multiRemove.mockReset();
+    multiRemove.mockResolvedValue(undefined);
+    getAllKeys.mockReset();
   });
 
-  it("removes the namespaced key when a custom key is configured", async () => {
-    const client = new OnboardingStudioClient("p1", { cacheKey: CUSTOM_KEY });
+  it("clears every param variant of both domains, plus any legacy unscoped key", async () => {
+    getAllKeys.mockResolvedValue([
+      CACHE_KEY,
+      `${CACHE_KEY}-7f3a1c92`,
+      CUSTOM_CACHE_KEY,
+      "rocapine-paywalls-studio",
+      "rocapine-paywalls-sdk-v2-deadbeef",
+      "unrelated-app-key",
+    ]);
+    const client = new OnboardingStudioClient("p1", {});
     await client.clearCache();
-    expect(removeItem).toHaveBeenCalledWith(CUSTOM_CACHE_KEY);
+    expect(multiRemove).toHaveBeenCalledWith([
+      CACHE_KEY,
+      `${CACHE_KEY}-7f3a1c92`,
+      CUSTOM_CACHE_KEY,
+      "rocapine-paywalls-studio",
+      "rocapine-paywalls-sdk-v2-deadbeef",
+    ]);
+  });
+
+  it("leaves user properties alone — clearing a cache must not forget who the user is", async () => {
+    getAllKeys.mockResolvedValue(["rocapine-user-properties"]);
+    const client = new OnboardingStudioClient("p1", {});
+    await client.clearCache();
+    expect(multiRemove).not.toHaveBeenCalled();
+  });
+
+  it("does nothing when there is nothing of ours to clear", async () => {
+    getAllKeys.mockResolvedValue(["unrelated-app-key"]);
+    const client = new OnboardingStudioClient("p1", {});
+    await client.clearCache();
+    expect(multiRemove).not.toHaveBeenCalled();
+  });
+
+  it("does not throw when storage enumeration fails", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    getAllKeys.mockRejectedValue(new Error("storage unavailable"));
+    const client = new OnboardingStudioClient("p1", {});
+    await expect(client.clearCache()).resolves.toBeUndefined();
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
   });
 });

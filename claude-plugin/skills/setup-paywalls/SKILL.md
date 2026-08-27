@@ -68,7 +68,7 @@ Props worth knowing:
 | `productProvider` | the store adapter (App Store / Play) |
 | `stripeProductProvider` | the Stripe adapter, if any paywall uses `billing: "stripe"` |
 | `locale` | overrides the device locale for authored copy |
-| `customAudienceParams` | extra values the studio's audience filters can match on |
+| `customAudienceParams` | **static** values the studio's audience filters can match on — build-time facts set once at mount. For anything that changes at runtime use `userProperties` (see below), which merges over this and wins per key |
 | `presentAckTimeoutMs` | how long to wait for the host to confirm the paywall appeared. Defaults to 5000. `null` disables the recovery — only pass it if your host genuinely cannot acknowledge. |
 
 **Do not** mount two `PaywallProvider`s. Products are resolved once over the union of every paywall's `products[]` and published through context; a second provider means a second store round-trip and two `purchasing` flags.
@@ -203,6 +203,23 @@ const { activePaywall, complete, acknowledgePresentation, customActions } = useP
 
 **`complete` must be called exactly once per presentation**, or the `present()` promise never settles.
 
+## Set user properties (targeting)
+
+Requires **1.74.0 or later**. Which paywall a moment serves is decided by its audience waterfall, evaluated against a `key: value` map of user properties. Wire this up whenever the project has more than one audience — without it every user matches the catch-all.
+
+```tsx
+import { userProperties } from "@rocapine/react-native-onboarding";
+
+// From anywhere — a singleton, no hook and no provider needed.
+userProperties.set({ plan: "free", daysSinceInstall: 3 });
+userProperties.reset();  // on logout
+```
+
+- `set` **merges**, so independent writers (auth, analytics) don't clobber each other. `null` deletes a key.
+- Values are `string | number | boolean` and reach filters as strings. A filter comparing against a **number** coerces correctly; one comparing against a **string** is lexicographic, so `"10" > "9"` is false.
+- **Properties persist** and are hydrated before the first catalog fetch, so a returning user is targeted correctly on the first launch-frame. A first-ever install matches the catch-all, then refetches on the first `set` — call `set` before mounting the provider if that matters.
+- These names are refused (the SDK puts them on the querystring itself): `projectId`, `platform`, `appVersion`, `draft`, `locale`, `omitNulls`, `moment`, `now`.
+
 ## Present one
 
 ```tsx
@@ -226,6 +243,33 @@ const result = await present("onboarding_end");
 | `paywall-disappeared` | a studio publish removed the moment mid-presentation |
 
 Gate a "fall back to another engine" decision on `catalogStatus === "ready"`, **not** on `catalog !== null`. A catalog served from disk while a fresh fetch is in flight reports `"revalidating"`, and a moment missing from it may simply not have arrived yet.
+
+## Or gate a feature: `register`
+
+Requires **1.74.0 or later**.
+
+`present` is the low-level call: it tells you how the paywall closed and leaves you to act on it. `register` is the one to reach for when the paywall exists to unlock *something* — it decides, presents if needed, and runs your feature only if the user bought.
+
+```tsx
+const { register } = usePaywall();
+
+await register("unlock_stats", () => router.push("/stats"));
+```
+
+| Situation | What happens | `reason` |
+|---|---|---|
+| The moment has a paywall | presented; feature runs **only** on a purchase | `purchased` / `not-purchased` |
+| The moment has no paywall | feature runs immediately | `no-paywall` |
+| No catalog reachable | feature runs, with a warning | `catalog-unavailable` |
+| A paywall is already showing | feature withheld, live paywall untouched | `not-purchased` |
+
+**Which to use:** `register` when a paywall guards a feature — it is the whole if/else, so you cannot forget a branch. `present` when the caller needs the outcome for something other than unlocking (analytics on dismissal, a downsell chain, deciding a route).
+
+Three things to tell the user explicitly, because none is visible from the call site:
+
+- **It fails open.** Offline, or still loading after `registerTimeoutMs` (default 3000), it runs the feature rather than blocking it — an offline launch must not make the app's features silently dead. Read `reason: "catalog-unavailable"` off the result to measure how often that happens; if it is not near zero, that is revenue.
+- **There is no entitlement check.** `register` gates on the moment alone. Exclude existing subscribers by setting a user property and authoring an audience filter on it — `userProperties.set({ plan: "pro" })`, audience `plan != "pro"`. Do NOT expect the SDK to know they already paid.
+- **A Stripe-billed paywall never runs the feature.** A Payment Link's entitlement arrives out-of-band through RevenueCat, so the presentation never reports `"purchased"`. Grant access from the RevenueCat webhook. `register` warns when it presents one.
 
 ## Verification
 

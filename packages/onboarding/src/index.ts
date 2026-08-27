@@ -47,6 +47,41 @@ export {
   generateWheelPickerRangeItems,
   resolveWheelPickerItems,
 } from "./steps/ComposableScreen/types";
+// The mutable, persisted user-property map that feeds audience resolution
+// (moments -> audiences -> paywalls, and onboarding audiences too).
+//
+// A singleton rather than a provider, so non-React code — a login handler, an
+// analytics service — can write to it. See `userProperties/store.ts` for why
+// this one piece of state departs from the package's provider+context pattern.
+//
+// The internal helpers (`toQueryParams`, `paramsHash`, `applyUserPropertyPatch`,
+// `resolveEffectiveParams`) are deliberately NOT exported: they are
+// implementation detail, and `paramsHash` in particular is a cache-key concern a
+// host reproducing it would only drift from.
+export {
+  userProperties,
+  useUserProperties,
+  createUserPropertyStore,
+  USER_PROPERTIES_STORAGE_KEY,
+  RESERVED_USER_PROPERTY_KEYS,
+  isReservedUserPropertyKey,
+} from "./userProperties";
+export type {
+  UserProperties,
+  UserPropertyPatch,
+  UserPropertyValue,
+  UserPropertySnapshot,
+  UserPropertyStorage,
+  UserPropertyStore,
+} from "./userProperties";
+// `register(moment, feature)` — gate a feature on a moment. The decision helpers
+// are exported because they are pure: a host building its own gating on top of
+// `catalog` can reuse the SDK's exact rules rather than reimplement them slightly
+// differently. `runRegister` and `RegisterDeps` stay internal — that seam exists
+// for its own test.
+export { resolveRegisterDecision, shouldRunFeature } from "./paywalls/register";
+export type { RegisterDecision, RegisterFeature, RegisterResult } from "./paywalls/register";
+export { DEFAULT_REGISTER_TIMEOUT_MS } from "./paywalls/PaywallProvider";
 // A step that IS a paywall: `payload.moment` names a moment, and the audience
 // waterfall behind it picks which paywall renders.
 export type { PaywallStepType } from "./steps/Paywall/types";

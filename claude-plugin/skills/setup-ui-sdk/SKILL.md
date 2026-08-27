@@ -77,6 +77,18 @@ import { OnboardingProgressProvider } from "@rocapine/react-native-onboarding-ui
 
 It takes only `children` and `initialColorScheme`.
 
+### Audience targeting needs user properties
+
+Requires **1.74.0 or later**. If the project has more than one audience, which onboarding renders is decided by the audience waterfall against a `key: value` property map — nothing on this provider. Set it from anywhere (the store is a singleton, so a login handler works):
+
+```tsx
+import { userProperties } from "@rocapine/react-native-onboarding";
+
+userProperties.set({ plan: "free", daysSinceInstall: 3 });
+```
+
+`set` merges; `null` deletes; `reset()` clears on logout. Properties persist and are hydrated before the first fetch, so `OnboardingProvider` holds its query for one AsyncStorage read — pass `fontsFallback` and that frame is covered. Full detail, including the reserved key names, is in `setup-headless-sdk`.
+
 ### Applying a custom theme
 
 Because `OnboardingProgressProvider` renders its **own** `ThemeProvider` with no custom-theme pass-through, a `ThemeProvider` wrapped *around* it is shadowed and your brand tokens are silently ignored. Nest yours **inside** it — the inner provider wins:

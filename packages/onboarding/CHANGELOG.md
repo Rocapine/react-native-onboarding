@@ -8,6 +8,92 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.74.0] - 2026-08-27
+
+### Added
+
+- **`userProperties`** — a mutable, persisted `key: value` store feeding audience
+  resolution for both onboardings and paywalls. A module **singleton**, not a
+  provider, which is the one deliberate departure from this package's
+  provider+context pattern and the reason the feature exists: properties get set
+  from login handlers and analytics services, code that cannot call a hook.
+
+  ```ts
+  userProperties.set({ plan: "free", daysSinceInstall: 3 });  // merges
+  userProperties.set({ plan: null });                          // deletes
+  userProperties.reset();                                      // logout
+  const { properties, status } = useUserProperties();
+  ```
+
+  Values are `string | number | boolean`. Properties persist to AsyncStorage and
+  are hydrated **before the first fetch**, so a returning user is targeted
+  correctly on the first launch-frame with no host code. A first-ever install
+  matches the catch-all and refetches on the first `set`.
+
+  Eight names are refused with a warning — `projectId`, `platform`, `appVersion`,
+  `draft`, `locale`, `omitNulls`, `moment`, `now`. The last two are server-owned;
+  the other six would **break the request outright**, because the client appends
+  user params before its own, `URLSearchParams` permits duplicates, and the two
+  server-side readers disagree about which wins (`.get()` takes the first — the
+  user's value — while `Object.fromEntries` takes the last).
+
+- **`register(moment, feature)`** on `usePaywall()` — gate a feature on a moment.
+  Runs the feature immediately when the moment has no paywall, otherwise presents
+  it and runs the feature **only** on a purchase. Resolves
+  `{ ran, presented, reason, outcome? }`.
+
+  It gates on the moment **alone** — there is no entitlement check. Exclude
+  existing subscribers with a user property plus an audience filter.
+
+  It **fails open**: with no reachable catalog it runs the feature and warns,
+  because failing closed would make gated features silently dead on an offline
+  launch. `reason: "catalog-unavailable"` is how a host measures that rate.
+
+  A **Stripe**-billed paywall never runs the feature even on a successful
+  checkout — a Payment Link's entitlement arrives out-of-band through RevenueCat,
+  so the presentation never reports `"purchased"`. `register` warns when it
+  presents one.
+
+- **`registerTimeoutMs`** on `PaywallProvider` (default `3000`) — how long
+  `register` waits for the catalog to settle before deciding without it.
+
+- **`resolveRegisterDecision` / `shouldRunFeature`** are exported: they are pure,
+  so a host building its own gating on `catalog` can reuse the SDK's exact rules
+  rather than reimplement them slightly differently.
+
+### Changed
+
+- **Both providers now merge the store over `customAudienceParams`**, store-wins
+  per key, and hold their query until the store hydrates. The prop is neither
+  deprecated nor removed — it becomes the *static* baseline (build-time facts)
+  while the store carries what changes at runtime, so existing hosts are
+  untouched. One consequence worth naming: one store now feeds **both**
+  waterfalls, so an onboarding audience and a paywall audience can no longer
+  disagree about the same user, which two independent props always allowed.
+
+### Fixed
+
+- **The AsyncStorage cache keys are now scoped by audience params.** The
+  react-query key always was; the disk key was a bare constant, so a cache-first
+  read could serve a payload resolved under *different* params — non-null, and so
+  indistinguishable from a correct one. Observed in production: an audience gated
+  on `hoursSinceOnboardingPaywall >= 44` was served the pre-threshold catalog on
+  the launch where the user first became eligible, so the arm under test lost
+  exactly the launch that mattered. Rare while params were a static prop;
+  mutable properties would have made it the normal path.
+
+  An empty params hash yields the legacy key byte-for-byte, so existing installs
+  keep their cache. This is also what makes `catalogStatus: "revalidating"`
+  trustworthy — a served catalog now always matches the current params — which
+  `register`'s decision relies on.
+
+- **`clearCache()` now clears every params variant**, via a `getAllKeys()` prefix
+  scan rather than naming two keys it can no longer predict. It previously missed
+  every key but the current one. It deliberately does **not** clear user
+  properties: clearing a payload cache must not forget who the user is.
+
+---
+
 ## [1.73.0] - 2026-08-27
 
 ### Added

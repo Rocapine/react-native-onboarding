@@ -9,6 +9,20 @@ here.
 
 ---
 
+## [1.74.0] - 2026-08-27
+
+Version bump only — this release is entirely in the headless package (the
+`userProperties` store and `register(moment, feature)`). Nothing in this package
+changed.
+
+Worth knowing anyway, because it changes what a host must wire: audience
+targeting now reads a persisted user-property store rather than only the
+`customAudienceParams` prop, so `OnboardingProvider` holds its query for one
+AsyncStorage read on mount. Pass `fontsFallback` and that frame is already
+covered. See the headless CHANGELOG.
+
+---
+
 ## [1.73.0] - 2026-08-27
 
 ### Added

@@ -93,7 +93,7 @@ Every prop `OnboardingProvider` accepts — there are no others:
 |---|---|---|
 | `client` | — | **required.** The `OnboardingStudioClient` above |
 | `locale` | `"en"` | locale passed to the steps query |
-| `customAudienceParams` | `{}` | extra targeting params for audience matching |
+| `customAudienceParams` | `{}` | **static** targeting params for audience matching — build-time facts fixed at mount. Anything that changes at runtime belongs in `userProperties` (below), which merges over this and wins per key |
 | `customActions` | `{}` | named handlers invokable from a ComposableScreen `{ type: "custom" }` Button action |
 | `fontsFallback` | `null` | rendered while the payload is fetched **and** remote fonts download |
 | `navigation` | expo-router adapter | injectable navigation adapter; must be a stable module-scope reference |
@@ -102,6 +102,24 @@ Every prop `OnboardingProvider` accepts — there are no others:
 There is **no** `projectId`, `platform`, `appVersion`, `draft`, `theme`, `lightTheme`, `darkTheme` or `initialColorScheme` prop. Project config lives on the client; theming lives on the UI SDK's `ThemeProvider` (see `customize-onboarding-theme`).
 
 **Set `fontsFallback` whenever the onboarding uses Studio-served fonts** — the gate renders `null` during fetch + font download, so without it the user sees a blank frame.
+
+### User properties (audience targeting)
+
+Requires **1.74.0 or later**. Which onboarding a user gets is decided by the project's audience waterfall, evaluated against a `key: value` property map. Set it up whenever the project has more than one audience — otherwise every user matches the catch-all.
+
+```typescript
+import { userProperties } from "@rocapine/react-native-onboarding";
+
+// A singleton: call this from a login handler or analytics service, no hook needed.
+userProperties.set({ plan: "free", daysSinceInstall: 3 });
+userProperties.reset();  // on logout
+```
+
+- `set` **merges** (so auth and analytics don't clobber each other); `null` deletes a key.
+- Values are `string | number | boolean`, and reach filters as strings — a filter comparing against a number coerces fine, one comparing against a string is lexicographic (`"10" > "9"` is false).
+- **Persisted and hydrated before the first fetch**, so a returning user is targeted correctly on the first launch-frame with no host code. A first-ever install matches the catch-all and refetches on the first `set`; call `set` before mounting the provider if that matters.
+- Refused names, because the SDK puts them on the querystring itself: `projectId`, `platform`, `appVersion`, `draft`, `locale`, `omitNulls`, `moment`, `now`.
+- The provider holds its query until hydration completes, which is one AsyncStorage read. Set `fontsFallback` and that frame is covered.
 
 **Wire `onComplete`.** The terminal branch calls `completeOnboarding()`; if no handler is set the SDK logs a warning and nothing advances, leaving the user stranded on the last screen.
 

@@ -10,6 +10,13 @@ import { extractAssetUrls } from "../preload/extractAssetUrls";
 import { preloadAssets } from "../preload/preloadAssets";
 import { collectUnknownKeysInSteps, formatUnknownElementKeys } from "../../screens/unknownKeys";
 import { OnboardingNavigationAdapter } from "../navigation/types";
+import { useUserProperties } from "../../userProperties/useUserProperties";
+import { resolveEffectiveParams } from "../../userProperties/effectiveParams";
+import {
+  OnboardingStudio,
+  resolveProviderClient,
+  MISSING_CLIENT_MESSAGE,
+} from "../../OnboardingStudio";
 import { expoRouterAdapter } from "../navigation/expoRouterAdapter";
 import { useProducts } from "../../products/useProducts";
 import { ProductProvider, ProductRef, ProductRuntime } from "../../products/types";
@@ -103,7 +110,16 @@ export type OnboardingCompleteHandler = (
 
 interface OnboardingProviderProps {
   children: React.ReactNode;
-  client: OnboardingStudioClient;
+  /**
+   * The studio client. Optional: omit it and the provider uses the client
+   * `OnboardingStudio.init({ projectId })` built. Passing one explicitly still
+   * wins, so an existing host is unaffected.
+   *
+   * With neither, this provider THROWS — an onboarding with no client has
+   * nothing to render, and a host `ErrorBoundary` gets a message naming both
+   * fixes.
+   */
+  client?: OnboardingStudioClient;
   locale?: string;
   customAudienceParams?: Record<string, any>;
   /**
@@ -163,9 +179,23 @@ const OnboardingDataGate = ({
   fontsFallback,
   children,
 }: OnboardingDataGateProps) => {
-  const { data, error } = useQuery<Onboarding<OnboardingStepType>>(
-    getOnboardingQuery<OnboardingStepType>(client, locale, customAudienceParams, setOnboarding)
+  // Same merge the paywall provider does, for the same reason: one store feeds
+  // both waterfalls, so an onboarding audience and a paywall audience can no
+  // longer disagree about the same user. See `resolveEffectiveParams`.
+  const { properties, status: propertiesStatus } = useUserProperties();
+  const params = useMemo(
+    () => resolveEffectiveParams(customAudienceParams, properties),
+    [customAudienceParams, properties]
   );
+
+  const { data, error } = useQuery<Onboarding<OnboardingStepType>>({
+    ...getOnboardingQuery<OnboardingStepType>(client, locale, params, setOnboarding),
+    // Held until the store hydrates — otherwise the first fetch of a cold launch
+    // is audience-matched against an empty property map. This gate renders
+    // `fontsFallback`, the state this gate already shows while the payload
+    // loads, so nothing new appears on screen.
+    enabled: propertiesStatus === "ready",
+  });
 
   // Background asset preload: once the payload is available, warm every remote
   // image/video/Lottie/Rive asset so later screens render without a load flash.
@@ -201,7 +231,7 @@ const OnboardingDataGate = ({
 
 export const OnboardingProvider = ({
   children,
-  client,
+  client: clientProp,
   locale = "en",
   customAudienceParams = {},
   customActions = EMPTY_CUSTOM_ACTIONS,
@@ -211,6 +241,17 @@ export const OnboardingProvider = ({
   productProvider,
   productRefs,
 }: OnboardingProviderProps) => {
+  // An explicit prop wins; otherwise use whatever `OnboardingStudio.init()`
+  // built. THROWN rather than degraded, unlike `PaywallProvider`: this provider
+  // wraps an onboarding, so a host `ErrorBoundary` catches it and the rest of the
+  // app survives — and an onboarding with no client has nothing at all to render,
+  // where a paywall-less app is merely un-monetised.
+  //
+  // Read during render, so `init()` must run BEFORE the first render — at module
+  // scope, which is where the warning tells a host to put it.
+  const client = resolveProviderClient(clientProp, OnboardingStudio.getClient());
+  if (!client) throw new Error(MISSING_CLIENT_MESSAGE);
+
   const [activeStep, setActiveStep] = useState({
     number: 0,
     displayProgressHeader: false,

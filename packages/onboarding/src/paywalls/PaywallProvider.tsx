@@ -21,6 +21,18 @@ import { ProductProvider, ProductStatus } from "../products/types";
 import { ProductRuntimeContext } from "../products/ProductRuntimeContext";
 import type { CustomActions } from "../infra/provider/OnboardingProvider";
 import type { CustomPaywallScreens } from "./customScreens";
+import { useUserProperties } from "../userProperties/useUserProperties";
+import { resolveEffectiveParams } from "../userProperties/effectiveParams";
+import { runRegister, type RegisterFeature, type RegisterResult } from "./register";
+import {
+  OnboardingStudio,
+  resolveProviderClient,
+  MISSING_CLIENT_MESSAGE,
+} from "../OnboardingStudio";
+import {
+  createCatalogSettleWaiter,
+  type CatalogSettleWaiter,
+} from "./catalogSettleWaiter";
 
 // Module-scope, private to this file — mirrors `OnboardingProvider.tsx:17-23`.
 // `OnboardingProvider`'s QueryClient is not exported, so it cannot be reused
@@ -59,6 +71,20 @@ const EMPTY_CUSTOM_SCREENS: CustomPaywallScreens = Object.freeze({});
  */
 export type PaywallContextValue = {
   present: (moment: string) => Promise<PresentResult>;
+  /**
+   * Gate a feature on a moment: `register("unlock_stats", () => go())`.
+   *
+   * Runs the feature immediately when the moment has no paywall (it is not
+   * monetised, or not authored yet), otherwise presents the moment's paywall and
+   * runs the feature ONLY on a purchase. Gates on the moment alone — there is no
+   * entitlement check; exclude subscribers with an audience filter on a user
+   * property.
+   *
+   * Fails OPEN: when no catalog is reachable it runs the feature and warns, so an
+   * offline launch does not silently disable the app's features. The resolved
+   * `reason` reports which path was taken, so a host can measure that rate.
+   */
+  register: (moment: string, feature?: RegisterFeature) => Promise<RegisterResult>;
   isReady: boolean;
   catalog: PaywallCatalog | null;
   /**
@@ -126,6 +152,14 @@ const EMPTY_PAYWALL_CONTEXT: PaywallContextValue = {
   // No provider above: there is no catalog at all, which is the same answer
   // `resolvePresentDecision` gives for an unresolved one.
   present: async () => ({ status: "error", reason: "unknown-moment" }),
+  // No provider above: no verdict is reachable, which is exactly the fail-open
+  // case — consistent with how `register` treats an unavailable catalog. A host
+  // that forgot the provider gets a working app whose features are ungated,
+  // rather than an app whose gated features are all silently dead.
+  register: async (_moment, feature) => {
+    await feature?.();
+    return { ran: true, presented: false, reason: "catalog-unavailable" };
+  },
   isReady: false,
   catalog: null,
   // No provider above: nothing is loading and nothing will arrive.
@@ -149,6 +183,13 @@ const EMPTY_PAYWALL_CONTEXT: PaywallContextValue = {
  */
 const DEFAULT_PRESENT_ACK_TIMEOUT_MS = 5000;
 
+/**
+ * How long `register()` waits for the catalog to settle before deciding without
+ * it. Generous enough that a cold network fetch usually lands, short enough that
+ * a tap does not feel stuck.
+ */
+export const DEFAULT_REGISTER_TIMEOUT_MS = 3000;
+
 export const PaywallContext = createContext<PaywallContextValue>(EMPTY_PAYWALL_CONTEXT);
 
 /**
@@ -169,7 +210,15 @@ export const usePaywallHost = (): Pick<
 
 interface PaywallProviderProps {
   children: React.ReactNode;
-  client: OnboardingStudioClient;
+  /**
+   * The studio client. Optional: omit it and the provider uses the client
+   * `OnboardingStudio.init({ projectId })` built. Passing one explicitly still
+   * wins, so an existing host is unaffected.
+   *
+   * With neither, this provider warns and renders `children` with paywalls inert
+   * — it does not throw, because it wraps the whole app.
+   */
+  client?: OnboardingStudioClient;
   locale?: string;
   customAudienceParams?: Record<string, any>;
   /**
@@ -223,6 +272,15 @@ interface PaywallProviderProps {
    * rest of the process. Only pass `null` if the host cannot acknowledge.
    */
   presentAckTimeoutMs?: number | null;
+  /**
+   * How long `register()` waits for the paywall catalog to settle before deciding
+   * without it. Defaults to 3000 ms.
+   *
+   * On timeout `register` fails OPEN — it runs the gated feature and warns. Lower
+   * it if a tap feels stuck on a slow network; raise it to give the catalog more
+   * chance to land before a feature is given away.
+   */
+  registerTimeoutMs?: number;
 }
 
 interface PaywallProviderInnerProps {
@@ -235,6 +293,7 @@ interface PaywallProviderInnerProps {
   customActions: CustomActions;
   customScreens: CustomPaywallScreens;
   presentAckTimeoutMs: number | null;
+  registerTimeoutMs: number;
 }
 
 const PaywallProviderInner = ({
@@ -247,6 +306,7 @@ const PaywallProviderInner = ({
   customActions,
   customScreens,
   presentAckTimeoutMs,
+  registerTimeoutMs,
 }: PaywallProviderInnerProps) => {
   // `data` straight off `useQuery` is the single source of truth (Finding 1,
   // 2026-08-17 final review) — react-query's own cache already gets both a
@@ -256,9 +316,28 @@ const PaywallProviderInner = ({
   // for why the query still needs `paywallQueryClient` for the ONE case
   // `data` alone can't cover: a background revalidation pushing a fresh
   // payload while this query call already resolved with the cached one.
-  const { data, error, isFetching } = useQuery<PaywallCatalog>(
-    getPaywallsQuery(client, locale, customAudienceParams, paywallQueryClient)
+  // The user-property store is the RUNTIME half of audience targeting; the
+  // `customAudienceParams` prop is the static half. Merged store-wins and
+  // serialized once, so the query key, the disk cache key's hash and the
+  // querystring all see the same bytes — see `resolveEffectiveParams`.
+  const { properties, status: propertiesStatus } = useUserProperties();
+  const params = useMemo(
+    () => resolveEffectiveParams(customAudienceParams, properties),
+    [customAudienceParams, properties]
   );
+
+  const { data, error, isFetching } = useQuery<PaywallCatalog>({
+    ...getPaywallsQuery(client, locale, params, paywallQueryClient),
+    // Held until the store has hydrated from disk. Without this the first fetch
+    // of a cold launch carries an EMPTY property map, matches the catch-all
+    // audience, and — because the catalog is cached with `staleTime: Infinity` —
+    // that wrong answer is what the whole session uses.
+    //
+    // A disabled query reports `data: undefined`, `error: null`,
+    // `isFetching: false`, which `computeCatalogStatus` reads as "loading" — the
+    // honest answer while the store hydrates, and the one `register()` waits on.
+    enabled: propertiesStatus === "ready",
+  });
   const catalog = data ?? null;
   // `isFetching` (not `isLoading`) on purpose: it is also true for a BACKGROUND
   // revalidation behind an already-served cached catalog, which is precisely the
@@ -388,6 +467,19 @@ const PaywallProviderInner = ({
   // `purchase`/`restore` callbacks.
   const catalogRef = useRef(catalog);
   catalogRef.current = catalog;
+  // `catalogStatus` as a ref for the same reason: `register` must read the
+  // CURRENT status without being re-created on every status change.
+  const catalogStatusRef = useRef(catalogStatus);
+  catalogStatusRef.current = catalogStatus;
+  // One waiter per provider instance, reading status through the ref above. See
+  // `catalogSettleWaiter.ts` for the two invariants that put it in its own
+  // module instead of inline here.
+  const settleWaiterRef = useRef<CatalogSettleWaiter | null>(null);
+  if (settleWaiterRef.current === null) {
+    settleWaiterRef.current = createCatalogSettleWaiter(
+      () => catalogStatusRef.current === "loading"
+    );
+  }
   // `activeMomentRef` is made AUTHORITATIVE below — assigned inside
   // `present()`'s start branch and inside `complete()`, not just here. Finding
   // 4, 2026-08-17 final review: this line alone only resyncs the ref from
@@ -432,6 +524,42 @@ const PaywallProviderInner = ({
       setActiveMoment(moment);
     });
   }, []);
+
+  // Wakes anything parked in `register` as soon as the catalog stops loading.
+  useEffect(() => {
+    if (catalogStatus === "loading") return;
+    settleWaiterRef.current?.settle();
+  }, [catalogStatus]);
+
+  /**
+   * Superwall's `registerPlacement`, in this SDK's vocabulary: gate a feature on
+   * a moment.
+   *
+   * Gates on the MOMENT alone — there is deliberately no entitlement check.
+   * Exclude subscribers by authoring an audience filter against a user property
+   * the host sets (`plan: "pro"`), which is machinery that already exists.
+   *
+   * All of the decision logic — both fail-open paths, the wait-once rule, the
+   * Stripe warning — is `runRegister` in `register.ts`, where it is unit-tested.
+   * This callback only supplies the environment.
+   */
+  const register = useCallback(
+    (moment: string, feature?: RegisterFeature): Promise<RegisterResult> =>
+      runRegister(
+        {
+          getCatalog: () => catalogRef.current,
+          getCatalogStatus: () => catalogStatusRef.current,
+          waitForCatalogSettled: (ms) => settleWaiterRef.current!.wait(ms),
+          // The real `present`, so the wedge recovery, the purchase-generation
+          // race guard and outcome reconciliation all apply unchanged.
+          present,
+          timeoutMs: registerTimeoutMs,
+        },
+        moment,
+        feature
+      ),
+    [present, registerTimeoutMs]
+  );
 
   // Called by PaywallHost (Task 7) from the presented paywall's
   // `ScreenHost.complete`. Resolves whatever `present()` call is pending and
@@ -515,6 +643,7 @@ const PaywallProviderInner = ({
   const contextValue = useMemo<PaywallContextValue>(
     () => ({
       present,
+      register,
       isReady,
       catalog,
       catalogStatus,
@@ -530,6 +659,7 @@ const PaywallProviderInner = ({
     }),
     [
       present,
+      register,
       isReady,
       catalog,
       catalogStatus,
@@ -555,15 +685,25 @@ const PaywallProviderInner = ({
  * only flows to descendants; two true siblings could not share one runtime).
  *
  * ```tsx
- * <PaywallProvider client={client} productProvider={revenueCatProductProvider(Purchases)}>
+ * OnboardingStudio.init({ projectId: "…" }); // at module scope
+ *
+ * <PaywallProvider productProvider={revenueCatProductProvider(Purchases)}>
  *   <App />
- *   <PaywallHost /> // Task 7: renders the active paywall in a fullScreen RN Modal
+ *   <PaywallHost /> // renders the active paywall in a fullScreen RN Modal
  * </PaywallProvider>
  * ```
+ *
+ * With no client at all — neither a prop nor an `OnboardingStudio.init()` — this
+ * WARNS and renders `children` untouched, so paywalls are inert and the app
+ * still runs. It deliberately does not throw the way `OnboardingProvider` does:
+ * this provider wraps the whole app (see the query-error effect inside), so
+ * throwing would take down every screen over a missing paywall client. Consumers
+ * then read the default context, where `isProviderMounted` is `false` and both
+ * `present` and `register` resolve their fail-open answers.
  */
 export const PaywallProvider = ({
   children,
-  client,
+  client: clientProp,
   locale = "en",
   customAudienceParams = {},
   productProvider,
@@ -571,7 +711,22 @@ export const PaywallProvider = ({
   customActions = EMPTY_CUSTOM_ACTIONS,
   customScreens = EMPTY_CUSTOM_SCREENS,
   presentAckTimeoutMs = DEFAULT_PRESENT_ACK_TIMEOUT_MS,
+  registerTimeoutMs = DEFAULT_REGISTER_TIMEOUT_MS,
 }: PaywallProviderProps) => {
+  // Prop wins, else whatever `OnboardingStudio.init()` built. Read during render,
+  // so `init()` must run before the first render — at module scope.
+  const client = resolveProviderClient(clientProp, OnboardingStudio.getClient());
+
+  // Effect, not an inline call, so a re-render does not re-log. Declared above
+  // the early return: hooks must run unconditionally.
+  useEffect(() => {
+    if (client) return;
+    console.warn(`${MISSING_CLIENT_MESSAGE} Paywalls are inert until then.`);
+  }, [client]);
+
+  // Degrade rather than throw — see the doc above.
+  if (!client) return <>{children}</>;
+
   return (
     <QueryClientProvider client={paywallQueryClient}>
       <PaywallProviderInner
@@ -583,6 +738,7 @@ export const PaywallProvider = ({
         customActions={customActions}
         customScreens={customScreens}
         presentAckTimeoutMs={presentAckTimeoutMs}
+        registerTimeoutMs={registerTimeoutMs}
       >
         {children}
       </PaywallProviderInner>

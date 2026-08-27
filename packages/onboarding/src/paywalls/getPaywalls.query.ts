@@ -3,6 +3,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { OnboardingStudioClient } from "../OnboardingStudioClient";
 import { PaywallCatalog } from "./types";
 import { getPaywallsCacheKey } from "../infra/queries/cacheKey";
+import { paramsHash } from "../userProperties/serialize";
 
 /**
  * Mirrors `getOnboarding.query.ts`'s cache-first / background-revalidate /
@@ -56,7 +57,14 @@ export const getPaywallsQuery = (
       // with NO background revalidation, so a pinned version survives across
       // launches. The default key keeps stale-while-revalidate.
       const hasCustomKey = Boolean(client.options.cacheKey);
-      const cacheKey = getPaywallsCacheKey(client.options.cacheKey);
+      // Scoped by the resolved audience params — see `cacheKey.ts`. This is what
+      // makes `catalogStatus: "revalidating"` mean "a genuine freshness refresh"
+      // rather than "this catalog may have been resolved under other params",
+      // which `register()`'s decision relies on.
+      const cacheKey = getPaywallsCacheKey(
+        client.options.cacheKey,
+        paramsHash(customAudienceParams as Record<string, string>),
+      );
 
       // Fetches the live catalog, caches it, and pushes it into the query
       // cache directly — see the module doc above for why that push is

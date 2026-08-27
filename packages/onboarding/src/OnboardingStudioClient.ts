@@ -9,8 +9,8 @@ import {
   BaseStepType,
 } from "./types";
 import {
-  getOnboardingCacheKey,
-  getPaywallsCacheKey,
+  ONBOARDING_CACHE_KEY_PREFIX,
+  PAYWALLS_CACHE_KEY_PREFIX,
 } from "./infra/queries/cacheKey";
 import {
   PaywallCatalog,
@@ -35,18 +35,34 @@ export class OnboardingStudioClient {
   }
 
   /**
-   * Removes this client's cached onboarding payload AND cached paywall catalog
-   * from AsyncStorage (the keys derived from `options.cacheKey`, or the
-   * default keys). The next query mount or app launch is then a cache miss
-   * and refetches both. To force an in-session refetch as well, also
-   * invalidate the React Query keys `["onboardingQuestions", ...]` and
+   * Removes EVERY cached onboarding payload and paywall catalog this SDK wrote,
+   * across all audience-param variants. The next query mount or app launch is
+   * then a cache miss and refetches. To force an in-session refetch as well,
+   * also invalidate the React Query keys `["onboardingQuestions", ...]` and
    * `["paywallCatalog", ...]`.
+   *
+   * Scans `getAllKeys()` by prefix rather than naming two keys, because the keys
+   * are now scoped by a hash of the resolved audience params (see
+   * `infra/queries/cacheKey.ts`) — so there is no longer one key per domain to
+   * name. This also picks up entries written before that scoping existed, which
+   * would otherwise be orphaned forever.
+   *
+   * It does NOT clear user properties: `USER_PROPERTIES_STORAGE_KEY` matches
+   * neither prefix, deliberately. Clearing a payload cache must not forget who
+   * the user is — that is what `OnboardingStudio.reset()` is for.
    */
   async clearCache(): Promise<void> {
-    await Promise.all([
-      AsyncStorage.removeItem(getOnboardingCacheKey(this.options.cacheKey)),
-      AsyncStorage.removeItem(getPaywallsCacheKey(this.options.cacheKey)),
-    ]);
+    try {
+      const keys = await AsyncStorage.getAllKeys();
+      const ours = keys.filter(
+        (key) =>
+          key.startsWith(ONBOARDING_CACHE_KEY_PREFIX) ||
+          key.startsWith(PAYWALLS_CACHE_KEY_PREFIX),
+      );
+      if (ours.length > 0) await AsyncStorage.multiRemove(ours);
+    } catch (error) {
+      console.warn("Failed to clear SDK caches:", error);
+    }
   }
 
   async getSteps<StepType extends BaseStepType = OnboardingStepType>(

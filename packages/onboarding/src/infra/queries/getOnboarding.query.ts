@@ -3,6 +3,7 @@ import { OnboardingStudioClient } from "../../OnboardingStudioClient";
 import { BaseStepType, Onboarding, OnboardingMetadata } from "../../types";
 import type { UseQueryOptions } from "@tanstack/react-query";
 import { getOnboardingCacheKey } from "./cacheKey";
+import { paramsHash } from "../../userProperties/serialize";
 
 export const getOnboardingQuery = <StepType extends BaseStepType>(
   client: OnboardingStudioClient,
@@ -26,7 +27,14 @@ export const getOnboardingQuery = <StepType extends BaseStepType>(
       // with NO background revalidation, so a pinned version survives across
       // launches. The default key keeps stale-while-revalidate.
       const hasCustomKey = Boolean(client.options.cacheKey);
-      const cacheKey = getOnboardingCacheKey(client.options.cacheKey);
+      // Scoped by the resolved audience params — see `cacheKey.ts`. The provider
+      // hands these over already serialized to strings
+      // (`userProperties/effectiveParams.ts`), so the hash sees the same bytes
+      // that go on the querystring.
+      const cacheKey = getOnboardingCacheKey(
+        client.options.cacheKey,
+        paramsHash(customAudienceParams as Record<string, string>),
+      );
 
       // Fetches the live payload, pushes it to the provider, and caches it —
       // but NEVER caches the offline fallback. Caching the fallback (with

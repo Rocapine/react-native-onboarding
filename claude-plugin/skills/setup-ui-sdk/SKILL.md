@@ -68,7 +68,7 @@ Most degrade gracefully when absent (empty box, sharp image, no-op haptic); `Dra
 import { OnboardingProvider } from "@rocapine/react-native-onboarding";
 import { OnboardingProgressProvider } from "@rocapine/react-native-onboarding-ui";
 
-<OnboardingProvider client={client} locale="en" onComplete={…}>
+<OnboardingProvider locale="en" onComplete={…}>
   <OnboardingProgressProvider initialColorScheme="light">
     <Stack />
   </OnboardingProgressProvider>
@@ -76,6 +76,18 @@ import { OnboardingProgressProvider } from "@rocapine/react-native-onboarding-ui
 ```
 
 It takes only `children` and `initialColorScheme`.
+
+### Audience targeting needs user properties
+
+Requires **1.74.0 or later**. If the project has more than one audience, which onboarding renders is decided by the audience waterfall against a `key: value` property map — nothing on this provider. Set it from anywhere (`OnboardingStudio` is a module-level object, so a login handler works):
+
+```tsx
+import { OnboardingStudio } from "@rocapine/react-native-onboarding";
+
+OnboardingStudio.setUserProperty("plan", "free");
+```
+
+`setUserProperties` merges; a `null` value deletes; `reset()` forgets the user on logout. Properties persist and are hydrated before the first fetch, so `OnboardingProvider` holds its query for one AsyncStorage read — pass `fontsFallback` and that frame is covered. Full detail, including the reserved key names, is in `setup-headless-sdk`.
 
 ### Applying a custom theme
 
@@ -165,7 +177,7 @@ The back button uses an **injectable navigation adapter** — the SDK does not h
     },
   };
 
-  <OnboardingProvider client={client} navigation={navigation} />
+  <OnboardingProvider navigation={navigation} />
   ```
 
   Define it at module scope — it must be a stable reference. With neither expo-router nor an adapter, navigation no-ops and the back button stays hidden.

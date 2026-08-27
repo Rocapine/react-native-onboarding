@@ -5,13 +5,17 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 vi.mock("react-native", () => ({ Platform: { OS: "ios" } }));
 
 // AsyncStorage is mocked — the query reads/writes the paywall cache through it.
-const { getItem, setItem, removeItem } = vi.hoisted(() => ({
+const { getItem, setItem, removeItem, getAllKeys, multiRemove } = vi.hoisted(() => ({
   getItem: vi.fn<(key: string) => Promise<string | null>>(),
   setItem: vi.fn<(key: string, value: string) => Promise<void>>(),
   removeItem: vi.fn<(key: string) => Promise<void>>(),
+  // `clearCache` scans by prefix now — the keys are scoped by a hash of the
+  // resolved audience params, so it can no longer name them one by one.
+  getAllKeys: vi.fn<() => Promise<string[]>>(),
+  multiRemove: vi.fn<(keys: string[]) => Promise<void>>(),
 }));
 vi.mock("@react-native-async-storage/async-storage", () => ({
-  default: { getItem, setItem, removeItem },
+  default: { getItem, setItem, removeItem, getAllKeys, multiRemove },
 }));
 
 import { OnboardingStudioClient } from "../../OnboardingStudioClient";
@@ -315,23 +319,37 @@ describe("getPaywallsQuery", () => {
 });
 
 describe("OnboardingStudioClient.clearCache", () => {
-  beforeEach(() => removeItem.mockReset());
+  beforeEach(() => {
+    multiRemove.mockReset();
+    multiRemove.mockResolvedValue(undefined);
+    getAllKeys.mockReset();
+  });
 
-  it("removes both the default onboarding key and the default paywalls key", async () => {
+  it("clears both domains' default keys", async () => {
+    getAllKeys.mockResolvedValue([DEFAULT_ONBOARDING_CACHE_KEY, CACHE_KEY]);
     const client = new OnboardingStudioClient("p1", {});
     await client.clearCache();
 
-    expect(removeItem).toHaveBeenCalledWith(DEFAULT_ONBOARDING_CACHE_KEY);
-    expect(removeItem).toHaveBeenCalledWith(CACHE_KEY);
-    expect(removeItem).toHaveBeenCalledTimes(2);
+    expect(multiRemove).toHaveBeenCalledWith([DEFAULT_ONBOARDING_CACHE_KEY, CACHE_KEY]);
   });
 
-  it("removes both namespaced keys when a custom key is configured", async () => {
+  it("clears both namespaced keys when a custom key is configured", async () => {
+    getAllKeys.mockResolvedValue([`rocapine-onboarding-sdk-${CUSTOM_KEY}`, CUSTOM_CACHE_KEY]);
     const client = new OnboardingStudioClient("p1", { cacheKey: CUSTOM_KEY });
     await client.clearCache();
 
-    expect(removeItem).toHaveBeenCalledWith(`rocapine-onboarding-sdk-${CUSTOM_KEY}`);
-    expect(removeItem).toHaveBeenCalledWith(CUSTOM_CACHE_KEY);
-    expect(removeItem).toHaveBeenCalledTimes(2);
+    expect(multiRemove).toHaveBeenCalledWith([
+      `rocapine-onboarding-sdk-${CUSTOM_KEY}`,
+      CUSTOM_CACHE_KEY,
+    ]);
+  });
+
+  it("clears a params-scoped paywall key it could not have named in advance", async () => {
+    const scoped = `${CACHE_KEY}-1b9a2624`;
+    getAllKeys.mockResolvedValue([scoped]);
+    const client = new OnboardingStudioClient("p1", {});
+    await client.clearCache();
+
+    expect(multiRemove).toHaveBeenCalledWith([scoped]);
   });
 });

@@ -47,6 +47,49 @@ export {
   generateWheelPickerRangeItems,
   resolveWheelPickerItems,
 } from "./steps/ComposableScreen/types";
+// The SDK's front door: configuration (`init`) and user identity
+// (`setUserProperty`, `reset`), in the shape of the SDKs it sits alongside —
+// `Superwall.configure`, `Purchases.configure`, `amplitude.init`.
+//
+// User properties feed audience resolution for BOTH onboardings and paywalls.
+// This is a module-level object rather than a provider so non-React code — a
+// login handler, an analytics service — can write to it; see
+// `userProperties/store.ts` for why that one departure from the package's
+// provider+context pattern is the point rather than an oversight.
+//
+// `register`/`present` are NOT here: presenting needs the mounted provider's
+// state, so they stay on `usePaywall()`.
+export { OnboardingStudio } from "./OnboardingStudio";
+export type { OnboardingStudioConfig, OnboardingStudioFacade } from "./OnboardingStudio";
+// `useUserProperties()` is the React READ path; the write path is the facade.
+//
+// The internal helpers (`toQueryParams`, `paramsHash`, `applyUserPropertyPatch`,
+// `resolveEffectiveParams`, `userPropertyStore`) are deliberately NOT exported:
+// they are implementation detail, and `paramsHash` in particular is a cache-key
+// concern a host reproducing it would only drift from.
+export {
+  useUserProperties,
+  createUserPropertyStore,
+  USER_PROPERTIES_STORAGE_KEY,
+  RESERVED_USER_PROPERTY_KEYS,
+  isReservedUserPropertyKey,
+} from "./userProperties";
+export type {
+  UserProperties,
+  UserPropertyPatch,
+  UserPropertyValue,
+  UserPropertySnapshot,
+  UserPropertyStorage,
+  UserPropertyStore,
+} from "./userProperties";
+// `register(moment, feature)` — gate a feature on a moment. The decision helpers
+// are exported because they are pure: a host building its own gating on top of
+// `catalog` can reuse the SDK's exact rules rather than reimplement them slightly
+// differently. `runRegister` and `RegisterDeps` stay internal — that seam exists
+// for its own test.
+export { resolveRegisterDecision, shouldRunFeature } from "./paywalls/register";
+export type { RegisterDecision, RegisterFeature, RegisterResult } from "./paywalls/register";
+export { DEFAULT_REGISTER_TIMEOUT_MS } from "./paywalls/PaywallProvider";
 // A step that IS a paywall: `payload.moment` names a moment, and the audience
 // waterfall behind it picks which paywall renders.
 export type { PaywallStepType } from "./steps/Paywall/types";

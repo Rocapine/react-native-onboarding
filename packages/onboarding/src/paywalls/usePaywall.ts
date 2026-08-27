@@ -4,6 +4,7 @@ import { PaywallCatalog, PresentResult } from "./types";
 import type { CatalogStatus } from "./present";
 import type { ProductStatus } from "../products/types";
 import type { CustomPaywallScreens } from "./customScreens";
+import type { RegisterFeature, RegisterResult } from "./register";
 
 export type UsePaywallResult = {
   /**
@@ -17,6 +18,34 @@ export type UsePaywallResult = {
    * presented. See `resolvePresentDecision` in `present.ts`.
    */
   present: (moment: string) => Promise<PresentResult>;
+  /**
+   * Gate a feature on a moment — Superwall's `registerPlacement`, in this SDK's
+   * vocabulary:
+   *
+   * ```ts
+   * await register("unlock_stats", () => router.push("/stats"));
+   * ```
+   *
+   * - The moment has **no paywall** (not monetised, or not authored yet) → runs
+   *   the feature immediately.
+   * - The moment **has** a paywall → presents it, and runs the feature **only**
+   *   on a purchase. A dismiss or a cancel withholds it.
+   * - **No catalog is reachable** → fails OPEN: runs the feature and warns. An
+   *   offline launch must not silently disable the app's features. Read
+   *   `reason: "catalog-unavailable"` off the result to measure how often this
+   *   happens.
+   *
+   * Gates on the moment **alone** — there is no entitlement check. Exclude
+   * paying users by setting a user property
+   * (`OnboardingStudio.setUserProperty("plan", "pro")`)
+   * and authoring an audience filter on it.
+   *
+   * **A Stripe-billed paywall never runs the feature**, even on a successful
+   * checkout: a Payment Link resolves out-of-band through RevenueCat, so the
+   * presentation never reports `"purchased"`. Grant access from your RevenueCat
+   * entitlement webhook. `register` warns when it presents one.
+   */
+  register: (moment: string, feature?: RegisterFeature) => Promise<RegisterResult>;
   /**
    * `true` once BOTH the catalog and its products have resolved — the one
    * flag meaning "calling `present()` now will not show a spinner".
@@ -59,10 +88,19 @@ export type UsePaywallResult = {
  * `useProductRuntime()` degrades to `null` with no ancestor.
  */
 export const usePaywall = (): UsePaywallResult => {
-  const { present, isReady, catalog, catalogStatus, productsStatus, isProviderMounted, customScreens } =
-    useContext(PaywallContext);
+  const {
+    present,
+    register,
+    isReady,
+    catalog,
+    catalogStatus,
+    productsStatus,
+    isProviderMounted,
+    customScreens,
+  } = useContext(PaywallContext);
   return {
     present,
+    register,
     isReady,
     catalog,
     catalogStatus,

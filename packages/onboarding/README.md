@@ -35,18 +35,19 @@ npx expo install expo-router
 ```typescript
 import {
   OnboardingProvider,
-  OnboardingStudioClient,
+  OnboardingStudio,
   ProgressBar,
 } from "@rocapine/react-native-onboarding";
 
-const client = new OnboardingStudioClient("your-project-id", {
+// Once, at module scope — before anything renders.
+OnboardingStudio.init({
+  projectId: "your-project-id",
   appVersion: "1.0.0",
 });
 
 export default function RootLayout() {
   return (
     <OnboardingProvider
-      client={client}
       locale="en"
       customAudienceParams={{ onboardingId: "your-onboarding-id" }}
     >
@@ -56,6 +57,10 @@ export default function RootLayout() {
   );
 }
 ```
+
+`init` returns the client it built, if you want it for `clearCache()`. You can
+also still construct one yourself and pass it as a `client` prop — an explicit
+prop always wins over `init`.
 
 ### Use in Your Screens
 
@@ -81,6 +86,134 @@ export default function OnboardingScreen() {
 ```
 
 That's it! 🎉
+
+---
+
+## 👤 User Properties
+
+Audience targeting reads a `key: value` map of user properties. `OnboardingStudio`
+is a module-level object, so a login handler or an analytics service can write to
+it — no hook, no provider:
+
+```typescript
+import { OnboardingStudio } from "@rocapine/react-native-onboarding";
+
+OnboardingStudio.setUserProperty("plan", "free");
+OnboardingStudio.setUserProperties({ daysSinceInstall: 3, hasTeam: true });
+
+OnboardingStudio.setUserProperty("plan", null);  // null DELETES a key
+OnboardingStudio.removeUserProperty("plan");     // same thing
+OnboardingStudio.getUserProperties();
+OnboardingStudio.reset();                        // forget the user — e.g. on logout
+```
+
+`setUserProperties` **merges**, so independent writers don't clobber each other.
+Values may be `string`, `number` or `boolean`. To read them in a component:
+
+```typescript
+const { properties, status } = useUserProperties();
+```
+
+`reset()` clears user properties only — it deliberately leaves the payload cache
+alone, because logging out shouldn't force a refetch of content that hasn't
+changed. Use `OnboardingStudio.getClient()?.clearCache()` if you want both.
+
+### Getting the first launch right
+
+Properties are only *hydrated* from disk, so a first-ever install has nothing to
+hydrate. Seed them in `init` — which runs before anything renders — and even that
+first launch is targeted correctly:
+
+```typescript
+OnboardingStudio.init({
+  projectId: "your-project-id",
+  userProperties: { plan: "free" },
+});
+```
+
+**Properties persist** to AsyncStorage and are hydrated before the first catalog
+fetch, so a returning user is targeted correctly on the very first launch-frame
+with no host code. A first-ever install has nothing to hydrate: its first fetch
+matches your catch-all audience, then refetches as soon as you set one — see
+[Getting the first launch right](#getting-the-first-launch-right) to avoid even
+that.
+
+### Values reach audience filters as strings
+
+Everything crosses the wire on a querystring. The normal authoring shape works as
+you'd expect, because the filter's literal is a number and JavaScript coerces:
+
+```jsonc
+{ ">=": [{ "var": "daysSinceInstall" }, 3] }   // "3" >= 3  → true ✅
+```
+
+Watch for a filter whose literal is itself a **string** — that comparison is
+lexicographic, so `"10"` is *not* greater than `"9"`:
+
+```jsonc
+{ ">": [{ "var": "daysSinceInstall" }, "9"] }  // "10" > "9" → false ⚠️
+```
+
+### Reserved names
+
+These are refused with a warning, because the SDK puts them on the request
+querystring itself and a duplicate silently breaks the request:
+
+`projectId`, `platform`, `appVersion`, `draft`, `locale`, `omitNulls`, `moment`,
+`now`
+
+### Relationship to `customAudienceParams`
+
+The prop still works and is not deprecated. Treat it as the **static** baseline
+(build-time facts like an `onboardingId`) and the store as the **runtime** half.
+Where both define a key, **the store wins**.
+
+---
+
+## 🔓 Gating a Feature with `register`
+
+`register` shows the paywall for a moment and runs your feature only if the user
+buys:
+
+```typescript
+const { register } = usePaywall();
+
+await register("unlock_stats", () => router.push("/stats"));
+```
+
+| Situation | What happens |
+|---|---|
+| The moment has a paywall | It's presented; the feature runs **only** on a purchase |
+| The moment has no paywall | The feature runs immediately (`reason: "no-paywall"`) |
+| No catalog reachable | The feature runs, with a warning (`reason: "catalog-unavailable"`) |
+| Another paywall is already showing | The feature is withheld; the live paywall is untouched |
+
+It returns `{ ran, presented, reason, outcome? }`, so you can log how often you're
+giving a feature away:
+
+```typescript
+const result = await register("unlock_stats", unlock);
+if (result.reason === "catalog-unavailable") analytics.track("gate_failed_open");
+```
+
+**`register` fails open.** When the catalog can't be reached — offline, or still
+loading after `registerTimeoutMs` (default 3000) — it runs the feature rather than
+blocking it. Failing closed would make your gated features silently dead on an
+offline launch, with no paywall on screen to explain why. Tune the wait with
+`<PaywallProvider registerTimeoutMs={...}>`.
+
+**There is no entitlement check.** `register` gates on the moment alone. To stop
+charging an existing subscriber, set a property and author an audience filter on
+it:
+
+```typescript
+OnboardingStudio.setUserProperty("plan", "pro");   // audience: plan != "pro"
+```
+
+> ⚠️ **A Stripe-billed paywall never runs the feature**, even after a successful
+> checkout: a Payment Link's entitlement arrives out-of-band through RevenueCat, so
+> the presentation never reports `"purchased"`. Grant access from your RevenueCat
+> entitlement webhook instead. `register` warns when it presents one.
 
 ---
 

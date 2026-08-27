@@ -21,6 +21,8 @@ import { ProductProvider, ProductStatus } from "../products/types";
 import { ProductRuntimeContext } from "../products/ProductRuntimeContext";
 import type { CustomActions } from "../infra/provider/OnboardingProvider";
 import type { CustomPaywallScreens } from "./customScreens";
+import { useUserProperties } from "../userProperties/useUserProperties";
+import { resolveEffectiveParams } from "../userProperties/effectiveParams";
 
 // Module-scope, private to this file — mirrors `OnboardingProvider.tsx:17-23`.
 // `OnboardingProvider`'s QueryClient is not exported, so it cannot be reused
@@ -256,9 +258,28 @@ const PaywallProviderInner = ({
   // for why the query still needs `paywallQueryClient` for the ONE case
   // `data` alone can't cover: a background revalidation pushing a fresh
   // payload while this query call already resolved with the cached one.
-  const { data, error, isFetching } = useQuery<PaywallCatalog>(
-    getPaywallsQuery(client, locale, customAudienceParams, paywallQueryClient)
+  // The user-property store is the RUNTIME half of audience targeting; the
+  // `customAudienceParams` prop is the static half. Merged store-wins and
+  // serialized once, so the query key, the disk cache key's hash and the
+  // querystring all see the same bytes — see `resolveEffectiveParams`.
+  const { properties, status: propertiesStatus } = useUserProperties();
+  const params = useMemo(
+    () => resolveEffectiveParams(customAudienceParams, properties),
+    [customAudienceParams, properties]
   );
+
+  const { data, error, isFetching } = useQuery<PaywallCatalog>({
+    ...getPaywallsQuery(client, locale, params, paywallQueryClient),
+    // Held until the store has hydrated from disk. Without this the first fetch
+    // of a cold launch carries an EMPTY property map, matches the catch-all
+    // audience, and — because the catalog is cached with `staleTime: Infinity` —
+    // that wrong answer is what the whole session uses.
+    //
+    // A disabled query reports `data: undefined`, `error: null`,
+    // `isFetching: false`, which `computeCatalogStatus` reads as "loading" — the
+    // honest answer while the store hydrates, and the one `register()` waits on.
+    enabled: propertiesStatus === "ready",
+  });
   const catalog = data ?? null;
   // `isFetching` (not `isLoading`) on purpose: it is also true for a BACKGROUND
   // revalidation behind an already-served cached catalog, which is precisely the

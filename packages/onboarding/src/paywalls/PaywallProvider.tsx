@@ -62,6 +62,22 @@ export type PaywallContextValue = {
    */
   catalogStatus: CatalogStatus;
   /**
+   * Whether a real `PaywallProvider` is above this consumer.
+   *
+   * Exists because `EMPTY_PAYWALL_CONTEXT` reports `catalogStatus: "loading"` —
+   * honest for `present()`'s contract (nothing is loading and nothing will
+   * arrive, so `"error"` is the answer) but INDISTINGUISHABLE from a genuine
+   * first load. A consumer that renders a spinner while loading would spin
+   * forever under no provider, and the inline `Paywall` onboarding step
+   * (`UI/Pages/Paywall/Renderer.tsx` in the UI package) is exactly that
+   * consumer.
+   *
+   * Deliberately NOT a new `CatalogStatus` member: widening that union breaks
+   * every host switching exhaustively over it, and "no provider" is not a
+   * catalog state.
+   */
+  isProviderMounted: boolean;
+  /**
    * What the store products are doing. The other half of `isReady`: a host that
    * sees `catalogStatus: "ready"` but `isReady: false` can tell it is waiting on
    * the store rather than on us.
@@ -96,6 +112,9 @@ const EMPTY_PAYWALL_CONTEXT: PaywallContextValue = {
   catalog: null,
   // No provider above: nothing is loading and nothing will arrive.
   catalogStatus: "loading",
+  // The one value that distinguishes this object from a real provider's — see
+  // the field's doc above for why `catalogStatus` cannot do that job.
+  isProviderMounted: false,
   productsStatus: "idle",
   activePaywall: null,
   complete: () => {},
@@ -464,6 +483,9 @@ const PaywallProviderInner = ({
       isReady,
       catalog,
       catalogStatus,
+      // A literal `true` — no dependency-array entry needed, unlike every
+      // other member of this object.
+      isProviderMounted: true,
       productsStatus: productRuntime.status,
       activePaywall,
       complete,

@@ -121,7 +121,7 @@ Four things about this adapter that are not guessable:
 
 ## Host the modal
 
-`PaywallHost` takes **no props**. It owns its own full-screen `Modal`, reads which paywall is active itself, and wires the acknowledgement — so mounting it is the whole job. Render it as a **sibling** of your app, inside `PaywallProvider`, never as a child of a screen (navigation would unmount it mid-presentation).
+`PaywallHost` owns its own full-screen `Modal`, reads which paywall is active itself, and wires the acknowledgement — so mounting it is the whole job. Render it as a **sibling** of your app, inside `PaywallProvider`, never as a child of a screen (navigation would unmount it mid-presentation).
 
 ```tsx
 import { PaywallHost } from "@rocapine/react-native-onboarding-ui";
@@ -132,7 +132,35 @@ import { PaywallHost } from "@rocapine/react-native-onboarding-ui";
 </PaywallProvider>
 ```
 
-That is the whole integration. Do **not** hand it `elements`, `complete` or `customActions` — it has no such props and TypeScript will reject them.
+That is the whole integration. Its ONLY prop is `customScreens` (see below); do **not** hand it `elements`, `complete` or `customActions` — it has no such props and TypeScript will reject them.
+
+### If a paywall renders your own screen
+
+A studio author can set a paywall's Render mode to **Custom screen** instead of an element tree — for a hand-built native paywall the element vocabulary cannot express. Such a paywall names a `customScreenId`, and you register a component under that key:
+
+```tsx
+import type { CustomPaywallScreenProps } from "@rocapine/react-native-onboarding-ui";
+
+const NativePaywall = ({ payload, complete, paywall }: CustomPaywallScreenProps) => {
+  // payload: { monthly: { ios: "com.app.m", android: "app_m" }, … }
+  // Do your own store calls with those ids, then:
+  //   complete({ status: "purchased" })  or  complete()  to dismiss.
+};
+
+// Module scope, NOT inline in JSX — see the stability note below.
+const SCREENS = { "paywall-native-v2": NativePaywall };
+
+<PaywallHost customScreens={SCREENS} />
+```
+
+Four things that will otherwise cost you an afternoon:
+
+- **`complete` must be called on every exit path**, including your own close button. Until it is, the paywall stays active and every later `present()` resolves `"already-presenting"`. The acknowledgement timeout only rescues a paywall that never *appeared*, not one that appeared and was never closed.
+- **`customScreens` must be referentially stable** — module scope or `useMemo`. It is a `useMemo` dependency inside the host, so a fresh object each render re-derives the presentation decision each render.
+- **You get product IDS, not prices.** The SDK resolves no store products for a custom paywall, so `payload` carries ids and your screen asks the store for its own display prices. That is deliberate: a native paywall already knows how to do that, and it is the reason it does not need the studio.
+- **An unregistered id shows nothing, by design.** `present()` resolves `{ status: "error", reason: "unknown-custom-screen" }` and the Modal never opens, rather than trapping the user behind an empty full-screen sheet. The console names the missing id *and* the ones you did register, which is usually the whole diagnosis.
+
+Everything else still applies unchanged — the same Modal, so your screen gets the iOS refused-presentation recovery, Android hardware back, and a nested `SafeAreaProvider` for free.
 
 ### Only if you must supply your own modal
 

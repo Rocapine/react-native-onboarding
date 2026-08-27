@@ -132,7 +132,7 @@ import { PaywallHost } from "@rocapine/react-native-onboarding-ui";
 </PaywallProvider>
 ```
 
-That is the whole integration. Its ONLY prop is `customScreens` (see below); do **not** hand it `elements`, `complete` or `customActions` — it has no such props and TypeScript will reject them.
+That is the whole integration. Its only prop is `customScreens`, and even that is better set on `PaywallProvider` (see below); do **not** hand it `elements`, `complete` or `customActions` — it has no such props and TypeScript will reject them.
 
 ### If a paywall renders your own screen
 
@@ -150,17 +150,42 @@ const NativePaywall = ({ payload, complete, paywall }: CustomPaywallScreenProps)
 // Module scope, NOT inline in JSX — see the stability note below.
 const SCREENS = { "paywall-native-v2": NativePaywall };
 
-<PaywallHost customScreens={SCREENS} />
+// Register on the PROVIDER, not the host: two things render these screens —
+// PaywallHost's Modal and a `Paywall` onboarding step (see below) — and only
+// the provider is visible to both.
+<PaywallProvider client={client} productProvider={provider} customScreens={SCREENS}>
+  <App />
+  <PaywallHost />
+</PaywallProvider>
 ```
+
+`PaywallHost` still accepts `customScreens` as a prop and it wins where passed, so an integration written against 1.72.0 keeps working — but it is invisible to a `Paywall` onboarding step, so prefer the provider.
 
 Four things that will otherwise cost you an afternoon:
 
 - **`complete` must be called on every exit path**, including your own close button. Until it is, the paywall stays active and every later `present()` resolves `"already-presenting"`. The acknowledgement timeout only rescues a paywall that never *appeared*, not one that appeared and was never closed.
-- **`customScreens` must be referentially stable** — module scope or `useMemo`. It is a `useMemo` dependency inside the host, so a fresh object each render re-derives the presentation decision each render.
+- **`customScreens` must be referentially stable** — module scope or `useMemo`. It lands in the context value and in consumers' dependency arrays, so a fresh object each render re-derives their decisions each render.
 - **You get product IDS, not prices.** The SDK resolves no store products for a custom paywall, so `payload` carries ids and your screen asks the store for its own display prices. That is deliberate: a native paywall already knows how to do that, and it is the reason it does not need the studio.
 - **An unregistered id shows nothing, by design.** `present()` resolves `{ status: "error", reason: "unknown-custom-screen" }` and the Modal never opens, rather than trapping the user behind an empty full-screen sheet. The console names the missing id *and* the ones you did register, which is usually the whole diagnosis.
 
 Everything else still applies unchanged — the same Modal, so your screen gets the iOS refused-presentation recovery, Android hardware back, and a nested `SafeAreaProvider` for free.
+
+### A paywall as an onboarding STEP
+
+A paywall does not have to be a Modal fired by `present()`. A studio author can add a **`Paywall` step** to an onboarding, which names a moment:
+
+```json
+{ "type": "Paywall", "payload": { "moment": "onboarding_end" } }
+```
+
+It renders **in flow position** — progress header and all — and the audience waterfall behind that moment still picks which paywall variant each user sees, so it stays A/B-testable by weight. Composable and custom-screen paywalls both work.
+
+You wire nothing extra for it, but two facts decide whether it works at all:
+
+- **It requires an ancestor `PaywallProvider`.** The step reads the paywall catalog. With no provider it logs the mount instruction and SKIPS the step — deliberately, because a paywall that structurally cannot appear must not trap the user in the funnel forever.
+- **It is HARD-GATED: only a purchase advances.** A `dismiss` action on the paywall does nothing there. Note a Stripe Payment Link resolves `"pending"`, not `"purchased"`, and pending does **not** advance — so a Stripe paywall on such a step needs an `onPending` branch, or the user has no way forward.
+
+The same skip-rather-than-trap rule covers a mis-typed moment key, an unpublished paywall, a moment whose audiences matched nothing, and an unregistered custom screen. Each logs what was wrong and what was available.
 
 ### Only if you must supply your own modal
 

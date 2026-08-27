@@ -8,6 +8,52 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.73.0] - 2026-08-27
+
+### Added
+
+- **`PaywallStepType`** — a step that IS a paywall. `payload` is one field, a
+  `moments.key`:
+
+  ```json
+  { "type": "Paywall", "payload": { "moment": "onboarding_end" } }
+  ```
+
+  Rendered inline, in flow position, by the UI package. The whole thing needed
+  **no wire change**: `get-paywalls` already returns the catalog keyed by
+  moment with the audience waterfall applied, so resolving the step is a
+  lookup — and targeting plus weighted A/B therefore work inside an onboarding
+  with no new machinery. Composable and custom-screen paywalls both work,
+  because `renderMode` is a property of the paywall the moment resolved to, not
+  of the step.
+
+  Deliberately not a paywall id: that would bypass the waterfall, so
+  A/B-testing a paywall inside an onboarding would mean duplicating the whole
+  onboarding.
+
+- **`PaywallProvider` accepts `customScreens`**, and `usePaywall()` /
+  `usePaywallHost()` expose it. This is now **the canonical place** to register
+  custom paywall screens, because two things render them: `PaywallHost`'s Modal
+  and the inline `Paywall` step, which never goes through `PaywallHost`.
+
+  `PaywallHost`'s own `customScreens` prop (1.72.0) still works and **wins where
+  passed**, so existing integrations are unaffected — but it is invisible to a
+  `Paywall` step, so prefer the provider.
+
+- **`CustomPaywallScreenProps` / `CustomPaywallScreens` are now exported from
+  this package.** They moved here from `-ui` because the registry they type is
+  published on `PaywallProvider`. The UI package re-exports both names, so its
+  deep-import path resolves unchanged.
+
+- **`usePaywall().isProviderMounted`** — whether a real `PaywallProvider` is
+  above the consumer. Needed by anything that renders a spinner while the
+  catalog loads: with no provider, `catalogStatus` reports `"loading"` and
+  nothing ever arrives, so such a consumer would spin forever. Deliberately NOT
+  a new `CatalogStatus` member — widening that union would break every host
+  switching exhaustively over it, and "no provider" is not a catalog state.
+
+---
+
 ## [1.72.0] - 2026-08-27
 
 ### Added

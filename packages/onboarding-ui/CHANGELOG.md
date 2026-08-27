@@ -9,6 +9,64 @@ here.
 
 ---
 
+## [1.73.0] - 2026-08-27
+
+### Added
+
+- **`Paywall` step renderer** (`UI/Pages/Paywall/`) — renders a paywall **in
+  flow position**, wrapped in `OnboardingTemplate` like any neighbouring step,
+  so the progress header applies and the onboarding advances past it. The third
+  consumer of `ScreenRenderer`, after `PaywallHost` and the ComposableScreen
+  adapter; it is the sibling of that adapter and shares its shape.
+
+  **HARD GATE: only a purchase advances.** This needs no purchase tracking,
+  because an authored paywall already distinguishes the outcomes in its action
+  list — `{type:"purchase", onSuccess:[{type:"continue"}]}` calls `complete()`
+  with no outcome (advance), `{type:"dismiss"}` calls it with
+  `{status:"dismissed"}` (stay). A custom screen is handed the same callback, so
+  the gate applies to it identically.
+
+  `"pending"` does **not** advance: a Stripe Payment Link resolves pending,
+  meaning unconfirmed, and advancing would grant access for a payment that may
+  never complete. A Stripe paywall on such a step needs an `onPending` branch.
+
+  **Three structural cases SKIP the step with a named diagnosis rather than
+  trap the user** — a paywall that cannot appear must not brick a paid funnel:
+  no ancestor `PaywallProvider`, a moment absent from a settled catalog (a
+  mis-typed key, an unpublished paywall, or a waterfall that matched nothing),
+  and a paywall that cannot render (elements that fail validation, or an
+  unregistered custom screen). Each log names what was wrong *and* what was
+  available.
+
+  A `"revalidating"` catalog that lacks the moment **waits** rather than
+  skipping — it may be about to deliver it, and skipping would lose a sale to a
+  race. Conversely a paywall already in hand renders during a revalidation
+  instead of flashing a spinner.
+
+- **`resolvePaywallStepDecision` / `shouldAdvanceOnComplete`** — the pure halves,
+  exported and unit-tested. Extracted for the same reason
+  `resolvePaywallModalDecision` was: this package has no render harness, so the
+  decision is where testable behaviour has to live.
+
+### Changed
+
+- **Register `customScreens` on `PaywallProvider`, not `PaywallHost`.** The
+  host's prop still works and wins where passed — no existing integration
+  breaks — but it is invisible to a `Paywall` onboarding step, which renders
+  custom screens itself and never goes through `PaywallHost`. `PaywallHost` now
+  falls back to the provider's registry when its own prop is absent; the two are
+  deliberately **not merged**, so "which map is this id missing from" stays
+  answerable.
+
+- **`CustomPaywallScreenProps` / `CustomPaywallScreens` moved to the headless
+  package.** `UI/Paywall/CustomPaywallScreen.ts` is now a re-export, so the
+  deep-import path 1.72.0 introduced resolves unchanged.
+
+- **`UI/types.ts`'s `OnboardingStepType` union gains `PaywallStepType`.** Worth
+  noting for anyone switching exhaustively over it.
+
+---
+
 ## [1.72.0] - 2026-08-27
 
 ### Added

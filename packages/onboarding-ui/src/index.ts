@@ -28,6 +28,10 @@ export type { ScreenRendererProps, ScreenHost, CompleteOutcome } from "./UI/Runt
 
 // Paywall host — the second ScreenHost, rendering a paywall in a fullScreen Modal.
 export { PaywallHost } from "./UI/Paywall";
+export type { PaywallHostProps } from "./UI/Paywall";
+// Custom-screen paywalls: the contract a host-registered screen implements, and
+// the registry `PaywallHost` takes.
+export type { CustomPaywallScreenProps, CustomPaywallScreens } from "./UI/Paywall";
 
 // Templates and shared components
 export * from "./UI/Templates";

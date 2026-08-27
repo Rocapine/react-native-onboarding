@@ -56,6 +56,134 @@ describe("resolvePaywallModalDecision", () => {
   });
 });
 
+describe("resolvePaywallModalDecision: custom-screen paywalls", () => {
+  const Screen = () => null;
+  const screens = { "paywall-native-v2": Screen };
+
+  it("is 'show-custom' with the registered component when renderMode is custom", () => {
+    const paywall = {
+      elements: [],
+      renderMode: "custom" as const,
+      customScreenId: "paywall-native-v2",
+      customPayload: { monthly: { ios: "com.app.m" } },
+    };
+    expect(resolvePaywallModalDecision(paywall, succeed, screens)).toEqual({
+      type: "show-custom",
+      Screen,
+      customScreenId: "paywall-native-v2",
+      payload: { monthly: { ios: "com.app.m" } },
+    });
+  });
+
+  // The whole point of skipping rather than short-circuiting: an author who
+  // flips a paywall to custom mode may leave an element tree behind, and it
+  // must not be parsed (let alone rendered) on the way past.
+  it("NEVER invokes the parser in custom mode, even with elements present", () => {
+    let called = 0;
+    resolvePaywallModalDecision(
+      {
+        elements: [{ type: "Text" }],
+        renderMode: "custom" as const,
+        customScreenId: "paywall-native-v2",
+      },
+      (elements) => {
+        called += 1;
+        return succeed(elements);
+      },
+      screens,
+    );
+    expect(called).toBe(0);
+  });
+
+  // A host wiring bug, not a CMS data bug — the two have opposite fixes, which
+  // is why this is its own decision (and its own PresentErrorReason) rather
+  // than being folded into "parse-error".
+  it("is 'unknown-custom-screen' when the id is not registered", () => {
+    const paywall = {
+      elements: [],
+      renderMode: "custom" as const,
+      customScreenId: "paywall-not-registered",
+    };
+    expect(resolvePaywallModalDecision(paywall, succeed, screens)).toEqual({
+      type: "unknown-custom-screen",
+      customScreenId: "paywall-not-registered",
+    });
+  });
+
+  it("is 'unknown-custom-screen' when no customScreens map was passed at all", () => {
+    const paywall = {
+      elements: [],
+      renderMode: "custom" as const,
+      customScreenId: "paywall-native-v2",
+    };
+    expect(resolvePaywallModalDecision(paywall, succeed).type).toBe("unknown-custom-screen");
+  });
+
+  // An empty or absent screen id cannot match a registration, and the studio
+  // accepts one (it warns rather than refusing) — so this is a reachable state,
+  // not a defensive branch.
+  it("is 'unknown-custom-screen' for a blank or absent screen id", () => {
+    for (const customScreenId of ["", "   ", undefined, null]) {
+      const decision = resolvePaywallModalDecision(
+        { elements: [], renderMode: "custom" as const, customScreenId },
+        succeed,
+        screens,
+      );
+      expect(decision.type, `for ${JSON.stringify(customScreenId)}`).toBe("unknown-custom-screen");
+    }
+  });
+
+  it("trims the screen id before looking it up", () => {
+    const decision = resolvePaywallModalDecision(
+      { elements: [], renderMode: "custom" as const, customScreenId: " paywall-native-v2 " },
+      succeed,
+      screens,
+    );
+    expect(decision).toMatchObject({ type: "show-custom", Screen });
+  });
+
+  // The screen must never receive `undefined` for the one prop it exists to
+  // read. An older get-paywalls sends no customPayload at all.
+  it("defaults an absent customPayload to an empty map", () => {
+    const decision = resolvePaywallModalDecision(
+      { elements: [], renderMode: "custom" as const, customScreenId: "paywall-native-v2" },
+      succeed,
+      screens,
+    );
+    expect(decision).toMatchObject({ type: "show-custom", payload: {} });
+  });
+
+  // A device on a new SDK can hit an older get-paywalls that sends no
+  // renderMode, and absent must read as "elements" — not as a broken custom
+  // paywall.
+  it("treats an absent renderMode as elements, even when customScreens are registered", () => {
+    const paywall = { elements: [{ type: "Text" }] };
+    expect(resolvePaywallModalDecision(paywall, succeed, screens)).toEqual({
+      type: "show",
+      elements: paywall.elements,
+    });
+  });
+
+  it("leaves an explicit elements-mode paywall on the element path", () => {
+    const paywall = {
+      elements: [{ type: "Text" }],
+      renderMode: "elements" as const,
+      // Present but irrelevant — flipping back to elements does not destroy
+      // these, so a live paywall can legitimately carry both.
+      customScreenId: "paywall-native-v2",
+      customPayload: { monthly: { ios: "com.app.m" } },
+    };
+    expect(resolvePaywallModalDecision(paywall, succeed, screens)).toEqual({
+      type: "show",
+      elements: paywall.elements,
+    });
+  });
+
+  it("is still 'hidden' with no active paywall, whatever is registered", () => {
+    expect(resolvePaywallModalDecision(null, succeed, screens)).toEqual({ type: "hidden" });
+  });
+});
+
 describe("describePaywallParseError", () => {
   // Zod v4 shape: a union issue carries `errors: Issue[][]`, one entry per
   // variant, and nests. The element schema is a 26-member union of unions, so

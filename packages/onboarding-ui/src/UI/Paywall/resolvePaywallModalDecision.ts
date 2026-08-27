@@ -1,5 +1,5 @@
 /** What `PaywallHost`'s Modal should do for the current `activePaywall`. */
-export type PaywallModalDecision<TElements> =
+export type PaywallModalDecision<TElements, TScreen = unknown> =
   | { type: "hidden" }
   /**
    * `error` is whatever the injected parser reported (a `ZodError` in the real
@@ -9,7 +9,31 @@ export type PaywallModalDecision<TElements> =
    * and the failure only identifiable by elimination.
    */
   | { type: "parse-error"; error: unknown }
-  | { type: "show"; elements: TElements };
+  | { type: "show"; elements: TElements }
+  /**
+   * A `renderMode: "custom"` paywall whose `customScreenId` the host DID
+   * register. `payload` is normalized here (never `undefined`) so the screen's
+   * one reason to exist always has a shape.
+   */
+  | { type: "show-custom"; Screen: TScreen; customScreenId: string; payload: CustomPayload }
+  /**
+   * A `renderMode: "custom"` paywall naming a screen this host did not
+   * register — or naming none at all. Its own decision, not a `parse-error`:
+   * that one is a CMS data bug for the author to fix, this is a host wiring
+   * bug for the app to fix. `customScreenId` is carried (possibly `""`) so the
+   * host can name it in the log alongside the ids that ARE registered.
+   */
+  | { type: "unknown-custom-screen"; customScreenId: string };
+
+/** Mirrors the headless `PaywallCustomPayload`, restated to keep this module import-free of it. */
+type CustomPayload = Record<string, { ios?: string; android?: string }>;
+
+/** The custom-screen fields this decision reads off the active paywall. */
+type CustomScreenFields = {
+  renderMode?: "elements" | "custom" | null;
+  customScreenId?: string | null;
+  customPayload?: CustomPayload | null;
+};
 
 /**
  * Decides whether `PaywallHost` should open the Modal, and with what, given a
@@ -31,14 +55,48 @@ export type PaywallModalDecision<TElements> =
  * what `PresentResult.error` exists for. The boundary stays around
  * `PaywallContent` for genuine render-time crashes elsewhere in the tree,
  * which this decision does not and cannot cover.
+ *
+ * `customScreens` adds the `renderMode: "custom"` fork. Two properties of it
+ * are load-bearing:
+ *
+ *  - **The parser is not called at all in custom mode**, not merely ignored.
+ *    An author who flips a paywall to custom may leave an element tree behind
+ *    (the studio deliberately does not destroy it, so flipping back restores
+ *    it), and that tree must not be parsed or rendered on the way past.
+ *  - **An absent `renderMode` means `"elements"`.** A device on a new SDK can
+ *    be talking to an older `get-paywalls` that never sends the field, and on
+ *    that pairing every existing paywall must keep working exactly as before.
  */
-export const resolvePaywallModalDecision = <TPaywall extends { elements: unknown }, TElements>(
+export const resolvePaywallModalDecision = <
+  TPaywall extends { elements: unknown } & CustomScreenFields,
+  TElements,
+  TScreen = unknown,
+>(
   activePaywall: TPaywall | null,
   parse: (
     elements: unknown
-  ) => { success: true; data: TElements } | { success: false; error?: unknown }
-): PaywallModalDecision<TElements> => {
+  ) => { success: true; data: TElements } | { success: false; error?: unknown },
+  customScreens?: Record<string, TScreen>
+): PaywallModalDecision<TElements, TScreen> => {
   if (!activePaywall) return { type: "hidden" };
+
+  if (activePaywall.renderMode === "custom") {
+    // Trimmed before lookup: the studio strips whitespace as you type, but the
+    // column is free text and an id that round-tripped through anything else
+    // should still match its registration rather than mysteriously not.
+    const customScreenId = (activePaywall.customScreenId ?? "").trim();
+    const Screen = customScreenId ? customScreens?.[customScreenId] : undefined;
+    if (!Screen) return { type: "unknown-custom-screen", customScreenId };
+    return {
+      type: "show-custom",
+      Screen,
+      customScreenId,
+      // Normalized here rather than in the component: one place, and the
+      // screen's prop type can then promise a real map.
+      payload: activePaywall.customPayload ?? {},
+    };
+  }
+
   const result = parse(activePaywall.elements);
   return result.success
     ? { type: "show", elements: result.data }

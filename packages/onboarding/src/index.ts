@@ -47,6 +47,10 @@ export {
   generateWheelPickerRangeItems,
   resolveWheelPickerItems,
 } from "./steps/ComposableScreen/types";
+// A step that IS a paywall: `payload.moment` names a moment, and the audience
+// waterfall behind it picks which paywall renders.
+export type { PaywallStepType } from "./steps/Paywall/types";
+export { PaywallStepTypeSchema, PaywallStepPayloadSchema } from "./steps/Paywall/types";
 // Payload diagnostics — non-fatal detection of keys placed at an element's top
 // level that the schema silently drops (e.g. `animation` outside `props`).
 export {
@@ -102,6 +106,10 @@ export type {
   PresentErrorReason,
 } from "./paywalls/types";
 export { PaywallProvider, usePaywallHost } from "./paywalls/PaywallProvider";
+// The custom-screen registry lives on PaywallProvider now (two renderers read
+// it: PaywallHost's Modal and the inline Paywall onboarding step), so its types
+// live in the headless package. onboarding-ui re-exports both names.
+export type { CustomPaywallScreenProps, CustomPaywallScreens } from "./paywalls/customScreens";
 export type { PaywallContextValue } from "./paywalls/PaywallProvider";
 export { usePaywall } from "./paywalls/usePaywall";
 // Exported so a host can switch exhaustively on what the catalog is doing

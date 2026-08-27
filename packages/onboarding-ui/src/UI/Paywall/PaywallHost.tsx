@@ -204,12 +204,16 @@ export type PaywallHostProps = {
    * Screens for `renderMode: "custom"` paywalls, keyed by the `customScreenId`
    * authored in the studio.
    *
-   * Registered HERE rather than on `PaywallProvider` (where `customActions`
-   * lives) because this is the component that renders: the provider is the
-   * headless half and has no business holding a map of React components. A
-   * paywall naming a key absent from this map never opens the Modal — it
-   * resolves `{ status: "error", reason: "unknown-custom-screen" }` and logs
-   * both the missing id and the ones that are registered.
+   * AN OVERRIDE, not the canonical place. Register on `PaywallProvider`
+   * instead: the inline `Paywall` onboarding step is a second renderer of these
+   * screens and never goes through `PaywallHost`, so one registration on the
+   * provider serves both. This prop predates that step (1.72.0) and is kept so
+   * those integrations keep compiling; when both are set, this one wins for
+   * this host.
+   *
+   * A paywall naming a key absent from the effective map never opens the Modal
+   * — it resolves `{ status: "error", reason: "unknown-custom-screen" }` and
+   * logs both the missing id and the ones that are registered.
    *
    * MUST be referentially stable (module scope, or `useMemo`). It is a
    * `useMemo` dependency of the decision below, so a fresh object every render
@@ -219,8 +223,18 @@ export type PaywallHostProps = {
 };
 
 export const PaywallHost = ({ customScreens }: PaywallHostProps = {}) => {
-  const { activePaywall, complete: resolvePresent, acknowledgePresentation, customActions } =
-    usePaywallHost();
+  const {
+    activePaywall,
+    complete: resolvePresent,
+    acknowledgePresentation,
+    customActions,
+    customScreens: providerScreens,
+  } = usePaywallHost();
+
+  // The prop wins where it is passed, otherwise the provider's registry. NOT
+  // merged: two half-registries would make "which map is this id missing from"
+  // unanswerable, and the log below names the registered ids.
+  const effectiveScreens = customScreens ?? providerScreens;
 
   // Adapts the engine's open `ScreenHost.complete` (optional CompleteOutcome)
   // into `usePaywallHost().complete`'s closed, required `PresentResult` — see
@@ -262,9 +276,9 @@ export const PaywallHost = ({ customScreens }: PaywallHostProps = {}) => {
       resolvePaywallModalDecision(
         activePaywall,
         (elements) => ScreenElementsSchema.safeParse(elements),
-        customScreens
+        effectiveScreens
       ),
-    [activePaywall, customScreens]
+    [activePaywall, effectiveScreens]
   );
 
   // A parse failure resolves the pending `present()` call with `"error"` —
@@ -298,7 +312,7 @@ export const PaywallHost = ({ customScreens }: PaywallHostProps = {}) => {
   // typo you can see.
   useEffect(() => {
     if (decision.type !== "unknown-custom-screen") return;
-    const registered = Object.keys(customScreens ?? {});
+    const registered = Object.keys(effectiveScreens ?? {});
     console.error(
       `[PaywallHost] Paywall "${activePaywall?.moment ?? "?"}" (${activePaywall?.id ?? "?"}) ` +
         "was NOT shown: it is set to render a custom screen, but " +
@@ -307,12 +321,12 @@ export const PaywallHost = ({ customScreens }: PaywallHostProps = {}) => {
           : "the studio gave it no customScreenId at all. ") +
         (registered.length > 0
           ? `Registered ids: ${registered.map((id) => `"${id}"`).join(", ")}. `
-          : "No customScreens were passed to <PaywallHost /> at all. ") +
-        "Pass the screen via <PaywallHost customScreens={{ ... }} />, or set the paywall's " +
+          : "No customScreens were registered on PaywallProvider or PaywallHost. ") +
+        "Register it via <PaywallProvider customScreens={{ ... }} />, or set the paywall's " +
         "Render mode back to Elements in the studio.",
     );
     resolvePresent({ status: "error", reason: "unknown-custom-screen" });
-  }, [decision, resolvePresent, activePaywall, customScreens]);
+  }, [decision, resolvePresent, activePaywall, effectiveScreens]);
 
   return (
     <Modal

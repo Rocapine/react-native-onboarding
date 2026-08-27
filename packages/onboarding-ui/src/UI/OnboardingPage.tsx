@@ -1,6 +1,6 @@
 import { OnboardingStepType } from "./types";
 import type { ScreenHost } from "./Runtime/ScreenHost";
-import { RatingsRenderer, PickerRenderer, CommitmentRenderer, CarouselRenderer, LoaderRenderer, MediaContentRenderer, ComposableScreenRenderer, QuestionRenderer, QuestionAnswerButtonProps, QuestionAnswersListProps } from "./Pages";
+import { RatingsRenderer, PickerRenderer, CommitmentRenderer, CarouselRenderer, LoaderRenderer, MediaContentRenderer, ComposableScreenRenderer, PaywallStepRenderer, QuestionRenderer, QuestionAnswerButtonProps, QuestionAnswersListProps } from "./Pages";
 import { View, Text, Button } from 'react-native';
 import { useTheme } from "./Theme/useTheme";
 import { Theme } from "./Theme";
@@ -50,6 +50,11 @@ export const OnboardingPage = ({ step, onContinue, isSandbox, keyboardVerticalOf
       return <QuestionRenderer step={step} onContinue={onContinue} theme={theme} />;
     case 'ComposableScreen':
       return <ComposableScreenRenderer step={step} onContinue={onContinue} keyboardVerticalOffset={keyboardVerticalOffset} enteringSettleDelayMs={enteringSettleDelayMs} />;
+    // A step that IS a paywall. `payload.moment` names a moment; the audience
+    // waterfall behind it picks which paywall renders. Hard-gated: only a
+    // purchase advances. Requires an ancestor PaywallProvider.
+    case 'Paywall':
+      return <PaywallStepRenderer step={step} onContinue={onContinue} keyboardVerticalOffset={keyboardVerticalOffset} />;
     default:
       if (isSandbox) {
         // @ts-ignore

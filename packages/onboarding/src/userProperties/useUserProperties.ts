@@ -1,21 +1,26 @@
 import { useSyncExternalStore } from "react";
-import { userProperties } from "./store";
+import { userPropertyStore } from "./store";
 import type { UserPropertySnapshot } from "./store";
 
 /**
- * Subscribe to the user-property store.
+ * Read the user properties `OnboardingStudio` holds.
  *
- * `useSyncExternalStore` rather than a context: the store is a singleton so
+ * The read path for React; the WRITE path is `OnboardingStudio.setUserProperty`
+ * / `setUserProperties`, which is callable from anywhere — a login handler, an
+ * analytics service — precisely because it is not a hook.
+ *
+ * `useSyncExternalStore` rather than a context: the store is process-wide so
  * non-React code can write to it, and this is the supported way to read an
  * external mutable source without tearing.
  *
- * Hydration is kicked off HERE rather than by the host, so a provider that calls
- * this is gated correctly with no host cooperation. `ensureHydrated` is memoized,
- * so calling it from a render body is safe: every call after the first returns
- * the same promise and touches no storage.
+ * Hydration is kicked off HERE as well as in `OnboardingStudio.init`, so a
+ * provider that calls this is gated correctly even if the host never called
+ * `init` (passing a `client` prop instead). `ensureHydrated` is memoized, so
+ * calling it from a render body is safe: every call after the first returns the
+ * same promise and touches no storage.
  */
 export const useUserProperties = (): UserPropertySnapshot => {
-  const snapshot = useSyncExternalStore(userProperties.subscribe, userProperties.getSnapshot);
-  if (snapshot.status === "hydrating") void userProperties.ensureHydrated();
+  const snapshot = useSyncExternalStore(userPropertyStore.subscribe, userPropertyStore.getSnapshot);
+  if (snapshot.status === "hydrating") void userPropertyStore.ensureHydrated();
   return snapshot;
 };

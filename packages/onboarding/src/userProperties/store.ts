@@ -166,5 +166,12 @@ export const createUserPropertyStore = (storage: UserPropertyStorage): UserPrope
   };
 };
 
-/** The store every host uses. */
-export const userProperties = createUserPropertyStore(AsyncStorage);
+/**
+ * The process-wide store.
+ *
+ * INTERNAL: hosts reach this through `OnboardingStudio` (`setUserProperty`,
+ * `reset`, …) and `useUserProperties()`, never directly. Keeping one public
+ * front door means a host cannot half-use the facade and half-use the store, and
+ * leaves this module free to change shape.
+ */
+export const userPropertyStore = createUserPropertyStore(AsyncStorage);

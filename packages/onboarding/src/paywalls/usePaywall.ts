@@ -36,7 +36,8 @@ export type UsePaywallResult = {
    *   happens.
    *
    * Gates on the moment **alone** — there is no entitlement check. Exclude
-   * paying users by setting a user property (`userProperties.set({plan:"pro"})`)
+   * paying users by setting a user property
+   * (`OnboardingStudio.setUserProperty("plan", "pro")`)
    * and authoring an audience filter on it.
    *
    * **A Stripe-billed paywall never runs the feature**, even on a successful

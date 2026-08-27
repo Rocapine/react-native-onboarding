@@ -12,23 +12,52 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ### Added
 
-- **`userProperties`** — a mutable, persisted `key: value` store feeding audience
-  resolution for both onboardings and paywalls. A module **singleton**, not a
-  provider, which is the one deliberate departure from this package's
-  provider+context pattern and the reason the feature exists: properties get set
-  from login handlers and analytics services, code that cannot call a hook.
+- **`OnboardingStudio`** — the SDK's front door, in the shape of the SDKs it sits
+  alongside (`Superwall.configure`, `Purchases.configure`, `amplitude.init`): one
+  module-level object owning configuration and user identity.
 
   ```ts
-  userProperties.set({ plan: "free", daysSinceInstall: 3 });  // merges
-  userProperties.set({ plan: null });                          // deletes
-  userProperties.reset();                                      // logout
-  const { properties, status } = useUserProperties();
+  OnboardingStudio.init({ projectId: "…", appVersion: "1.0.0" });  // returns the client
+
+  OnboardingStudio.setUserProperty("plan", "free");
+  OnboardingStudio.setUserProperties({ daysSinceInstall: 3 });     // merges
+  OnboardingStudio.setUserProperty("plan", null);                  // deletes
+  OnboardingStudio.removeUserProperty("plan");
+  OnboardingStudio.getUserProperties();
+  OnboardingStudio.reset();                                        // forget the user
+  OnboardingStudio.getClient() / isInitialized();
+
+  const { properties, status } = useUserProperties();              // React read path
   ```
 
-  Values are `string | number | boolean`. Properties persist to AsyncStorage and
-  are hydrated **before the first fetch**, so a returning user is targeted
-  correctly on the first launch-frame with no host code. A first-ever install
-  matches the catch-all and refetches on the first `set`.
+  `init` is idempotent for an unchanged config — Fast Refresh re-runs module
+  scope, and rebuilding the client there would orphan the one the providers
+  already hold. A genuinely *changed* config replaces the client and warns.
+
+  `reset()` clears user properties, in memory and on disk, and deliberately
+  leaves the configuration and the payload cache alone: logging out should forget
+  who someone is, not force a refetch of content that has not changed.
+  `getClient()?.clearCache()` is there for both.
+
+  User properties feed audience resolution for **both** onboardings and paywalls.
+  Values are `string | number | boolean`; they persist to AsyncStorage and are
+  hydrated **before the first fetch**, so a returning user is targeted correctly
+  on the first launch-frame with no host code. A first-ever install has nothing
+  to hydrate — seed it with `init({ …, userProperties: { plan: "free" } })`,
+  which runs before anything renders, and even that launch is targeted correctly.
+
+  `register`/`present` deliberately do **not** live on this object, unlike
+  Superwall's `register`: presenting needs the mounted provider's catalog and
+  presentation state, so they stay on `usePaywall()`, where a call cannot be made
+  before a provider exists.
+
+- **`client` is now optional on both providers.** Omit it and they use the client
+  `init()` built; pass one and it still wins, so every existing host is
+  unaffected. With neither, the two providers behave differently on purpose:
+  `OnboardingProvider` **throws** (an onboarding with no client has nothing to
+  render, and a host `ErrorBoundary` catches one screen) while `PaywallProvider`
+  **warns and renders its children with paywalls inert** — it wraps the whole
+  app, so throwing would take down every screen over a missing paywall client.
 
   Eight names are refused with a warning — `projectId`, `platform`, `appVersion`,
   `draft`, `locale`, `omitNulls`, `moment`, `now`. The last two are server-owned;

@@ -36,25 +36,34 @@ Required peers: `react`, `react-native` (already present in any RN app). Everyth
 
 Non-expo-router apps install nothing extra and inject an adapter instead — see the `setup-ui-sdk` skill's **Back navigation** section.
 
-## Construct the client
+## Configure the SDK
 
-The client is a separate object from the provider. Build it **once at module scope**, not inside a component:
+On **1.74.0+** call `OnboardingStudio.init` **once at module scope**, not inside a component — the providers read it during render, so it must run before the first one:
+
+```tsx
+import { OnboardingStudio } from "@rocapine/react-native-onboarding";
+import Constants from "expo-constants";
+
+OnboardingStudio.init({
+  projectId: process.env.EXPO_PUBLIC_ROCAPINE_PROJECT_ID!,
+  appVersion: Constants.expoConfig?.version ?? "1.0.0",
+  isSandbox: __DEV__,        // preview unpublished draft steps
+  timeout: 10000,
+  userProperties: { plan: "free" },   // optional; see User properties below
+});
+```
+
+`init` returns the client it built, for `clearCache()` — or use `OnboardingStudio.getClient()` later. Calling it twice with the same config is a silent no-op (Fast Refresh re-runs module scope); a *changed* config replaces the client and warns.
+
+**Before 1.74.0, or if you prefer an explicit client**, construct one and pass it as a `client` prop — an explicit prop always wins over `init`:
 
 ```tsx
 import { OnboardingStudioClient } from "@rocapine/react-native-onboarding";
-import Constants from "expo-constants";
 
-const client = new OnboardingStudioClient(
-  process.env.EXPO_PUBLIC_ROCAPINE_PROJECT_ID!,
-  {
-    appVersion: Constants.expoConfig?.version ?? "1.0.0",
-    isSandbox: __DEV__,        // preview unpublished draft steps
-    timeout: 10000,
-  }
-);
+const client = new OnboardingStudioClient(projectId, { appVersion, isSandbox: __DEV__ });
 ```
 
-`OnboardingStudioClientOptions` — all optional:
+Every option below is accepted by both forms. `OnboardingStudioClientOptions` — all optional:
 
 - `appVersion` — sent as a targeting param.
 - `isSandbox` — serves the draft instead of the published deployment. Also always fetches fresh (ignores `cacheKey`).
@@ -73,7 +82,6 @@ import { OnboardingProvider } from "@rocapine/react-native-onboarding";
 export default function RootLayout() {
   return (
     <OnboardingProvider
-      client={client}
       locale="en"
       fontsFallback={<SplashPlaceholder />}
       onComplete={({ variables, metadata }) => {
@@ -91,15 +99,15 @@ Every prop `OnboardingProvider` accepts — there are no others:
 
 | Prop | Default | Purpose |
 |---|---|---|
-| `client` | — | **required.** The `OnboardingStudioClient` above |
+| `client` | `OnboardingStudio`'s | optional on 1.74.0+ — omit it and the provider uses the client `init()` built. An explicit one wins. With **neither**, this provider **throws** a message naming both fixes (an onboarding with no client has nothing to render; a host `ErrorBoundary` catches it) |
 | `locale` | `"en"` | locale passed to the steps query |
-| `customAudienceParams` | `{}` | **static** targeting params for audience matching — build-time facts fixed at mount. Anything that changes at runtime belongs in `userProperties` (below), which merges over this and wins per key |
+| `customAudienceParams` | `{}` | **static** targeting params for audience matching — build-time facts fixed at mount. Anything that changes at runtime belongs in `OnboardingStudio` (below), which merges over this and wins per key |
 | `customActions` | `{}` | named handlers invokable from a ComposableScreen `{ type: "custom" }` Button action |
 | `fontsFallback` | `null` | rendered while the payload is fetched **and** remote fonts download |
 | `navigation` | expo-router adapter | injectable navigation adapter; must be a stable module-scope reference |
 | `onComplete` | — | fired by `completeOnboarding()` with `{ variables, metadata }` |
 
-There is **no** `projectId`, `platform`, `appVersion`, `draft`, `theme`, `lightTheme`, `darkTheme` or `initialColorScheme` prop. Project config lives on the client; theming lives on the UI SDK's `ThemeProvider` (see `customize-onboarding-theme`).
+There is **no** `projectId`, `platform`, `appVersion`, `draft`, `theme`, `lightTheme`, `darkTheme` or `initialColorScheme` prop. Project config lives on `OnboardingStudio.init` (or the client); theming lives on the UI SDK's `ThemeProvider` (see `customize-onboarding-theme`).
 
 **Set `fontsFallback` whenever the onboarding uses Studio-served fonts** — the gate renders `null` during fetch + font download, so without it the user sees a blank frame.
 
@@ -108,16 +116,17 @@ There is **no** `projectId`, `platform`, `appVersion`, `draft`, `theme`, `lightT
 Requires **1.74.0 or later**. Which onboarding a user gets is decided by the project's audience waterfall, evaluated against a `key: value` property map. Set it up whenever the project has more than one audience — otherwise every user matches the catch-all.
 
 ```typescript
-import { userProperties } from "@rocapine/react-native-onboarding";
+import { OnboardingStudio } from "@rocapine/react-native-onboarding";
 
-// A singleton: call this from a login handler or analytics service, no hook needed.
-userProperties.set({ plan: "free", daysSinceInstall: 3 });
-userProperties.reset();  // on logout
+// A module-level object: call this from a login handler or analytics service.
+OnboardingStudio.setUserProperty("plan", "free");
+OnboardingStudio.setUserProperties({ daysSinceInstall: 3 });
+OnboardingStudio.reset();  // forget the user, on logout
 ```
 
-- `set` **merges** (so auth and analytics don't clobber each other); `null` deletes a key.
+- `setUserProperties` **merges** (so auth and analytics don't clobber each other); a `null` value deletes a key.
 - Values are `string | number | boolean`, and reach filters as strings — a filter comparing against a number coerces fine, one comparing against a string is lexicographic (`"10" > "9"` is false).
-- **Persisted and hydrated before the first fetch**, so a returning user is targeted correctly on the first launch-frame with no host code. A first-ever install matches the catch-all and refetches on the first `set`; call `set` before mounting the provider if that matters.
+- **Persisted and hydrated before the first fetch**, so a returning user is targeted correctly on the first launch-frame with no host code. A first-ever install has nothing to hydrate — seed it in `init` (`init({ projectId, userProperties: { plan: "free" } })`), which runs before anything renders, and even that launch is targeted correctly.
 - Refused names, because the SDK puts them on the querystring itself: `projectId`, `platform`, `appVersion`, `draft`, `locale`, `omitNulls`, `moment`, `now`.
 - The provider holds its query until hydration completes, which is one AsyncStorage read. Set `fontsFallback` and that frame is covered.
 

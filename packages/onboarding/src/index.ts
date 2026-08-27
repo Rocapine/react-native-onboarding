@@ -47,19 +47,27 @@ export {
   generateWheelPickerRangeItems,
   resolveWheelPickerItems,
 } from "./steps/ComposableScreen/types";
-// The mutable, persisted user-property map that feeds audience resolution
-// (moments -> audiences -> paywalls, and onboarding audiences too).
+// The SDK's front door: configuration (`init`) and user identity
+// (`setUserProperty`, `reset`), in the shape of the SDKs it sits alongside —
+// `Superwall.configure`, `Purchases.configure`, `amplitude.init`.
 //
-// A singleton rather than a provider, so non-React code — a login handler, an
-// analytics service — can write to it. See `userProperties/store.ts` for why
-// this one piece of state departs from the package's provider+context pattern.
+// User properties feed audience resolution for BOTH onboardings and paywalls.
+// This is a module-level object rather than a provider so non-React code — a
+// login handler, an analytics service — can write to it; see
+// `userProperties/store.ts` for why that one departure from the package's
+// provider+context pattern is the point rather than an oversight.
+//
+// `register`/`present` are NOT here: presenting needs the mounted provider's
+// state, so they stay on `usePaywall()`.
+export { OnboardingStudio } from "./OnboardingStudio";
+export type { OnboardingStudioConfig, OnboardingStudioFacade } from "./OnboardingStudio";
+// `useUserProperties()` is the React READ path; the write path is the facade.
 //
 // The internal helpers (`toQueryParams`, `paramsHash`, `applyUserPropertyPatch`,
-// `resolveEffectiveParams`) are deliberately NOT exported: they are
-// implementation detail, and `paramsHash` in particular is a cache-key concern a
-// host reproducing it would only drift from.
+// `resolveEffectiveParams`, `userPropertyStore`) are deliberately NOT exported:
+// they are implementation detail, and `paramsHash` in particular is a cache-key
+// concern a host reproducing it would only drift from.
 export {
-  userProperties,
   useUserProperties,
   createUserPropertyStore,
   USER_PROPERTIES_STORAGE_KEY,

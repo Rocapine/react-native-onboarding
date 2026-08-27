@@ -25,6 +25,11 @@ import { useUserProperties } from "../userProperties/useUserProperties";
 import { resolveEffectiveParams } from "../userProperties/effectiveParams";
 import { runRegister, type RegisterFeature, type RegisterResult } from "./register";
 import {
+  OnboardingStudio,
+  resolveProviderClient,
+  MISSING_CLIENT_MESSAGE,
+} from "../OnboardingStudio";
+import {
   createCatalogSettleWaiter,
   type CatalogSettleWaiter,
 } from "./catalogSettleWaiter";
@@ -205,7 +210,15 @@ export const usePaywallHost = (): Pick<
 
 interface PaywallProviderProps {
   children: React.ReactNode;
-  client: OnboardingStudioClient;
+  /**
+   * The studio client. Optional: omit it and the provider uses the client
+   * `OnboardingStudio.init({ projectId })` built. Passing one explicitly still
+   * wins, so an existing host is unaffected.
+   *
+   * With neither, this provider warns and renders `children` with paywalls inert
+   * — it does not throw, because it wraps the whole app.
+   */
+  client?: OnboardingStudioClient;
   locale?: string;
   customAudienceParams?: Record<string, any>;
   /**
@@ -672,15 +685,25 @@ const PaywallProviderInner = ({
  * only flows to descendants; two true siblings could not share one runtime).
  *
  * ```tsx
- * <PaywallProvider client={client} productProvider={revenueCatProductProvider(Purchases)}>
+ * OnboardingStudio.init({ projectId: "…" }); // at module scope
+ *
+ * <PaywallProvider productProvider={revenueCatProductProvider(Purchases)}>
  *   <App />
- *   <PaywallHost /> // Task 7: renders the active paywall in a fullScreen RN Modal
+ *   <PaywallHost /> // renders the active paywall in a fullScreen RN Modal
  * </PaywallProvider>
  * ```
+ *
+ * With no client at all — neither a prop nor an `OnboardingStudio.init()` — this
+ * WARNS and renders `children` untouched, so paywalls are inert and the app
+ * still runs. It deliberately does not throw the way `OnboardingProvider` does:
+ * this provider wraps the whole app (see the query-error effect inside), so
+ * throwing would take down every screen over a missing paywall client. Consumers
+ * then read the default context, where `isProviderMounted` is `false` and both
+ * `present` and `register` resolve their fail-open answers.
  */
 export const PaywallProvider = ({
   children,
-  client,
+  client: clientProp,
   locale = "en",
   customAudienceParams = {},
   productProvider,
@@ -690,6 +713,20 @@ export const PaywallProvider = ({
   presentAckTimeoutMs = DEFAULT_PRESENT_ACK_TIMEOUT_MS,
   registerTimeoutMs = DEFAULT_REGISTER_TIMEOUT_MS,
 }: PaywallProviderProps) => {
+  // Prop wins, else whatever `OnboardingStudio.init()` built. Read during render,
+  // so `init()` must run before the first render — at module scope.
+  const client = resolveProviderClient(clientProp, OnboardingStudio.getClient());
+
+  // Effect, not an inline call, so a re-render does not re-log. Declared above
+  // the early return: hooks must run unconditionally.
+  useEffect(() => {
+    if (client) return;
+    console.warn(`${MISSING_CLIENT_MESSAGE} Paywalls are inert until then.`);
+  }, [client]);
+
+  // Degrade rather than throw — see the doc above.
+  if (!client) return <>{children}</>;
+
   return (
     <QueryClientProvider client={paywallQueryClient}>
       <PaywallProviderInner

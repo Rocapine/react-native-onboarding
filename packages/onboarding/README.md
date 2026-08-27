@@ -35,18 +35,19 @@ npx expo install expo-router
 ```typescript
 import {
   OnboardingProvider,
-  OnboardingStudioClient,
+  OnboardingStudio,
   ProgressBar,
 } from "@rocapine/react-native-onboarding";
 
-const client = new OnboardingStudioClient("your-project-id", {
+// Once, at module scope — before anything renders.
+OnboardingStudio.init({
+  projectId: "your-project-id",
   appVersion: "1.0.0",
 });
 
 export default function RootLayout() {
   return (
     <OnboardingProvider
-      client={client}
       locale="en"
       customAudienceParams={{ onboardingId: "your-onboarding-id" }}
     >
@@ -56,6 +57,10 @@ export default function RootLayout() {
   );
 }
 ```
+
+`init` returns the client it built, if you want it for `clearCache()`. You can
+also still construct one yourself and pass it as a `client` prop — an explicit
+prop always wins over `init`.
 
 ### Use in Your Screens
 
@@ -86,32 +91,52 @@ That's it! 🎉
 
 ## 👤 User Properties
 
-Audience targeting reads a `key: value` map of user properties. Set them from
-anywhere — the store is a singleton, so a login handler or an analytics service
-can write to it without a hook:
+Audience targeting reads a `key: value` map of user properties. `OnboardingStudio`
+is a module-level object, so a login handler or an analytics service can write to
+it — no hook, no provider:
 
 ```typescript
-import { userProperties } from "@rocapine/react-native-onboarding";
+import { OnboardingStudio } from "@rocapine/react-native-onboarding";
 
-userProperties.set({ plan: "free", daysSinceInstall: 3, hasTeam: true });
+OnboardingStudio.setUserProperty("plan", "free");
+OnboardingStudio.setUserProperties({ daysSinceInstall: 3, hasTeam: true });
 
-userProperties.set({ plan: null });   // null (or undefined) DELETES a key
-userProperties.remove("plan");        // same thing
-userProperties.reset();               // clear everything — e.g. on logout
+OnboardingStudio.setUserProperty("plan", null);  // null DELETES a key
+OnboardingStudio.removeUserProperty("plan");     // same thing
+OnboardingStudio.getUserProperties();
+OnboardingStudio.reset();                        // forget the user — e.g. on logout
 ```
 
-`set` **merges**, so independent writers don't clobber each other. Values may be
-`string`, `number` or `boolean`. To read them in a component:
+`setUserProperties` **merges**, so independent writers don't clobber each other.
+Values may be `string`, `number` or `boolean`. To read them in a component:
 
 ```typescript
 const { properties, status } = useUserProperties();
 ```
 
+`reset()` clears user properties only — it deliberately leaves the payload cache
+alone, because logging out shouldn't force a refetch of content that hasn't
+changed. Use `OnboardingStudio.getClient()?.clearCache()` if you want both.
+
+### Getting the first launch right
+
+Properties are only *hydrated* from disk, so a first-ever install has nothing to
+hydrate. Seed them in `init` — which runs before anything renders — and even that
+first launch is targeted correctly:
+
+```typescript
+OnboardingStudio.init({
+  projectId: "your-project-id",
+  userProperties: { plan: "free" },
+});
+```
+
 **Properties persist** to AsyncStorage and are hydrated before the first catalog
 fetch, so a returning user is targeted correctly on the very first launch-frame
 with no host code. A first-ever install has nothing to hydrate: its first fetch
-matches your catch-all audience, then refetches as soon as you call `set`. If you
-need first-install accuracy, call `set` before mounting the provider.
+matches your catch-all audience, then refetches as soon as you set one — see
+[Getting the first launch right](#getting-the-first-launch-right) to avoid even
+that.
 
 ### Values reach audience filters as strings
 
@@ -182,7 +207,7 @@ charging an existing subscriber, set a property and author an audience filter on
 it:
 
 ```typescript
-userProperties.set({ plan: "pro" });   // audience: plan != "pro"
+OnboardingStudio.setUserProperty("plan", "pro");   // audience: plan != "pro"
 ```
 
 > ⚠️ **A Stripe-billed paywall never runs the feature**, even after a successful

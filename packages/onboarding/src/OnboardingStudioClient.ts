@@ -49,7 +49,7 @@ export class OnboardingStudioClient {
    *
    * It does NOT clear user properties: `USER_PROPERTIES_STORAGE_KEY` matches
    * neither prefix, deliberately. Clearing a payload cache must not forget who
-   * the user is — that is what `userProperties.reset()` is for.
+   * the user is — that is what `OnboardingStudio.reset()` is for.
    */
   async clearCache(): Promise<void> {
     try {

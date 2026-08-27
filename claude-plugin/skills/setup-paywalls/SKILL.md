@@ -45,30 +45,33 @@ Then install exactly one billing peer, matching the adapter chosen below. Nothin
 Above everything that might present a paywall — typically the app root, alongside or wrapping `OnboardingProvider`. It fetches the whole catalog **eagerly at mount**, deliberately: a paywall must render the instant the user taps upgrade, so there is no per-moment fetch in the common path.
 
 ```tsx
-import { PaywallProvider, OnboardingStudioClient } from "@rocapine/react-native-onboarding";
+import { PaywallProvider, OnboardingStudio } from "@rocapine/react-native-onboarding";
 
-// Same client the onboarding flow uses — construct it once and share it.
+// Once at module scope — the same configuration the onboarding flow uses.
 // See the `setup-headless-sdk` skill for the full options.
-const client = new OnboardingStudioClient(
-  process.env.EXPO_PUBLIC_ROCAPINE_PROJECT_ID!,
-  { appVersion: Constants.expoConfig?.version ?? "1.0.0", isSandbox: __DEV__ },
-);
+OnboardingStudio.init({
+  projectId: process.env.EXPO_PUBLIC_ROCAPINE_PROJECT_ID!,
+  appVersion: Constants.expoConfig?.version ?? "1.0.0",
+  isSandbox: __DEV__,
+});
 
-<PaywallProvider client={client} productProvider={provider}>
+<PaywallProvider productProvider={provider}>
   <App />
   <PaywallHost />   {/* see "Host the modal" */}
 </PaywallProvider>
 ```
 
+Before 1.74.0, build an `OnboardingStudioClient` and pass it as `client` instead — that still works and wins over `init`.
+
 Props worth knowing:
 
 | Prop | Why |
 |---|---|
-| `client` | required |
+| `client` | optional on 1.74.0+ — falls back to `OnboardingStudio.init()`'s. With **neither**, this provider **warns and renders children with paywalls inert**; it does not throw, because it wraps the whole app. So "paywalls silently do nothing" has a console line naming the cause — check it first |
 | `productProvider` | the store adapter (App Store / Play) |
 | `stripeProductProvider` | the Stripe adapter, if any paywall uses `billing: "stripe"` |
 | `locale` | overrides the device locale for authored copy |
-| `customAudienceParams` | **static** values the studio's audience filters can match on — build-time facts set once at mount. For anything that changes at runtime use `userProperties` (see below), which merges over this and wins per key |
+| `customAudienceParams` | **static** values the studio's audience filters can match on — build-time facts set once at mount. For anything that changes at runtime use `OnboardingStudio` (see below), which merges over this and wins per key |
 | `presentAckTimeoutMs` | how long to wait for the host to confirm the paywall appeared. Defaults to 5000. `null` disables the recovery — only pass it if your host genuinely cannot acknowledge. |
 
 **Do not** mount two `PaywallProvider`s. Products are resolved once over the union of every paywall's `products[]` and published through context; a second provider means a second store round-trip and two `purchasing` flags.
@@ -106,7 +109,6 @@ const stripeProvider = stripeLinkProductProvider({
 });
 
 <PaywallProvider
-  client={client}
   productProvider={storeProvider}
   stripeProductProvider={stripeProvider}
 >
@@ -126,7 +128,7 @@ Four things about this adapter that are not guessable:
 ```tsx
 import { PaywallHost } from "@rocapine/react-native-onboarding-ui";
 
-<PaywallProvider client={client} productProvider={provider}>
+<PaywallProvider productProvider={provider}>
   <App />
   <PaywallHost />
 </PaywallProvider>
@@ -153,7 +155,7 @@ const SCREENS = { "paywall-native-v2": NativePaywall };
 // Register on the PROVIDER, not the host: two things render these screens —
 // PaywallHost's Modal and a `Paywall` onboarding step (see below) — and only
 // the provider is visible to both.
-<PaywallProvider client={client} productProvider={provider} customScreens={SCREENS}>
+<PaywallProvider productProvider={provider} customScreens={SCREENS}>
   <App />
   <PaywallHost />
 </PaywallProvider>
@@ -208,16 +210,17 @@ const { activePaywall, complete, acknowledgePresentation, customActions } = useP
 Requires **1.74.0 or later**. Which paywall a moment serves is decided by its audience waterfall, evaluated against a `key: value` map of user properties. Wire this up whenever the project has more than one audience — without it every user matches the catch-all.
 
 ```tsx
-import { userProperties } from "@rocapine/react-native-onboarding";
+import { OnboardingStudio } from "@rocapine/react-native-onboarding";
 
-// From anywhere — a singleton, no hook and no provider needed.
-userProperties.set({ plan: "free", daysSinceInstall: 3 });
-userProperties.reset();  // on logout
+// From anywhere — a module-level object, no hook and no provider needed.
+OnboardingStudio.setUserProperty("plan", "free");
+OnboardingStudio.setUserProperties({ daysSinceInstall: 3 });
+OnboardingStudio.reset();  // forget the user, on logout
 ```
 
-- `set` **merges**, so independent writers (auth, analytics) don't clobber each other. `null` deletes a key.
+- `setUserProperties` **merges**, so independent writers (auth, analytics) don't clobber each other. A `null` value deletes a key.
 - Values are `string | number | boolean` and reach filters as strings. A filter comparing against a **number** coerces correctly; one comparing against a **string** is lexicographic, so `"10" > "9"` is false.
-- **Properties persist** and are hydrated before the first catalog fetch, so a returning user is targeted correctly on the first launch-frame. A first-ever install matches the catch-all, then refetches on the first `set` — call `set` before mounting the provider if that matters.
+- **Properties persist** and are hydrated before the first catalog fetch, so a returning user is targeted correctly on the first launch-frame. A first-ever install has nothing to hydrate — seed it in `init({ projectId, userProperties: {...} })`, which runs before anything renders.
 - These names are refused (the SDK puts them on the querystring itself): `projectId`, `platform`, `appVersion`, `draft`, `locale`, `omitNulls`, `moment`, `now`.
 
 ## Present one
@@ -268,7 +271,7 @@ await register("unlock_stats", () => router.push("/stats"));
 Three things to tell the user explicitly, because none is visible from the call site:
 
 - **It fails open.** Offline, or still loading after `registerTimeoutMs` (default 3000), it runs the feature rather than blocking it — an offline launch must not make the app's features silently dead. Read `reason: "catalog-unavailable"` off the result to measure how often that happens; if it is not near zero, that is revenue.
-- **There is no entitlement check.** `register` gates on the moment alone. Exclude existing subscribers by setting a user property and authoring an audience filter on it — `userProperties.set({ plan: "pro" })`, audience `plan != "pro"`. Do NOT expect the SDK to know they already paid.
+- **There is no entitlement check.** `register` gates on the moment alone. Exclude existing subscribers by setting a user property and authoring an audience filter on it — `OnboardingStudio.setUserProperty("plan", "pro")`, audience `plan != "pro"`. Do NOT expect the SDK to know they already paid.
 - **A Stripe-billed paywall never runs the feature.** A Payment Link's entitlement arrives out-of-band through RevenueCat, so the presentation never reports `"purchased"`. Grant access from the RevenueCat webhook. `register` warns when it presents one.
 
 ## Verification

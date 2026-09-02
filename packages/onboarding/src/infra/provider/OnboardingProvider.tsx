@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { OnboardingStudioClient } from "../../OnboardingStudioClient";
 import { getOnboardingQuery } from "../queries/getOnboarding.query";
@@ -122,11 +122,8 @@ interface OnboardingProviderProps {
   client?: OnboardingStudioClient;
   locale?: string;
   /**
-   * Static audience params — build-time facts such as an `onboardingId` or a
-   * build channel. Merged UNDER the user-property store (`OnboardingStudio`),
-   * which wins per key, and read ONCE, when the onboarding is served: a later
-   * change to this prop does not re-resolve the presentation (see
-   * `OnboardingDataGate`). Anything that changes at runtime belongs in the store.
+   * Static audience params (build-time facts). Merged under the user-property
+   * store and read once, when the onboarding is served — see `useAudienceParams`.
    */
   customAudienceParams?: Record<string, any>;
   /**
@@ -170,120 +167,58 @@ interface OnboardingProviderProps {
 }
 
 /**
- * The audience params the onboarding being presented was resolved against —
- * the gate's pinned params (see `OnboardingDataGate`). `null` outside a served
- * onboarding.
+ * The audience params this onboarding is served with: the `customAudienceParams`
+ * prop merged with the user-property store, resolved ONCE when the store is
+ * ready and then pinned for the life of the provider. `null` while hydrating.
  *
- * Read by `useOnboardingStep` / `useOnboardingStart`, whose `useSuspenseQuery`
- * must build the SAME query the gate fetched: same params, same key. Before
- * this existed they built it from the raw `customAudienceParams` prop, so a
- * non-empty user-property store meant two queries under two keys — and the
- * screens rendered the payload resolved WITHOUT the user's properties.
- *
- * Internal: hosts get the served payload through `useOnboarding()`.
+ * Audience resolution happens at serve time and a served onboarding is frozen:
+ * a `setUserProperty` during the flow does not change these, so it cannot
+ * re-key the query, refetch, or swap the onboarding under the user. It applies
+ * to the next serve (next mount / launch). `PaywallProvider` deliberately keeps
+ * following the store — a paywall is served later, at `register(moment)`.
  */
-export const ServedAudienceParamsContext = createContext<Record<string, string> | null>(null);
-
-/**
- * The audience params the current presentation was resolved against, falling
- * back to the raw `customAudienceParams` prop outside a served onboarding.
- * Internal — the read path for the step hooks.
- */
-export const useServedAudienceParams = (): Record<string, any> => {
-  const served = useContext(ServedAudienceParamsContext);
-  const { customAudienceParams } = useContext(OnboardingProgressContext);
-  return served ?? customAudienceParams;
+const useAudienceParams = (
+  customAudienceParams: Record<string, any>
+): Record<string, string> | null => {
+  const { properties, status } = useUserProperties();
+  const pinned = useRef<Record<string, string> | null>(null);
+  if (pinned.current === null && status === "ready") {
+    pinned.current = resolveEffectiveParams(customAudienceParams, properties);
+  }
+  return pinned.current;
 };
-
-// What the query is built with until the pin is taken. Never fetched: the query
-// is disabled until the pin exists.
-const UNPINNED_PARAMS: Record<string, string> = Object.freeze({});
 
 interface OnboardingDataGateProps {
   client: OnboardingStudioClient;
   locale: string;
-  customAudienceParams: Record<string, any>;
+  /** From `useAudienceParams`; `null` disables the query until the store is ready. */
+  audienceParams: Record<string, string> | null;
   setOnboarding: (onboarding: Onboarding<OnboardingStepType>) => void;
   fontsFallback?: React.ReactNode;
   children: React.ReactNode;
 }
 
 /**
- * Fetches the onboarding and holds the subtree until it is there.
- *
- * ## Audience resolution happens at serve time
- *
- * The audience params are resolved ONCE, the moment the user-property store is
- * ready and the onboarding is first served, and pinned for the lifetime of this
- * mount. A served payload is frozen for that presentation: a `setUserProperty`
- * during the flow — or a change to the `customAudienceParams` prop — does not
- * touch the query key, does not refetch, and does not swap the onboarding
- * under the user. Those changes apply to the NEXT serve: the next mount of the
- * provider, or the next launch.
- *
- * This gate used to follow the store reactively, and that was a production
- * hazard rather than a feature: a property written mid-flow changed the merged
- * params, the query key followed them, react-query answered `data: undefined`
- * for the never-seen key, and this gate rendered `null` — unmounting the ENTIRE
- * subtree (in hosts that wrap the whole app: the router reset and every screen
- * lost its state) while it refetched, then remounting. The only host-side
- * workaround was to seed every property before the provider mounted.
- *
- * `PaywallProvider` is deliberately different and deliberately unchanged: a
- * paywall is served at `register(moment)`, so it is right that its catalog
- * follows the store until then, and it never blanks while refetching.
- *
- * ## Refetching
- *
- * The host escape hatch is untouched: `OnboardingStudioClient.clearCache()` plus
- * `queryClient.invalidateQueries({ queryKey: ["onboardingQuestions"] })` still
- * forces a refetch — of the SAME query, so the subtree stays mounted while it
- * lands. It re-serves the pinned audience: a content refresh, not a
- * re-targeting. To re-target with the current properties, present again — a
- * remount of the provider (`key`) is a new serve and resolves afresh. There is
- * no in-place re-pin on purpose: with a different key it could only blank
- * (the defect above) or swap the served onboarding under the user (the rule
- * forbids it).
- *
- * `locale` is not part of the pin: it stays a live key element, as before.
+ * Fetches the onboarding and holds the subtree until it is there. The query is
+ * disabled while `audienceParams` is `null` (store still hydrating); the gate
+ * shows `fontsFallback` meanwhile, as it already does while the payload loads.
  */
 const OnboardingDataGate = ({
   client,
   locale,
-  customAudienceParams,
+  audienceParams,
   setOnboarding,
   fontsFallback,
   children,
 }: OnboardingDataGateProps) => {
-  // Same merge the paywall provider does, for the same reason: one store feeds
-  // both waterfalls, so an onboarding audience and a paywall audience can no
-  // longer disagree about the same user. See `resolveEffectiveParams`.
-  //
-  // Held until the store hydrates — otherwise the first fetch of a cold launch
-  // is audience-matched against an empty property map. This gate renders
-  // `fontsFallback`, the state this gate already shows while the payload
-  // loads, so nothing new appears on screen.
-  //
-  // Then pinned. The ref is written during render, which is the lazy
-  // initialisation React allows: it is set exactly once, from the first READY
-  // snapshot — a property written during hydration is in it — and the same
-  // render enables the query, so the fetch is not a frame late. Later
-  // snapshots are read (the subscription cannot be conditional) and ignored.
-  const { properties, status: propertiesStatus } = useUserProperties();
-  const pinnedParamsRef = useRef<Record<string, string> | null>(null);
-  if (pinnedParamsRef.current === null && propertiesStatus === "ready") {
-    pinnedParamsRef.current = resolveEffectiveParams(customAudienceParams, properties);
-  }
-  const params = pinnedParamsRef.current;
-
   const { data, error } = useQuery<Onboarding<OnboardingStepType>>({
     ...getOnboardingQuery<OnboardingStepType>(
       client,
       locale,
-      params ?? UNPINNED_PARAMS,
+      audienceParams ?? {},
       setOnboarding
     ),
-    enabled: params !== null,
+    enabled: audienceParams !== null,
   });
 
   // Background asset preload: once the payload is available, warm every remote
@@ -312,11 +247,9 @@ const OnboardingDataGate = ({
   if (!data) return <>{fontsFallback ?? null}</>;
 
   return (
-    <ServedAudienceParamsContext.Provider value={params}>
-      <FontLoaderGate fonts={data.fonts} fallback={fontsFallback}>
-        {children}
-      </FontLoaderGate>
-    </ServedAudienceParamsContext.Provider>
+    <FontLoaderGate fonts={data.fonts} fallback={fontsFallback}>
+      {children}
+    </FontLoaderGate>
   );
 };
 
@@ -342,6 +275,12 @@ export const OnboardingProvider = ({
   // scope, which is where the warning tells a host to put it.
   const client = resolveProviderClient(clientProp, OnboardingStudio.getClient());
   if (!client) throw new Error(MISSING_CLIENT_MESSAGE);
+
+  // Resolved here, once, and handed to BOTH the context (read by the step hooks)
+  // and the data gate — so they build the same query. Resolving in the gate
+  // alone, as before, left the hooks with the raw prop: a second fetch under a
+  // different key, resolved without the user's properties, was what rendered.
+  const audienceParams = useAudienceParams(customAudienceParams);
 
   const [activeStep, setActiveStep] = useState({
     number: 0,
@@ -431,7 +370,7 @@ export const OnboardingProvider = ({
           setHeaderHeight,
           client,
           locale,
-          customAudienceParams,
+          customAudienceParams: audienceParams ?? customAudienceParams,
           onboarding,
           setOnboarding,
           variables,
@@ -446,7 +385,7 @@ export const OnboardingProvider = ({
         <OnboardingDataGate
           client={client}
           locale={locale}
-          customAudienceParams={customAudienceParams}
+          audienceParams={audienceParams}
           setOnboarding={setOnboarding}
           fontsFallback={fontsFallback}
         >

@@ -46,6 +46,9 @@ jobs:
       - name: Build UI package
         run: npm run build:ui
 
+      - name: Headless tests type-check
+        run: npm run type:check:tests --workspace=packages/onboarding
+
       - name: Headless tests
         run: npm test --workspace=packages/onboarding
 

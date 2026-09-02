@@ -1,6 +1,9 @@
 import { useContext } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { OnboardingProgressContext } from "../provider/OnboardingProvider";
+import {
+  OnboardingProgressContext,
+  useServedAudienceParams,
+} from "../provider/OnboardingProvider";
 import { getOnboardingQuery } from "../queries/getOnboarding.query";
 import { BaseStepType, Onboarding } from "../../types";
 import { OnboardingStepType } from "../../steps/types";
@@ -18,15 +21,16 @@ export const useOnboardingStart = <
 >(): {
   startStepNumber: number;
 } => {
-  const { client, locale, customAudienceParams, setOnboarding } = useContext(
-    OnboardingProgressContext
-  );
+  const { client, locale, setOnboarding } = useContext(OnboardingProgressContext);
+  // The gate's served params, so this is the query the gate already fetched —
+  // see `useOnboardingStep`.
+  const audienceParams = useServedAudienceParams();
 
   const { data } = useSuspenseQuery<Onboarding<StepType>>(
     getOnboardingQuery<StepType>(
       client,
       locale,
-      customAudienceParams,
+      audienceParams,
       setOnboarding as (onboarding: Onboarding<StepType>) => void
     )
   );

@@ -1,6 +1,9 @@
 import { useCallback, useContext } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { OnboardingProgressContext } from "../provider/OnboardingProvider";
+import {
+  OnboardingProgressContext,
+  useServedAudienceParams,
+} from "../provider/OnboardingProvider";
 import { getOnboardingQuery } from "../queries/getOnboarding.query";
 import { BaseStepType, Onboarding, OnboardingMetadata } from "../../types";
 import { OnboardingStepType } from "../../steps/types";
@@ -23,20 +26,25 @@ export const useOnboardingStep = <
   const {
     client,
     locale,
-    customAudienceParams,
     setActiveStep,
     setTotalSteps,
     setOnboarding,
     navigation,
     completeOnboarding,
   } = useContext(OnboardingProgressContext);
+  // The params the gate served this onboarding with — NOT the raw
+  // `customAudienceParams` prop. The two differ whenever the user-property
+  // store is non-empty, and this must be the very query the gate fetched
+  // (same params, same key) or the screens render a payload resolved without
+  // the user's properties, from a second fetch. See `ServedAudienceParamsContext`.
+  const audienceParams = useServedAudienceParams();
 
   // Build query with config from context
   const { data } = useSuspenseQuery<Onboarding<StepType>>(
     getOnboardingQuery<StepType>(
       client,
       locale,
-      customAudienceParams,
+      audienceParams,
       setOnboarding as (onboarding: Onboarding<StepType>) => void
     )
   );

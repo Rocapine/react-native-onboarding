@@ -1,4 +1,4 @@
-import { createContext, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { OnboardingStudioClient } from "../../OnboardingStudioClient";
 import { getOnboardingQuery } from "../queries/getOnboarding.query";
@@ -169,6 +169,32 @@ interface OnboardingProviderProps {
   productRefs?: ProductRef[];
 }
 
+/**
+ * The audience params the onboarding being presented was resolved against —
+ * the gate's pinned params (see `OnboardingDataGate`). `null` outside a served
+ * onboarding.
+ *
+ * Read by `useOnboardingStep` / `useOnboardingStart`, whose `useSuspenseQuery`
+ * must build the SAME query the gate fetched: same params, same key. Before
+ * this existed they built it from the raw `customAudienceParams` prop, so a
+ * non-empty user-property store meant two queries under two keys — and the
+ * screens rendered the payload resolved WITHOUT the user's properties.
+ *
+ * Internal: hosts get the served payload through `useOnboarding()`.
+ */
+export const ServedAudienceParamsContext = createContext<Record<string, string> | null>(null);
+
+/**
+ * The audience params the current presentation was resolved against, falling
+ * back to the raw `customAudienceParams` prop outside a served onboarding.
+ * Internal — the read path for the step hooks.
+ */
+export const useServedAudienceParams = (): Record<string, any> => {
+  const served = useContext(ServedAudienceParamsContext);
+  const { customAudienceParams } = useContext(OnboardingProgressContext);
+  return served ?? customAudienceParams;
+};
+
 // What the query is built with until the pin is taken. Never fetched: the query
 // is disabled until the pin exists.
 const UNPINNED_PARAMS: Record<string, string> = Object.freeze({});
@@ -286,9 +312,11 @@ const OnboardingDataGate = ({
   if (!data) return <>{fontsFallback ?? null}</>;
 
   return (
-    <FontLoaderGate fonts={data.fonts} fallback={fontsFallback}>
-      {children}
-    </FontLoaderGate>
+    <ServedAudienceParamsContext.Provider value={params}>
+      <FontLoaderGate fonts={data.fonts} fallback={fontsFallback}>
+        {children}
+      </FontLoaderGate>
+    </ServedAudienceParamsContext.Provider>
   );
 };
 

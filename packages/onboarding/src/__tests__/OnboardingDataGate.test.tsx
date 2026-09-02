@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import React, { useEffect } from "react";
+import React, { Suspense, useEffect } from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -64,18 +64,24 @@ vi.mock("react-native", () => ({
 type Modules = {
   OnboardingProvider: typeof import("../infra/provider/OnboardingProvider").OnboardingProvider;
   OnboardingStudio: typeof import("../OnboardingStudio").OnboardingStudio;
+  useOnboardingStep: typeof import("../infra/hooks/useOnboardingStep").useOnboardingStep;
+  useOnboardingStart: typeof import("../infra/hooks/useOnboardingStart").useOnboardingStart;
 };
 
 /** A fresh module graph — a fresh store, facade and QueryClient — i.e. one launch. */
 const launch = async (): Promise<Modules> => {
   vi.resetModules();
-  const [provider, studio] = await Promise.all([
+  const [provider, studio, step, start] = await Promise.all([
     import("../infra/provider/OnboardingProvider"),
     import("../OnboardingStudio"),
+    import("../infra/hooks/useOnboardingStep"),
+    import("../infra/hooks/useOnboardingStart"),
   ]);
   return {
     OnboardingProvider: provider.OnboardingProvider,
     OnboardingStudio: studio.OnboardingStudio,
+    useOnboardingStep: step.useOnboardingStep,
+    useOnboardingStart: start.useOnboardingStart,
   };
 };
 
@@ -341,5 +347,57 @@ describe("OnboardingDataGate — audience params are pinned at serve time", () =
     expect(client.getSteps.mock.calls[1][1]).toEqual({ plan: "prop" });
     expect(text()).toBe("served");
     expect(probe.unmounts).toBe(0);
+  });
+});
+
+describe("the step hooks read the served audience params", () => {
+  it("shares the gate's query when the store is non-empty: one fetch, the store-targeted payload", async () => {
+    const { OnboardingProvider, OnboardingStudio, useOnboardingStep } = await launch();
+    OnboardingStudio.setUserProperty("plan", "pro");
+    const client = makeClient();
+
+    const Step = () => {
+      const { onboardingMetadata } = useOnboardingStep({ stepNumber: 1 });
+      return <div>{onboardingMetadata.id}</div>;
+    };
+
+    await render(
+      <OnboardingProvider client={client} customAudienceParams={{ channel: "a" }}>
+        <Suspense fallback={<div>suspended</div>}>
+          <Step />
+        </Suspense>
+      </OnboardingProvider>
+    );
+
+    // Before this change the hook built its own query from the RAW prop
+    // (`{ channel: "a" }`), so a non-empty store meant a second fetch under a
+    // second key — and the screens rendered the payload resolved WITHOUT the
+    // user's properties.
+    expect(client.getSteps).toHaveBeenCalledTimes(1);
+    expect(client.getSteps.mock.calls[0][1]).toEqual({ channel: "a", plan: "pro" });
+    expect(text()).toBe("for-pro");
+  });
+
+  it("useOnboardingStart shares it too", async () => {
+    const { OnboardingProvider, OnboardingStudio, useOnboardingStart } = await launch();
+    OnboardingStudio.setUserProperty("plan", "pro");
+    const client = makeClient();
+
+    const Start = () => {
+      const { startStepNumber } = useOnboardingStart();
+      return <div>start {startStepNumber}</div>;
+    };
+
+    await render(
+      <OnboardingProvider client={client}>
+        <Suspense fallback={<div>suspended</div>}>
+          <Start />
+        </Suspense>
+      </OnboardingProvider>
+    );
+
+    expect(client.getSteps).toHaveBeenCalledTimes(1);
+    expect(client.getSteps.mock.calls[0][1]).toEqual({ plan: "pro" });
+    expect(text()).toBe("start 1");
   });
 });

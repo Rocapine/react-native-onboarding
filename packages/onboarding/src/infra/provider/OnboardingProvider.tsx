@@ -176,6 +176,13 @@ interface OnboardingProviderProps {
  * re-key the query, refetch, or swap the onboarding under the user. It applies
  * to the next serve (next mount / launch). `PaywallProvider` deliberately keeps
  * following the store — a paywall is served later, at `register(moment)`.
+ *
+ * So the two CAN resolve against different properties for the same user: a
+ * property written mid-flow reaches a paywall served afterwards (including a
+ * paywall step later in this same onboarding) but not the onboarding around it.
+ * That is intended, not a gap — it is the "set the property, then register the
+ * moment" model — and both still read ONE store; they differ only in when they
+ * read it.
  */
 const useAudienceParams = (
   customAudienceParams: Record<string, any>

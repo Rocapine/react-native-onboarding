@@ -35,7 +35,7 @@ import { OnboardingProvider } from "@rocapine/react-native-onboarding";
 |------|------|---------|-------------|
 | `client` | `OnboardingStudioClient` | **Required** | Client instance for API communication |
 | `locale` | `string` | `"en"` | Locale for fetching steps |
-| `customAudienceParams` | `Record<string, any>` | `{}` | Additional parameters for API |
+| `customAudienceParams` | `Record<string, any>` | `{}` | Static audience params (build-time facts such as an `onboardingId`). Merged under the `OnboardingStudio` user-property store, which wins per key, and read once when the onboarding is served — a later change applies to the next serve (next mount or launch). |
 | `customActions` | `CustomActions` | `{}` | Map of named handlers invokable from `ComposableScreen` `Button.actions` `{ type: "custom", function, variables? }`. See [Custom Actions](./customization/custom-actions.mdx) |
 
 #### CustomActionHandler

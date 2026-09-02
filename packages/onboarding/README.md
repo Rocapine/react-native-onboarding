@@ -131,12 +131,30 @@ OnboardingStudio.init({
 });
 ```
 
-**Properties persist** to AsyncStorage and are hydrated before the first catalog
+**Properties persist** to AsyncStorage and are hydrated before the first
 fetch, so a returning user is targeted correctly on the very first launch-frame
-with no host code. A first-ever install has nothing to hydrate: its first fetch
-matches your catch-all audience, then refetches as soon as you set one — see
+with no host code. A first-ever install has nothing to hydrate: its first
+onboarding matches your catch-all audience — see
 [Getting the first launch right](#getting-the-first-launch-right) to avoid even
 that.
+
+### When a change applies
+
+**Audience resolution happens at serve time, and a served payload is frozen for
+that presentation.** A property you set applies to the *next* serve, never
+retroactively:
+
+- **Onboarding** — served once, when `OnboardingProvider` mounts. A
+  `setUserProperty` during the flow does not refetch, re-key or swap the
+  onboarding under the user (and never blanks the screen); it is picked up the
+  next time an onboarding is served — the next mount, or the next launch. So
+  write a property the moment you compute it, even mid-onboarding.
+- **Paywall** — served at `register(moment)` / `present(moment)`. The catalog
+  follows the store until then, so a property set before the call is honoured
+  by it; one set after applies to the next call.
+
+To re-serve an onboarding with the current properties, present it again — a
+remount of the provider (e.g. a `key`) is a new serve.
 
 ### Values reach audience filters as strings
 

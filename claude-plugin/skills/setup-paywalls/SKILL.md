@@ -221,6 +221,7 @@ OnboardingStudio.reset();  // forget the user, on logout
 - `setUserProperties` **merges**, so independent writers (auth, analytics) don't clobber each other. A `null` value deletes a key.
 - Values are `string | number | boolean` and reach filters as strings. A filter comparing against a **number** coerces correctly; one comparing against a **string** is lexicographic, so `"10" > "9"` is false.
 - **Properties persist** and are hydrated before the first catalog fetch, so a returning user is targeted correctly on the first launch-frame. A first-ever install has nothing to hydrate — seed it in `init({ projectId, userProperties: {...} })`, which runs before anything renders.
+- **A change applies to the next serve.** A paywall is served at `register`/`present`, so the catalog follows the store until that call and a property set before it is honoured; one set after applies to the next call. (An onboarding, by contrast, is served once at `OnboardingProvider` mount and frozen for that presentation — a property written mid-onboarding targets the next one.)
 - These names are refused (the SDK puts them on the querystring itself): `projectId`, `platform`, `appVersion`, `draft`, `locale`, `omitNulls`, `moment`, `now`.
 
 ## Present one

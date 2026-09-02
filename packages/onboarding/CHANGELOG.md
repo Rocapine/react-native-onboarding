@@ -22,9 +22,10 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   seed every property before the provider mounted.
 
   The rule now is: **audience resolution happens at serve time, and a served
-  payload is frozen for that presentation.** The gate resolves the effective
-  params **once**, from the first ready snapshot of the store, and pins them for
-  the lifetime of the mount. A property written during the flow — or a change to
+  payload is frozen for that presentation.** `OnboardingProvider` resolves the
+  effective params **once**, from the first ready snapshot of the store, and
+  pins them for the lifetime of the mount (`useAudienceParams`); the data gate
+  just fetches what it is handed. A property written during the flow — or a change to
   the `customAudienceParams` prop — does not re-key, refetch or swap the
   onboarding; it applies to the **next** serve (next mount, next launch). Hosts
   can write a property the moment they compute it, even mid-onboarding.
@@ -43,8 +44,10 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   `customAudienceParams` prop, while the gate (since 1.74.0) merged the store over
   it — so with a non-empty store the two keys differed: a second fetch, resolved
   **without** the user's properties, and that was the payload the screens
-  rendered. The gate now publishes its pinned params on an internal context that
-  both hooks read, so there is exactly one query.
+  rendered. `OnboardingProvider` now resolves the params once and hands that
+  same value to both the data gate and the `OnboardingProgressContext` the hooks
+  already read, so both build the same query and there is exactly one fetch.
+  The hooks themselves are unchanged.
 
 ### Changed
 

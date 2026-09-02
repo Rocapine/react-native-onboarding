@@ -131,12 +131,40 @@ OnboardingStudio.init({
 });
 ```
 
-**Properties persist** to AsyncStorage and are hydrated before the first catalog
+**Properties persist** to AsyncStorage and are hydrated before the first
 fetch, so a returning user is targeted correctly on the very first launch-frame
-with no host code. A first-ever install has nothing to hydrate: its first fetch
-matches your catch-all audience, then refetches as soon as you set one — see
+with no host code. A first-ever install has nothing to hydrate: its first
+onboarding matches your catch-all audience — see
 [Getting the first launch right](#getting-the-first-launch-right) to avoid even
 that.
+
+### When a change applies
+
+**Audience resolution happens at serve time, and a served payload is frozen for
+that presentation.** A property you set applies to the *next* serve, never
+retroactively:
+
+- **Onboarding** — served once, when `OnboardingProvider` mounts. A
+  `setUserProperty` during the flow (or a change to the `customAudienceParams`
+  prop) does not refetch, re-key or swap the onboarding under the user, and
+  does not blank the screen; it is picked up the next time an onboarding is
+  served — the next mount, or the next launch. So write a property the moment
+  you compute it, even mid-onboarding. The corollary: anything *this* serve
+  must target on has to be set **before the provider mounts** — a property that
+  resolves asynchronously during startup (attribution, a score fetched over the
+  network) and lands after mount targets the next serve, silently.
+- **Paywall** — served at `register(moment)` / `present(moment)`. The catalog
+  follows the store until then, so a property set before the call is honoured
+  by it; one set after applies to the next call.
+- **`reset()`** follows the same rule: it clears the properties for the *next*
+  serve. An onboarding already on screen keeps the audience it was served with
+  — on logout mid-flow, leave the flow (unmount the provider) rather than
+  expecting it to re-target in place.
+
+To re-serve an onboarding with the current properties, present it again — a
+remount of the provider (e.g. a `key`) is a new serve. It is also a full
+teardown of everything under the provider (in a host that wraps the router:
+the router), so do it at a flow boundary, never mid-onboarding.
 
 ### Values reach audience filters as strings
 

@@ -121,6 +121,10 @@ interface OnboardingProviderProps {
    */
   client?: OnboardingStudioClient;
   locale?: string;
+  /**
+   * Static audience params (build-time facts). Merged under the user-property
+   * store and read once, when the onboarding is served — see `useAudienceParams`.
+   */
   customAudienceParams?: Record<string, any>;
   /**
    * Map of named handlers invokable from ComposableScreen Button `actions`
@@ -162,39 +166,70 @@ interface OnboardingProviderProps {
   productRefs?: ProductRef[];
 }
 
+/**
+ * The audience params this onboarding is served with: the `customAudienceParams`
+ * prop merged with the user-property store, resolved ONCE when the store is
+ * ready and then pinned for the life of the provider. `null` while hydrating.
+ *
+ * Audience resolution happens at serve time and a served onboarding is frozen:
+ * a `setUserProperty` during the flow does not change these, so it cannot
+ * re-key the query, refetch, or swap the onboarding under the user. It applies
+ * to the next serve (next mount / launch). `PaywallProvider` deliberately keeps
+ * following the store — a paywall is served later, at `register(moment)`.
+ *
+ * So the two CAN resolve against different properties for the same user: a
+ * property written mid-flow reaches a paywall served afterwards (including a
+ * paywall step later in this same onboarding) but not the onboarding around it.
+ * That is intended, not a gap — it is the "set the property, then register the
+ * moment" model — and both still read ONE store; they differ only in when they
+ * read it.
+ */
+const useAudienceParams = (
+  customAudienceParams: Record<string, any>
+): Record<string, string> | null => {
+  const { properties, status } = useUserProperties();
+  // State rather than a ref: a pin taken in a render React later discards is
+  // discarded with it, so the served params always come from a committed render.
+  const [pinned, setPinned] = useState<Record<string, string> | null>(null);
+  if (pinned === null && status === "ready") {
+    const resolved = resolveEffectiveParams(customAudienceParams, properties);
+    setPinned(resolved);
+    return resolved;
+  }
+  return pinned;
+};
+
 interface OnboardingDataGateProps {
   client: OnboardingStudioClient;
   locale: string;
-  customAudienceParams: Record<string, any>;
+  /** From `useAudienceParams`; `null` disables the query until the store is ready. */
+  audienceParams: Record<string, string> | null;
   setOnboarding: (onboarding: Onboarding<OnboardingStepType>) => void;
   fontsFallback?: React.ReactNode;
   children: React.ReactNode;
 }
 
+/**
+ * Fetches the onboarding and holds the subtree until it is there. The query is
+ * disabled while `audienceParams` is `null` (store still hydrating); the gate
+ * shows `fontsFallback` meanwhile, as it already does while the payload loads.
+ */
 const OnboardingDataGate = ({
   client,
   locale,
-  customAudienceParams,
+  audienceParams,
   setOnboarding,
   fontsFallback,
   children,
 }: OnboardingDataGateProps) => {
-  // Same merge the paywall provider does, for the same reason: one store feeds
-  // both waterfalls, so an onboarding audience and a paywall audience can no
-  // longer disagree about the same user. See `resolveEffectiveParams`.
-  const { properties, status: propertiesStatus } = useUserProperties();
-  const params = useMemo(
-    () => resolveEffectiveParams(customAudienceParams, properties),
-    [customAudienceParams, properties]
-  );
-
   const { data, error } = useQuery<Onboarding<OnboardingStepType>>({
-    ...getOnboardingQuery<OnboardingStepType>(client, locale, params, setOnboarding),
-    // Held until the store hydrates — otherwise the first fetch of a cold launch
-    // is audience-matched against an empty property map. This gate renders
-    // `fontsFallback`, the state this gate already shows while the payload
-    // loads, so nothing new appears on screen.
-    enabled: propertiesStatus === "ready",
+    ...getOnboardingQuery<OnboardingStepType>(
+      client,
+      locale,
+      audienceParams ?? {},
+      setOnboarding
+    ),
+    enabled: audienceParams !== null,
   });
 
   // Background asset preload: once the payload is available, warm every remote
@@ -220,7 +255,11 @@ const OnboardingDataGate = ({
   }, [data]);
 
   if (error) throw error;
-  if (!data) return <>{fontsFallback ?? null}</>;
+  // Both checks, not just `!data`: a disabled query still returns cached data for
+  // its key, and the unpinned key (`{}`) is also a legitimate pinned one. Holding
+  // on `audienceParams` makes "children mount only once the params are pinned"
+  // structural, so nothing below can ever fetch under un-pinned params.
+  if (audienceParams === null || !data) return <>{fontsFallback ?? null}</>;
 
   return (
     <FontLoaderGate fonts={data.fonts} fallback={fontsFallback}>
@@ -251,6 +290,12 @@ export const OnboardingProvider = ({
   // scope, which is where the warning tells a host to put it.
   const client = resolveProviderClient(clientProp, OnboardingStudio.getClient());
   if (!client) throw new Error(MISSING_CLIENT_MESSAGE);
+
+  // Resolved here, once, and handed to BOTH the context (read by the step hooks)
+  // and the data gate — so they build the same query. Resolving in the gate
+  // alone, as before, left the hooks with the raw prop: a second fetch under a
+  // different key, resolved without the user's properties, was what rendered.
+  const audienceParams = useAudienceParams(customAudienceParams);
 
   const [activeStep, setActiveStep] = useState({
     number: 0,
@@ -340,7 +385,9 @@ export const OnboardingProvider = ({
           setHeaderHeight,
           client,
           locale,
-          customAudienceParams,
+          // The raw prop is never observed: the data gate holds `children` until
+          // the params are pinned, and everything reading this context is a child.
+          customAudienceParams: audienceParams ?? customAudienceParams,
           onboarding,
           setOnboarding,
           variables,
@@ -355,7 +402,7 @@ export const OnboardingProvider = ({
         <OnboardingDataGate
           client={client}
           locale={locale}
-          customAudienceParams={customAudienceParams}
+          audienceParams={audienceParams}
           setOnboarding={setOnboarding}
           fontsFallback={fontsFallback}
         >

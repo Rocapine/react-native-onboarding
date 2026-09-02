@@ -53,7 +53,9 @@ export type UserPropertyStore = {
  * It also REMOVES a source of truth rather than adding one. With
  * `customAudienceParams` passed separately to `OnboardingProvider` and
  * `PaywallProvider`, an onboarding audience and a paywall audience can disagree
- * about the same user. One store makes that impossible.
+ * about the same user. One store makes that impossible — they can now differ
+ * only by WHEN they read it, since each is resolved at its own serve time (see
+ * `useAudienceParams` in `OnboardingProvider`).
  *
  * Storage is injected so the whole thing is testable as a plain object.
  */

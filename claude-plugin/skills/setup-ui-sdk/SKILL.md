@@ -87,7 +87,7 @@ import { OnboardingStudio } from "@rocapine/react-native-onboarding";
 OnboardingStudio.setUserProperty("plan", "free");
 ```
 
-`setUserProperties` merges; a `null` value deletes; `reset()` forgets the user on logout. Properties persist and are hydrated before the first fetch, so `OnboardingProvider` holds its query for one AsyncStorage read — pass `fontsFallback` and that frame is covered. Full detail, including the reserved key names, is in `setup-headless-sdk`.
+`setUserProperties` merges; a `null` value deletes; `reset()` forgets the user on logout. Properties persist and are hydrated before the first fetch, so `OnboardingProvider` holds its query for one AsyncStorage read — pass `fontsFallback` and that frame is covered. The onboarding is served once, at mount, and frozen for that presentation: a property written mid-flow applies to the next serve (next mount or launch), never retroactively, so it is safe to write one at any point. Full detail, including the reserved key names, is in `setup-headless-sdk`.
 
 ### Applying a custom theme
 

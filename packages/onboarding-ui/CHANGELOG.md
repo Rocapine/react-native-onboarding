@@ -9,6 +9,16 @@ here.
 
 ---
 
+## [1.74.1] - 2026-09-02
+
+Version bump only — this release is entirely in the headless package: the
+onboarding's audience params are now pinned when it is served, so a user
+property written mid-onboarding no longer blanks and refetches the app, and
+`useOnboardingStep` / `useOnboardingStart` share the gate's query. Nothing in
+this package changed.
+
+---
+
 ## [1.74.0] - 2026-08-27
 
 Version bump only — this release is entirely in the headless package (the

@@ -248,7 +248,11 @@ const OnboardingDataGate = ({
   }, [data]);
 
   if (error) throw error;
-  if (!data) return <>{fontsFallback ?? null}</>;
+  // Both checks, not just `!data`: a disabled query still returns cached data for
+  // its key, and the unpinned key (`{}`) is also a legitimate pinned one. Holding
+  // on `audienceParams` makes "children mount only once the params are pinned"
+  // structural, so nothing below can ever fetch under un-pinned params.
+  if (audienceParams === null || !data) return <>{fontsFallback ?? null}</>;
 
   return (
     <FontLoaderGate fonts={data.fonts} fallback={fontsFallback}>
@@ -374,6 +378,8 @@ export const OnboardingProvider = ({
           setHeaderHeight,
           client,
           locale,
+          // The raw prop is never observed: the data gate holds `children` until
+          // the params are pinned, and everything reading this context is a child.
           customAudienceParams: audienceParams ?? customAudienceParams,
           onboarding,
           setOnboarding,

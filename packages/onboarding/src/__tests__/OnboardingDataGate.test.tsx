@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import React, { Suspense, useEffect } from "react";
+import React, { StrictMode, Suspense, useEffect } from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -206,6 +206,24 @@ describe("OnboardingDataGate — audience params are pinned at serve time", () =
     expect(text()).toBe("served");
     expect(probe.unmounts).toBe(0);
     expect(probe.mounts).toBe(1);
+  });
+
+  it("pins once under StrictMode's double render: one fetch, with the merged params", async () => {
+    const { OnboardingProvider, OnboardingStudio } = await launch();
+    OnboardingStudio.setUserProperty("plan", "pro");
+    const client = makeClient();
+
+    await render(
+      <StrictMode>
+        <OnboardingProvider client={client} customAudienceParams={{ channel: "a" }}>
+          <Probe label="served" />
+        </OnboardingProvider>
+      </StrictMode>
+    );
+
+    expect(client.getSteps).toHaveBeenCalledTimes(1);
+    expect(client.getSteps.mock.calls[0][1]).toEqual({ channel: "a", plan: "pro" });
+    expect(text()).toBe("served");
   });
 
   it("a `customAudienceParams` prop change after the first serve is frozen too", async () => {

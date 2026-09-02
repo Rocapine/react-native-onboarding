@@ -181,11 +181,15 @@ const useAudienceParams = (
   customAudienceParams: Record<string, any>
 ): Record<string, string> | null => {
   const { properties, status } = useUserProperties();
-  const pinned = useRef<Record<string, string> | null>(null);
-  if (pinned.current === null && status === "ready") {
-    pinned.current = resolveEffectiveParams(customAudienceParams, properties);
+  // State rather than a ref: a pin taken in a render React later discards is
+  // discarded with it, so the served params always come from a committed render.
+  const [pinned, setPinned] = useState<Record<string, string> | null>(null);
+  if (pinned === null && status === "ready") {
+    const resolved = resolveEffectiveParams(customAudienceParams, properties);
+    setPinned(resolved);
+    return resolved;
   }
-  return pinned.current;
+  return pinned;
 };
 
 interface OnboardingDataGateProps {

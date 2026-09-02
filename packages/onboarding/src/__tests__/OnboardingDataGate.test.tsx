@@ -91,12 +91,18 @@ const launch = async (): Promise<Modules> => {
   };
 };
 
-const onboarding = (id: string) =>
+type Fonts = Record<string, Record<string, string>>;
+
+const onboarding = (id: string, fonts: Fonts = {}) =>
   ({
     metadata: { id, name: id },
     steps: [{ id: `${id}-step-1`, name: "one", type: "MediaContent", displayProgressHeader: true, payload: {} }],
-    fonts: {},
+    fonts,
   }) as any;
+
+// A real fonts manifest. With an empty one `FontLoaderGate` never passes through
+// `null`, which would make every "did not unmount" assertion vacuous.
+const FONTS: Fonts = { Inter: { regular: "https://cdn.test/inter.ttf" } };
 
 /**
  * A sandbox client (no disk cache, so every serve is a network call and the
@@ -106,7 +112,7 @@ const onboarding = (id: string) =>
  */
 const makeClient = () => {
   const getSteps = vi.fn(async (_opts: unknown, params: Record<string, string>) => ({
-    data: onboarding(`for-${params.plan ?? "nobody"}`),
+    data: onboarding(`for-${params.plan ?? "nobody"}`, FONTS),
     headers: {
       "ONBS-Onboarding-Id": "real",
       "ONBS-Onboarding-Name": "real",
@@ -342,6 +348,10 @@ describe("OnboardingDataGate — audience params are pinned at serve time", () =
     expect(client.getSteps).toHaveBeenCalledTimes(2);
     expect(client.getSteps.mock.calls[1][1]).toEqual({ plan: "pro" });
     expect(text()).toBe("serve 2");
+    // The price of re-targeting: a remount IS the full teardown the pin exists
+    // to prevent mid-flow, so it belongs at a flow boundary, never mid-onboarding.
+    expect(probe.unmounts).toBe(1);
+    expect(probe.mounts).toBe(2);
   });
 
   it("the forced-refetch escape hatch still works, under the pinned audience, without unmounting", async () => {

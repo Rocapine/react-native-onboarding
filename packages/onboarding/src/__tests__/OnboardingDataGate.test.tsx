@@ -4,6 +4,7 @@ import React, { StrictMode, Suspense, useEffect } from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { useQueryClient } from "@tanstack/react-query";
+import { USER_PROPERTIES_STORAGE_KEY } from "../userProperties/store";
 
 /**
  * The serve-time rule, end to end through a real render:
@@ -25,13 +26,18 @@ import { useQueryClient } from "@tanstack/react-query";
 
 // In-memory AsyncStorage shared across module resets, so a property persisted
 // during one "launch" is there to hydrate on the next. `holdHydration` makes
-// the read block until released — the window in which a host writes a property
-// before the store is ready.
+// the user-property read (only that one — a production client's payload cache
+// read must not deadlock on it) block until released: the window in which a
+// host writes a property before the store is ready.
 const storage = vi.hoisted(() => {
   const map = new Map<string, string>();
   let gate: { promise: Promise<void>; release: () => void } | null = null;
+  // Literal, not the imported constant: `vi.hoisted` runs before imports.
+  // `beforeEach` checks it still matches `USER_PROPERTIES_STORAGE_KEY`.
+  const heldKey = "rocapine-user-properties";
   return {
     map,
+    heldKey,
     holdHydration() {
       let release!: () => void;
       const promise = new Promise<void>((r) => (release = r));
@@ -42,7 +48,7 @@ const storage = vi.hoisted(() => {
       gate = null;
     },
     getItem: vi.fn(async (key: string) => {
-      if (gate) await gate.promise;
+      if (gate && key === heldKey) await gate.promise;
       return map.get(key) ?? null;
     }),
     setItem: vi.fn(async (key: string, value: string) => void map.set(key, value)),
@@ -162,8 +168,16 @@ const unmount = async () => {
 const text = () => container?.textContent ?? "";
 
 beforeEach(() => {
+  expect(storage.heldKey).toBe(USER_PROPERTIES_STORAGE_KEY);
   storage.map.clear();
   storage.releaseHydration();
+  // `vi.restoreAllMocks` only restores `spyOn` spies; these `vi.fn`s would
+  // otherwise carry call history from one test into the next.
+  storage.getItem.mockClear();
+  storage.setItem.mockClear();
+  storage.removeItem.mockClear();
+  storage.getAllKeys.mockClear();
+  storage.multiRemove.mockClear();
   probe.mounts = 0;
   probe.unmounts = 0;
   vi.spyOn(console, "warn").mockImplementation(() => {});

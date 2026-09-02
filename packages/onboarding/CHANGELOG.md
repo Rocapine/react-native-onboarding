@@ -28,7 +28,9 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   just fetches what it is handed. A property written during the flow — or a change to
   the `customAudienceParams` prop — does not re-key, refetch or swap the
   onboarding; it applies to the **next** serve (next mount, next launch). Hosts
-  can write a property the moment they compute it, even mid-onboarding.
+  can write a property the moment they compute it, even mid-onboarding. The
+  corollary: anything the current serve must target on has to be set before
+  the provider mounts. `reset()` likewise clears for the next serve.
 
   `PaywallProvider` is deliberately unchanged: a paywall is served at
   `register(moment)`, so it is right that its catalog follows the store until
@@ -36,8 +38,9 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
   The escape hatch is intact: `client.clearCache()` plus invalidating
   `["onboardingQuestions", …]` still refetches — the same query, under the pinned
-  audience, without an unmount. Re-targeting with the current properties is a new
-  serve: remount the provider.
+  audience, without an unmount. Re-targeting with the current properties is a
+  new serve: remount the provider — at a flow boundary, since a remount is the
+  full teardown.
 
 - **`useOnboardingStep` / `useOnboardingStart` now build the query the gate
   served.** They built their own `useSuspenseQuery` from the **raw**

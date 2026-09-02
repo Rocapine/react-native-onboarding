@@ -121,6 +121,13 @@ interface OnboardingProviderProps {
    */
   client?: OnboardingStudioClient;
   locale?: string;
+  /**
+   * Static audience params — build-time facts such as an `onboardingId` or a
+   * build channel. Merged UNDER the user-property store (`OnboardingStudio`),
+   * which wins per key, and read ONCE, when the onboarding is served: a later
+   * change to this prop does not re-resolve the presentation (see
+   * `OnboardingDataGate`). Anything that changes at runtime belongs in the store.
+   */
   customAudienceParams?: Record<string, any>;
   /**
    * Map of named handlers invokable from ComposableScreen Button `actions`
@@ -162,6 +169,10 @@ interface OnboardingProviderProps {
   productRefs?: ProductRef[];
 }
 
+// What the query is built with until the pin is taken. Never fetched: the query
+// is disabled until the pin exists.
+const UNPINNED_PARAMS: Record<string, string> = Object.freeze({});
+
 interface OnboardingDataGateProps {
   client: OnboardingStudioClient;
   locale: string;
@@ -171,6 +182,45 @@ interface OnboardingDataGateProps {
   children: React.ReactNode;
 }
 
+/**
+ * Fetches the onboarding and holds the subtree until it is there.
+ *
+ * ## Audience resolution happens at serve time
+ *
+ * The audience params are resolved ONCE, the moment the user-property store is
+ * ready and the onboarding is first served, and pinned for the lifetime of this
+ * mount. A served payload is frozen for that presentation: a `setUserProperty`
+ * during the flow — or a change to the `customAudienceParams` prop — does not
+ * touch the query key, does not refetch, and does not swap the onboarding
+ * under the user. Those changes apply to the NEXT serve: the next mount of the
+ * provider, or the next launch.
+ *
+ * This gate used to follow the store reactively, and that was a production
+ * hazard rather than a feature: a property written mid-flow changed the merged
+ * params, the query key followed them, react-query answered `data: undefined`
+ * for the never-seen key, and this gate rendered `null` — unmounting the ENTIRE
+ * subtree (in hosts that wrap the whole app: the router reset and every screen
+ * lost its state) while it refetched, then remounting. The only host-side
+ * workaround was to seed every property before the provider mounted.
+ *
+ * `PaywallProvider` is deliberately different and deliberately unchanged: a
+ * paywall is served at `register(moment)`, so it is right that its catalog
+ * follows the store until then, and it never blanks while refetching.
+ *
+ * ## Refetching
+ *
+ * The host escape hatch is untouched: `OnboardingStudioClient.clearCache()` plus
+ * `queryClient.invalidateQueries({ queryKey: ["onboardingQuestions"] })` still
+ * forces a refetch — of the SAME query, so the subtree stays mounted while it
+ * lands. It re-serves the pinned audience: a content refresh, not a
+ * re-targeting. To re-target with the current properties, present again — a
+ * remount of the provider (`key`) is a new serve and resolves afresh. There is
+ * no in-place re-pin on purpose: with a different key it could only blank
+ * (the defect above) or swap the served onboarding under the user (the rule
+ * forbids it).
+ *
+ * `locale` is not part of the pin: it stays a live key element, as before.
+ */
 const OnboardingDataGate = ({
   client,
   locale,
@@ -182,19 +232,32 @@ const OnboardingDataGate = ({
   // Same merge the paywall provider does, for the same reason: one store feeds
   // both waterfalls, so an onboarding audience and a paywall audience can no
   // longer disagree about the same user. See `resolveEffectiveParams`.
+  //
+  // Held until the store hydrates — otherwise the first fetch of a cold launch
+  // is audience-matched against an empty property map. This gate renders
+  // `fontsFallback`, the state this gate already shows while the payload
+  // loads, so nothing new appears on screen.
+  //
+  // Then pinned. The ref is written during render, which is the lazy
+  // initialisation React allows: it is set exactly once, from the first READY
+  // snapshot — a property written during hydration is in it — and the same
+  // render enables the query, so the fetch is not a frame late. Later
+  // snapshots are read (the subscription cannot be conditional) and ignored.
   const { properties, status: propertiesStatus } = useUserProperties();
-  const params = useMemo(
-    () => resolveEffectiveParams(customAudienceParams, properties),
-    [customAudienceParams, properties]
-  );
+  const pinnedParamsRef = useRef<Record<string, string> | null>(null);
+  if (pinnedParamsRef.current === null && propertiesStatus === "ready") {
+    pinnedParamsRef.current = resolveEffectiveParams(customAudienceParams, properties);
+  }
+  const params = pinnedParamsRef.current;
 
   const { data, error } = useQuery<Onboarding<OnboardingStepType>>({
-    ...getOnboardingQuery<OnboardingStepType>(client, locale, params, setOnboarding),
-    // Held until the store hydrates — otherwise the first fetch of a cold launch
-    // is audience-matched against an empty property map. This gate renders
-    // `fontsFallback`, the state this gate already shows while the payload
-    // loads, so nothing new appears on screen.
-    enabled: propertiesStatus === "ready",
+    ...getOnboardingQuery<OnboardingStepType>(
+      client,
+      locale,
+      params ?? UNPINNED_PARAMS,
+      setOnboarding
+    ),
+    enabled: params !== null,
   });
 
   // Background asset preload: once the payload is available, warm every remote

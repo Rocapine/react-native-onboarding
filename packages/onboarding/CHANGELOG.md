@@ -8,6 +8,52 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.74.1] - 2026-09-02
+
+### Fixed
+
+- **A user-property write during an onboarding no longer blanks the app.**
+  `OnboardingDataGate` followed the user-property store reactively: a
+  `setUserProperty` mid-flow changed the merged audience params, the React Query
+  key followed them, the query answered `data: undefined` for the never-seen key,
+  and the gate rendered `null` — unmounting the **entire** subtree under the
+  provider (in hosts that wrap the app: router reset, every screen's state lost),
+  refetching `get-onboarding-steps`, and remounting. The only workaround was to
+  seed every property before the provider mounted.
+
+  The rule now is: **audience resolution happens at serve time, and a served
+  payload is frozen for that presentation.** The gate resolves the effective
+  params **once**, from the first ready snapshot of the store, and pins them for
+  the lifetime of the mount. A property written during the flow — or a change to
+  the `customAudienceParams` prop — does not re-key, refetch or swap the
+  onboarding; it applies to the **next** serve (next mount, next launch). Hosts
+  can write a property the moment they compute it, even mid-onboarding.
+
+  `PaywallProvider` is deliberately unchanged: a paywall is served at
+  `register(moment)`, so it is right that its catalog follows the store until
+  then, and it never blanks while refetching.
+
+  The escape hatch is intact: `client.clearCache()` plus invalidating
+  `["onboardingQuestions", …]` still refetches — the same query, under the pinned
+  audience, without an unmount. Re-targeting with the current properties is a new
+  serve: remount the provider.
+
+- **`useOnboardingStep` / `useOnboardingStart` now build the query the gate
+  served.** They built their own `useSuspenseQuery` from the **raw**
+  `customAudienceParams` prop, while the gate (since 1.74.0) merged the store over
+  it — so with a non-empty store the two keys differed: a second fetch, resolved
+  **without** the user's properties, and that was the payload the screens
+  rendered. The gate now publishes its pinned params on an internal context that
+  both hooks read, so there is exactly one query.
+
+### Changed
+
+- **Tests** — the headless package can now render React in tests (`react-dom` +
+  `jsdom` dev dependencies, `*.test.tsx` excluded from `tsc`). The provider suite
+  renders the real `OnboardingProvider` against a fake client.
+
+---
+
 ## [1.74.0] - 2026-08-27
 
 ### Added

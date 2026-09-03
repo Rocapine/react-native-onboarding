@@ -149,6 +149,7 @@ Run: `npx tsx scripts/_validate-composable.ts "$(cat step.json)"`
 - `branches[].condition` referencing a variable never captured upstream.
 - `disabledWhen` / `renderWhen` gating a CTA on a variable the screen never captures — likely a copy-paste leftover from a duplicated screen; the button silently stays enabled/disabled based on stale state. Warn with the variable name + the screen's actual captured variables.
 - Branch with non-null condition that lists an unknown `operator` (binary, require `value`: `eq|neq|gt|lt|gte|lte|contains|in|not_in`; unary, omit `value`: `is_empty|is_not_empty|is_null|is_not_null`). A binary operator missing `value` is a schema error; a unary operator ignores any `value`.
+- `in` / `not_in` with a right-hand side that is not a list and not a `{{ref}}` to one (e.g. `"value": "male"`). It evaluates as a one-member list and warns at runtime; author `["male"]`, or use `eq`.
 - `customPayload: {}` instead of `null` (both validate; prefer `null`).
 - `Carousel` with empty `children`.
 

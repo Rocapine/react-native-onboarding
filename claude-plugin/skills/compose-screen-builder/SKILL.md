@@ -279,6 +279,16 @@ It belongs **inside `props`**. Put it at element level, beside `type`/`id`/`rend
 
 Binary operators (require `value`): `eq`, `neq`, `gt`, `lt`, `gte`, `lte`, `contains`, `in`, `not_in`.
 
+**`in` / `not_in` want a list on the right.** All three of these are the same list — an authored array, a `{{ref}}` to a multi-select variable (whose stored value is a JSON-encoded array string), and that ref wrapped in an array (what Studio's condition editor emits):
+
+```json
+{ "variable": "item.value", "operator": "not_in", "value": ["health", "sport"] }
+{ "variable": "item.value", "operator": "not_in", "value": "{{selected}}" }
+{ "variable": "item.value", "operator": "not_in", "value": ["{{selected}}"] }
+```
+
+Members compare stringified, so a numeric row field matches a string member (`1` is in `["1","2"]`). An **empty** list, and a `{{ref}}` to a variable nobody has written, both have no members: `in` matches nothing, `not_in` matches everything. A right-hand side that is no list at all (`"operator": "in", "value": "male"`) reads as a one-member list and logs a `console.warn` — author the array.
+
 Unary operators (omit `value`): `is_empty`, `is_not_empty`, `is_null`, `is_not_null`. `empty` is type-aware — true for an empty/whitespace string, an empty array, or an unset/null variable; `null` is stricter — true only for unset/null (a set-but-empty value like `""` is **not null** yet **is empty**). Same operators apply to `renderWhen`.
 
 ## Per-state Button styling

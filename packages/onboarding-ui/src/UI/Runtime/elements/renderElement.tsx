@@ -7,7 +7,7 @@ import { BaseBoxProps } from "./BaseBoxProps";
 import { RenderContext, areElementPropsEqual } from "./shared";
 import { useVariables } from "./VariablesContext";
 import { useAnimatedVariables } from "./AnimatedVariablesContext";
-import { buildAnimatedGatePlan, evalAnimatedNode } from "./animatedGate";
+import { animatedGateRefKey, buildAnimatedGatePlan, evalAnimatedNode } from "./animatedGate";
 import { runActions } from "./runActions";
 import { StackElementComponent } from "./StackElement";
 import { PlainTextElementComponent, ExpressionTextElementComponent } from "./TextElement";
@@ -307,7 +307,18 @@ ElementHost.displayName = "ElementHost";
 const GatedElement = React.memo(
   ({ element, ctx, parentType }: HostProps) => {
     const { flatVariables } = useVariables();
-    const plan = React.useMemo(() => buildAnimatedGatePlan(element.renderWhen), [element]);
+    // The plan resolves any `{{ref}}` on the condition's right-hand side against
+    // the store (#217), so it can no longer be memoized on `element` alone — but
+    // `flatVariables` must NOT be a dep either: a new plan on every unrelated
+    // write would rebuild the `useAnimatedReaction` mapper below each time. The
+    // variable map enters through `animatedGateRefKey`, which is "" unless this
+    // condition actually holds a reference. See `animatedGate.ts`.
+    const refKey = animatedGateRefKey(element.renderWhen, flatVariables);
+    const plan = React.useMemo(
+      () => buildAnimatedGatePlan(element.renderWhen, flatVariables),
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- flatVariables via refKey
+      [element, refKey]
+    );
     const registry = useAnimatedVariables();
 
     // The producer's SharedValue for this variable, if one animates it here.

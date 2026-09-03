@@ -200,3 +200,73 @@ describe("evaluateCondition — leaf passthrough", () => {
     expect(evaluateCondition(leaf, { x: "no" })).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------
+// evaluateLeaf — `{{var}}` references on the RIGHT-hand side
+//
+// `RepeatElement` documents "Repeat plus a per-row gate is a switch" using
+// `{ variable: "item.sign", operator: "eq", value: "{{zodiacSign}}" }`. That
+// only works if the condition's `value` is interpolated against the same
+// variable map, which lets a condition compare two variables rather than a
+// variable against an authored literal. See issue #217.
+// ---------------------------------------------------------------------------
+
+describe("evaluateLeaf — variable references in `value`", () => {
+  it("matches the documented Repeat-as-Match example", () =>
+    expect(
+      evaluateLeaf(
+        { variable: "item.sign", operator: "eq", value: "{{zodiacSign}}" },
+        { "item.sign": "aries", zodiacSign: "aries" }
+      )
+    ).toBe(true));
+
+  it("rejects the rows the switch should not select", () =>
+    expect(
+      evaluateLeaf(
+        { variable: "item.sign", operator: "eq", value: "{{zodiacSign}}" },
+        { "item.sign": "taurus", zodiacSign: "aries" }
+      )
+    ).toBe(false));
+
+  it("compares two variables numerically", () =>
+    expect(
+      evaluateLeaf(
+        { variable: "score", operator: "gt", value: "{{threshold}}" },
+        { score: 80, threshold: 50 }
+      )
+    ).toBe(true));
+
+  it("resolves a reference embedded in surrounding text", () =>
+    expect(
+      evaluateLeaf(
+        { variable: "sku", operator: "eq", value: "plan_{{tier}}" },
+        { sku: "plan_yearly", tier: "yearly" }
+      )
+    ).toBe(true));
+
+  it("interpolates references inside an `in` array", () =>
+    expect(
+      evaluateLeaf(
+        { variable: "x", operator: "in", value: ["{{a}}", "{{b}}"] },
+        { x: "two", a: "one", b: "two" }
+      )
+    ).toBe(true));
+
+  it("resolves an unknown reference to the empty string", () =>
+    expect(
+      evaluateLeaf(
+        { variable: "x", operator: "eq", value: "{{nope}}" },
+        { x: "something" }
+      )
+    ).toBe(false));
+
+  it("treats a plain literal as a literal", () =>
+    expect(
+      evaluateLeaf({ variable: "x", operator: "eq", value: "aries" }, { x: "aries" })
+    ).toBe(true));
+
+  it("does not interpolate a literal containing no reference syntax", () =>
+    expect(
+      evaluateLeaf({ variable: "x", operator: "eq", value: "{not a ref}" }, { x: "{not a ref}" })
+    ).toBe(true));
+});

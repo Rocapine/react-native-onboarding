@@ -42,9 +42,33 @@ function isEmpty(v: unknown): boolean {
   return false;
 }
 
+// A condition's right-hand side may reference other variables with `{{name}}`,
+// which is what lets a condition compare two variables instead of a variable
+// against an authored literal. `RepeatElement` documents exactly this shape to
+// make `Repeat` subsume a `Match` — `{ variable: "item.sign", operator: "eq",
+// value: "{{zodiacSign}}" }` — and without interpolation here that comparison
+// tests against the 14-character literal and never matches.
+//
+// References resolve to the variable's raw value stringified, matching
+// `Image mode:"expression"` (machine identifiers, not display labels); the map
+// reaching this function is already flat primitives. An unknown reference
+// resolves to the empty string rather than throwing, so a gate on a variable
+// that has not been written yet simply does not match.
+const REF = /\{\{([^}]+?)\}\}/g;
+
+function interpolateRefs(value: unknown, variables: Record<string, unknown>): unknown {
+  if (Array.isArray(value)) return value.map((v) => interpolateRefs(v, variables));
+  if (typeof value !== "string" || !value.includes("{{")) return value;
+  return value.replace(REF, (_, key: string) => {
+    const resolved = variables[key.trim()];
+    return resolved === undefined || resolved === null ? "" : String(resolved);
+  });
+}
+
 export function evaluateLeaf(condition: LeafCondition, variables: Record<string, unknown>): boolean {
   const raw = decodeArrayValue(variables[condition.variable]);
-  const { operator, value } = condition;
+  const { operator } = condition;
+  const value = interpolateRefs(condition.value, variables) as typeof condition.value;
 
   switch (operator) {
     case "eq":

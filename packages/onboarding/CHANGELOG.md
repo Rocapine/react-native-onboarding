@@ -8,6 +8,40 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ### Fixed
 
+- **`in` / `not_in` no longer answer a constant when the right-hand side is not
+  literally an array.** `evaluateLeaf` gated both operators on
+  `Array.isArray(value)` and, without one, returned `false` for `in` and `true`
+  for `not_in` — for **every** row, with no validation error and no warning. The
+  two shapes that hit that path are exactly the two an author writes now that a
+  `{{ref}}` on the right-hand side resolves: `value: "{{selected}}"`, where the
+  multi-select variable's flat value is the JSON-encoded string a
+  `CheckboxGroup` writes (`'["sleep","energy"]'`), and `value: ["{{selected}}"]`
+  — the shape Studio's condition editor emits, because it splits its value field
+  on commas, so the reference lands as the single member of a one-member array.
+  The first was not an array at all; the second was an array of one JSON string,
+  which matched no row either. A membership gate over a multi-select therefore
+  either hid every row or showed every row.
+
+  The right-hand side is now normalized to a **member list**: the value and each
+  of its members are decoded (one level of flattening), so all three shapes —
+  an authored array, a bare reference, and an array-wrapped reference — mean the
+  same list. Members compare **stringified**, because a decoded JSON array keeps
+  its members typed and `Repeat` deliberately keeps a numeric row field numeric,
+  so `not_in(1, [1, 2])` used to be `true`. `contains` against an array variable
+  shares that comparison, so the two operators can no longer disagree about the
+  same data.
+
+  Unchanged: an empty list (`value: []`, what an empty Studio value field
+  yields) and a reference to a variable nobody has written both have no members,
+  so `in` matches nothing and `not_in` matches everything — as documented. A
+  right-hand side that is no list at all (`operator: "in", value: "male"`) now
+  reads as a one-member list and logs a `console.warn` naming the operator,
+  rather than silently answering a constant; nothing Studio can author produces
+  that shape. Everything routing through the shared evaluator inherits the fix:
+  element `renderWhen`, `Button disabledWhen`, and step branching in
+  `resolveNextStepNumber`. Refs #225; unblocks the "available"/"not yet tagged"
+  buckets of a grouped or dual-list multi-select.
+
 - **A condition can now compare a variable against another variable.**
   `evaluateLeaf` compared `condition.value` verbatim, so a condition's
   right-hand side could only ever be an authored literal — yet

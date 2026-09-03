@@ -127,6 +127,29 @@ describe("buildAnimatedGatePlan — authored literals are untouched", () => {
   it("rejects an array value (in/not_in is not a numeric operator)", () =>
     expect(buildAnimatedGatePlan(leaf(["a", "b"]), {})).toBeNull());
 
+  // Issue #225 changed how the store-backed evaluator reads a membership
+  // right-hand side that is not literally an array — a `{{ref}}` to a
+  // multi-select variable, or the one-member array Studio's condition editor
+  // emits. `renderElement` SEEDS a gate from `evaluateCondition` and then lets
+  // the worklet reaction override it, so if either of those shapes could build
+  // a plan the two paths would disagree and the element would flicker to the
+  // wrong visibility. Neither may: `in` / `not_in` are not numeric operators.
+  it("rejects `in` with a reference to a multi-select variable", () =>
+    expect(
+      buildAnimatedGatePlan(
+        { variable: "item.value", operator: "in", value: "{{selected}}" },
+        { selected: '["sleep","energy"]', "item.value": "sleep" }
+      )
+    ).toBeNull());
+
+  it("rejects `not_in` with the array-wrapped shape Studio emits", () =>
+    expect(
+      buildAnimatedGatePlan(
+        { variable: "item.value", operator: "not_in", value: ["{{selected}}"] },
+        { selected: '["sleep","energy"]', "item.value": "focus" }
+      )
+    ).toBeNull());
+
   it("rejects a non-numeric operator", () =>
     expect(
       buildAnimatedGatePlan({ variable: "x", operator: "contains", value: 1 }, {})

@@ -1,8 +1,11 @@
-import { useCallback, useContext, useMemo } from "react";
+import { useCallback, useContext, useEffect, useMemo } from "react";
 import {
   OnboardingProgressContext as HeadlessProgressContext,
   useOnboardingHeaderHeight,
   usePaywall,
+  collectUnknownElementTypes,
+  dropUnknownElementTypesInStep,
+  formatUnknownElementTypes,
 } from "@rocapine/react-native-onboarding";
 import { ComposableScreenStepType, ComposableScreenStepTypeSchema } from "./types";
 import { withErrorBoundary } from "../../ErrorBoundary";
@@ -29,8 +32,37 @@ type ContentProps = {
 const ComposableScreenRendererBase = ({ step, onContinue, keyboardVerticalOffset, enteringSettleDelayMs }: ContentProps) => {
   const { theme } = useTheme();
   const { headerHeight } = useOnboardingHeaderHeight();
-  const validatedData = useMemo(() => ComposableScreenStepTypeSchema.parse(step), [step]);
+  // FORWARD COMPATIBILITY (#209). An element type published after this app
+  // shipped is not in the discriminated union, so it used to fail the parse
+  // below — and take the whole screen with it. That is not a degraded screen:
+  // this component is wrapped in `withErrorBoundary`, whose fallback has no
+  // interactive control, and the back chevron lives in `<ProgressBar>` behind
+  // the step's `displayProgressHeader`. On a header-off step the user has no
+  // exit in either direction, because `onContinue` died with the subtree.
+  //
+  // So unknown element TYPES are omitted before parsing — matching
+  // `renderElement`'s terminal `return null` — and everything else still parses
+  // strictly, so a real data bug (a `variant` outside its enum, a missing `id`)
+  // keeps failing loudly with its exact path instead of quietly vanishing.
+  const { validatedData, omitted } = useMemo(() => {
+    const renderableStep = dropUnknownElementTypesInStep(step);
+    return {
+      validatedData: ComposableScreenStepTypeSchema.parse(renderableStep),
+      // Only walked when something was actually dropped (the strip returns the
+      // same reference otherwise), so the common path costs one comparison.
+      omitted:
+        renderableStep === step ? [] : collectUnknownElementTypes(step.payload?.elements),
+    };
+  }, [step]);
   const { elements } = validatedData.payload;
+
+  // Say what went missing. Not dev-gated: this fires when a published screen is
+  // ahead of the installed SDK, which is precisely the thing a host needs to see
+  // in production logs. As an effect, not inside the memo, so a render stays
+  // side-effect free.
+  useEffect(() => {
+    if (omitted.length > 0) console.warn(formatUnknownElementTypes(omitted));
+  }, [omitted]);
   const { composableVariables, setComposableVariable } = useContext(OnboardingProgressContext);
   const { setVariable: setHeadlessVariable, customActions, products } = useContext(HeadlessProgressContext);
   // Degrades to an inert `present` (resolves `{status:"error"}`, never throws)

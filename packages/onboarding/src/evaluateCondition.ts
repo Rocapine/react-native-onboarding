@@ -65,6 +65,85 @@ function interpolateRefs(value: unknown, variables: Record<string, unknown>): un
   });
 }
 
+// "No member" vs "a member that is empty". An unresolved `{{ref}}` interpolates
+// to the empty string (`interpolateRefs`), and it reaches the comparison in both
+// right-hand-side shapes identically — bare, or as the single member of the array
+// Studio's condition editor emits. Keeping it as a member would make an
+// empty-string variable a member of a list nobody has written (`in` matches,
+// `not_in` does not — the opposite of the same gate written bare), and an
+// empty-string variable is reachable: `InputElement` stores "" on clear and
+// `Input.defaultValue: ""` is overlaid into the variable map. Nothing authorable
+// is lost — Studio's value field drops empty members (`filter(Boolean)`), and
+// `is_empty` is the operator for "the variable is blank".
+function isAbsentMember(member: unknown): boolean {
+  return isNullish(member) || member === "";
+}
+
+// The membership operators (`in` / `not_in`, and `contains` against an array
+// variable) need a real list and used to answer a CONSTANT without one —
+// `in` false for every row, `not_in` true for every row, no warning (#225).
+//
+// Two right-hand-side shapes reach them without being `Array.isArray`, and both
+// are the natural way to author a membership test now that a `{{ref}}` on the
+// right-hand side resolves (#217):
+//
+//   value: "{{selected}}"    a reference to a multi-select variable, whose flat
+//                            value is a JSON-encoded string ('["a","b"]' — see
+//                            `decodeArrayValue`), so the ref interpolates to a
+//                            string and `Array.isArray` is false.
+//   value: ["{{selected}}"]  what Studio's condition editor emits: it splits the
+//                            value field on commas, so the reference lands as
+//                            the single member of a one-member array. That one
+//                            IS an array, and used to reach the comparison as a
+//                            list holding one JSON string — equally constant.
+//
+// So a member list is built by decoding the value itself AND each of its
+// members, flattening one level. Only one level: nothing authorable nests
+// deeper, and a deep flatten would silently merge a shape nobody wrote.
+//
+// `value: []` keeps its documented constants (`in` false / `not_in` true) — an
+// empty Studio value field yields it, and an empty list legitimately has no
+// members. So does a reference that resolves to nothing: an unresolved `{{ref}}`
+// interpolates to the empty string (see `interpolateRefs`), and "not written
+// yet" means "no members", not "a member that is the empty string".
+//
+// Anything else scalar (`in` against `"male"`) is an authoring mistake with no
+// correct answer. It reads as a ONE-member list — the only reading that is not a
+// silent constant, and what `in: "male"` plainly means — and warns, because the
+// evaluator returns `boolean` and `renderWhen` has no third state, so a warning
+// is the loudest a runtime can be. No Studio-authored payload can produce this
+// shape (its editor always emits an array), so nothing that evaluates correctly
+// today changes.
+function toMemberList(value: unknown, operator: string): unknown[] {
+  const decoded = decodeArrayValue(value);
+  if (Array.isArray(decoded)) {
+    return decoded
+      .flatMap((member) => {
+        const inner = decodeArrayValue(member);
+        return Array.isArray(inner) ? inner : [inner];
+      })
+      .filter((member) => !isAbsentMember(member));
+  }
+  if (isAbsentMember(decoded)) return [];
+  console.warn(
+    `[onboarding] condition operator "${operator}" needs a list on its right-hand side, ` +
+      `got ${typeof decoded} ${JSON.stringify(decoded)}. Treating it as a single-member list. ` +
+      `Author an array (or a {{ref}} to a multi-select variable) instead.`
+  );
+  return [decoded];
+}
+
+// Members compare stringified. A decoded JSON array keeps its members typed, and
+// `Repeat` keeps a numeric row field numeric on purpose (`repeatScope.buildRowFlat`,
+// so `gt` compares numerically), so `1` and `"1"` have to be the same member —
+// otherwise `not_in(1, [1, 2])` is true. Shared with the `contains` array branch,
+// which coerced neither side, so the two operators would otherwise disagree about
+// the same data.
+function includesMember(members: unknown[], target: unknown): boolean {
+  const needle = String(target);
+  return members.some((member) => String(member) === needle);
+}
+
 export function evaluateLeaf(condition: LeafCondition, variables: Record<string, unknown>): boolean {
   const raw = decodeArrayValue(variables[condition.variable]);
   const { operator } = condition;
@@ -85,12 +164,12 @@ export function evaluateLeaf(condition: LeafCondition, variables: Record<string,
       return coerceToNumber(raw) <= coerceToNumber(value);
     case "contains":
       return Array.isArray(raw)
-        ? raw.includes(value)
+        ? includesMember(raw, value)
         : String(raw).includes(String(value));
     case "in":
-      return Array.isArray(value) ? value.includes(String(raw)) : false;
+      return includesMember(toMemberList(value, operator), raw);
     case "not_in":
-      return Array.isArray(value) ? !value.includes(String(raw)) : true;
+      return !includesMember(toMemberList(value, operator), raw);
     case "is_empty":
       return isEmpty(raw);
     case "is_not_empty":

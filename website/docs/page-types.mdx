@@ -1425,6 +1425,26 @@ Prefer `is_not_empty` over `{ "operator": "neq", "value": "" }` — it is
 type-aware and reads clearly. A binary operator missing `value` is a schema
 error; a unary operator ignores any `value`.
 
+**`in` / `not_in` take a list.** Three shapes mean the same list, so a
+membership gate can be authored against a literal, or against another
+variable's selection:
+
+```jsonc
+{ "variable": "item.value", "operator": "not_in", "value": ["health", "sport"] }
+{ "variable": "item.value", "operator": "not_in", "value": "{{selected}}" }   // multi-select variable
+{ "variable": "item.value", "operator": "not_in", "value": ["{{selected}}"] } // same, array-wrapped
+```
+
+A `CheckboxGroup` stores its selection as a JSON-encoded array string, and a
+reference to it is decoded back into a list before the comparison. Members
+compare stringified, so a numeric `Repeat` row field matches a string member
+(`1` is in `["1","2"]`), and `contains` against an array variable follows the
+same rule. An **empty** list — and a reference to a variable nobody has written,
+in either shape — has no members: `in` matches nothing, `not_in` matches
+everything. A
+right-hand side that is no list at all (`"operator": "in", "value": "male"`)
+reads as a one-member list and logs a warning; author `["male"]` or use `eq`.
+
 Element-level defaults (`Carousel.defaultIndex`, `RadioGroup.defaultValue`,
 `CheckboxGroup.defaultValues`, `Input.defaultValue`,
 `DatePicker.defaultValue`, `WheelPicker.defaultValue`, `Slider.defaultValue`) are overlaid onto the variable map

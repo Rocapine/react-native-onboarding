@@ -143,6 +143,55 @@ export default function ComposableScreenGridSelectExample() {
                     row('grid-row-2', [ITEMS[2], ITEMS[3]]),
                   ],
                 },
+                // The complement of the selection, rendered from the SAME catalog:
+                // one `Repeat` over every item, each row gated by `not_in` against
+                // the `symptoms` multi-select. `symptoms` holds the JSON-`string[]`
+                // the toggle action writes, so the right-hand side is a reference to
+                // a list rather than an authored array (issue #225) — before that fix
+                // `not_in` was true for every row and this strip showed the whole
+                // catalog even with everything selected.
+                {
+                  id: 'remaining-label',
+                  type: 'Text' as const,
+                  renderWhen: { variable: 'symptoms', operator: 'is_not_empty' as const },
+                  props: { content: 'Not selected', fontSize: 13, color: '#8A8A8E' },
+                },
+                {
+                  id: 'remaining',
+                  // Gated on the SAME condition as its heading: with nothing
+                  // selected the complement is the whole catalog, so an ungated
+                  // strip would render all four chips under no heading — exactly
+                  // what `main` renders, which would make this screen unable to
+                  // show the fix at all. (With everything selected the heading
+                  // shows above an empty strip; that is the honest end state.)
+                  renderWhen: { variable: 'symptoms', operator: 'is_not_empty' as const },
+                  type: 'XStack' as const,
+                  props: { gap: 8, flexWrap: 'wrap' as const },
+                  children: [
+                    {
+                      id: 'remaining-rows',
+                      type: 'Repeat' as const,
+                      props: { keyField: 'value', data: ITEMS.map(({ value, label }) => ({ value, label })) },
+                      children: [
+                        {
+                          id: 'remaining-chip',
+                          type: 'Text' as const,
+                          renderWhen: { variable: 'item.value', operator: 'not_in' as const, value: '{{symptoms}}' },
+                          props: {
+                            content: '{{item.label}}',
+                            mode: 'expression' as const,
+                            fontSize: 13,
+                            color: '#1C1C1E',
+                            backgroundColor: '#EFEDE9',
+                            borderRadius: 12,
+                            paddingVertical: 6,
+                            paddingHorizontal: 12,
+                          },
+                        },
+                      ],
+                    },
+                  ],
+                },
               ],
             },
           ],

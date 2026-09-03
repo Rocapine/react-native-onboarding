@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { evaluateLeaf, evaluateCondition } from "../evaluateCondition";
 import type { Condition } from "../evaluateCondition";
 
@@ -58,7 +58,9 @@ describe("evaluateLeaf — contains (array)", () => {
 describe("evaluateLeaf — in", () => {
   it("passes when variable is in list", () => expect(evaluateLeaf({ variable: "gender", operator: "in", value: ["male", "female"] }, { gender: "male" })).toBe(true));
   it("fails when variable not in list", () => expect(evaluateLeaf({ variable: "gender", operator: "in", value: ["male", "female"] }, { gender: "other" })).toBe(false));
-  it("returns false when value is not array", () => expect(evaluateLeaf({ variable: "x", operator: "in", value: "male" as any }, { x: "male" })).toBe(false));
+  // A right-hand side that is not literally an array is covered by the `#225`
+  // block at the bottom of this file: it is normalized to a member list rather
+  // than answering a constant.
   it("empty list always false", () => expect(evaluateLeaf({ variable: "x", operator: "in", value: [] }, { x: "male" })).toBe(false));
   it("coerces numeric raw to string before comparison", () => expect(evaluateLeaf({ variable: "age", operator: "in", value: ["18", "25"] }, { age: 18 })).toBe(true));
   it("numeric raw not in string list returns false", () => expect(evaluateLeaf({ variable: "age", operator: "in", value: ["30", "40"] }, { age: 18 })).toBe(false));
@@ -67,7 +69,6 @@ describe("evaluateLeaf — in", () => {
 describe("evaluateLeaf — not_in", () => {
   it("passes when variable not in list", () => expect(evaluateLeaf({ variable: "gender", operator: "not_in", value: ["male", "female"] }, { gender: "other" })).toBe(true));
   it("fails when variable is in list", () => expect(evaluateLeaf({ variable: "gender", operator: "not_in", value: ["male", "female"] }, { gender: "male" })).toBe(false));
-  it("returns true when value is not array (safe default)", () => expect(evaluateLeaf({ variable: "x", operator: "not_in", value: "male" as any }, { x: "male" })).toBe(true));
   it("coerces numeric raw to string before comparison", () => expect(evaluateLeaf({ variable: "age", operator: "not_in", value: ["18", "25"] }, { age: 30 })).toBe(true));
   it("numeric raw in string list returns false", () => expect(evaluateLeaf({ variable: "age", operator: "not_in", value: ["18", "25"] }, { age: 18 })).toBe(false));
 });
@@ -269,4 +270,158 @@ describe("evaluateLeaf — variable references in `value`", () => {
     expect(
       evaluateLeaf({ variable: "x", operator: "eq", value: "{not a ref}" }, { x: "{not a ref}" })
     ).toBe(true));
+});
+
+// ---------------------------------------------------------------------------
+// evaluateLeaf — `in` / `not_in` right-hand side that is not literally an array
+//
+// Both operators used to answer a CONSTANT whenever `Array.isArray(value)` was
+// false — `in` false for every row, `not_in` true for every row, no warning
+// (issue #225). Two shapes reach them that way, and both are the natural way to
+// author a membership test now that #217 made a `{{ref}}` on the right-hand
+// side resolve:
+//
+//   value: "{{selected}}"     a reference to a multi-select variable, whose
+//                             flat value is a JSON-encoded string '["a","b"]'
+//   value: ["{{selected}}"]   what Studio's condition editor emits — it splits
+//                             the value field on commas, so the reference lands
+//                             as the single member of a one-member array
+//
+// Both must flatten to the same member list, else a fix covering only the bare
+// string leaves every Studio-authored payload broken in the same silent way.
+// ---------------------------------------------------------------------------
+
+describe("evaluateLeaf — in / not_in against a JSON-array-string reference", () => {
+  const vars = (row: string) => ({ selected: '["sleep","energy"]', "item.value": row });
+
+  it("`in` matches a row that is a member of the referenced selection", () =>
+    expect(evaluateLeaf({ variable: "item.value", operator: "in", value: "{{selected}}" }, vars("sleep"))).toBe(true));
+
+  it("`in` rejects a row that is not a member", () =>
+    expect(evaluateLeaf({ variable: "item.value", operator: "in", value: "{{selected}}" }, vars("focus"))).toBe(false));
+
+  it("`not_in` rejects a row that is a member", () =>
+    expect(evaluateLeaf({ variable: "item.value", operator: "not_in", value: "{{selected}}" }, vars("sleep"))).toBe(false));
+
+  it("`not_in` matches a row that is not a member", () =>
+    expect(evaluateLeaf({ variable: "item.value", operator: "not_in", value: "{{selected}}" }, vars("focus"))).toBe(true));
+
+  it("an authored JSON-array literal string is also a list", () =>
+    expect(evaluateLeaf({ variable: "x", operator: "in", value: '["a","b"]' }, { x: "b" })).toBe(true));
+});
+
+describe("evaluateLeaf — in / not_in with the array-wrapped shape Studio emits", () => {
+  const vars = (row: string) => ({ selected: '["sleep","energy"]', "item.value": row });
+
+  it("flattens a one-member array holding the JSON string", () =>
+    expect(evaluateLeaf({ variable: "item.value", operator: "in", value: ["{{selected}}"] }, vars("sleep"))).toBe(true));
+
+  it("still rejects a non-member through the flattened shape", () =>
+    expect(evaluateLeaf({ variable: "item.value", operator: "in", value: ["{{selected}}"] }, vars("focus"))).toBe(false));
+
+  it("`not_in` is the negation through the flattened shape", () => {
+    expect(evaluateLeaf({ variable: "item.value", operator: "not_in", value: ["{{selected}}"] }, vars("energy"))).toBe(false);
+    expect(evaluateLeaf({ variable: "item.value", operator: "not_in", value: ["{{selected}}"] }, vars("focus"))).toBe(true);
+  });
+
+  it("mixes a literal member with a referenced list", () => {
+    const value = ["mood", "{{selected}}"];
+    expect(evaluateLeaf({ variable: "item.value", operator: "in", value }, vars("mood"))).toBe(true);
+    expect(evaluateLeaf({ variable: "item.value", operator: "in", value }, vars("energy"))).toBe(true);
+    expect(evaluateLeaf({ variable: "item.value", operator: "in", value }, vars("focus"))).toBe(false);
+  });
+
+  it("an empty value field (Studio yields []) keeps its documented constants", () => {
+    expect(evaluateLeaf({ variable: "x", operator: "in", value: [] }, { x: "a" })).toBe(false);
+    expect(evaluateLeaf({ variable: "x", operator: "not_in", value: [] }, { x: "a" })).toBe(true);
+  });
+});
+
+describe("evaluateLeaf — an unresolved reference has no members in EITHER shape", () => {
+  // The array-wrapped shape is the one Studio actually emits — its condition
+  // editor always splits the value field into an array — so an unresolved
+  // reference has to mean "no members" there too. Interpolation resolves it to
+  // the empty string, and keeping that as a MEMBER makes an empty-string
+  // variable a member of a list nobody has written: `in` true, `not_in` false,
+  // the exact opposite of the bare-reference shape on the same data. An
+  // empty-string variable is reachable — `InputElement` stores "" on clear and
+  // `Input.defaultValue: ""` is overlaid into the variable map.
+  it("`in` never matches, even when the variable is the empty string", () =>
+    expect(evaluateLeaf({ variable: "name", operator: "in", value: ["{{blocked}}"] }, { name: "" })).toBe(false));
+
+  it("`not_in` matches every row, even when the variable is the empty string", () =>
+    expect(evaluateLeaf({ variable: "name", operator: "not_in", value: ["{{blocked}}"] }, { name: "" })).toBe(true));
+
+  it("answers the same as the bare-reference shape on the same data", () => {
+    const vars = { name: "" };
+    expect(evaluateLeaf({ variable: "name", operator: "in", value: ["{{blocked}}"] }, vars)).toBe(
+      evaluateLeaf({ variable: "name", operator: "in", value: "{{blocked}}" }, vars)
+    );
+    expect(evaluateLeaf({ variable: "name", operator: "not_in", value: ["{{blocked}}"] }, vars)).toBe(
+      evaluateLeaf({ variable: "name", operator: "not_in", value: "{{blocked}}" }, vars)
+    );
+  });
+
+  it("drops only the unresolved member, keeping the resolved ones", () => {
+    const value = ["{{blocked}}", "{{selected}}"];
+    const vars = (row: string) => ({ selected: '["sleep"]', "item.value": row });
+    expect(evaluateLeaf({ variable: "item.value", operator: "in", value }, vars("sleep"))).toBe(true);
+    expect(evaluateLeaf({ variable: "item.value", operator: "in", value }, vars(""))).toBe(false);
+  });
+});
+
+describe("evaluateLeaf — membership compares members stringified", () => {
+  // A payload-authored literal array may hold numbers (ConditionValueSchema
+  // permits them), and `Repeat` keeps a numeric row field numeric on purpose
+  // (`repeatScope.buildRowFlat`), so `1` and `"1"` must be the same member.
+  it("a numeric variable is a member of a numeric list", () =>
+    expect(evaluateLeaf({ variable: "id", operator: "in", value: [1, 2] }, { id: 1 })).toBe(true));
+
+  it("`not_in` agrees with `in` on a numeric list", () =>
+    expect(evaluateLeaf({ variable: "id", operator: "not_in", value: [1, 2] }, { id: 1 })).toBe(false));
+
+  it("a numeric variable is not a member of a list it is absent from", () =>
+    expect(evaluateLeaf({ variable: "id", operator: "not_in", value: [1, 2] }, { id: 3 })).toBe(true));
+
+  it("a numeric row field matches a decoded string list", () =>
+    expect(evaluateLeaf({ variable: "item.id", operator: "in", value: "{{picked}}" }, { picked: '["1","2"]', "item.id": 1 })).toBe(true));
+
+  it("`contains` uses the same member comparison on an array variable", () => {
+    expect(evaluateLeaf({ variable: "ids", operator: "contains", value: "1" }, { ids: [1, 2] })).toBe(true);
+    expect(evaluateLeaf({ variable: "ids", operator: "contains", value: "{{item.id}}" }, { ids: [1, 2], "item.id": 1 })).toBe(true);
+    expect(evaluateLeaf({ variable: "ids", operator: "contains", value: "3" }, { ids: [1, 2] })).toBe(false);
+  });
+});
+
+describe("evaluateLeaf — in / not_in with a right-hand side that is no list at all", () => {
+  it("an unresolved reference has no members, so `in` never matches", () =>
+    expect(evaluateLeaf({ variable: "x", operator: "in", value: "{{nope}}" }, { x: "sleep" })).toBe(false));
+
+  it("an unresolved reference has no members, so `not_in` matches every row", () =>
+    expect(evaluateLeaf({ variable: "x", operator: "not_in", value: "{{nope}}" }, { x: "sleep" })).toBe(true));
+
+  it("a scalar right-hand side reads as a one-member list rather than a constant", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(evaluateLeaf({ variable: "x", operator: "in", value: "male" }, { x: "male" })).toBe(true);
+    expect(evaluateLeaf({ variable: "x", operator: "in", value: "male" }, { x: "female" })).toBe(false);
+    expect(evaluateLeaf({ variable: "x", operator: "not_in", value: "male" }, { x: "male" })).toBe(false);
+    warn.mockRestore();
+  });
+
+  it("warns once per evaluation about a scalar right-hand side, naming the operator", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    evaluateLeaf({ variable: "x", operator: "in", value: "male" }, { x: "male" });
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0]?.[0])).toContain('operator "in"');
+    warn.mockRestore();
+  });
+
+  it("does not warn when the right-hand side is a real list", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    evaluateLeaf({ variable: "x", operator: "in", value: ["male"] }, { x: "male" });
+    evaluateLeaf({ variable: "x", operator: "not_in", value: "{{sel}}" }, { x: "male", sel: '["male"]' });
+    evaluateLeaf({ variable: "x", operator: "in", value: "{{nope}}" }, { x: "male" });
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
 });

@@ -158,6 +158,13 @@ export default function ComposableScreenGridSelectExample() {
                 },
                 {
                   id: 'remaining',
+                  // Gated on the SAME condition as its heading: with nothing
+                  // selected the complement is the whole catalog, so an ungated
+                  // strip would render all four chips under no heading — exactly
+                  // what `main` renders, which would make this screen unable to
+                  // show the fix at all. (With everything selected the heading
+                  // shows above an empty strip; that is the honest end state.)
+                  renderWhen: { variable: 'symptoms', operator: 'is_not_empty' as const },
                   type: 'XStack' as const,
                   props: { gap: 8, flexWrap: 'wrap' as const },
                   children: [

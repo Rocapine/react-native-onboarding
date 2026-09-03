@@ -1439,8 +1439,9 @@ A `CheckboxGroup` stores its selection as a JSON-encoded array string, and a
 reference to it is decoded back into a list before the comparison. Members
 compare stringified, so a numeric `Repeat` row field matches a string member
 (`1` is in `["1","2"]`), and `contains` against an array variable follows the
-same rule. An **empty** list — and a reference to a variable nobody has written
-— has no members: `in` matches nothing, `not_in` matches everything. A
+same rule. An **empty** list — and a reference to a variable nobody has written,
+in either shape — has no members: `in` matches nothing, `not_in` matches
+everything. A
 right-hand side that is no list at all (`"operator": "in", "value": "male"`)
 reads as a one-member list and logs a warning; author `["male"]` or use `eq`.
 

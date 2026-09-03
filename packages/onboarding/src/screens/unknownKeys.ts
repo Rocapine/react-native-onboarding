@@ -1,4 +1,4 @@
-import { UIElementSchema } from "./types";
+import { getElementRegistry } from "./elementTypeRegistry";
 
 /**
  * Detection for keys placed at an element's TOP LEVEL that the schema doesn't
@@ -51,52 +51,6 @@ export type UnknownElementKey = {
   conflicts?: boolean;
 };
 
-type ElementKeySets = { topLevel: Set<string>; props: Set<string> };
-
-const zdef = (schema: any): any => schema?._zod?.def ?? schema?._def;
-
-// Every string literal a `type` field can hold. Most variants use
-// `z.literal("X")`, but the stack variant is `z.union([literal, literal])`.
-const literalsOf = (schema: any): string[] => {
-  const def = zdef(schema);
-  if (!def) return [];
-  if (def.type === "literal") {
-    const values = def.values ?? (def.value !== undefined ? [def.value] : []);
-    return values.filter((v: unknown): v is string => typeof v === "string");
-  }
-  if (def.type === "union") return (def.options ?? []).flatMap(literalsOf);
-  return [];
-};
-
-let registry: Map<string, ElementKeySets> | null = null;
-
-// Built once, lazily. Any shape change in zod's internals degrades to "no
-// registry", which makes the whole feature a no-op rather than a crash — this is
-// a diagnostic, it must never be able to break rendering.
-const getRegistry = (): Map<string, ElementKeySets> => {
-  if (registry) return registry;
-  const built = new Map<string, ElementKeySets>();
-  try {
-    const lazyDef = zdef(UIElementSchema);
-    const union = typeof lazyDef?.getter === "function" ? lazyDef.getter() : UIElementSchema;
-    const options = zdef(union)?.options ?? [];
-    for (const option of options) {
-      const shape = zdef(option)?.shape;
-      if (!shape) continue;
-      const propsShape = zdef(shape.props)?.shape ?? {};
-      const keySets: ElementKeySets = {
-        topLevel: new Set(Object.keys(shape)),
-        props: new Set(Object.keys(propsShape)),
-      };
-      for (const typeName of literalsOf(shape.type)) built.set(typeName, keySets);
-    }
-  } catch {
-    // fall through to whatever was built before the failure
-  }
-  registry = built;
-  return registry;
-};
-
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
@@ -117,14 +71,17 @@ const valuesDiffer = (a: unknown, b: unknown): boolean => {
  * Walk an element tree and report unrecognized top-level keys.
  *
  * Elements whose `type` isn't in the schema are skipped rather than reported —
- * an unknown element type is a parse error the union already surfaces properly,
- * and guessing its key set would produce noise.
+ * guessing the key set of an element this build has never heard of would produce
+ * noise. Unknown element TYPES are their own concern, handled in
+ * `./unknownElementTypes.ts`: the render boundaries omit them so a screen
+ * published ahead of the installed SDK still renders (#209). Both files derive
+ * "known" from the same `./elementTypeRegistry.ts`.
  */
 export const collectUnknownElementKeys = (
   elements: unknown,
   basePath = "elements"
 ): UnknownElementKey[] => {
-  const known = getRegistry();
+  const known = getElementRegistry();
   if (known.size === 0 || !Array.isArray(elements)) return [];
 
   const found: UnknownElementKey[] = [];

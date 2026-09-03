@@ -102,6 +102,18 @@ export {
   formatUnknownElementKeys,
 } from "./screens/unknownKeys";
 export type { UnknownElementKey } from "./screens/unknownKeys";
+// Forward compatibility for element TYPES (#209): an element type published
+// after this app shipped is OMITTED rather than failing the whole screen.
+// `KNOWN_ELEMENT_TYPES` is the capability list of what this build can render.
+export {
+  KNOWN_ELEMENT_TYPES,
+  dropUnknownElementTypes,
+  dropUnknownElementTypesInStep,
+  collectUnknownElementTypes,
+  collectUnknownElementTypesInSteps,
+  formatUnknownElementTypes,
+} from "./screens/unknownElementTypes";
+export type { UnknownElementType } from "./screens/unknownElementTypes";
 // Hooks and providers
 export * from "./infra";
 // Navigation adapter (dependency-injected navigation)

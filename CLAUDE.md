@@ -165,6 +165,10 @@ When adding/changing a `UIElement` type in either ComposableScreen `types.ts`, *
 2. **Update `example/app/example/composable-screen.tsx`** — add/update element in rendered example payload.
 3. **Watch for schema duplication in UI renderers.** Several UI element renderers re-declare their Zod schemas + `*Props` type in lockstep with the headless source (known mirrors: `Runtime/elements/ButtonElement.tsx`, `IconElement.tsx` — grep for `IconElementPropsSchema`-style re-exports to find others). When changing headless `elements/*.ts`, update the UI mirror's field set too — TS won't catch the drift because the UI re-declares its own type. **Drift runs both ways**: a variant added only to the UI mirror (e.g. `setVariable` `ButtonAction`) still fails parsing — the headless schema validates the payload, so a UI-only variant throws `invalid_union` even though the renderer handles it.
 4. **Mirror schema docs in-repo** — run `npm run docs:element-props` (regenerates the prop inventory the plugin reads) then `npm run check:element-docs`, which is CI-gated and tells you exactly which hand-written docs are now short: the element table, and every container enumeration if the element has `children`. Then update the prose the check can't write — `claude-plugin/skills/{compose-screen-builder,validate-step-json,customize-onboarding-components}/SKILL.md` + `create-step-json/references/composable-archetypes.md`, and `website/docs/page-types.mdx` (Button/element prop tables). The list of files in this rule was incomplete for months; prefer the check's output over this sentence, and treat `website/` as the part still on trust.
+6. **Check the forward-compatibility gate before publishing a new element type.** `UIElementSchema` is a `z.discriminatedUnion("type", …)` (`screens/types.ts`) and the ComposableScreen renderer calls a **throwing** `.parse` (`onboarding-ui/src/UI/Pages/ComposableScreen/Renderer.tsx`). So a screen published with an element type an installed app does not know **throws at render** — the whole screen fails rather than degrading. `screens/unknownKeys.ts` covers unknown *keys inside known* elements and deliberately does not reject; nothing covers an unknown element *type*.
+
+   Until [#209](https://github.com/Rocapine/react-native-onboarding/issues/209) lands, a new element type is only safe to publish to audiences whose apps ship an SDK that already knows it. Treat #209 as a prerequisite for every new element, not a follow-up.
+
 5. **Display this prompt for `onboarding-studio` repo** (CMS backend that must mirror schema changes):
 
 ```
@@ -210,3 +214,26 @@ The `rocapine-marketplace` entry states the version too and lives in another rep
 - A minimal step for `.safeParse` needs top-level `id`, `name` (string), `type`, `displayProgressHeader` (boolean), and `payload.elements` — missing `name`/`displayProgressHeader` reads as element errors, not obviously a step-shape problem.
 - Zod v4 `invalid_union` paths are cumulative across nested variant errors; walk the issue tree and concatenate `prefix + it.path` recursively to surface the real failing path.
 - Triage data-vs-schema: many parse failures are CMS **data** bugs, not SDK bugs (e.g. `variant:"clear"` — only `filled/outlined/ghost`; `shadowOpacity:12` — RN bounds `0..1`). Fix in studio, not the schema.
+
+## Native onboarding parity programme
+
+Context for the parity tickets in this repo. Full audit and component matrix:
+**https://claude.ai/code/artifact/abfedd04-6784-41e5-9c2d-67d25906b76c**
+Board: **https://github.com/orgs/Rocapine/projects/1** ("Composable items")
+
+**Where it came from.** Every Expo app in the org was scanned: 127 apps, of which only 5 depend on this SDK and 122 have hand-coded onboardings. 64 distinct native flows were read against this SDK's schema, producing 103 catalogued needs, decomposed into 46 atoms (SDK primitives) and 21 cells (Studio templates over those atoms).
+
+**Read the verdict file before picking up a ticket.** `~/Developer/onboarding-parity-recheck.md` classifies all 103 needs as CORRECT (59) / OVERSTATED (36) / FALSE (7) / RENDERER-GAP (1). The original audit ran against an incomplete baseline and overstated a third of its findings; ticket bodies have been corrected, but the verdict file is the authority on what is actually missing. **Do not trust a ticket that has not been reconciled against it.**
+
+**Two tickets block the rest:**
+
+- **[#217](https://github.com/Rocapine/react-native-onboarding/issues/217) — no condition can compare two variables.** `evaluateLeaf` uses `condition.value` verbatim (`evaluateCondition.ts`), yet `screens/elements/RepeatElement.ts` documents `value: "{{zodiacSign}}"` as *the* way to make `Repeat` a switch. That comparison never matches, silently. It is the root cause behind seven catalogued needs, so fixing it should **shrink** the backlog — do it before building anything new.
+- **[#209](https://github.com/Rocapine/react-native-onboarding/issues/209) — unknown-element forward compatibility.** See step 6 of the schema procedure above. Gates all 17 new-element tickets.
+
+Also open and easy to miss, all found by verifying renderers rather than schemas: `pickerType` accepts `gender`/`age`/`coach` and renders a "not yet implemented" placeholder ([#210](https://github.com/Rocapine/react-native-onboarding/issues/210)); `Loader variant:"texts_fading"` silently renders bars ([#218](https://github.com/Rocapine/react-native-onboarding/issues/218)); `Input.variableName` is write-only after mount ([#219](https://github.com/Rocapine/react-native-onboarding/issues/219)); `Repeat` rows cannot vary a numeric prop so nothing repeated can be staggered ([#220](https://github.com/Rocapine/react-native-onboarding/issues/220)).
+
+**A schema without a renderer is not a feature.** Four of the six bugs above are schema/renderer mismatches that ship silently — no validation error, no warning. When adding anything, check both halves, and prefer failing loudly at publish time over rendering a placeholder.
+
+**Every atom here has a paired Studio ticket** in `rocapine/onboarding-studio`, linked as a cross-repo sub-issue, so an atom reads `Sub-issues 0/1` until it is authorable. That pairing is the tracked version of step 5's mirror prompt — closing the SDK half alone recreates the divergence the audit found (`Commitment` and `replayWhen` both ship here and have zero references in Studio).
+
+**Ticket conventions.** Labels: `parity-gap` on everything; tier is `atom:element|prop|logic|action|chrome` or `cell`; `need:A`–`need:J` maps to the audit's need sections; `prio:P0`–`P3`. Priority is *also* set on the org-level `Priority` **issue field** (Urgent/High/Medium/Low) — that is an issue field, not a project field, so it is written with the `setIssueFieldValue` GraphQL mutation, never `updateProjectV2Field`.

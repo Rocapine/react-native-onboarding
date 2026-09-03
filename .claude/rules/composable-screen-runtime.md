@@ -59,6 +59,12 @@ The **element-level** alternative is the `RichText` container (`RichTextElement.
 
 The ComposableScreen page Renderer wraps its outer `ScrollView` in a `KeyboardAvoidingView` (`flex:1`, iOS `padding`/Android `height`) — that's what makes inputs avoid the keyboard. A `KeyboardAvoidingView` *element* placed inside the payload sits inside that page ScrollView and is **inert** (can't measure its frame). Don't expect the element alone to avoid the keyboard.
 
+## Unknown element types are omitted, not fatal (#209)
+
+`Pages/ComposableScreen/Renderer.tsx` runs `dropUnknownElementTypesInStep(step)` (headless) in front of its `.parse`, so an element type published after the app shipped — missing from the `z.discriminatedUnion("type", …)` — is dropped **with its subtree** and the rest of the screen renders; a `console.warn` names it. Keep the two halves aligned: the strip's "known" set is derived from the headless `UIElementSchema`, and `Runtime/__tests__/unknownElementTypes.test.ts` asserts the headless schema, the UI mirror union and `renderElement`'s dispatch are the SAME set — an element declared in only one of the three either fails to parse or is silently dropped. That test also pins the list of element-tree parse boundaries: a new one fails it until you decide its degradation contract.
+
+**Don't loosen the schema to achieve this.** A plain `z.union` or a catch-all branch would swallow genuine data errors on known types and reintroduce the three crashes the discriminator fixed (`screens/types.ts` comment + `elementUnionDiscriminator.test.ts`). Strip in front, parse strictly. Paywall boundaries deliberately do NOT strip: refusing to open beats a full-screen Modal missing its purchase or dismiss control.
+
 ## Overflow gotcha
 
 Default `overflow: hidden`. Carousel `left-align` carouselType needs `visible` for peek effect. Same for shadows/badges spilling outside bounds. Don't blanket-set `hidden` in refactors.

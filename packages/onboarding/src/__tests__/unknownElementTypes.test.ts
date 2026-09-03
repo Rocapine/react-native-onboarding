@@ -209,14 +209,15 @@ describe("KNOWN_ELEMENT_TYPES", () => {
     expect(KNOWN_ELEMENT_TYPES).toContain("YStack");
     expect(KNOWN_ELEMENT_TYPES).toContain("Slider");
     expect(KNOWN_ELEMENT_TYPES).not.toContain("HolographicCard");
-    for (const type of KNOWN_ELEMENT_TYPES) {
-      expect(
-        ScreenElementsSchema.safeParse([{ id: "a", type, props: {} }]).success ||
-          !ScreenElementsSchema.safeParse([{ id: "a", type, props: {} }]).error.issues.some(
-            (i) => i.path.join(".") === "0.type"
-          )
-      ).toBe(true);
-    }
+    // No known type may be rejected on its own discriminator. Other issues are
+    // expected and fine: `props: {}` is incomplete for most variants.
+    const rejectedOnDiscriminator = KNOWN_ELEMENT_TYPES.filter((type) => {
+      const parsed = ScreenElementsSchema.safeParse([{ id: "a", type, props: {} }]);
+      return (
+        !parsed.success && parsed.error.issues.some((i) => i.path.join(".") === "0.type")
+      );
+    });
+    expect(rejectedOnDiscriminator).toEqual([]);
   });
 
   it("is sorted and free of duplicates, so it is usable as a capability list", () => {

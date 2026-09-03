@@ -175,8 +175,9 @@ describe("wiring", () => {
     const src = read("renderElement.tsx");
     expect(src).toMatch(/pressWrapperLayout\(/);
     expect(src).toMatch(/withNestedLayout\(/);
-    expect(src).not.toMatch(/flex:\s*p\.flex/);
-    expect(src).not.toMatch(/flexShrink:\s*p\.flexShrink/);
+    // Not "no `p.flex`" but "no flex style key at all": a wrapper added later
+    // must get its style from the module, whichever prop it reaches for.
+    expect(src).not.toMatch(/\bflex(Grow|Shrink|Basis)?:/);
   });
 
   it("AnimatedBox nests its transform view with a fill, never a flex", () => {

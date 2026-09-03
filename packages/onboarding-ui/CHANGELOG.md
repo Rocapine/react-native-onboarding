@@ -44,6 +44,40 @@ here.
   evaluator directly, so they gain variable-to-variable comparison from the same
   change. Refs #217.
 
+- **The ComposableScreen renderer now survives an element type this build does
+  not know, and never leaves the user with nothing to press.** It parsed the step
+  with a throwing `ComposableScreenStepTypeSchema.parse` inside
+  `withErrorBoundary`, so a single unknown element type took the whole screen —
+  and the fallback has no interactive control. Unknown element types are now
+  omitted before that parse (the strip itself is in the headless package) and
+  `console.warn`ed. Not dev-gated: a published screen running ahead of the
+  installed SDK is precisely what a host needs to see in production logs.
+
+  **Keyed to this package's own element union, not the headless one.**
+  `getRenderableElementTypes()` derives from the `UIElementSchema` mirror in
+  `UI/Runtime/types.ts` — the schema that actually parses the payload and backs
+  `renderElement`'s dispatch. The two packages are joined by a peer-dependency
+  range, so an installed app can resolve them at different versions, and keying
+  the strip on the other package's list is wrong in both directions: strip an
+  element this build can draw (warning that a known type is unknown), or keep one
+  it cannot and throw the whole screen anyway, as before the fix.
+
+  When a strip leaves nothing that can complete the step, the renderer passes
+  `OnboardingTemplate` its own themed `button` and logs a `console.error` naming
+  the step. The label is a hardcoded `Continue`, because the element carrying the
+  authored copy is exactly what was stripped, and an untranslated word beats a
+  screen the user cannot leave. A visible CTA rather than an automatic
+  `onContinue()`: what survived the strip is still authored content worth
+  showing, and auto-advancing would rip through every consecutive screen built on
+  the same new element without the user seeing any of them. It is the answer both
+  existing boundaries already give — an unknown *step* type renders a Continue
+  button, and a paywall whose elements fail to parse calls `onContinue()` so the
+  user is not trapped.
+
+  Paywall parse boundaries are deliberately unchanged and stay strict: a paywall
+  that cannot parse never opens and resolves `{status:"error"}`, which beats a
+  full-screen modal missing its purchase or dismiss control.
+
 ---
 
 ## [1.74.1] - 2026-09-02

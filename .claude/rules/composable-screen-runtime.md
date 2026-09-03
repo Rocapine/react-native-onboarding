@@ -59,6 +59,19 @@ The **element-level** alternative is the `RichText` container (`RichTextElement.
 
 The ComposableScreen page Renderer wraps its outer `ScrollView` in a `KeyboardAvoidingView` (`flex:1`, iOS `padding`/Android `height`) — that's what makes inputs avoid the keyboard. A `KeyboardAvoidingView` *element* placed inside the payload sits inside that page ScrollView and is **inert** (can't measure its frame). Don't expect the element alone to avoid the keyboard.
 
+## Unknown element types are omitted, not fatal (#209)
+
+`Pages/ComposableScreen/Renderer.tsx` runs `resolveRenderableStep(step, getRenderableElementTypes())` — the headless decision, this package's capability — in front of its `.parse`, so an element type published after the app shipped, missing from the `z.discriminatedUnion("type", …)`, is dropped **with its subtree** and the rest of the screen renders; a `console.warn` names it.
+
+Two rules that are easy to get wrong:
+
+- **The strip is keyed to THIS package's union, never the headless one.** `getRenderableElementTypes()` (`Runtime/renderableElementTypes.ts`) derives from `Runtime/types.ts`'s `UIElementSchema` — the mirror that actually parses the payload and backs `renderElement`'s dispatch. The headless package is a **peer dep by range**, so an installed app can resolve an older headless against a newer UI: keyed the wrong way, an element this build can draw gets stripped (with a warning that lies about why), or one it cannot draw survives and throws the whole screen anyway. `Runtime/__tests__/unknownElementTypes.test.ts` still asserts the headless schema, the UI mirror and `renderElement`'s dispatch are the same set — that is a **release-time** invariant (`check-versions.mjs`), not something the strip depends on, and reading both files off disk cannot see an installed-version skew.
+- **A strip must never leave a screen nobody can leave.** A ComposableScreen's CTA is authored *inside* the element tree, so stripping the element that happened to be the root container leaves `elements: []` — which parses cleanly, turning a loud throw into a silent blank screen (and on `displayProgressHeader: false`, no back chevron either). `resolveRenderableStep` returns `needsEscape` when nothing that survived can complete the step (`hasCompletingAction` — a reachable `"continue"` or `{type:"dismiss"}`), and the renderer then passes `OnboardingTemplate`'s own `button` and logs a `console.error`. Only ever after a strip: an authored screen with no CTA is the author's business, not the SDK's.
+
+That test file also pins the list of element-tree parse boundaries: a new one fails it until you decide its degradation contract.
+
+**Don't loosen the schema to achieve this.** A plain `z.union` or a catch-all branch would swallow genuine data errors on known types and reintroduce the three crashes the discriminator fixed (`screens/types.ts` comment + `elementUnionDiscriminator.test.ts`). Strip in front, parse strictly. Paywall boundaries deliberately do NOT strip: refusing to open beats a full-screen Modal missing its purchase or dismiss control.
+
 ## Overflow gotcha
 
 Default `overflow: hidden`. Carousel `left-align` carouselType needs `visible` for peek effect. Same for shadows/badges spilling outside bounds. Don't blanket-set `hidden` in refactors.

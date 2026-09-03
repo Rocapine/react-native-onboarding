@@ -102,6 +102,29 @@ export {
   formatUnknownElementKeys,
 } from "./screens/unknownKeys";
 export type { UnknownElementKey } from "./screens/unknownKeys";
+// Forward compatibility for element TYPES (#209): an element type published
+// after this app shipped is OMITTED rather than failing the whole screen.
+// `KNOWN_ELEMENT_TYPES` is the capability list of what this build can render.
+export {
+  KNOWN_ELEMENT_TYPES,
+  dropUnknownElementTypes,
+  dropUnknownElementTypesInStep,
+  collectUnknownElementTypes,
+  collectUnknownElementTypesInSteps,
+  formatUnknownElementTypes,
+} from "./screens/unknownElementTypes";
+export type { UnknownElementType } from "./screens/unknownElementTypes";
+// The whole render-boundary decision in one pure call: what to parse, what to
+// log, and whether the renderer must supply its own way off the screen — a
+// ComposableScreen authors its CTA INSIDE the element tree, so a strip can take
+// it and leave a screen nobody can leave. `deriveElementTypeNames` is how a
+// rendering package keys the strip on ITS OWN element union instead of this
+// one's: what draws has to decide what is kept, and the two packages' installed
+// versions can differ.
+export { resolveRenderableStep } from "./screens/resolveRenderableStep";
+export type { RenderableStep } from "./screens/resolveRenderableStep";
+export { hasCompletingAction } from "./screens/completingActions";
+export { deriveElementTypeNames } from "./screens/elementTypeRegistry";
 // Hooks and providers
 export * from "./infra";
 // Navigation adapter (dependency-injected navigation)

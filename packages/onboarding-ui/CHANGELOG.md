@@ -9,6 +9,41 @@ here.
 
 ### Fixed
 
+- **An element gated on `{{ref}}` no longer vanishes on the UI thread.**
+  `renderWhen` has two evaluators: the store-backed `evaluateCondition`, and the
+  UI-thread fast path in `Runtime/elements/animatedGate.ts` that lets an element
+  react to an animated numeric sweep without a re-render per frame. Now that the
+  headless evaluator resolves `{{name}}` references in a condition's value, the
+  fast path had to resolve them to the **same** number — it did not.
+  `toScalar` passed the string through unchanged, `"{{threshold}}"` reached the
+  worklet, and `parseFloat` turned it into `NaN`: every comparison false.
+  **`renderElement` seeds the gate's visibility from the (correct) headless
+  evaluator and the animated reaction then overrides it, so a visible element
+  silently disappeared** — worse than the uniformly-broken behaviour before,
+  because the two paths now disagreed.
+
+  References are resolved at **both** `toScalar` call sites, the single leaf and
+  the one-level and/or group, since fixing only the leaf would leave the band
+  form (`gte lo AND lt hi`) broken — and that is the shape a threshold-driven
+  loader actually authors. An unresolved or non-numeric reference still returns
+  `null` and falls back to the store path, so the two evaluators agree on the one
+  case where there is no number to compare.
+
+  The variable map is threaded into `buildAnimatedGatePlan` rather than a
+  reference simply disqualifying the plan, because for this shape falling back is
+  a regression and not the free "no fast path" the file documents elsewhere: an
+  autoplay `ProgressIndicator` writes its bound variable to the store at the
+  sweep **boundaries** only, so a mid-sweep threshold evaluated against the store
+  never fires at all. To keep that from costing anything, the plan is memoized on
+  a new `animatedGateRefKey` — it changes only when a value one of this
+  condition's references resolves to changes, and is `""` for a condition holding
+  no reference, so the common case still keys on `element` alone and the gate's
+  `useAnimatedReaction` mapper is not rebuilt on unrelated writes.
+
+  `Button props.disabledWhen` and `RichText` child gating call the headless
+  evaluator directly, so they gain variable-to-variable comparison from the same
+  change. Refs #217.
+
 - **The ComposableScreen renderer now survives an element type this build does
   not know, and never leaves the user with nothing to press.** It parsed the step
   with a throwing `ComposableScreenStepTypeSchema.parse` inside

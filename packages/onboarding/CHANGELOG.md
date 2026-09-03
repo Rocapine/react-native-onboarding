@@ -8,6 +8,34 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ### Fixed
 
+- **A condition can now compare a variable against another variable.**
+  `evaluateLeaf` compared `condition.value` verbatim, so a condition's
+  right-hand side could only ever be an authored literal — yet
+  `screens/elements/RepeatElement.ts` has always documented
+  `{ variable: "item.sign", operator: "eq", value: "{{zodiacSign}}" }` as *the*
+  way to make `Repeat` behave as a switch, and cites it as the reason there is no
+  separate `Match` element. **That comparison never matched.** It tested the
+  row's sign against the 14-character string `"{{zodiacSign}}"` and failed
+  silently — no validation error, no warning, just a repeated subtree in which
+  every row was filtered out. A documented contract that did not work.
+
+  The rule now is: **`{{name}}` on a condition's right-hand side is resolved
+  against the variable map before the comparison**, including inside an
+  `in` / `not_in` array. A reference resolves to the variable's **value**, not
+  its display label — the same convention as `Image mode:"expression"` — so a
+  gate compares machine identifiers rather than translated copy. An unknown
+  reference resolves to the empty string rather than throwing, so a gate on a
+  variable nobody has written yet simply does not match, exactly as an
+  unsatisfied literal comparison would.
+
+  Because this lands in the shared evaluator, everything that routes through it
+  inherits it with no other change: element `renderWhen`, and step-branch
+  routing in `resolveNextStepNumber` — a branch may now compare two answers
+  instead of a stored answer against a constant. Hosts calling the exported
+  `evaluateCondition` / `evaluateLeaf` get the same behaviour. Refs #217; see
+  the UI package's CHANGELOG for the matching fix to the UI-thread gate, which
+  bypasses this function.
+
 - **A screen no longer fails because it contains an element type the installed
   app does not know.** `UIElementSchema` is a `z.discriminatedUnion("type", …)`
   over the element types a build knows, so a type published after an app shipped

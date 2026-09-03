@@ -240,4 +240,14 @@ Also open and easy to miss, all found by verifying renderers rather than schemas
 
 **Every atom here has a paired Studio ticket** in `rocapine/onboarding-studio`, linked as a cross-repo sub-issue, so an atom reads `Sub-issues 0/1` until it is authorable. That pairing is the tracked version of step 5's mirror prompt — closing the SDK half alone recreates the divergence the audit found (`Commitment` and `replayWhen` both ship here and have zero references in Studio).
 
+**How this backlog gets worked.** Two dedicated agents each take one issue number,
+triage it against the verdict file *before* writing code, then build test-first in their
+own worktree and open a draft PR: `sdk-parity-dev` for this repo, `studio-parity-dev` for
+`onboarding-studio`. Neither may merge, mark a PR ready, bump a version, or publish. They
+move their own card on project #1 (`In progress` on pickup, `In review` once the draft PR
+is open) and never set `Done`, because that follows a merge. The batch workflow that drives
+them, `parity-programme-batch`, is saved in **`onboarding-studio`** under
+`.claude/workflows/` — it covers both repos, and lives there because that repo holds most
+of the board. Do not write a second one here.
+
 **Ticket conventions.** Labels: `parity-gap` on everything; tier is `atom:element|prop|logic|action|chrome` or `cell`; `need:A`–`need:J` maps to the audit's need sections; `prio:P0`–`P3`. Priority is *also* set on the org-level `Priority` **issue field** (Urgent/High/Medium/Low) — that is an issue field, not a project field, so it is written with the `setIssueFieldValue` GraphQL mutation, never `updateProjectV2Field`.

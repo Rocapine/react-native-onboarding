@@ -5,6 +5,7 @@ import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { GradientBox } from "./GradientBox";
 import { UIElement } from "../types";
 import { RenderContext, dim, areElementPropsEqual } from "./shared";
+import { fillLayout } from "./wrapperLayout";
 
 export type ScrollViewContentInset = {
   top?: number;
@@ -114,7 +115,12 @@ const ScrollViewElementComponentBase = ({ element, ctx }: Props): React.ReactEle
       alwaysBounceHorizontal={p.alwaysBounceHorizontal}
       contentInset={p.contentInset}
       keyboardShouldPersistTaps={p.keyboardShouldPersistTaps ?? "handled"}
-      style={hasGradient ? { flex: fillsParent ? 1 : p.flex } : containerStyle}
+      // Gradient path: the inner ScrollView FILLS the GradientBox that carries
+      // the box layout. `fillLayout`, never `flex: 1` — `flex` implies
+      // `flexBasis: 0`, which measures 0 whenever the outer box's own main size
+      // is auto (#231), and would also make this branch lay out differently
+      // from the non-gradient one.
+      style={hasGradient ? fillLayout(fillsParent) : containerStyle}
       contentContainerStyle={contentContainerStyle}
     >
       {ctx.renderChildren(element.children, horizontal ? "XScroll" : "YStack")}

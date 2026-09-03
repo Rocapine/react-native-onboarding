@@ -1,7 +1,6 @@
 import type { UIElement } from "../types";
 import type { BaseBoxProps } from "./BaseBoxProps";
-
-type ParentType = "XStack" | "YStack" | "ZStack" | "RichText" | "XScroll";
+import type { ParentType } from "./shared";
 
 /**
  * Who owns which layout prop when `renderElement` nests an element inside a
@@ -14,20 +13,32 @@ type ParentType = "XStack" | "YStack" | "ZStack" | "RichText" | "XScroll";
  * `{ flexGrow: N, flexShrink: 1, flexBasis: 0 }`, so a nested copy contributes
  * **zero** main size: the wrapper's own auto height became the sum of its
  * children's flex bases (0), the wrapper measured 0, and the element painted
- * over whatever followed it while its row reserved nothing. Web does not show it
- * because CSS gives flex items an automatic content-based minimum size
- * (`min-height: auto`) and Yoga does not.
+ * over whatever followed it while its row reserved nothing.
+ *
+ * Web does not show it, and the reason is intrinsic sizing rather than the
+ * automatic minimum size CSS would otherwise supply — react-native-web's own
+ * View reset sets `min-width: 0; min-height: 0`, so that safety net is already
+ * switched off there. What differs is how the two engines size a flex container
+ * whose main size is `auto`: CSS resolves it from its items' max-content
+ * contributions (which account for the item's CONTENT, not just its flex
+ * basis), while Yoga resolves it from the items' flex BASE sizes — and a
+ * `flex: N` item's base size is 0.
  *
  * The split, in one place for every wrapper present and future:
  *
  * - **Parent-facing props** (`flex`, `flexGrow`, `flexShrink`, `alignSelf`)
  *   describe how the box relates to its PARENT, so they belong on the OUTERMOST
  *   box only — that is the one the parent lays out.
- * - Every box **below** it gets `flexGrow: 1` instead, and only if the element
- *   asked for flex sizing at all. `flexGrow` keeps `flexBasis: auto`, so a
- *   nested box fills a parent-facing box that got a definite main size, and
- *   content-sizes one that did not. That is the same intent the doubled `flex`
- *   had (an inner view filling a flexed outer) without the zero basis.
+ * - Every box **below** it gets the FILL CONTRACT instead: `flexGrow: 1` to
+ *   fill a parent-facing box that got a definite main size (and only if the
+ *   element asked for flex sizing at all), plus `flexShrink: 1` so it is still
+ *   CLAMPED by that box. `flexBasis: 0` was doing both jobs — it collapsed the
+ *   box (the bug) and it clamped it — so dropping it without the shrink lets a
+ *   nested box grow to its own content and overflow the wrapper, which is how a
+ *   wrapped `ScrollView` would lose its bounded height and stop scrolling.
+ * - The nested box's flex props are the contract, NOT the author's props. The
+ *   authored values are applied exactly once, on the box the parent lays out;
+ *   writing them on both boxes is the duplication this module removes.
  *
  * `width`/`height`/`padding`/`margin` deliberately stay on the element: a
  * content-sized wrapper grows to fit them, so they need no split.
@@ -44,15 +55,20 @@ export type ParentFacingLayout = {
 /** Layout for a box nested inside the parent-facing one. */
 export type NestedFillLayout = {
   flexGrow?: number;
+  flexShrink?: number;
 };
 
 type FlexSizingProps = Pick<BaseBoxProps, "flex" | "flexGrow">;
 
 /**
- * Did the author ask this element to be sized by its parent's flex line? Also
- * the predicate several renderers gate an internal fill on (the gradient-fork
- * rule in `.claude/rules/composable-screen-runtime.md`), which is why the
- * demotion below substitutes `flexGrow` for `flex` rather than dropping it.
+ * Did the author ask this element to be sized by its parent's flex line?
+ *
+ * NOT the same predicate as the renderers' `fillsParent`
+ * (`p.height != null || p.flex != null || p.flexGrow != null`), which also
+ * counts an explicit height — an explicitly-sized box needs no fill. What
+ * matters for those renderers is that the demotion PRESERVES their predicate,
+ * which is why it substitutes `flexGrow` for `flex` rather than dropping it
+ * (`wrapperLayout.test.ts` pins that predicate directly).
  */
 export const wantsFlexSizing = (p: FlexSizingProps): boolean =>
   p.flex != null || p.flexGrow != null;
@@ -69,8 +85,24 @@ export const parentFacingLayout = (
   alignSelf: p.alignSelf,
 });
 
-export const nestedFillLayout = (p: FlexSizingProps): NestedFillLayout => ({
-  flexGrow: wantsFlexSizing(p) ? 1 : undefined,
+export const nestedFillLayout = (p: FlexSizingProps): NestedFillLayout =>
+  fillLayout(wantsFlexSizing(p));
+
+/**
+ * The fill contract by itself, for a box whose outer is known to be sized —
+ * the gradient forks and other renderer-internal wrappers, which have no
+ * `BaseBoxProps` of their own to read. Use this instead of a literal
+ * `flex: 1`: `flex` implies `flexBasis: 0`, which measures 0 whenever the
+ * outer box's own main size is auto.
+ *
+ * `flexShrink: 0` in the not-filling case is RN's own default, so it changes
+ * nothing on its own; it is written out because the renderers default
+ * `flexShrink` to 1 under an `XStack` parent and a nested box must not
+ * re-acquire a second shrink.
+ */
+export const fillLayout = (fills: boolean): NestedFillLayout => ({
+  flexGrow: fills ? 1 : undefined,
+  flexShrink: fills ? 1 : 0,
 });
 
 /**
@@ -98,21 +130,47 @@ const nestedCache = new WeakMap<UIElement, UIElement>();
  * keep reading `props.flex` / `props.flexShrink` unchanged and none of them has
  * to know whether it was wrapped.
  */
+// Per-state style overrides are `BaseBoxPropsSchema.extend({…}).partial()` and
+// are spread OVER the element's own props at render time (`ButtonElement`'s
+// `eff`), so an authored `pressedStyle.flex` would put `flexBasis: 0` back on
+// the nested box for as long as the finger is down. Only the parent-facing keys
+// move; everything else in the override is untouched.
+const NESTED_OVERRIDE_KEYS = ["pressedStyle", "disabledStyle"] as const;
+
+const demoteOverride = (
+  override: unknown,
+  fill: NestedFillLayout
+): Record<string, unknown> | undefined => {
+  if (!override || typeof override !== "object") return override as undefined;
+  const o = override as BaseBoxProps;
+  return {
+    ...(override as Record<string, unknown>),
+    flex: undefined,
+    alignSelf: undefined,
+    // An override that itself asks to fill keeps filling; one that says nothing
+    // inherits the base props' contract.
+    ...(wantsFlexSizing(o) ? fillLayout(true) : fill),
+  };
+};
+
 export const withNestedLayout = <T extends UIElement>(element: T): T => {
   const cached = nestedCache.get(element);
   if (cached) return cached as T;
   const p = element.props as BaseBoxProps;
+  const fill = nestedFillLayout(p);
+  const overrides: Record<string, unknown> = {};
+  for (const key of NESTED_OVERRIDE_KEYS) {
+    const value = (element.props as Record<string, unknown>)[key];
+    if (value != null) overrides[key] = demoteOverride(value, fill);
+  }
   const nested = {
     ...element,
     props: {
       ...element.props,
       flex: undefined,
-      ...nestedFillLayout(p),
-      // RN's own default, stated explicitly: the renderers that default
-      // `flexShrink` to 1 under an `XStack` parent must not re-add a second
-      // shrink here, since the wrapper is the box the row lays out.
-      flexShrink: 0,
       alignSelf: undefined,
+      ...fill,
+      ...overrides,
     },
   } as unknown as T;
   nestedCache.set(element, nested);

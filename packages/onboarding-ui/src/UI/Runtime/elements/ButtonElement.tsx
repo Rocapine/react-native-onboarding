@@ -12,6 +12,7 @@ import {
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
 import { RenderContext, buildShadowStyle, dim, resolveInheritedFontFamily } from "./shared";
+import { fillLayout } from "./wrapperLayout";
 import { useVariables } from "./VariablesContext";
 import { GradientBox } from "./GradientBox";
 import { triggerHaptic, type HapticStyle } from "./haptics";
@@ -253,7 +254,7 @@ export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElem
             borderWidth: isOutlined ? (eff.borderWidth ?? 1) : (eff.borderWidth ?? 0),
             borderColor: isOutlined ? outlinedBorderColor : eff.borderColor,
             overflow: "hidden",
-            flex: gradientFillsParent ? 1 : undefined,
+            ...fillLayout(gradientFillsParent),
           }}
         >
           <Pressable
@@ -262,7 +263,7 @@ export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElem
             onPressOut={onPressOut}
             disabled={isDisabled}
             style={{
-              flex: gradientFillsParent ? 1 : undefined,
+              ...fillLayout(gradientFillsParent),
               padding: eff.padding,
               paddingVertical: eff.paddingVertical ?? (eff.padding != null ? undefined : 14),
               paddingHorizontal: eff.paddingHorizontal ?? (eff.padding != null ? undefined : 24),

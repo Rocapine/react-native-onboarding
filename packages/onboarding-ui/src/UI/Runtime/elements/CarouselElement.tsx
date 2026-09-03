@@ -33,6 +33,7 @@ import Carousel, { Pagination, ICarouselInstance } from "react-native-reanimated
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import type { UIElement } from "../types";
 import { dim, type RenderContext } from "./shared";
+import { fillLayout } from "./wrapperLayout";
 import { useVariables } from "./VariablesContext";
 import { useAnimatedVariables } from "./AnimatedVariablesContext";
 import { GradientBox } from "./GradientBox";
@@ -285,7 +286,11 @@ export function CarouselElementComponent({ element, ctx }: Props): React.ReactEl
   return (
     <GradientBox gradient={props.backgroundGradient} style={containerStyle}>
       {dotsPosition === "top" && pagination}
-      <View style={{ flex: 1 }} onLayout={onLayout}>
+      {/* The measuring box fills the container (which always has a definite
+          height: `props.height` or DEFAULT_HEIGHT unless flex/flexGrow was
+          authored). `fillLayout`, not `flex: 1`, so it never contributes a zero
+          basis to a container whose own main size is auto (#231). */}
+      <View style={fillLayout(true)} onLayout={onLayout}>
         {ready && (
           <Carousel
             ref={ref}

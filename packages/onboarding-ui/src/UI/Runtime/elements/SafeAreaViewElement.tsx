@@ -6,6 +6,7 @@ import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { GradientBox } from "./GradientBox";
 import { UIElement } from "../types";
 import { RenderContext, dim, areElementPropsEqual } from "./shared";
+import { fillLayout } from "./wrapperLayout";
 
 export type SafeAreaEdge = "top" | "right" | "bottom" | "left";
 export type SafeAreaEdgeMode = "off" | "additive" | "maximum";
@@ -104,7 +105,11 @@ const SafeAreaViewElementComponentBase = ({ element, ctx }: Props): React.ReactE
   // is more specific than padding/paddingVertical, so re-add the base it shadows.
   const baseTopPadding = p.padding ?? p.paddingVertical;
   const safeAreaStyle = {
-    flex: hasGradient && fillsParent ? 1 : p.flex,
+    // Gradient path: this inner SafeAreaView fills the GradientBox that carries
+    // `frameStyle`, and it fills with `flexGrow`/`flexShrink` — a `flex: 1`
+    // here measures 0 inside a content-sized outer (#231). Non-gradient path:
+    // this IS the outer box, so it restates `frameStyle`'s own `flex`.
+    ...(hasGradient ? fillLayout(fillsParent) : { flex: p.flex }),
     padding: p.padding,
     paddingHorizontal: p.paddingHorizontal,
     paddingVertical: p.paddingVertical,

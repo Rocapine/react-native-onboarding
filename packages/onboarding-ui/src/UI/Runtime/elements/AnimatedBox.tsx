@@ -165,7 +165,7 @@ export const AnimatedBox = ({
       entering={entering}
       exiting={exiting}
       layout={layout}
-      style={outerLayout}
+      style={[outerLayout, hidden ? { opacity: 0 } : null]}
     >
       {/* Fills the flexed outer wrapper; content-sized when the outer is. This
           is `flexGrow`, never `flex` — `flex` implies `flexBasis: 0`, so the

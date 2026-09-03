@@ -4,7 +4,7 @@ import { runOnJS, useAnimatedReaction, useSharedValue, type SharedValue } from "
 import { evaluateCondition } from "@rocapine/react-native-onboarding";
 import { UIElement } from "../types";
 import { BaseBoxProps } from "./BaseBoxProps";
-import { RenderContext, areElementPropsEqual } from "./shared";
+import { RenderContext, areElementPropsEqual, type ParentType } from "./shared";
 import { useVariables } from "./VariablesContext";
 import { useAnimatedVariables } from "./AnimatedVariablesContext";
 import { animatedGateRefKey, buildAnimatedGatePlan, evalAnimatedNode } from "./animatedGate";
@@ -37,8 +37,6 @@ import { DrawingPadElementComponent } from "./DrawingPadElement";
 import { SliderElementComponent } from "./SliderElement";
 import { AnimatedBox, OnceAnimatedBox, ReplayingAnimatedBox } from "./AnimatedBox";
 import { parentFacingLayout, pressWrapperLayout, withNestedLayout } from "./wrapperLayout";
-
-type ParentType = "XStack" | "YStack" | "ZStack" | "RichText" | "XScroll";
 
 // Element types that own their own press / focus / scroll handling. The generic
 // `onPress` (BaseBoxProps) is NOT wired for these — Button/RadioGroup/Checkbox/

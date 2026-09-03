@@ -71,16 +71,27 @@ describe("nestedFillLayout", () => {
     expect(nestedFillLayout(props({ flex: 1 })).flex).toBeUndefined();
   });
 
-  it("fills the parent-facing box with flexGrow when the element authored flex", () => {
-    expect(nestedFillLayout(props({ flex: 2 }))).toEqual({ flexGrow: 1 });
+  // `flexBasis: 0` was doing two jobs: it collapsed the box (the bug) AND it
+  // clamped the box to a wrapper with a definite main size. Dropping it without
+  // `flexShrink` lets a nested box grow to its own content and overflow the
+  // wrapper — a wrapped ScrollView loses its bounded height and stops
+  // scrolling. Grow to fill, shrink to stay clamped.
+  it("keeps the clamp the zero basis was providing", () => {
+    expect(nestedFillLayout(props({ flex: 2 }))).toEqual({ flexGrow: 1, flexShrink: 1 });
   });
 
   it("fills the parent-facing box when the element authored flexGrow", () => {
-    expect(nestedFillLayout(props({ flexGrow: 1 }))).toEqual({ flexGrow: 1 });
+    expect(nestedFillLayout(props({ flexGrow: 1 }))).toEqual({ flexGrow: 1, flexShrink: 1 });
   });
 
+  // `flexShrink: 0` is RN's own default, so it changes nothing on its own — it
+  // is stated because the renderers default `flexShrink` to 1 under an `XStack`
+  // parent, and a nested box must not re-acquire a second shrink.
   it("stays content-sized when the element asked for no flex sizing", () => {
-    expect(nestedFillLayout(props({ padding: 8 }))).toEqual({ flexGrow: undefined });
+    expect(nestedFillLayout(props({ padding: 8 }))).toEqual({
+      flexGrow: undefined,
+      flexShrink: 0,
+    });
   });
 });
 
@@ -95,7 +106,10 @@ describe("pressWrapperLayout", () => {
   });
 
   it("only fills when a motion wrapper sits outside it", () => {
-    expect(pressWrapperLayout(props({ flex: 1 }), "XStack", true)).toEqual({ flexGrow: 1 });
+    expect(pressWrapperLayout(props({ flex: 1 }), "XStack", true)).toEqual({
+      flexGrow: 1,
+      flexShrink: 1,
+    });
   });
 });
 
@@ -107,13 +121,39 @@ describe("withNestedLayout", () => {
   });
 
   it("clears the props that moved to the parent-facing box", () => {
-    const inner = withNestedLayout(card({ flex: 1, flexShrink: 1, alignSelf: "center" }))
+    const inner = withNestedLayout(card({ flex: 1, flexShrink: 0, alignSelf: "center" }))
       .props as BaseBoxProps;
-    // `flexShrink: 0` is RN's own default, and it is explicit so the renderers'
-    // `?? (parentType === "XStack" ? 1 : undefined)` default cannot re-add a
-    // second shrink on the inner box.
-    expect(inner.flexShrink).toBe(0);
+    // The nested box's flex props are the FILL CONTRACT, not the author's props:
+    // the authored values are honoured once, on the box the parent lays out
+    // (asserted in `parentFacingLayout` above). Writing them on both boxes is
+    // the duplication this module exists to remove — and the clamp has to hold
+    // whatever the author asked for on the outside.
+    expect(inner.flexShrink).toBe(1);
     expect(inner.alignSelf).toBeUndefined();
+  });
+
+  it("demotes flex inside pressedStyle / disabledStyle too", () => {
+    // `ButtonStyleOverrideSchema` is `BaseBoxPropsSchema.extend({…}).partial()`
+    // and `ButtonElement` renders `{...props, ...stateOverride}`, so an authored
+    // `pressedStyle.flex` puts `flexBasis: 0` back on the inner box for exactly
+    // as long as the finger is down.
+    const inner = withNestedLayout({
+      id: "cta",
+      type: "Button",
+      props: {
+        label: "Go",
+        flex: 1,
+        pressedStyle: { flex: 1, backgroundColor: "#000" },
+        disabledStyle: { flex: 1 },
+      },
+    } as unknown as UIElement).props as BaseBoxProps & {
+      pressedStyle?: BaseBoxProps & { backgroundColor?: string };
+      disabledStyle?: BaseBoxProps;
+    };
+    expect(inner.pressedStyle?.flex).toBeUndefined();
+    expect(inner.disabledStyle?.flex).toBeUndefined();
+    // Only the layout props move — the override still does its actual job.
+    expect(inner.pressedStyle?.backgroundColor).toBe("#000");
   });
 
   it("preserves everything that is not parent-facing layout", () => {
@@ -129,9 +169,29 @@ describe("withNestedLayout", () => {
     expect(inner.children).toBe(el.children);
   });
 
-  // Several renderers gate an internal fill on `p.height ?? p.flex ?? p.flexGrow`
-  // (the gradient-fork rule). Substituting flexGrow for flex keeps that true.
-  it("keeps the element asking for flex sizing", () => {
+  // Five renderers gate an internal fill on THIS predicate, not on
+  // `wantsFlexSizing` (which omits `height`): `ScrollViewElement.tsx:66`,
+  // `SafeAreaViewElement.tsx:102`, `KeyboardAvoidingViewElement.tsx:65`,
+  // `ButtonElement.tsx:174`, `CarouselElement.tsx:192`. A demotion that dropped
+  // `flex` instead of substituting `flexGrow` would flip all five onto their
+  // content-sized branch, so pin the predicate they actually use.
+  const fillsParent = (p: BaseBoxProps): boolean =>
+    p.height != null || p.flex != null || p.flexGrow != null;
+
+  it("preserves the fillsParent predicate the renderers gate on", () => {
+    for (const authored of [
+      props({ flex: 1 }),
+      props({ flexGrow: 1 }),
+      props({ height: 200 }),
+      props({ padding: 8 }),
+    ]) {
+      expect(fillsParent(withNestedLayout(card(authored)).props as BaseBoxProps)).toBe(
+        fillsParent(authored)
+      );
+    }
+  });
+
+  it("still reports flex sizing after the demotion", () => {
     const el = card({ flex: 1 });
     expect(wantsFlexSizing(el.props)).toBe(true);
     expect(wantsFlexSizing(withNestedLayout(el).props)).toBe(true);
@@ -155,6 +215,7 @@ describe("the whole wrapper chain", () => {
     expect(chain.filter((box) => box.flex != null)).toHaveLength(1);
     expect(chain[0].flex).toBe(1);
     expect(chain.slice(1).every((box) => box.flexGrow === 1)).toBe(true);
+    expect(chain.slice(1).every((box) => box.flexShrink === 1)).toBe(true);
   });
 });
 
@@ -184,5 +245,38 @@ describe("wiring", () => {
     const src = read("AnimatedBox.tsx");
     expect(src).toMatch(/nestedFillLayout\(/);
     expect(src).not.toMatch(/flex:\s*(1|flex)\b/);
+  });
+
+  it("AnimatedBox honours `hidden` in both branches", () => {
+    // `hidden` holds a deferred `entering.once` element invisible. Applied only
+    // in the no-builder branch, an element that ALSO sets `exiting`/`layout`
+    // renders visible through its hold.
+    // Both the builder and the no-builder branch must apply it — `hidden?:` in
+    // the props declaration matched a looser regex, so match the style entry.
+    const src = read("AnimatedBox.tsx");
+    expect([...src.matchAll(/hidden\s*\?\s*\{\s*opacity:\s*0\s*\}/g)]).toHaveLength(2);
+  });
+
+  // The demotion cannot help a renderer that computes its own inner `flex` from
+  // a `fillsParent`-style predicate: that predicate stays true (it must — see
+  // above), so the renderer re-emits `flex: 1` on a nested box and the zero
+  // basis comes back for the very elements this fixes. It also splits the
+  // gradient fork from the non-gradient one, which the runtime rules forbid.
+  it("no renderer fills a nested box with flex", () => {
+    for (const file of [
+      "ScrollViewElement.tsx",
+      "SafeAreaViewElement.tsx",
+      "KeyboardAvoidingViewElement.tsx",
+      "ButtonElement.tsx",
+      "CarouselElement.tsx",
+    ]) {
+      const src = read(file);
+      expect(src, `${file} gates an inner flex on a fillsParent predicate`).not.toMatch(
+        /flex:\s*\w*[Ff]ills[Pp]arent\s*\?/
+      );
+      expect(src, `${file} hardcodes flex on a nested box`).not.toMatch(
+        /style=\{\{\s*flex:\s*1\s*\}\}/
+      );
+    }
   });
 });

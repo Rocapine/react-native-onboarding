@@ -5,6 +5,7 @@ import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { GradientBox } from "./GradientBox";
 import { UIElement } from "../types";
 import { RenderContext, dim, areElementPropsEqual } from "./shared";
+import { fillLayout } from "./wrapperLayout";
 
 export type KeyboardAvoidingBehavior = "padding" | "height" | "position";
 
@@ -68,7 +69,10 @@ const KeyboardAvoidingViewElementComponentBase = ({ element, ctx }: Props): Reac
       behavior={p.behavior ?? defaultBehavior()}
       keyboardVerticalOffset={p.keyboardVerticalOffset ?? 0}
       enabled={p.enabled ?? true}
-      style={hasGradient ? { flex: fillsParent ? 1 : p.flex } : containerStyle}
+      // Fills the GradientBox via `fillLayout`, never `flex: 1` — see #231 and
+      // the wrapper-layout rule; `flex` here would collapse inside a
+      // content-sized outer and split the two branches' layout.
+      style={hasGradient ? fillLayout(fillsParent) : containerStyle}
     >
       {ctx.renderChildren(element.children, "YStack")}
     </KeyboardAvoidingView>

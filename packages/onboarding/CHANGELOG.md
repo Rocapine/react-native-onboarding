@@ -6,6 +6,69 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A screen no longer fails because it contains an element type the installed
+  app does not know.** `UIElementSchema` is a `z.discriminatedUnion("type", …)`
+  over the element types a build knows, so a type published after an app shipped
+  missed every branch and failed the **whole** `elements` array — and the
+  ComposableScreen renderer parsed with a throwing `.parse`. Publishing one new
+  element type therefore took down the entire screen on every already-installed
+  app, not just the element it could not draw: the error fallback has no
+  interactive control, and the back chevron lives in `<ProgressBar>` behind the
+  step's `displayProgressHeader`, so on a header-off step there was no exit in
+  either direction — `onContinue` had died with the subtree.
+
+  The rule now is: **an element type this build cannot render is omitted with its
+  subtree in front of the parse, reported, and the rest of the screen renders.**
+  Publishing a screen that uses a new element type is safe for older apps, which
+  it was not before.
+
+  Loosening the union was deliberately not the fix. A catch-all branch would have
+  swallowed real data bugs as well, so everything that is not an unknown *type*
+  still parses strictly: a `variant` outside its enum or a missing `id` keeps
+  failing loudly with its exact path. `ScreenElementsSchema` itself stays
+  strict, so authoring- and publish-time validation still reports a typo'd
+  element type as an error rather than quietly dropping it. Omit is the contract
+  the runtime already implements at its other boundaries — `renderElement`'s
+  terminal `return null`, `buildAnimation`'s unknown-preset no-op,
+  `OnboardingPage`'s unknown-step skip.
+
+  **A strip can take the screen's only way forward, so the same call now answers
+  for that too.** A ComposableScreen authors its CTA *inside* the element tree,
+  so dropping an unknown root container leaves `elements: []`, which parses
+  cleanly: the loud throw this replaced would have become a silent screen with
+  nothing to press. `resolveRenderableStep` returns `needsEscape` when nothing
+  that survived can complete the step — `hasCompletingAction` walks the surviving
+  tree for a press-reachable `"continue"` or `{type:"dismiss"}`, following
+  `runActions`, the only thing in the runtime that calls `onContinue` — and the
+  renderer supplies its own button. Only ever after a strip: an authored screen
+  with no CTA is the author's business and does not acquire an SDK button.
+
+  What this does **not** cover: no `sdkVersion` reaches the backend, so Studio
+  cannot compute a capability floor or gate a publish on it. An element type
+  published to an audience running older builds is a partial screen plus a
+  warning in the host's logs — not an error anyone is shown before it ships.
+
+### Added
+
+- **`resolveRenderableStep` is public API** — the whole render-boundary decision
+  in one pure call: what to parse, what to report, and whether the renderer must
+  supply its own way off the screen.
+
+  `deriveElementTypeNames(schema)` is exported with it, because a rendering
+  package must key the strip on **its own** element union rather than this one's.
+  The two packages are peers joined by a peer-dependency range, so their
+  installed versions can legitimately differ; keying on the headless schema could
+  strip an element the installed UI draws perfectly well, or keep one it cannot
+  draw and throw the screen anyway. Mechanism shared, answer per package.
+
+  Also exported: `KNOWN_ELEMENT_TYPES` (this build's capability list, which is
+  what a publish-time gate would need), `dropUnknownElementTypes` /
+  `dropUnknownElementTypesInStep`, `collectUnknownElementTypes` /
+  `collectUnknownElementTypesInSteps`, `formatUnknownElementTypes`, and
+  `hasCompletingAction`.
+
 ---
 
 ## [1.74.1] - 2026-09-02

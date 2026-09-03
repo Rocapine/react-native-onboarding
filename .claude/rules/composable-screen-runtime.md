@@ -12,7 +12,7 @@ Every UIElement renderer that wraps content builds `containerStyle` from `BaseBo
 
 ## `parentType` flexShrink + `XScroll`
 
-`parentType` controls the `flexShrink: 1` default applied to children of a row (`XStack`) in `StackElement`/`TextElement`/`RichTextElement`. Horizontal `ScrollView` passes `"XScroll"` instead (row layout, **no** flexShrink default) + drops `flexGrow:1` from its content container, so scroll children keep intrinsic width and overflow — else fixed-width cards shrink to the viewport and the row can't scroll. parentType union is now `XStack|YStack|ZStack|RichText|XScroll` (6 spots — see container rule below).
+`parentType` controls the `flexShrink: 1` default applied to children of a row (`XStack`) in `StackElement`/`TextElement`/`RichTextElement` — and, when `renderElement` wraps the element (`onPress`/motion), on the **wrapper** instead, because that is the box the row lays out (`wrapperLayout.parentFacingLayout`; the element inside then renders `flexShrink: 0`). Horizontal `ScrollView` passes `"XScroll"` instead (row layout, **no** flexShrink default) + drops `flexGrow:1` from its content container, so scroll children keep intrinsic width and overflow — else fixed-width cards shrink to the viewport and the row can't scroll. parentType union is now `XStack|YStack|ZStack|RichText|XScroll` (6 spots — see container rule below).
 
 ## ImageElement: webp + svg
 
@@ -20,7 +20,7 @@ Every UIElement renderer that wraps content builds `containerStyle` from `BaseBo
 
 ## Motion: animation / transform (BaseBoxProps)
 
-`animation` (`entering`/`exiting`/`layout`/`effect`) + `transform` live on `BaseBoxProps`, so every element inherits them. A single `AnimatedBox` wrapper injected in `renderElement` (only when `animation`/`transform` present) applies them for all 15 types — **don't** convert individual element roots to `Animated.View`. It forwards `flex`/`alignSelf` so the wrapper stays layout-transparent.
+`animation` (`entering`/`exiting`/`layout`/`effect`) + `transform` live on `BaseBoxProps`, so every element inherits them. A single `AnimatedBox` wrapper injected in `renderElement` (only when `animation`/`transform` present) applies them for all 15 types — **don't** convert individual element roots to `Animated.View`. It takes the element's parent-facing layout as one `outerLayout` prop built by `wrapperLayout.parentFacingLayout`, and its inner (static-transform) view fills with `flexGrow`, never `flex` — see "A wrapper box takes the parent-facing layout" below before touching either.
 
 `buildAnimation.ts` resolves reanimated builders **by name** (`Reanimated[preset]`) — the schema `preset` string IS the exact reanimated builder name; unknown preset → no-op (forward-compat). Shared `EASING_MAP` lives here (imported by `ProgressIndicatorElement`) — don't re-declare it.
 
@@ -83,6 +83,18 @@ Default `overflow: hidden`. Carousel `left-align` carouselType needs `visible` f
 ## Gradient render path must size like the non-gradient path
 
 A `backgroundGradient` forks the renderer into a gradient branch that nests content inside `<GradientBox>` — the outer wrapper carries the box layout (`flex`/`height`/etc.) and an **inner** view fills it. The trap: the inner view used a hardcoded `flex: 1`, but the non-gradient path is content-sized. When the box has no explicit `height`/`flex`, the outer wrapper is content-sized too, so the inner `flex: 1` instead grabs the **parent's** full main-axis — inside a `ZStack`/flex container the element balloons to fill the whole screen (v1.44.7 bug: gradient `Button`/`SafeAreaView`/`KeyboardAvoidingView`/`ScrollView`). Gate any inner fill on an explicit size: `const fillsParent = p.height != null || p.flex != null || p.flexGrow != null;` then `flex: fillsParent ? 1 : p.flex` (or `: undefined`). Rule: **the gradient and non-gradient branches must produce identical layout** for the same props — diff them whenever you touch a renderer's gradient fork (`flex`, padding, `alignSelf`, width/height defaults should not differ).
+
+## A wrapper box takes the parent-facing layout; the element inside fills it
+
+`renderElement` can emit up to **four** boxes for one authored element: `AnimatedBox`'s outer view, `AnimatedBox`'s inner (static-transform) view, the generic-`onPress` `Pressable`, and the element's own root. Each of them used to copy the element's `flex`, so one authored `flex: 1` became two or three nested ones. In RN `flex: N` expands to `{ flexGrow: N, flexShrink: 1, flexBasis: 0 }`, so a nested copy contributes **zero** main size: a wrapper whose own main size is auto (a card in an `XStack` with `alignItems: "flex-start"`, or anything under a content-sized ancestor) measured **0**, its content painted over whatever followed it, and all the press targets in a row collapsed onto each other (#231, P1 — `flex` + any of `onPress`/`animation`/`transform`, whatever the element contains). Nothing warned: both props are legal. It does **not** reproduce on react-native-web, because CSS gives a flex item an automatic content-based minimum size (`min-height: auto`) and Yoga does not — so the web preview an author checks before publishing is exactly the surface that hides it.
+
+One owner — `Runtime/elements/wrapperLayout.ts`:
+
+- `parentFacingLayout(p, parentType)` — `flex`/`flexGrow`/`flexShrink`/`alignSelf` (including the `XStack` `flexShrink: 1` default) for the **outermost** box only. That box is the one the parent lays out.
+- `nestedFillLayout(p)` — `flexGrow: 1` for every box **below** it, and only if the element asked for flex sizing at all. `flexGrow` keeps `flexBasis: auto`, so a nested box fills an outer box that got a definite main size and content-sizes one that did not: the same intent the doubled `flex` had, without the zero basis. **Never `flex` on a nested box.**
+- `withNestedLayout(element)` — the element as it must render *inside* a wrapper (parent-facing props gone, fill in their place), cached on the element so `React.memo` still skips. All ~25 element renderers keep reading `props.flex` unchanged and none of them has to know it was wrapped.
+
+Adding a wrapper (or a new element renderer that nests a box): take the style from these helpers, never by copying `p.flex` at the call site — three call sites each deciding for themselves is what shipped the bug, and `Runtime/__tests__/wrapperLayout.test.ts` fails a wrapper that builds its own. Same family as the gradient-fork rule above (an inner view filling an outer wrapper) — `fillsParent` there stays true because the demotion substitutes `flexGrow` for `flex`. For an author stuck on an older SDK, the workaround is `flexGrow: 1` instead of `flex: 1`.
 
 ## Font hook rule (Text-rendering elements)
 

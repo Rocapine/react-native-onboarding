@@ -36,6 +36,7 @@ import { TypewriterTextElementComponent } from "./TypewriterTextElement";
 import { DrawingPadElementComponent } from "./DrawingPadElement";
 import { SliderElementComponent } from "./SliderElement";
 import { AnimatedBox, OnceAnimatedBox, ReplayingAnimatedBox } from "./AnimatedBox";
+import { parentFacingLayout, pressWrapperLayout, withNestedLayout } from "./wrapperLayout";
 
 type ParentType = "XStack" | "YStack" | "ZStack" | "RichText" | "XScroll";
 
@@ -64,6 +65,26 @@ const renderConcrete = (
   ctx: RenderContext,
   parentType?: ParentType
 ): React.ReactNode => {
+  // Cast to BaseBoxProps: not every element's props type extends it (e.g.
+  // WheelPicker), but the onPress/animation/transform/flex/alignSelf fields are
+  // all optional BaseBoxProps members and simply read as undefined when absent.
+  const p = element.props as BaseBoxProps;
+
+  // Which generic wrappers this element gets. Decided BEFORE the dispatch,
+  // because each wrapper is an extra BOX and only the outermost one may carry
+  // the element's parent-facing layout — an authored `flex: 1` emitted on two
+  // nested boxes collapses both to height 0 (#231). `wrapperLayout` owns that
+  // split for every wrapper here, and `withNestedLayout` hands the concrete
+  // renderer the element as it must look INSIDE them, so no element renderer
+  // has to know it was wrapped.
+  const wrapsPress = !!p.onPress?.length && !PRESS_HANDLED_TYPES.has(element.type);
+  const wrapsMotion = !!(p.animation || p.transform);
+  // Rebound once, deliberately: everything below renders the element as it must
+  // look INSIDE those wrappers, and `p` above is already the AUTHORED props the
+  // wrappers themselves are built from. Rebinding beats threading a second name
+  // through the 27-branch dispatch.
+  if (wrapsPress || wrapsMotion) element = withNestedLayout(element);
+
   // Dispatch to the concrete element renderer. Captured into `node` so a single
   // AnimatedBox wrapper can apply animation/transform to any of the types.
   const node = ((): React.ReactNode => {
@@ -183,41 +204,24 @@ const renderConcrete = (
     return null;
   })();
 
-  // Cast to BaseBoxProps: not every element's props type extends it (e.g.
-  // WheelPicker), but the onPress/animation/transform/flex/alignSelf fields are
-  // all optional BaseBoxProps members and simply read as undefined when absent.
-  const p = element.props as BaseBoxProps;
-
   // Generic onPress: make any non-pressable element tappable, dispatching the
   // same action list as Button via runActions. Skipped for PRESS_HANDLED_TYPES.
   // A Pressable around a scroll/carousel keeps inner scrolling working — RN's
   // gesture responder gives the scroll the touch when it pans.
+  const onPress = p.onPress;
   let content: React.ReactNode = node;
-  if (
-    content !== null &&
-    p.onPress &&
-    p.onPress.length > 0 &&
-    !PRESS_HANDLED_TYPES.has(element.type)
-  ) {
-    const onPress = p.onPress;
-    // The Pressable must be layout-transparent (like AnimatedBox): forward the
-    // element's flex sizing so the wrapper participates in its parent's flex
-    // context exactly as the element would. Without this, the style-less
-    // Pressable sizes to content while the element's `flex`/`flexShrink` sit on
-    // the inner node — breaking row splits (cards overflow) and column flow.
-    // Mirror StackElement's `parentType === "XStack"` flexShrink:1 default.
+  if (content !== null && wrapsPress && onPress) {
+    // The Pressable is the box the parent lays out whenever no motion wrapper
+    // goes outside it, so it — and not the element inside it — carries the
+    // element's flex sizing (`pressWrapperLayout` decides which of the two
+    // roles it is in).
     content = (
       <Pressable
         key={element.id}
         onPress={() => {
           void runActions(onPress, ctx);
         }}
-        style={{
-          flex: p.flex,
-          flexGrow: p.flexGrow,
-          flexShrink: p.flexShrink ?? (parentType === "XStack" ? 1 : undefined),
-          alignSelf: p.alignSelf,
-        }}
+        style={pressWrapperLayout(p, parentType, wrapsMotion)}
       >
         {content}
       </Pressable>
@@ -225,15 +229,14 @@ const renderConcrete = (
   }
 
   // Wrap only when motion is requested — zero overhead (no extra view) otherwise.
-  // Cast to BaseBoxProps: not every element's props type extends it (e.g.
-  // WheelPicker), but the animation/transform/flex/alignSelf fields are all
-  // optional BaseBoxProps members and simply read as undefined when absent.
-  if (content !== null && (p.animation || p.transform)) {
+  // The AnimatedBox is always the OUTERMOST box when present (it goes outside
+  // the Pressable), so it takes the parent-facing layout and everything nested
+  // inside it fills instead.
+  if (content !== null && wrapsMotion) {
     const boxProps = {
       animation: p.animation,
       transform: p.transform,
-      flex: p.flex,
-      alignSelf: p.alignSelf,
+      outerLayout: parentFacingLayout(p, parentType),
     };
     // `entering.once` latches the entrance to one play per screen and defers an
     // initial-mount play until the screen settles. Checked BEFORE `replayWhen`

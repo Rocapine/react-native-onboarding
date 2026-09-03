@@ -13,15 +13,19 @@ import { buildEntering, buildExiting, buildLayout, EASING_MAP } from "./buildAni
 import { useVariables } from "./VariablesContext";
 import { useEnteringLatch } from "./EnteringLatchContext";
 import { decideEnteringPlay } from "./enteringLatch";
+import { nestedFillLayout, type ParentFacingLayout } from "./wrapperLayout";
 
 type Props = {
   animation?: ElementAnimation;
   transform?: ElementTransform;
-  // Layout props forwarded from the child so the extra wrapper stays
-  // layout-transparent (a trapped `flex`/`alignSelf` would otherwise break
-  // the child's relationship to its parent).
-  flex?: number;
-  alignSelf?: "auto" | "flex-start" | "flex-end" | "center" | "stretch" | "baseline";
+  /**
+   * The element's parent-facing layout, moved here because this wrapper is the
+   * box the parent lays out (a trapped `flex`/`alignSelf` would otherwise break
+   * the child's relationship to its parent). Built by `parentFacingLayout` in
+   * `renderElement` — the element itself renders with it demoted, so this is
+   * the only box carrying it.
+   */
+  outerLayout?: ParentFacingLayout;
   /**
    * Render the wrapper fully transparent. Used by `OnceAnimatedBox` to hold an
    * element invisible until its deferred entrance is released.
@@ -65,8 +69,7 @@ const buildStaticTransform = (t?: ElementTransform): any[] => {
 export const AnimatedBox = ({
   animation,
   transform,
-  flex,
-  alignSelf,
+  outerLayout,
   hidden,
   children,
 }: Props): React.ReactElement => {
@@ -144,14 +147,14 @@ export const AnimatedBox = ({
   // transform for the duration of the transition — so a static `transform` (or
   // continuous `effect`) placed on the SAME view is suppressed until the entry
   // animation finishes, then snaps in. When a builder is present, split the two
-  // onto nested views: the outer (parent-facing) view keeps flex/alignSelf +
+  // onto nested views: the outer (parent-facing) view keeps `outerLayout` +
   // the reanimated builder, the inner view carries the static transform/effect
   // so it applies from frame 0 and persists. They stack instead of fighting.
   const hasBuilder = !!(animation?.entering || animation?.exiting || animation?.layout);
 
   if (!hasBuilder) {
     return (
-      <Animated.View style={[{ flex, alignSelf }, animatedStyle, hidden ? { opacity: 0 } : null]}>
+      <Animated.View style={[outerLayout, animatedStyle, hidden ? { opacity: 0 } : null]}>
         {children}
       </Animated.View>
     );
@@ -162,11 +165,12 @@ export const AnimatedBox = ({
       entering={entering}
       exiting={exiting}
       layout={layout}
-      style={{ flex, alignSelf }}
+      style={outerLayout}
     >
-      {/* flex:1 so the transform view fills the flexed outer wrapper; when the
-          outer is content-sized (no flex) the inner is too. */}
-      <Animated.View style={[animatedStyle, { flex: flex != null ? 1 : undefined }]}>
+      {/* Fills the flexed outer wrapper; content-sized when the outer is. This
+          is `flexGrow`, never `flex` — `flex` implies `flexBasis: 0`, so the
+          outer wrapper's own auto height would measure 0 (#231). */}
+      <Animated.View style={[animatedStyle, nestedFillLayout(outerLayout ?? {})]}>
         {children}
       </Animated.View>
     </Animated.View>

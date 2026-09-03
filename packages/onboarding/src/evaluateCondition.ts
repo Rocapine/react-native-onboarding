@@ -65,6 +65,20 @@ function interpolateRefs(value: unknown, variables: Record<string, unknown>): un
   });
 }
 
+// "No member" vs "a member that is empty". An unresolved `{{ref}}` interpolates
+// to the empty string (`interpolateRefs`), and it reaches the comparison in both
+// right-hand-side shapes identically — bare, or as the single member of the array
+// Studio's condition editor emits. Keeping it as a member would make an
+// empty-string variable a member of a list nobody has written (`in` matches,
+// `not_in` does not — the opposite of the same gate written bare), and an
+// empty-string variable is reachable: `InputElement` stores "" on clear and
+// `Input.defaultValue: ""` is overlaid into the variable map. Nothing authorable
+// is lost — Studio's value field drops empty members (`filter(Boolean)`), and
+// `is_empty` is the operator for "the variable is blank".
+function isAbsentMember(member: unknown): boolean {
+  return isNullish(member) || member === "";
+}
+
 // The membership operators (`in` / `not_in`, and `contains` against an array
 // variable) need a real list and used to answer a CONSTANT without one —
 // `in` false for every row, `not_in` true for every row, no warning (#225).
@@ -103,12 +117,14 @@ function interpolateRefs(value: unknown, variables: Record<string, unknown>): un
 function toMemberList(value: unknown, operator: string): unknown[] {
   const decoded = decodeArrayValue(value);
   if (Array.isArray(decoded)) {
-    return decoded.flatMap((member) => {
-      const inner = decodeArrayValue(member);
-      return Array.isArray(inner) ? inner : [inner];
-    });
+    return decoded
+      .flatMap((member) => {
+        const inner = decodeArrayValue(member);
+        return Array.isArray(inner) ? inner : [inner];
+      })
+      .filter((member) => !isAbsentMember(member));
   }
-  if (isNullish(decoded) || (typeof decoded === "string" && decoded === "")) return [];
+  if (isAbsentMember(decoded)) return [];
   console.warn(
     `[onboarding] condition operator "${operator}" needs a list on its right-hand side, ` +
       `got ${typeof decoded} ${JSON.stringify(decoded)}. Treating it as a single-member list. ` +

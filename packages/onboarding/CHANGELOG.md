@@ -33,7 +33,12 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
   Unchanged: an empty list (`value: []`, what an empty Studio value field
   yields) and a reference to a variable nobody has written both have no members,
-  so `in` matches nothing and `not_in` matches everything — as documented. A
+  so `in` matches nothing and `not_in` matches everything — as documented. That
+  holds in **either** shape: an unresolved reference interpolates to the empty
+  string, and an empty-string member is dropped rather than kept as a member
+  that is empty, so `value: ["{{unset}}"]` cannot disagree with
+  `value: "{{unset}}"` — which matters because an empty-string variable is
+  reachable (`InputElement` writes `""` on clear, `Input.defaultValue: ""`). A
   right-hand side that is no list at all (`operator: "in", value: "male"`) now
   reads as a one-member list and logs a `console.warn` naming the operator,
   rather than silently answering a constant; nothing Studio can author produces

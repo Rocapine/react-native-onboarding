@@ -337,6 +337,39 @@ describe("evaluateLeaf — in / not_in with the array-wrapped shape Studio emits
   });
 });
 
+describe("evaluateLeaf — an unresolved reference has no members in EITHER shape", () => {
+  // The array-wrapped shape is the one Studio actually emits — its condition
+  // editor always splits the value field into an array — so an unresolved
+  // reference has to mean "no members" there too. Interpolation resolves it to
+  // the empty string, and keeping that as a MEMBER makes an empty-string
+  // variable a member of a list nobody has written: `in` true, `not_in` false,
+  // the exact opposite of the bare-reference shape on the same data. An
+  // empty-string variable is reachable — `InputElement` stores "" on clear and
+  // `Input.defaultValue: ""` is overlaid into the variable map.
+  it("`in` never matches, even when the variable is the empty string", () =>
+    expect(evaluateLeaf({ variable: "name", operator: "in", value: ["{{blocked}}"] }, { name: "" })).toBe(false));
+
+  it("`not_in` matches every row, even when the variable is the empty string", () =>
+    expect(evaluateLeaf({ variable: "name", operator: "not_in", value: ["{{blocked}}"] }, { name: "" })).toBe(true));
+
+  it("answers the same as the bare-reference shape on the same data", () => {
+    const vars = { name: "" };
+    expect(evaluateLeaf({ variable: "name", operator: "in", value: ["{{blocked}}"] }, vars)).toBe(
+      evaluateLeaf({ variable: "name", operator: "in", value: "{{blocked}}" }, vars)
+    );
+    expect(evaluateLeaf({ variable: "name", operator: "not_in", value: ["{{blocked}}"] }, vars)).toBe(
+      evaluateLeaf({ variable: "name", operator: "not_in", value: "{{blocked}}" }, vars)
+    );
+  });
+
+  it("drops only the unresolved member, keeping the resolved ones", () => {
+    const value = ["{{blocked}}", "{{selected}}"];
+    const vars = (row: string) => ({ selected: '["sleep"]', "item.value": row });
+    expect(evaluateLeaf({ variable: "item.value", operator: "in", value }, vars("sleep"))).toBe(true);
+    expect(evaluateLeaf({ variable: "item.value", operator: "in", value }, vars(""))).toBe(false);
+  });
+});
+
 describe("evaluateLeaf — membership compares members stringified", () => {
   // A payload-authored literal array may hold numbers (ConditionValueSchema
   // permits them), and `Repeat` keeps a numeric row field numeric on purpose

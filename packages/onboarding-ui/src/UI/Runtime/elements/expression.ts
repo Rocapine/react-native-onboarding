@@ -418,7 +418,13 @@ function callFunction(name: string, args: Value[]): Value | null {
         kind: "number",
         n,
         isInt: vals.every((x) => x.isInt),
-        unseeded: args.some(isUnseeded),
+        // Only when the argument that WON is the unseeded one. `args.some`
+        // blanked the fallback idiom an author writes for exactly this case:
+        // `max({{trialDays}}, 7)` with `trialDays` unset returns the literal
+        // 7, which does not depend on the absent variable at all, so there is
+        // no believable-but-wrong value to protect against. `min({{floor}}, 2)`
+        // returns 0 — that one came from the absent variable, and still fails.
+        unseeded: vals.some((x, k) => x.n === n && isUnseeded(args[k])),
       };
     }
     case "abs": {
@@ -458,9 +464,11 @@ function callFunction(name: string, args: Value[]): Value | null {
         kind: "number",
         n: Math.min(Math.max(v.n, lo.n), hi.n),
         isInt: v.isInt && lo.isInt && hi.isInt,
-        // The bounds are already refused when unseeded; only the clamped
-        // VALUE can still carry the taint onward.
-        unseeded: isUnseeded(args[0]),
+        // Same winning-argument rule as min/max: the bounds are already
+        // refused when unseeded, so the taint only travels when the value
+        // itself came through unclamped. `clamp({{gone}}, 5, 10)` returns the
+        // literal floor, which is the default the author asked for.
+        unseeded: Math.min(Math.max(v.n, lo.n), hi.n) === v.n && isUnseeded(args[0]),
       };
     }
 
@@ -677,8 +685,13 @@ function unbracedCall(tokens: Token[]): { name: string; args: string[] } | null 
     }
     if (args.length === 0) continue;
     const spansTemplate = i === 0 && close === tokens.length - 2;
-    const operatorOutside = tokens.some((x, j) => x.kind === "op" && (j < i || j > close));
-    if (spansTemplate || operatorOutside) return { name: t.name, args };
+    // Adjacent to the call's own parens, not merely present: a hyphen in
+    // ordinary copy tokenizes as an operator too, and `"{{a}} - {{b}} min(s)"`
+    // is a range, not a forgotten-braces call. `count(goals) + " goals"` and
+    // `1 + count(goals)` both still qualify.
+    const operatorTouchingCall =
+      tokens[i - 1]?.kind === "op" || tokens[close + 1]?.kind === "op";
+    if (spansTemplate || operatorTouchingCall) return { name: t.name, args };
   }
   return null;
 }

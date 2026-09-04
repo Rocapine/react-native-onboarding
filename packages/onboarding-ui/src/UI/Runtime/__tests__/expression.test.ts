@@ -935,6 +935,36 @@ describe("expression stdlib — review round 4", () => {
     }).value).toBe("2026-01-01T00:00:00.000Z");
   });
 
+  it("leaves the max({{var}}, default) fallback idiom working", () => {
+    // Tainting on ANY argument blanked the one idiom an author writes to HANDLE
+    // an unset variable. The returned number is the literal and does not depend
+    // on the absent variable, so there is nothing believable-but-wrong to
+    // protect against.
+    const warn = warnSpy();
+    const d: Vars = { d: { value: "2026-01-01T00:00:00.000Z" } };
+    expect(ev("addDays({{d}}, max({{trialDays}}, 7))", d).value).toBe(
+      "2026-01-08T00:00:00.000Z"
+    );
+    expect(ev("clamp({{score}}, 0, max({{cap}}, 5))", {
+      score: { value: "42", kind: "int" },
+    }).value).toBe("5");
+    expect(ev("round(42.75, max({{digits}}, 1))")).toEqual({ value: "42.8", kind: "float" });
+    // And the taint still travels when the absent variable is what WON.
+    expect(ev("clamp({{score}}, min({{floor}}, 2), 3)", {
+      score: { value: "42", kind: "int" },
+    }).value).toBe("");
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not mistake a hyphen in copy for a forgotten-braces call", () => {
+    // `-` tokenizes as an operator, so "5 - 10 min(s) left" tripped the
+    // operator signal and advised `{{s}}` — advice that would blank real copy.
+    const warn = warnSpy();
+    const vars: Vars = { a: { value: "5", kind: "int" }, b: { value: "10", kind: "int" } };
+    expect(ev("{{a}} - {{b}} min(s)", vars).value).toBe("5 - 10 min(s)");
+    expect(warn).not.toHaveBeenCalled();
+  });
+
   it("still evaluates the advertised arithmetic form when the variable exists", () => {
     expect(ev("addDays({{d}}, {{weeks}} * 7)", {
       d: { value: "2026-01-01T00:00:00.000Z" },

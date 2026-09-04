@@ -278,6 +278,13 @@ function parseFormatSpec(spec: string): Intl.DateTimeFormatOptions | null {
     if (key in out) return null;
     out[key] = key === "hour12" ? value === "true" : value;
   }
+  // `hour12` and `hourCycle` only MODIFY how an hour is rendered; on their own
+  // they select nothing, and `toLocaleString` then falls back to its full
+  // date+time default. That is not what an author asking for `"hour12:true"`
+  // expects to get back, and it is the one spec shape the single-call design
+  // below does not cover, so reject it rather than answer with everything.
+  const MODIFIERS = ["hour12", "hourCycle"];
+  if (Object.keys(out).every((k) => MODIFIERS.includes(k))) return null;
   return out as Intl.DateTimeFormatOptions;
 }
 
@@ -372,7 +379,7 @@ function grammaticalList(items: string[], conjunction: string): string {
  * tests catch immediately, instead of the drift showing up much later as prose
  * classification for a function that does exist.
  */
-const STDLIB_NAMES: ReadonlySet<string> = new Set([
+export const STDLIB_NAMES: ReadonlySet<string> = new Set([
   "min",
   "max",
   "abs",
@@ -444,6 +451,10 @@ function callFunction(name: string, args: Value[]): Value | null {
     case "addDays": {
       if (args.length !== 2) return null;
       const d = asDate(args[0]);
+      // A day count is configuration, like a bound or a digit count: an
+      // unseeded `{{trialDays}}` used to return the start date unchanged and
+      // read as "your trial ends today", silently. See `isUnseeded`.
+      if (isUnseeded(args[1])) return null;
       const n = asNumber(args[1]);
       if (!d || !n) return null;
       // A "day" here is exactly 24h of wall-clock-agnostic time, applied to the
@@ -600,6 +611,40 @@ function argsHoldBareWord(tokens: Token[], open: number): boolean {
     if (depth > 0 && isBareWord(t, tokens[i + 1])) return true;
   }
   return false;
+}
+
+/**
+ * The name of a stdlib function that is the WHOLE template, at a call site
+ * whose arguments contain a bare word: `count(goals)` — almost certainly
+ * `count({{goals}})` with the braces forgotten.
+ *
+ * `argsHoldBareWord` runs before the `STDLIB_NAMES` check in `isCallAttempt`,
+ * deliberately, because `{{n}} min(s) left` has exactly the same token shape as
+ * `count(goals)` and nothing in the stream separates them. So the
+ * classification stays prose — rendering the author's copy is the safe answer
+ * for the ambiguous case — and this exists only so the other reading is not
+ * SILENT. `count(goals)` stored its own source text into a variable a headline
+ * then displayed, with no warning at all.
+ *
+ * Restricted to a template that is nothing BUT the call, which is what keeps
+ * `{{n}} min(s) left` and `{{n}} day(s)` quiet: real optional-plural copy has
+ * prose or a `{{var}}` around it, while a forgotten-braces call stands alone.
+ */
+function unbracedCallName(tokens: Token[]): string | null {
+  // [ident, lparen, ...args, rparen, eof] — the call must span the template.
+  const head = tokens[0];
+  if (tokens.length < 4 || head.kind !== "ident" || tokens[1]?.kind !== "lparen") return null;
+  if (!STDLIB_NAMES.has(head.name)) return null;
+  let depth = 0;
+  for (let i = 1; i < tokens.length; i++) {
+    if (tokens[i].kind === "lparen") depth++;
+    else if (tokens[i].kind === "rparen") {
+      depth--;
+      // Only when the matching close paren is the last token before eof.
+      if (depth === 0) return i === tokens.length - 2 && argsHoldBareWord(tokens, 1) ? head.name : null;
+    }
+  }
+  return null;
 }
 
 function isCallAttempt(tokens: Token[]): boolean {
@@ -809,6 +854,17 @@ export function evaluateSetVariableExpression(
           "Stored the empty string rather than the unevaluated template."
       );
       return { value: "", kind: "string" };
+    }
+    const unbraced = unbracedCallName(tokens);
+    if (unbraced) {
+      console.warn(
+        `[ComposableScreen] setVariable expression stored as text, not evaluated: ${template}. ` +
+          `\`${unbraced}\` is a stdlib function, but its argument is a bare word rather than a ` +
+          "`{{variable}}` — did you mean `" +
+          template.replace(/([A-Za-z_$][A-Za-z0-9_$]*)/g, (m, w) => (w === unbraced ? m : `{{${w}}}`)) +
+          "`? Templates like `{{n}} min(s) left` are indistinguishable from this, " +
+          "so the text was kept rather than blanked."
+      );
     }
   }
   return { value: interpolate(template, vars), kind: "string" };

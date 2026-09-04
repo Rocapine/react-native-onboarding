@@ -114,9 +114,22 @@ export type SetVariableButtonAction = {
    * or a `round` digit count, where a typo'd variable name would otherwise
    * produce a plausible constant (`clamp({{score}}, {{floor}}, {{ceiling}})`
    * reported 0 for a score of 42).
-   * "Attempts a call" means every identifier in the template is a function name
-   * (immediately followed by `(`); a bare word makes it prose, so the English
-   * optional-plural idiom `"{{n}} day(s)"` still interpolates to "3 day(s)".
+   * "Attempts a call" means a **stdlib name** sits in front of a `(` whose
+   * contents could actually be arguments. A bare word BETWEEN the parens makes
+   * them punctuation instead, and an unglued `(` is never a call, so the
+   * English optional-plural idiom survives: `"{{n}} day(s)"` reads "3 day(s)",
+   * `"{{n}} min(s) left"` reads "3 min(s) left", `"Goals ({{n}})"` reads
+   * "Goals (2)". A stdlib name DOES outrank bare words outside its own parens,
+   * so `list({{goals}}) and more` fails loudly — **there is no implicit
+   * concatenation**, and prose beside a call must be joined with `+ "…"`. That
+   * is the one rule an author has to know to avoid a blank headline.
+   *
+   * Two residues, both warned about at runtime: an unknown name glued to a `(`
+   * with no bare word anywhere is taken as a misspelled call, so `"Save(50)"`
+   * and `"Total({{n}})"` blank (write them with a space); and a template that
+   * is nothing but a stdlib call with a bare-word argument — `count(goals)`,
+   * the braces forgotten — keeps its text but warns, because it cannot be told
+   * apart from `min(s)`.
    *
    * Defaults to `"literal"` — `value` stored verbatim.
    */

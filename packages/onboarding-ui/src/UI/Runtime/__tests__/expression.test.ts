@@ -1,11 +1,19 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import type { ComposableVariableEntry } from "@rocapine/react-native-onboarding";
-import { evaluateSetVariableExpression } from "../elements/expression";
+import { evaluateSetVariableExpression, STDLIB_NAMES } from "../elements/expression";
 
 type Vars = Record<string, ComposableVariableEntry>;
 
 const ev = (template: string, vars: Vars = {}) =>
   evaluateSetVariableExpression(template, vars);
+
+// `toLocaleString` renders in the LOCAL zone, so a hardcoded "March 4, 2026"
+// fails for every developer behind UTC — and CI runs UTC, so the failure only
+// shows up on someone's machine. Derive the expectation from the same instant
+// using the Intl options the spec is SUPPOSED to map to: that mapping is what
+// these tests pin, and the rendering cancels out on both sides.
+const localized = (iso: string, options: Intl.DateTimeFormatOptions) =>
+  new Date(iso).toLocaleString("en-US", options);
 
 // A CheckboxGroup-written multi-select variable: JSON-encoded string[] in
 // `value`, ", "-joined member labels in `label`, no `kind` tag.
@@ -128,19 +136,30 @@ describe("expression stdlib — date functions", () => {
   it("format renders a dateStyle name from the DatePicker Intl subset", () => {
     expect(ev('format({{d}}, "long", "en-US")', {
       d: { value: "2026-03-04T12:00:00.000Z" },
-    })).toEqual({ value: "March 4, 2026", kind: "string" });
+    })).toEqual({
+      value: localized("2026-03-04T12:00:00.000Z", { dateStyle: "long" }),
+      kind: "string",
+    });
   });
 
   it("format renders component fields by their Intl option names", () => {
     expect(ev('format({{d}}, "weekday:long, month:short, day:numeric", "en-US")', {
       d: { value: "2026-03-04T12:00:00.000Z" },
-    }).value).toBe("Wednesday, Mar 4");
+    }).value).toBe(
+      localized("2026-03-04T12:00:00.000Z", {
+        weekday: "long",
+        month: "short",
+        day: "numeric",
+      })
+    );
   });
 
   it("format composes over addDays — the computed goal date case", () => {
+    const start = "2026-01-01T12:00:00.000Z";
+    const ninetyDaysOn = new Date(Date.parse(start) + 90 * 24 * 60 * 60 * 1000).toISOString();
     expect(ev('format(addDays({{start}}, 90), "medium", "en-US")', {
-      start: { value: "2026-01-01T12:00:00.000Z" },
-    }).value).toBe("Apr 1, 2026");
+      start: { value: start },
+    }).value).toBe(localized(ninetyDaysOn, { dateStyle: "medium" }));
   });
 
   it("format rejects an unknown Intl option name rather than ignoring it", () => {
@@ -375,9 +394,14 @@ describe("expression stdlib — Date range hardening", () => {
     const differentDate = {
       birthdate: { value: "1990-01-01T00:00:00.000Z", label: "March 3, 2021" },
     };
-    expect(ev('format({{birthdate}}, "medium", "en-US")', differentDate).value).toBe(
-      "Jan 1, 1990"
+    const fromValue = localized("1990-01-01T00:00:00.000Z", { dateStyle: "medium" });
+    const fromLabel = localized(
+      new Date(Date.parse("March 3, 2021")).toISOString(),
+      { dateStyle: "medium" }
     );
+    // Without this the test could not discriminate the two fields at all.
+    expect(fromValue).not.toBe(fromLabel);
+    expect(ev('format({{birthdate}}, "medium", "en-US")', differentDate).value).toBe(fromValue);
     expect(ev("addDays({{birthdate}}, 1)", differentDate).value).toBe(
       "1990-01-02T00:00:00.000Z"
     );
@@ -649,7 +673,7 @@ describe("expression stdlib — string literals interpolate", () => {
     expect(ev('join({{goals}}, " · ")', goals).value).toBe("Sleep · Energy · Focus");
     expect(ev('format({{d}}, "medium", "en-US")', {
       d: { value: "2026-03-04T12:00:00.000Z" },
-    }).value).toBe("Mar 4, 2026");
+    }).value).toBe(localized("2026-03-04T12:00:00.000Z", { dateStyle: "medium" }));
   });
 });
 
@@ -717,5 +741,122 @@ describe("expression stdlib — an unseeded variable is data, never configuratio
     // floor, which is the same answer it will give after the first press.
     expect(ev("clamp({{unset}}, 1, 3)")).toEqual({ value: "1", kind: "int" });
     expect(ev("min({{unset}}, 5)")).toEqual({ value: "0", kind: "int" });
+  });
+});
+
+describe("expression stdlib — review round 3", () => {
+  const warnSpy = () => vi.spyOn(console, "warn").mockImplementation(() => {});
+
+  it("warns when a stdlib call's argument is a bare word, instead of silently storing source", () => {
+    // The likeliest typo with a new stdlib: forgetting the braces. This used to
+    // store its own source text into a variable a headline then displayed, with
+    // no warning — `argsHoldBareWord` classifies it as prose, and prose is
+    // rendered verbatim. It cannot be reclassified (see `unbracedCallName`:
+    // `{{n}} min(s) left` has the same token shape), so it must at least talk.
+    for (const template of [
+      "count(goals)",
+      "list(goals)",
+      "addDays(start, 7)",
+      "clamp(score, 1, 10)",
+      'format(d, "medium")',
+    ]) {
+      const warn = warnSpy();
+      warn.mockClear();
+      const out = ev(template, { goals: { value: '["a","b"]' } });
+      // The text is KEPT — blanking legitimate copy would be worse.
+      expect(out.value).toBe(template);
+      expect(warn, `no warning for ${template}`).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0][0]).toContain("bare word");
+      warn.mockRestore();
+    }
+  });
+
+  it("stays silent for the optional-plural idiom it cannot be told apart from", () => {
+    const warn = warnSpy();
+    const vars: Vars = { n: { value: "3", kind: "int" } };
+    expect(ev("{{n}} min(s) left", vars).value).toBe("3 min(s) left");
+    expect(ev("{{n}} day(s)", vars).value).toBe("3 day(s)");
+    expect(ev("Goals ({{n}})", vars).value).toBe("Goals (3)");
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("refuses an unseeded day count, like every other configuration argument", () => {
+    const warn = warnSpy();
+    // Used to return the start date unchanged, so "your trial ends
+    // {{trialEnd}}" read as today — silently.
+    expect(ev('addDays("now", {{trialDays}})').value).toBe("");
+    expect(ev("addDays({{d}}, {{trialDays}})", {
+      d: { value: "2026-03-04T12:00:00.000Z" },
+    }).value).toBe("");
+    expect(warn).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects a format spec made only of hour modifiers", () => {
+    warnSpy();
+    // `hour12` / `hourCycle` select nothing on their own, and toLocaleString
+    // then falls back to a full date+time — not what "hour12:true" asked for.
+    expect(ev('format({{d}}, "hour12:true", "en-US")', {
+      d: { value: "2026-03-04T12:00:00.000Z" },
+    }).value).toBe("");
+    expect(ev('format({{d}}, "hourCycle:h23", "en-US")', {
+      d: { value: "2026-03-04T12:00:00.000Z" },
+    }).value).toBe("");
+    // A modifier alongside a real component field is still fine.
+    expect(ev('format({{d}}, "hour:numeric, hour12:true", "en-US")', {
+      d: { value: "2026-03-04T12:00:00.000Z" },
+    }).value).not.toBe("");
+  });
+
+  it("resolves a spaced {{ reference }} inside a quoted literal too", () => {
+    // The tokenizer trims a reference and `interpolate` did not, so the same
+    // reference resolved bare and silently emptied inside a literal.
+    const vars: Vars = { name: { value: "Ada" } };
+    expect(ev('{{ name }} + "!"', vars).value).toBe("Ada!");
+    expect(ev('"Hi {{ name }}"', vars).value).toBe("Hi Ada");
+  });
+
+  it("rejects an inverted clamp range rather than answering from it", () => {
+    warnSpy();
+    // Deleting `lo > hi` returns 1 for this — a plausible value out of a
+    // nonsense range — and nothing else in the suite noticed.
+    expect(ev("clamp(5, 10, 1)").value).toBe("");
+  });
+
+  it("rejects a digit count that is negative, fractional or absurd", () => {
+    warnSpy();
+    expect(ev("round(1.5, 0 - 1)").value).toBe("");
+    expect(ev("round(1.5, 2.5)").value).toBe("");
+    expect(ev("round(1.5, 16)").value).toBe("");
+    expect(ev("round(1.55, 1)")).toEqual({ value: "1.6", kind: "float" });
+  });
+
+  it("every name in STDLIB_NAMES is actually callable", () => {
+    // Pins the direction a hand-written table cannot: a name added to the set
+    // with no matching `case` blanks and warns, and this iterates the SET, so
+    // it fails rather than quietly agreeing.
+    const samples: Record<string, string> = {
+      min: "min(1)",
+      max: "max(1)",
+      abs: "abs(1)",
+      round: "round(1)",
+      clamp: "clamp(1, 1, 3)",
+      addDays: 'addDays("now", 1)',
+      format: 'format("now", "medium", "en-US")',
+      list: "list({{g}})",
+      join: "join({{g}})",
+      count: "count({{g}})",
+      plural: 'plural(1, "a", "b")',
+    };
+    const vars: Vars = { g: { value: '["a","b"]' } };
+    for (const name of STDLIB_NAMES) {
+      const sample = samples[name];
+      expect(sample, `no sample call for \`${name}\` — add one with the function`).toBeDefined();
+      const warn = warnSpy();
+      warn.mockClear();
+      const out = ev(sample, vars);
+      expect(warn, `\`${name}\` is in STDLIB_NAMES but ${sample} did not evaluate`).not.toHaveBeenCalled();
+      expect(out.value, `${sample} evaluated to the empty string`).not.toBe("");
+      warn.mockRestore();
+    }
   });
 });

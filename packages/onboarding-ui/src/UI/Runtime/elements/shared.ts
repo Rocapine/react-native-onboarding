@@ -70,7 +70,13 @@ export type InheritedTextStyle = {
 export const RichTextStyleContext = React.createContext<InheritedTextStyle>({});
 
 export const interpolate = (template: string, variables: Record<string, ComposableVariableEntry>): string =>
-  template.replace(/\{\{([^}]+?)\}\}/g, (_, key) => variables[key]?.label ?? variables[key]?.value ?? "");
+  // `.trim()` because the expression tokenizer trims a `{{ name }}` reference
+  // and this did not, so the same reference resolved in `{{ name }} + "!"` and
+  // silently emptied in `"Hi {{ name }}"`. One trimming rule, not two.
+  template.replace(/\{\{([^}]+?)\}\}/g, (_, key) => {
+    const name = key.trim();
+    return variables[name]?.label ?? variables[name]?.value ?? "";
+  });
 
 // Same `{{var}}` substitution as `interpolate`, but reads `value` BEFORE
 // `label` — the inverse precedence. `interpolate` favors `label` because it

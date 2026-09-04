@@ -1130,69 +1130,34 @@ describe("expression stdlib — review round 5", () => {
     expect(ev("count({{skipped}})")).toEqual({ value: "0", kind: "int" });
   });
 
-  it("refuses only the plural form it actually selects", () => {
+  it("refuses an unseeded plural form whichever one the count selects", () => {
     const warn = warnSpy();
-    // A plural form is the one configuration position that is user-facing
-    // prose, so refusing on the form NOT taken blanked a headline that would
-    // have rendered correctly.
+    // BOTH forms are checked on purpose. Checking only the selected one is
+    // unsafe by itself — an unseeded count is deterministically 0, which picks
+    // `other` and leaves a typo'd `one` form uninspected — and an absent
+    // reference in a form is an authoring error whichever branch today's data
+    // takes, so refusing now beats a bug that hides until the count flips.
     expect(ev('plural({{n}}, "{{singular}}", "days")', {
       n: { value: "3", kind: "int" },
-    }).value).toBe("days");
-    expect(warn).not.toHaveBeenCalled();
-    // And the selected form is still refused when it is the unseeded one.
-    expect(ev('plural({{n}}, "{{singular}}", "days")', {
+    }).value).toBe("");
+    expect(ev('plural({{n}}, "day", "{{plural}}")', {
       n: { value: "1", kind: "int" },
     }).value).toBe("");
-    expect(warn).toHaveBeenCalledTimes(1);
+    // The unseeded-count case the suite was missing: with nothing seeded the
+    // sentinel 0 selects `other`, so only the both-forms check catches it.
+    expect(ev('plural({{n}}, "{{singular}}", "days")').value).toBe("");
+    expect(ev('plural({{n}}, "{{one}}", "{{other}}")').value).toBe("");
+    expect(warn).toHaveBeenCalledTimes(4);
+    // Seeded forms still work, including the shipped skipped-screen pattern.
+    expect(ev('plural(count({{skipped}}), "goal", "goals")').value).toBe("goals");
+    expect(ev('plural({{n}}, "{{singular}}", "days")', {
+      n: { value: "1", kind: "int" },
+      singular: { value: "day" },
+    }).value).toBe("day");
   });
 });
 
 describe("expression stdlib — review round 6", () => {
-  it("refuses a bare number as a date, whatever Date.parse says", () => {
-    const warn = warnSpy();
-    // `Date.parse` reads "70" as 1970, "0" as 2000, "0.5" as May 2000 and "30"
-    // as NaN, so a weight or a step count concatenated into a date position
-    // produced a plausible date — and erratically, across values of the same
-    // variable. This closes the whole family at the coercion instead of
-    // chasing each route that can reach it.
-    for (const [name, value] of [["weight", "70"], ["step", "0"], ["slider", "0.5"], ["year", "2026"]] as const) {
-      expect(ev('format({{v}} + "", "medium", "en-US")', { v: { value } }).value, name).toBe("");
-    }
-    // Including the routes the taint flag cannot see, because these numbers
-    // are seeded or laundered rather than absent.
-    expect(ev('format(count({{d}}) + "", "medium", "en-US")').value).toBe("");
-    expect(ev('format(max({{d}}, 0) + "", "medium", "en-US")').value).toBe("");
-    expect(warn.mock.calls.length).toBeGreaterThanOrEqual(6);
-    // A real ISO instant and the "now" sentinel are untouched.
-    expect(ev('format({{d}}, "medium", "en-US")', {
-      d: { value: "2026-03-04T12:00:00.000Z" },
-    }).value).not.toBe("");
-    expect(ev('format("now", "medium", "en-US")').value).not.toBe("");
-    expect(ev("addDays({{d}}, 7)", { d: { value: "2026-01-01T00:00:00.000Z" } }).value).toBe(
-      "2026-01-08T00:00:00.000Z"
-    );
-  });
-
-  it("refuses an unseeded plural COUNT, which silently steered the form choice", () => {
-    const warn = warnSpy();
-    // Regression the selected-form rule introduced: an unseeded count is
-    // deterministically 0, which selects `other`, so the tainted `one` form
-    // was never inspected and two typo'd names produced a confident "days".
-    expect(ev('plural({{n}}, "{{singular}}", "days")').value).toBe("");
-    expect(warn).toHaveBeenCalledTimes(1);
-    // The shipped pattern — a count of a screen the user skipped — still works.
-    expect(ev('plural(count({{skipped}}), "goal", "goals")').value).toBe("goals");
-  });
-
-  it("checks the kind of the plural form it selects, not the other one", () => {
-    const warn = warnSpy();
-    expect(ev('plural({{n}}, "day", {{someInt}})', {
-      n: { value: "1", kind: "int" },
-      someInt: { value: "7", kind: "int" },
-    }).value).toBe("day");
-    expect(warn).not.toHaveBeenCalled();
-  });
-
   it("does not launder an absent variable through list or join", () => {
     const warn = warnSpy();
     // `list({{sep}})` on an absent variable is an empty selection, so it

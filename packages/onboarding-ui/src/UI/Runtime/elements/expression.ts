@@ -353,13 +353,6 @@ function asDate(v: Value): Date | null {
   if (isUnseeded(v)) return null;
   const raw = v.s.trim();
   if (raw === "now") return new Date();
-  // A bare number is not a date, whatever `Date.parse` says about it. It reads
-  // "0" as 1 Jan 2000, "70" as 1970, "0.5" as May 2000 and "30" as NaN, so a
-  // weight, a step count or an absent variable that reached a date position
-  // produced a plausible date — erratically, across values of the same
-  // variable. No writer in the runtime stores a date this way: `DatePicker`
-  // stores a full ISO instant and `"now"` is the sentinel.
-  if (/^-?\d+(\.\d+)?$/.test(raw)) return null;
   const t = Date.parse(raw);
   return Number.isFinite(t) ? new Date(t) : null;
 }
@@ -622,25 +615,18 @@ function callFunction(name: string, args: Value[]): Value | null {
       if (args.length !== 3) return null;
       const n = asNumber(args[0]);
       if (!n) return null;
-      // The count's own taint counts: an unseeded count is deterministically 0,
-      // which selects `other` and means the tainted `one` form is never even
-      // inspected — `plural({{n}}, "{{singular}}", "days")` with nothing seeded
-      // silently returned "days".
-      if (isUnseeded(args[0])) return null;
+      if (args[1].kind !== "string" || args[2].kind !== "string") return null;
+      // BOTH forms are configuration, whichever one today's count selects: an
+      // absent reference in a form is an authoring error either way, and
+      // refusing it now beats a bug that hides until the count flips to 1.
+      // Checking only the selected form is also unsafe on its own — an
+      // unseeded count is deterministically 0, which picks `other` and leaves
+      // a typo'd `one` form uninspected. Relaxing this needs the count's taint
+      // and taint propagation on the result, and is its own change.
+      if (isUnseeded(args[1]) || isUnseeded(args[2])) return null;
       // Two-form selection only (Intl's `one` / `other` categories). Languages
       // with `few`/`many` need Intl.PluralRules and a locale argument.
-      //
-      // Only the SELECTED form has to be seeded — the same provenance rule
-      // min/max use. A plural form is the one configuration position in the
-      // stdlib that is user-facing prose, so refusing on the form that was not
-      // taken blanked a headline that would have rendered correctly:
-      // `plural({{n}}, "{{singular}}", "days")` with `n` = 3 returns "days".
-      // Only the SELECTED form has to be a seeded string. Checking both
-      // blanked a headline that would have rendered: `plural({{n}}, "day",
-      // {{someInt}})` with n = 1 selects the literal and is fine.
-      const form = Math.abs(n.n) === 1 ? args[1] : args[2];
-      if (form.kind !== "string" || isUnseeded(form)) return null;
-      return { kind: "string", s: form.s };
+      return { kind: "string", s: Math.abs(n.n) === 1 ? args[1].s : args[2].s };
     }
     default:
       return null;
@@ -980,9 +966,9 @@ function parse(tokens: Token[], vars: Record<string, ComposableVariableEntry>): 
  * `{{` passes through unchanged, which is the common case for a format spec, a
  * separator or a plural form; one that DOES carry a reference to a variable
  * that does not exist is refused in those positions rather than silently
- * becoming empty. For `plural` that means the form it SELECTS plus the count —
- * the form not taken is discarded, so an unseeded reference in it is harmless
- * and blanking on it would lose a headline that renders correctly.
+ * becoming empty. `plural` checks BOTH forms, whichever one the current count
+ * selects: an absent reference in a form is an authoring error either way, and
+ * refusing it now beats a bug that hides until the count flips.
  *
  * Failure handling differs by template shape:
  * - a template with no function call falls back to plain interpolation

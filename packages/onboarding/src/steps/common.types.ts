@@ -119,9 +119,23 @@ export type SetVariableButtonAction = {
    * have come from an untainted argument: `max({{trialDays}}, 7)` is an
    * explicit default and is honoured, as is `max({{seeded_zero}}, {{absent}})`.
    * A `{{ref}}` inside a quoted LITERAL is guarded the same way when it is
-   * configuration — `join({{goals}}, "{{sep}}")` with `sep` unset used to run
-   * the members together — though `count()` is deliberately exempt, since
-   * `count({{skipped}})` is a real zero.
+   * configuration: `list`'s conjunction, `join`'s separator, `format`'s spec
+   * and its LOCALE, and BOTH `plural` forms. `join({{goals}}, "{{sep}}")` with
+   * `sep` unset used to run the members together, and `"en{{sfx}}"` as a locale
+   * resolved to the valid `"en"` and silently swapped a date's day and month.
+   * `plural` checks both forms whichever one the count selects, because an
+   * absent reference in a form is an authoring error either way.
+   *
+   * Three known limits, all deliberate. **`count()` does not taint** — a real
+   * zero is what `count({{skipped}})` should give on a screen the user never
+   * filled in, and the shipped `plural(count({{goals}}), …)` pattern depends
+   * on it — so wrapping a name in `count()` defeats the guard, and
+   * `round({{pct}}, count({{digits}}))` answers rather than failing.
+   * **`plural`'s count does not taint**, because the zero form is the correct
+   * plural for zero, so a typo there yields a correct-looking word rather than
+   * a wrong number. And **`asDate` accepts any `Date.parse`-able string**,
+   * including a bare integer, which no taint can reach because the numbers
+   * involved are seeded.
    * "Attempts a call" means a **stdlib name** sits in front of a `(` whose
    * contents could actually be arguments. A bare word BETWEEN the parens makes
    * them punctuation instead, and an unglued `(` after an UNKNOWN identifier

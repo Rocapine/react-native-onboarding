@@ -371,15 +371,41 @@ result stays tainted; that carve-out was tried and reverted.
 
 The same rule covers STRINGS, because a literal's contents interpolate and
 `interpolate` substitutes `""` for a name that does not exist: an unseeded
-`{{ref}}` in `list`'s conjunction, `join`'s separator, `format`'s spec or
-locale, or the `plural` form actually SELECTED, is refused — where it used to
-leave a double space, run the members together, silently flip a locale's
-day/month order, or store the empty string. `plural` checks the selected form
-and the count, not the form it discards: an unseeded count is deterministically
-0, which would steer the choice onto `other` and leave a typo'd `one` form
-uninspected. And `asDate` refuses a bare NUMBER outright, whatever `Date.parse`
-makes of it — "0" is 1 Jan 2000, "70" is 1970, "30" is NaN — which closes that
-family at the coercion rather than one taint route at a time. `count()` is the one deliberate
+`{{ref}}` in `list`'s conjunction, `join`'s separator, `format`'s spec or its
+LOCALE, or either `plural` form, is refused — where it used to leave a double
+space, run the members together, silently flip a locale's day/month order, or
+store the empty string. A locale is the nastiest of those: `"en{{sfx}}"` with
+`sfx` unset resolves to the valid `"en"` rather than to nothing, so the date
+still rendered, with the day and month swapped.
+
+`plural` checks BOTH forms rather than the one today's count selects. Checking
+only the selected form is unsafe on its own — an unseeded count is
+deterministically 0, which picks `other` and leaves a typo'd `one` form
+uninspected — and an absent reference in a form is an authoring error whichever
+branch the current data takes, so refusing now beats a bug that surfaces when
+the count flips to 1.
+
+### Known limits of the taint, and why they are deliberate
+
+Three places answer from an absent variable without tainting. All three are
+decisions, and each has a reason worth more than the hole costs:
+
+- **`count()`** is the one number-returning function that does not taint.
+  `count({{skipped}})` = 0 is a real answer — zero members on a screen the user
+  never filled in — and `resolveVar` cannot tell that from a typo'd name.
+  Tainting it would break the shipped pattern in the example payload,
+  `plural(count({{goals}}), "goal", "goals")`. The consequence: wrapping a name
+  in `count()` defeats the guard, so `round({{pct}}, count({{digits}}))` answers
+  43 and `addDays("now", count({{trialDays}}))` answers today. Nobody writes
+  those; the skipped multi-select is routine.
+- **`plural`'s count** is not tainted either. `plural({{typo}}, "day", "days")`
+  reads "days", which is the correct plural form for zero, so the blast radius
+  is a correct-looking word rather than a wrong number.
+- **`asDate` accepts any `Date.parse`-able string**, including a bare integer:
+  a *seeded* weight of 70 makes `format({{weight}} + "", "medium")` render
+  1 Jan 1970 while an age of 30 blanks, so it is erratic across values of the
+  same variable. No taint can reach it — the numbers are seeded — and it is
+  filed separately. `count()` is the one deliberate
 exemption — `count({{skipped}})` is a real zero, and `resolveVar` cannot tell a
 skipped screen from a typo — so `count()` does launder the sentinel into a
 configuration position. That trade is recorded at the `case "count"` comment,

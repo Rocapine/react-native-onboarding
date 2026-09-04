@@ -159,6 +159,60 @@ describe("expression stdlib — date functions", () => {
   });
 });
 
+describe("expression stdlib — format spec hardening", () => {
+  // Regression guards for branches that are easy to delete by accident. Each
+  // was verified to produce this result, and each protects against a real
+  // hazard rather than restating the happy path.
+  it("returns empty rather than THROWING when Intl rejects the option mix", () => {
+    // Intl throws if dateStyle/timeStyle is combined with component fields.
+    // Without the try/catch around toLocaleString that exception escapes into
+    // the press handler that ran the action.
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(() =>
+      ev('format({{d}}, "dateStyle:medium, weekday:long")', {
+        d: { value: "2026-03-04T12:00:00.000Z" },
+      })
+    ).not.toThrow();
+    expect(
+      ev('format({{d}}, "dateStyle:medium, weekday:long")', {
+        d: { value: "2026-03-04T12:00:00.000Z" },
+      }).value
+    ).toBe("");
+  });
+
+  it("rejects an invalid locale instead of throwing RangeError", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(
+      ev('format({{d}}, "medium", "not a locale!!")', {
+        d: { value: "2026-03-04T12:00:00.000Z" },
+      }).value
+    ).toBe("");
+  });
+
+  it("rejects inherited Object keys as option names", () => {
+    // The allowlist uses hasOwnProperty, so `__proto__` / `toString` are not
+    // mistaken for valid Intl options and cannot reach the options object.
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    for (const spec of ["__proto__:long", "toString:long", "constructor:long"]) {
+      expect(ev(`format({{d}}, "${spec}")`, {
+        d: { value: "2026-03-04T12:00:00.000Z" },
+      }).value).toBe("");
+    }
+  });
+
+  it("rejects a duplicated option key", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(ev('format({{d}}, "month:long, month:short")', {
+      d: { value: "2026-03-04T12:00:00.000Z" },
+    }).value).toBe("");
+  });
+
+  it("rejects a trailing comma in an argument list", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(ev("min(3,)").value).toBe("");
+  });
+});
+
 describe("expression stdlib — listing and pluralization", () => {
   it("list grammatically joins member labels with 'and'", () => {
     expect(ev("list({{goals}})", goals)).toEqual({
@@ -192,6 +246,16 @@ describe("expression stdlib — listing and pluralization", () => {
     expect(ev("list({{g}})", { g: { value: '["sleep","energy"]' } }).value).toBe(
       "sleep and energy"
     );
+  });
+
+  it("uses raw values, not labels, for an explicitly kind-tagged array", () => {
+    // `kind: "string"` is taken at its word, so the entry is not treated as a
+    // member list and the labels are not consulted. CheckboxGroup and
+    // `setVariable arrayOp` never write a `kind`, so this only bites a
+    // hand-authored `setVariable` that tags an array variable as a string.
+    expect(ev("list({{g}})", {
+      g: { value: '["a","b"]', label: "A, B", kind: "string" },
+    }).value).toBe("a and b");
   });
 
   it("join uses an author-supplied separator instead of the hardcoded ', '", () => {

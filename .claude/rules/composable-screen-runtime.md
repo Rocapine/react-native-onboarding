@@ -371,9 +371,15 @@ result stays tainted; that carve-out was tried and reverted.
 
 The same rule covers STRINGS, because a literal's contents interpolate and
 `interpolate` substitutes `""` for a name that does not exist: an unseeded
-`{{ref}}` in `list`'s conjunction, `join`'s separator, `plural`'s forms or
-`format`'s spec is refused, where it used to leave a double space, run the
-members together, or store the empty string. `count()` is the one deliberate
+`{{ref}}` in `list`'s conjunction, `join`'s separator, `format`'s spec or
+locale, or the `plural` form actually SELECTED, is refused — where it used to
+leave a double space, run the members together, silently flip a locale's
+day/month order, or store the empty string. `plural` checks the selected form
+and the count, not the form it discards: an unseeded count is deterministically
+0, which would steer the choice onto `other` and leave a typo'd `one` form
+uninspected. And `asDate` refuses a bare NUMBER outright, whatever `Date.parse`
+makes of it — "0" is 1 Jan 2000, "70" is 1970, "30" is NaN — which closes that
+family at the coercion rather than one taint route at a time. `count()` is the one deliberate
 exemption — `count({{skipped}})` is a real zero, and `resolveVar` cannot tell a
 skipped screen from a typo — so `count()` does launder the sentinel into a
 configuration position. That trade is recorded at the `case "count"` comment,

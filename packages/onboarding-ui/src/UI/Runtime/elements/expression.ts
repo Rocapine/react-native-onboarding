@@ -353,6 +353,13 @@ function asDate(v: Value): Date | null {
   if (isUnseeded(v)) return null;
   const raw = v.s.trim();
   if (raw === "now") return new Date();
+  // A bare number is not a date, whatever `Date.parse` says about it. It reads
+  // "0" as 1 Jan 2000, "70" as 1970, "0.5" as May 2000 and "30" as NaN, so a
+  // weight, a step count or an absent variable that reached a date position
+  // produced a plausible date — erratically, across values of the same
+  // variable. No writer in the runtime stores a date this way: `DatePicker`
+  // stores a full ISO instant and `"now"` is the sentinel.
+  if (/^-?\d+(\.\d+)?$/.test(raw)) return null;
   const t = Date.parse(raw);
   return Number.isFinite(t) ? new Date(t) : null;
 }
@@ -569,7 +576,14 @@ function callFunction(name: string, args: Value[]): Value | null {
         if (args[1].kind !== "string" || isUnseeded(args[1])) return null;
         conjunction = args[1].s;
       }
-      return { kind: "string", s: grammaticalList(items, conjunction) };
+      // `list({{sep}})` on an absent variable is an empty selection, so it
+      // returns "" — untainted, it then became an empty separator in
+      // `join({{goals}}, list({{sep}}))`. The taint travels with it.
+      return {
+        kind: "string",
+        s: grammaticalList(items, conjunction),
+        unseeded: isUnseeded(args[0]) || undefined,
+      };
     }
     case "join": {
       if (args.length !== 1 && args.length !== 2) return null;
@@ -583,7 +597,11 @@ function callFunction(name: string, args: Value[]): Value | null {
         if (args[1].kind !== "string" || isUnseeded(args[1])) return null;
         separator = args[1].s;
       }
-      return { kind: "string", s: items.join(separator) };
+      return {
+        kind: "string",
+        s: items.join(separator),
+        unseeded: isUnseeded(args[0]) || undefined,
+      };
     }
     case "count": {
       if (args.length !== 1) return null;
@@ -604,7 +622,11 @@ function callFunction(name: string, args: Value[]): Value | null {
       if (args.length !== 3) return null;
       const n = asNumber(args[0]);
       if (!n) return null;
-      if (args[1].kind !== "string" || args[2].kind !== "string") return null;
+      // The count's own taint counts: an unseeded count is deterministically 0,
+      // which selects `other` and means the tainted `one` form is never even
+      // inspected — `plural({{n}}, "{{singular}}", "days")` with nothing seeded
+      // silently returned "days".
+      if (isUnseeded(args[0])) return null;
       // Two-form selection only (Intl's `one` / `other` categories). Languages
       // with `few`/`many` need Intl.PluralRules and a locale argument.
       //
@@ -613,8 +635,11 @@ function callFunction(name: string, args: Value[]): Value | null {
       // stdlib that is user-facing prose, so refusing on the form that was not
       // taken blanked a headline that would have rendered correctly:
       // `plural({{n}}, "{{singular}}", "days")` with `n` = 3 returns "days".
+      // Only the SELECTED form has to be a seeded string. Checking both
+      // blanked a headline that would have rendered: `plural({{n}}, "day",
+      // {{someInt}})` with n = 1 selects the literal and is fine.
       const form = Math.abs(n.n) === 1 ? args[1] : args[2];
-      if (isUnseeded(form)) return null;
+      if (form.kind !== "string" || isUnseeded(form)) return null;
       return { kind: "string", s: form.s };
     }
     default:
@@ -955,7 +980,9 @@ function parse(tokens: Token[], vars: Record<string, ComposableVariableEntry>): 
  * `{{` passes through unchanged, which is the common case for a format spec, a
  * separator or a plural form; one that DOES carry a reference to a variable
  * that does not exist is refused in those positions rather than silently
- * becoming empty.
+ * becoming empty. For `plural` that means the form it SELECTS plus the count —
+ * the form not taken is discarded, so an unseeded reference in it is harmless
+ * and blanking on it would lose a headline that renders correctly.
  *
  * Failure handling differs by template shape:
  * - a template with no function call falls back to plain interpolation

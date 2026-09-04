@@ -43,7 +43,14 @@ here.
   Ada" instead of emitting the braces to the user. A literal with no `{{`
   passes through byte-identical, which is the common case for a spec, a
   separator or a plural form; one that references a variable which does not
-  exist is refused in those positions rather than silently becoming empty. One edge moves relative to
+  exist is refused in those positions rather than silently becoming empty. For
+  `plural` that is the form it SELECTS plus the count, not the form it
+  discards. Relatedly, `format`'s **locale** is guarded too — `"en{{sfx}}"`
+  with `sfx` unset resolves to the valid `"en"` and silently flipped a date's
+  day/month order — and `asDate` now refuses a bare NUMBER outright, whatever
+  `Date.parse` makes of it: `"0"` was 1 Jan 2000, `"70"` was 1970 and `"30"`
+  was NaN, so a weight or a step count that reached a date position produced a
+  plausible date, erratically, across values of the same variable. One edge moves relative to
   before the stdlib: a template that is *entirely* one quoted string is a
   literal now, so `"{{name}}"` stores `Ada` rather than `"Ada"` with the quotes
   — the quote characters are delimiters, not content.

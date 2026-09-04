@@ -15,6 +15,11 @@ const ev = (template: string, vars: Vars = {}) =>
 const localized = (iso: string, options: Intl.DateTimeFormatOptions) =>
   new Date(iso).toLocaleString("en-US", options);
 
+// One helper, not one per describe: `afterEach`'s `restoreAllMocks` covers the
+// teardown, and how the suite silences and counts warnings should change in
+// one place.
+const warnSpy = () => vi.spyOn(console, "warn").mockImplementation(() => {});
+
 // A CheckboxGroup-written multi-select variable: JSON-encoded string[] in
 // `value`, ", "-joined member labels in `label`, no `kind` tag.
 const goals: Vars = {
@@ -431,7 +436,6 @@ describe("expression stdlib — structured data of the wrong shape", () => {
   // `count()` answered a plausible 1 with no warning. A believable constant is
   // the worst failure mode this runtime can have; JSON that parses but is the
   // wrong shape is an authoring error, never a scalar answer, so it hard-fails.
-  const warnSpy = () => vi.spyOn(console, "warn").mockImplementation(() => {});
 
   it("count fails loudly on a JSON array that is not a string[]", () => {
     const warn = warnSpy();
@@ -516,7 +520,6 @@ describe("expression stdlib — prose is not a call attempt", () => {
   // identifier is a function name, i.e. immediately followed by `(`), not of a
   // substring, so prose keeps falling back to plain interpolation while a real
   // call still fails loudly.
-  const warnSpy = () => vi.spyOn(console, "warn").mockImplementation(() => {});
 
   it("interpolates the optional-plural idiom rather than storing the empty string", () => {
     const warn = warnSpy();
@@ -607,8 +610,6 @@ describe("expression stdlib — prose is not a call attempt", () => {
 });
 
 describe("expression stdlib — the name set is the dispatch table", () => {
-  const warnSpy = () => vi.spyOn(console, "warn").mockImplementation(() => {});
-
   // `STDLIB_NAMES` gates BOTH `callFunction`'s dispatch and `isCallAttempt`'s
   // prose classification, so a name can only be in one of the two places by
   // being in neither. These two tests pin one direction each: a name missing
@@ -707,7 +708,6 @@ describe("expression stdlib — an unseeded variable is data, never configuratio
   // But a bound and a digit count are not data, they are CONFIGURATION, and an
   // unseeded one means the author referenced a variable that does not exist.
   // Answering from the sentinel there turns a typo into a plausible constant.
-  const warnSpy = () => vi.spyOn(console, "warn").mockImplementation(() => {});
 
   it("clamp refuses bounds that are unseeded variables", () => {
     const warn = warnSpy();
@@ -745,8 +745,6 @@ describe("expression stdlib — an unseeded variable is data, never configuratio
 });
 
 describe("expression stdlib — review round 3", () => {
-  const warnSpy = () => vi.spyOn(console, "warn").mockImplementation(() => {});
-
   it("warns when a stdlib call's argument is a bare word, instead of silently storing source", () => {
     // The likeliest typo with a new stdlib: forgetting the braces. This used to
     // store its own source text into a variable a headline then displayed, with
@@ -862,8 +860,6 @@ describe("expression stdlib — review round 3", () => {
 });
 
 describe("expression stdlib — review round 4", () => {
-  const warnSpy = () => vi.spyOn(console, "warn").mockImplementation(() => {});
-
   it("names the bare arguments without inventing a template that would blank", () => {
     // The first version of this warning built its suggestion with a regex over
     // the raw source, so it braced identifiers inside string literals:
@@ -1105,8 +1101,6 @@ describe("expression stdlib — review round 4", () => {
 });
 
 describe("expression stdlib — review round 5", () => {
-  const warnSpy = () => vi.spyOn(console, "warn").mockImplementation(() => {});
-
   it("carries the taint through concat from either operand and either kind", () => {
     const warn = warnSpy();
     // Gating on `kind === "string"` closed only half the shapes: a NUMERIC
@@ -1150,5 +1144,67 @@ describe("expression stdlib — review round 5", () => {
       n: { value: "1", kind: "int" },
     }).value).toBe("");
     expect(warn).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("expression stdlib — review round 6", () => {
+  it("refuses a bare number as a date, whatever Date.parse says", () => {
+    const warn = warnSpy();
+    // `Date.parse` reads "70" as 1970, "0" as 2000, "0.5" as May 2000 and "30"
+    // as NaN, so a weight or a step count concatenated into a date position
+    // produced a plausible date — and erratically, across values of the same
+    // variable. This closes the whole family at the coercion instead of
+    // chasing each route that can reach it.
+    for (const [name, value] of [["weight", "70"], ["step", "0"], ["slider", "0.5"], ["year", "2026"]] as const) {
+      expect(ev('format({{v}} + "", "medium", "en-US")', { v: { value } }).value, name).toBe("");
+    }
+    // Including the routes the taint flag cannot see, because these numbers
+    // are seeded or laundered rather than absent.
+    expect(ev('format(count({{d}}) + "", "medium", "en-US")').value).toBe("");
+    expect(ev('format(max({{d}}, 0) + "", "medium", "en-US")').value).toBe("");
+    expect(warn.mock.calls.length).toBeGreaterThanOrEqual(6);
+    // A real ISO instant and the "now" sentinel are untouched.
+    expect(ev('format({{d}}, "medium", "en-US")', {
+      d: { value: "2026-03-04T12:00:00.000Z" },
+    }).value).not.toBe("");
+    expect(ev('format("now", "medium", "en-US")').value).not.toBe("");
+    expect(ev("addDays({{d}}, 7)", { d: { value: "2026-01-01T00:00:00.000Z" } }).value).toBe(
+      "2026-01-08T00:00:00.000Z"
+    );
+  });
+
+  it("refuses an unseeded plural COUNT, which silently steered the form choice", () => {
+    const warn = warnSpy();
+    // Regression the selected-form rule introduced: an unseeded count is
+    // deterministically 0, which selects `other`, so the tainted `one` form
+    // was never inspected and two typo'd names produced a confident "days".
+    expect(ev('plural({{n}}, "{{singular}}", "days")').value).toBe("");
+    expect(warn).toHaveBeenCalledTimes(1);
+    // The shipped pattern — a count of a screen the user skipped — still works.
+    expect(ev('plural(count({{skipped}}), "goal", "goals")').value).toBe("goals");
+  });
+
+  it("checks the kind of the plural form it selects, not the other one", () => {
+    const warn = warnSpy();
+    expect(ev('plural({{n}}, "day", {{someInt}})', {
+      n: { value: "1", kind: "int" },
+      someInt: { value: "7", kind: "int" },
+    }).value).toBe("day");
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("does not launder an absent variable through list or join", () => {
+    const warn = warnSpy();
+    // `list({{sep}})` on an absent variable is an empty selection, so it
+    // returns "" — which then became an empty separator, one of the two
+    // outputs the string taint exists to prevent.
+    expect(ev("join({{goals}}, list({{sep}}))", goals).value).toBe("");
+    expect(ev("list({{goals}}, join({{conj}}))", goals).value).toBe("");
+    expect(warn).toHaveBeenCalledTimes(2);
+    // Seeded, the same nesting works.
+    expect(ev("join({{goals}}, list({{sep}}))", {
+      ...goals,
+      sep: { value: '["-"]' },
+    }).value).toBe("Sleep-Energy-Focus");
   });
 });

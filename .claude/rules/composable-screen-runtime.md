@@ -378,17 +378,20 @@ store the empty string. A locale is the nastiest of those: `"en{{sfx}}"` with
 `sfx` unset resolves to the valid `"en"` rather than to nothing, so the date
 still rendered, with the day and month swapped.
 
-`plural` checks BOTH forms rather than the one today's count selects. Checking
-only the selected form is unsafe on its own — an unseeded count is
-deterministically 0, which picks `other` and leaves a typo'd `one` form
-uninspected — and an absent reference in a form is an authoring error whichever
-branch the current data takes, so refusing now beats a bug that surfaces when
-the count flips to 1.
+`plural` checks its COUNT and BOTH forms. Both forms rather than the one
+today's count selects, because an absent reference in a form is an authoring
+error whichever branch the current data takes, so refusing now beats a bug that
+surfaces when the count flips to 1. And the count as well, because otherwise an
+unseeded one picks a form silently and `plural` launders it onward —
+`join({{goals}}, plural({{n}}, "+", "~"))` chose `~` as the separator from a
+variable that does not exist, with both forms untainted literals so the
+both-forms check passed. A `count()` result is untainted by design, so the
+shipped `plural(count({{goals}}), "goal", "goals")` pattern is unaffected.
 
 ### Known limits of the taint, and why they are deliberate
 
-Three places answer from an absent variable without tainting. All three are
-decisions, and each has a reason worth more than the hole costs:
+Two places answer from an absent variable without tainting. Both are decisions,
+and each has a reason worth more than the hole costs:
 
 - **`count()`** is the one number-returning function that does not taint.
   `count({{skipped}})` = 0 is a real answer — zero members on a screen the user
@@ -398,9 +401,6 @@ decisions, and each has a reason worth more than the hole costs:
   in `count()` defeats the guard, so `round({{pct}}, count({{digits}}))` answers
   43 and `addDays("now", count({{trialDays}}))` answers today. Nobody writes
   those; the skipped multi-select is routine.
-- **`plural`'s count** is not tainted either. `plural({{typo}}, "day", "days")`
-  reads "days", which is the correct plural form for zero, so the blast radius
-  is a correct-looking word rather than a wrong number.
 - **`asDate` accepts any `Date.parse`-able string**, including a bare integer:
   a *seeded* weight of 70 makes `format({{weight}} + "", "medium")` render
   1 Jan 1970 while an age of 30 blanks, so it is erratic across values of the

@@ -44,19 +44,20 @@ here.
   passes through byte-identical, which is the common case for a spec, a
   separator or a plural form; one that references a variable which does not
   exist is refused in those positions rather than silently becoming empty.
-  `plural` checks BOTH forms, whichever one the current count selects, because
-  an absent reference in a form is an authoring error either way. `format`'s
+  `plural` checks its COUNT and both forms — both forms because an absent
+  reference in a form is an authoring error whichever one the count selects,
+  and the count because otherwise an unseeded one picks a form silently and
+  `plural` launders it into whatever consumes the result. `format`'s
   **locale** is guarded too, and it is the nastiest of the set: `"en{{sfx}}"`
   with `sfx` unset resolves to the valid `"en"` rather than to nothing, so the
   date still rendered with its day and month swapped.
 
-  Three known limits, all deliberate: `count()` does not taint, because
+  Two known limits, both deliberate: `count()` does not taint, because
   `count({{skipped}})` = 0 is a real answer and the shipped
   `plural(count({{goals}}), …)` pattern depends on it — so wrapping a name in
-  `count()` defeats the guard; `plural`'s count does not taint, because the
-  zero form is the correct plural for zero; and `asDate` still accepts any
+  `count()` defeats the guard — and `asDate` still accepts any
   `Date.parse`-able string, including a bare integer, which no taint can reach
-  because the numbers involved are seeded. Each is filed rather than hidden. One edge moves relative to
+  because the numbers involved are seeded. Both are filed rather than hidden. One edge moves relative to
   before the stdlib: a template that is *entirely* one quoted string is a
   literal now, so `"{{name}}"` stores `Ada` rather than `"Ada"` with the quotes
   — the quote characters are delimiters, not content.

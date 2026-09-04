@@ -1148,7 +1148,9 @@ describe("expression stdlib — review round 5", () => {
     expect(ev('plural({{n}}, "{{singular}}", "days")').value).toBe("");
     expect(ev('plural({{n}}, "{{one}}", "{{other}}")').value).toBe("");
     expect(warn).toHaveBeenCalledTimes(4);
-    // Seeded forms still work, including the shipped skipped-screen pattern.
+    // Seeded forms still work, including the shipped skipped-screen pattern —
+    // a `count()` result is untainted by design, so the count clause below
+    // does not touch it.
     expect(ev('plural(count({{skipped}}), "goal", "goals")').value).toBe("goals");
     expect(ev('plural({{n}}, "{{singular}}", "days")', {
       n: { value: "1", kind: "int" },
@@ -1158,6 +1160,22 @@ describe("expression stdlib — review round 5", () => {
 });
 
 describe("expression stdlib — review round 6", () => {
+  it("does not launder an unseeded count through plural", () => {
+    const warn = warnSpy();
+    // Both forms here are untainted literals, so the both-forms check passes
+    // and an unseeded count picked the separator silently.
+    expect(ev('join({{goals}}, plural({{n}}, "+", "~"))', goals).value).toBe("");
+    expect(ev('format({{d}}, plural({{n}}, "short", "medium"), "en-US")', {
+      d: { value: "2026-03-04T12:00:00.000Z" },
+    }).value).toBe("");
+    expect(warn).toHaveBeenCalledTimes(2);
+    // Seeded count, both shapes evaluate.
+    expect(ev('join({{goals}}, plural({{n}}, "+", "~"))', {
+      ...goals,
+      n: { value: "3", kind: "int" },
+    }).value).toBe("Sleep~Energy~Focus");
+  });
+
   it("does not launder an absent variable through list or join", () => {
     const warn = warnSpy();
     // `list({{sep}})` on an absent variable is an empty selection, so it

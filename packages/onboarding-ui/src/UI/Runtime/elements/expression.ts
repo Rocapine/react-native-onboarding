@@ -616,14 +616,15 @@ function callFunction(name: string, args: Value[]): Value | null {
       const n = asNumber(args[0]);
       if (!n) return null;
       if (args[1].kind !== "string" || args[2].kind !== "string") return null;
-      // BOTH forms are configuration, whichever one today's count selects: an
-      // absent reference in a form is an authoring error either way, and
-      // refusing it now beats a bug that hides until the count flips to 1.
-      // Checking only the selected form is also unsafe on its own — an
-      // unseeded count is deterministically 0, which picks `other` and leaves
-      // a typo'd `one` form uninspected. Relaxing this needs the count's taint
-      // and taint propagation on the result, and is its own change.
-      if (isUnseeded(args[1]) || isUnseeded(args[2])) return null;
+      // The count AND both forms. Both forms because an absent reference in a
+      // form is an authoring error whichever branch today's data takes, so
+      // refusing now beats a bug that hides until the count flips to 1. The
+      // count because otherwise an unseeded one picks a form silently and
+      // `plural` launders it onward: `join({{goals}}, plural({{n}}, "+", "~"))`
+      // chose "~" as the separator from a variable that does not exist. A
+      // `count()` result is untainted by design, so the shipped
+      // `plural(count({{goals}}), "goal", "goals")` pattern is unaffected.
+      if (isUnseeded(args[0]) || isUnseeded(args[1]) || isUnseeded(args[2])) return null;
       // Two-form selection only (Intl's `one` / `other` categories). Languages
       // with `few`/`many` need Intl.PluralRules and a locale argument.
       return { kind: "string", s: Math.abs(n.n) === 1 ? args[1].s : args[2].s };

@@ -6,7 +6,7 @@ import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { GradientBox } from "./GradientBox";
 import { UIElement } from "../types";
 import { RenderContext, dim, areElementPropsEqual } from "./shared";
-import { fillLayout } from "./wrapperLayout";
+import { fillLayout, fillsParent } from "./wrapperLayout";
 
 export type SafeAreaEdge = "top" | "right" | "bottom" | "left";
 export type SafeAreaEdgeMode = "off" | "additive" | "maximum";
@@ -100,7 +100,7 @@ const SafeAreaViewElementComponentBase = ({ element, ctx }: Props): React.ReactE
   // when the box is explicitly sized (height/flex). A content-sized box must
   // stay content-sized, else `flex: 1` grabs the parent's full main-axis (e.g.
   // inside a ZStack the element fills the whole screen).
-  const fillsParent = p.height != null || p.flex != null || p.flexGrow != null;
+  const fills = fillsParent(p);
   // Stack the bar offset on top of the author's existing top padding. paddingTop
   // is more specific than padding/paddingVertical, so re-add the base it shadows.
   const baseTopPadding = p.padding ?? p.paddingVertical;
@@ -109,7 +109,7 @@ const SafeAreaViewElementComponentBase = ({ element, ctx }: Props): React.ReactE
     // `frameStyle`, and it fills with `flexGrow`/`flexShrink` — a `flex: 1`
     // here measures 0 inside a content-sized outer (#231). Non-gradient path:
     // this IS the outer box, so it restates `frameStyle`'s own `flex`.
-    ...(hasGradient ? fillLayout(fillsParent) : { flex: p.flex }),
+    ...(hasGradient ? fillLayout(fills) : { flex: p.flex }),
     padding: p.padding,
     paddingHorizontal: p.paddingHorizontal,
     paddingVertical: p.paddingVertical,

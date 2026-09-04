@@ -4,6 +4,7 @@ import { join } from "node:path";
 import type { UIElement } from "../types";
 import type { BaseBoxProps } from "../elements/BaseBoxProps";
 import {
+  fillsParent,
   parentFacingLayout,
   nestedFillLayout,
   pressWrapperLayout,
@@ -193,15 +194,12 @@ describe("withNestedLayout", () => {
     expect(inner.children).toBe(el.children);
   });
 
-  // Five renderers gate an internal fill on THIS predicate, not on
-  // `wantsFlexSizing` (which omits `height`): `ScrollViewElement.tsx:66`,
-  // `SafeAreaViewElement.tsx:102`, `KeyboardAvoidingViewElement.tsx:65`,
-  // `ButtonElement.tsx:174`, `CarouselElement.tsx:192`. A demotion that dropped
-  // `flex` instead of substituting `flexGrow` would flip all five onto their
-  // content-sized branch, so pin the predicate they actually use.
-  const fillsParent = (p: BaseBoxProps): boolean =>
-    p.height != null || p.flex != null || p.flexGrow != null;
-
+  // `fillsParent` is IMPORTED, not restated: the five renderers call the same
+  // exported function, so this asserts the demotion against the expression they
+  // actually gate on. A hand-copy here would only pin the demotion against its
+  // own copy — a renderer dropping `|| p.flexGrow != null` from a private copy
+  // was invisible to the previous version of this test, and the `wantsFlexSizing`
+  // version before it had the same shape of hole.
   it("preserves the fillsParent predicate the renderers gate on", () => {
     for (const authored of [
       props({ flex: 1 }),
@@ -266,9 +264,15 @@ describe("wiring", () => {
   });
 
   it("AnimatedBox nests its transform view with a fill, never a flex", () => {
+    // `not.toMatch(/flex:\s*(1|flex)\b/)` was the first version of this and it
+    // caught two spellings out of six — `flex: outerLayout?.flex` (the exact
+    // shape this PR's rename invites), `flex: p.flex`, `{ flex }` shorthand and
+    // `flexBasis: 0` (the literal mechanism of #231) all walked through it.
+    // Every flex prop now arrives via `outerLayout` or `nestedFillLayout()`, so
+    // this file has no reason to write a flex key at all.
     const src = read("AnimatedBox.tsx");
     expect(src).toMatch(/nestedFillLayout\(/);
-    expect(src).not.toMatch(/flex:\s*(1|flex)\b/);
+    expect(src).not.toMatch(/\bflex(Grow|Shrink|Basis)?:/);
   });
 
   it("AnimatedBox honours `hidden` in both branches", () => {
@@ -295,8 +299,16 @@ describe("wiring", () => {
       "CarouselElement.tsx",
     ]) {
       const src = read(file);
-      expect(src, `${file} gates an inner flex on a fillsParent predicate`).not.toMatch(
-        /flex:\s*\w*[Ff]ills[Pp]arent\s*\?/
+      // Positive, so this guards the shared helpers rather than a spelling: the
+      // previous version keyed on the identifier `fillsParent`, so renaming the
+      // local silently stopped it guarding anything.
+      expect(src, `${file} must gate on the shared fillsParent`).toMatch(/fillsParent\(/);
+      expect(src, `${file} must fill with the shared contract`).toMatch(/fillLayout\(/);
+      // Negative on the MECHANISM, not the name: a conditional `flex` is how an
+      // inner fill re-acquires `flexBasis: 0`. The outermost box's unconditional
+      // `flex: p.flex` in containerStyle/frameStyle is legitimate and stays.
+      expect(src, `${file} computes a conditional flex for a nested box`).not.toMatch(
+        /flex:\s*[^,\n]*\?/
       );
       expect(src, `${file} hardcodes flex on a nested box`).not.toMatch(
         /style=\{\{\s*flex:\s*1\s*\}\}/

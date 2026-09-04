@@ -5,7 +5,7 @@ import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { GradientBox } from "./GradientBox";
 import { UIElement } from "../types";
 import { RenderContext, dim, areElementPropsEqual } from "./shared";
-import { fillLayout } from "./wrapperLayout";
+import { fillLayout, fillsParent } from "./wrapperLayout";
 
 export type ScrollViewContentInset = {
   top?: number;
@@ -64,7 +64,7 @@ const ScrollViewElementComponentBase = ({ element, ctx }: Props): React.ReactEle
   // inner ScrollView fills it — but only force `flex: 1` when the box is
   // explicitly sized, else a content-sized ScrollView grabs the parent's full
   // main-axis (screen-fill in a ZStack/flex container).
-  const fillsParent = p.height != null || p.flex != null || p.flexGrow != null;
+  const fills = fillsParent(p);
 
   const containerStyle = {
     flex: p.flex,
@@ -120,7 +120,7 @@ const ScrollViewElementComponentBase = ({ element, ctx }: Props): React.ReactEle
       // `flexBasis: 0`, which measures 0 whenever the outer box's own main size
       // is auto (#231), and would also make this branch lay out differently
       // from the non-gradient one.
-      style={hasGradient ? fillLayout(fillsParent) : containerStyle}
+      style={hasGradient ? fillLayout(fills) : containerStyle}
       contentContainerStyle={contentContainerStyle}
     >
       {ctx.renderChildren(element.children, horizontal ? "XScroll" : "YStack")}

@@ -72,14 +72,25 @@ export type NestedFillLayout = {
 type FlexSizingProps = Pick<BaseBoxProps, "flex" | "flexGrow">;
 
 /**
- * Did the author ask this element to be sized by its parent's flex line?
+ * "Is this box sized from outside?" — the predicate a renderer gates an
+ * internal fill on (the gradient-fork rule). Exported and imported by all five
+ * of them AND by the test, because the alternative is six copies of one
+ * expression and six chances to drift: a renderer that quietly drops
+ * `|| p.flexGrow != null` from its own copy flips onto the content-sized branch
+ * for every demoted element, and a test holding its own copy cannot see it.
  *
- * NOT the same predicate as the renderers' `fillsParent`
- * (`p.height != null || p.flex != null || p.flexGrow != null`), which also
- * counts an explicit height — an explicitly-sized box needs no fill. What
- * matters for those renderers is that the demotion PRESERVES their predicate,
- * which is why it substitutes `flexGrow` for `flex` rather than dropping it
- * (`wrapperLayout.test.ts` pins that predicate directly).
+ * The demotion must PRESERVE this — it substitutes `flexGrow` for `flex`
+ * rather than dropping it, so an explicitly-sized box stays explicitly sized.
+ */
+export const fillsParent = (
+  p: Pick<BaseBoxProps, "height" | "flex" | "flexGrow">
+): boolean => p.height != null || p.flex != null || p.flexGrow != null;
+
+/**
+ * Did the author ask this element to be sized by its parent's flex LINE?
+ *
+ * Deliberately narrower than `fillsParent`: it omits `height`, because an
+ * explicitly-sized box needs no fill. Don't merge the two.
  */
 export const wantsFlexSizing = (p: FlexSizingProps): boolean =>
   p.flex != null || p.flexGrow != null;
@@ -90,8 +101,12 @@ export const parentFacingLayout = (
 ): ParentFacingLayout => ({
   flex: p.flex,
   flexGrow: p.flexGrow,
-  // The `XStack` default lives here and ONLY here — a child of a row must be
-  // allowed to shrink, and the box that is a child of that row is this one.
+  // The `XStack` default, applied to the box that is actually the row's child.
+  // NOT the only copy: the same `?? (parentType === "XStack" ? 1 : undefined)`
+  // still runs for UNWRAPPED elements in `StackElement:39`, `TextElement:160`
+  // and `:204`, `RichTextElement:159` and `TypewriterTextElement:303` — which
+  // is exactly why `fillLayout` writes `flexShrink: 0` explicitly on a nested
+  // box, to stop those defaults adding a second shrink underneath this one.
   flexShrink: p.flexShrink ?? (parentType === "XStack" ? 1 : undefined),
   alignSelf: p.alignSelf,
 });

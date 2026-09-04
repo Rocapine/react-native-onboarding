@@ -5,7 +5,7 @@ import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { GradientBox } from "./GradientBox";
 import { UIElement } from "../types";
 import { RenderContext, dim, areElementPropsEqual } from "./shared";
-import { fillLayout } from "./wrapperLayout";
+import { fillLayout, fillsParent } from "./wrapperLayout";
 
 export type KeyboardAvoidingBehavior = "padding" | "height" | "position";
 
@@ -63,7 +63,7 @@ const KeyboardAvoidingViewElementComponentBase = ({ element, ctx }: Props): Reac
   // (containerStyle) and the inner KAV fills it — but only force `flex: 1` when
   // the box is explicitly sized. A content-sized box must stay content-sized,
   // else `flex: 1` grabs the parent's full main-axis (screen-fill in a ZStack).
-  const fillsParent = p.height != null || p.flex != null || p.flexGrow != null;
+  const fills = fillsParent(p);
   const kav = (
     <KeyboardAvoidingView
       behavior={p.behavior ?? defaultBehavior()}
@@ -72,7 +72,7 @@ const KeyboardAvoidingViewElementComponentBase = ({ element, ctx }: Props): Reac
       // Fills the GradientBox via `fillLayout`, never `flex: 1` — see #231 and
       // the wrapper-layout rule; `flex` here would collapse inside a
       // content-sized outer and split the two branches' layout.
-      style={hasGradient ? fillLayout(fillsParent) : containerStyle}
+      style={hasGradient ? fillLayout(fills) : containerStyle}
     >
       {ctx.renderChildren(element.children, "YStack")}
     </KeyboardAvoidingView>

@@ -33,7 +33,7 @@ import Carousel, { Pagination, ICarouselInstance } from "react-native-reanimated
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import type { UIElement } from "../types";
 import { dim, type RenderContext } from "./shared";
-import { fillLayout } from "./wrapperLayout";
+import { fillLayout, fillsParent } from "./wrapperLayout";
 import { useVariables } from "./VariablesContext";
 import { useAnimatedVariables } from "./AnimatedVariablesContext";
 import { GradientBox } from "./GradientBox";
@@ -190,8 +190,7 @@ export function CarouselElementComponent({ element, ctx }: Props): React.ReactEl
         ? availableWidth * 0.82
         : availableWidth;
 
-  const hasExplicitSize =
-    props.height != null || props.flex != null || props.flexGrow != null;
+  const hasExplicitSize = fillsParent(props);
   const heightFallback = hasExplicitSize ? undefined : DEFAULT_HEIGHT;
 
   const containerStyle = {

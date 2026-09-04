@@ -12,7 +12,7 @@ import {
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
 import { RenderContext, buildShadowStyle, dim, resolveInheritedFontFamily } from "./shared";
-import { fillLayout } from "./wrapperLayout";
+import { fillLayout, fillsParent } from "./wrapperLayout";
 import { useVariables } from "./VariablesContext";
 import { GradientBox } from "./GradientBox";
 import { triggerHaptic, type HapticStyle } from "./haptics";
@@ -171,8 +171,11 @@ export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElem
   // or flex set). Otherwise the button is content-sized (like the non-gradient
   // path) and a `flex: 1` inner view would grab the parent's full main-axis —
   // blowing the button up to fill the screen inside a ZStack/flex container.
-  const gradientFillsParent =
-    eff.height != null || eff.flex != null || eff.flexGrow != null;
+  // Deliberately computed on `eff` (base props ⊕ the active state override),
+  // not on `element.props`: a `pressedStyle.height` legitimately flips this
+  // while the finger is down. That is the one place this predicate is read
+  // against something other than the authored props — keep it visible.
+  const gradientFillsParent = fillsParent(eff);
   const borderRadius = eff.borderRadius ?? 90;
   const inheritedFontFamily = resolveInheritedFontFamily(
     eff.fontFamily,

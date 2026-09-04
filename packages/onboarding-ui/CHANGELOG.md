@@ -84,8 +84,8 @@ here.
   reported **43**. All three now warn and store the empty string. `clamp`'s
   first argument stays data, so an untouched counter still clamps to its
   floor. A day count is configuration too: `addDays("now", {{trialDays}})` with
-  `trialDays` unset used to return the start date unchanged, so "your trial ends
-  {{trialEnd}}" read as today. A free-text answer that merely looks bracketed
+  `trialDays` unset used to return the start date unchanged, so a headline
+  reading `"your trial ends {{trialEnd}}"` showed today. A free-text answer that merely looks bracketed
   (`"[not json]"`) is still one member. Where a machine key would reach prose
   because a member label cannot be recovered — `label` is the ", "-joined member
   labels and one of them contains ", " too — the list helpers keep using the raw

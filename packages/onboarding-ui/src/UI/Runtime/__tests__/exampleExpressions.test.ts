@@ -14,12 +14,14 @@ import { evaluateSetVariableExpression } from "../elements/expression";
 // exactly what `clamp(round({{intensity}} / 2), 1, 3)` was against a 0..1
 // step-0.1 slider: 1 at all eleven positions.
 //
-// The replacement went one round further than "not constant". An evenly spread
-// alternative (`round(1 + {{intensity}} * 2)` → 1,1,1,2,2,2,2,2,3,3,3) was
-// tried and REJECTED, because it never leaves 1..3 and so `clamp` changes no
-// value at all: the same defect as the constant, one function over. Hence the
-// two tests below that a "spreads nicely" expression would fail — the exact
-// distribution, and clamp being observably active.
+// Two replacements were tried and rejected before the current one, and the
+// tests below exist to catch both failures. `round(1 + {{intensity}} * 2)`
+// (1,1,1,2,2,2,2,2,3,3,3) spreads well but never leaves 1..3, so `clamp`
+// changes no value at all — the same defect as the constant, one function over.
+// `clamp(round({{intensity}} * 5), 1, 3)` keeps clamp active but returns 3 at
+// six of eleven positions, leaving the slider's upper half inert. So the
+// constraint is that the raw value must overshoot the bounds A LITTLE: hence
+// the exact-distribution test and the clamp-is-observable test.
 //
 // So rather than asserting a hand-computed number, this walks the real payload
 // for both the slider that feeds the expression and the expression itself, then
@@ -100,16 +102,15 @@ describe("example payload — the stdlib demo actually demonstrates the stdlib",
     expect([...new Set(sweep())].sort()).toEqual(["1", "2", "3"]);
   });
 
-  it("sweeps in the lower half and saturates in the upper half, as described", () => {
-    // 3/2/6, and deliberately so: the comment in the payload says exactly
-    // this, and the saturation is what keeps clamp observable. Pinned as an
-    // exact distribution because "more than one distinct value" was too low a
-    // bar to catch the constant's first replacement.
+  it("spreads 4/3/4, the most even split available, as the payload says", () => {
+    // Pinned as an exact distribution because "more than one distinct value"
+    // was too low a bar: it passed the 3/2/6 shape whose top six positions all
+    // returned 3. This also fails if someone changes the multiplier.
     const counts = sweep().reduce<Record<string, number>>((acc, r) => {
       acc[r] = (acc[r] ?? 0) + 1;
       return acc;
     }, {});
-    expect(counts).toEqual({ "1": 3, "2": 2, "3": 6 });
+    expect(counts).toEqual({ "1": 4, "2": 3, "3": 4 });
   });
 
   it("keeps clamp OBSERVABLE — the raw value leaves the range at both ends", () => {
@@ -157,13 +158,14 @@ describe("example payload — the stdlib demo actually demonstrates the stdlib",
     expect(results[results.length - 1]).toBe("3");
   });
 
-  it("discriminates round from trunc on exact .5 ties", () => {
-    // 0.3 * 5 = 1.5 -> round 2, trunc 1. 0.5 * 5 = 2.5 -> round 3, trunc 2.
-    // Real ties, which is what separates round-half-up from truncation rather
-    // than merely from flooring.
+  it("discriminates round from trunc", () => {
+    // 0.4 * 4 = 1.6 -> round 2, trunc 1. 0.7 * 4 = 2.8 -> round 3, trunc 2.
+    // No reachable position lands on an exact .5 tie with this multiplier
+    // (they would need i = 0.125, 0.375, 0.625 or 0.875), so round-half-up
+    // itself is pinned in `expression.test.ts` rather than here.
     const results = sweep();
-    expect(results[3]).toBe("2");
-    expect(results[5]).toBe("3");
+    expect(results[4]).toBe("2");
+    expect(results[7]).toBe("3");
   });
 
   it("keeps the two shipped copies of the expression identical", () => {

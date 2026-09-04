@@ -55,7 +55,9 @@ here.
   arguments. A bare word is never a legal argument, so one *between* the parens
   means they are punctuation — `"{{n}} day(s)"` and `"{{n}} min(s) left"` are
   prose even though `min` is a real function — and whitespace before the `(`
-  means the same, so `"Goals ({{n}})"` and `"Save (50)"` are prose too. A
+  means the same for an UNKNOWN name, so `"Goals ({{n}})"` and `"Save (50)"`
+  are prose too. A stdlib name is called glued or not, so `"max (2)"` is a
+  call; prose starting with one needs `valueMode: "literal"`. A
   misspelled `addDay({{d}}, 1)` still fails loudly. So does a *valid* call with
   prose beside it: this grammar has no implicit concatenation, so
   `list({{goals}}) and more` is a broken call rather than prose and must be
@@ -86,8 +88,13 @@ here.
   The taint follows the value, so it also refuses one that reached a bound
   through arithmetic or a function — `addDays({{d}}, {{weeks}} * 7)`,
   `clamp({{trialDays}}, 1, 90)` — but it is dropped where the result could have
-  come from a literal instead: `max({{trialDays}}, 7)` is an explicit default
-  and is honoured. A day count is configuration too: `addDays("now", {{trialDays}})` with
+  come from an untainted argument: `max({{trialDays}}, 7)` is the explicit
+  default it looks like, and so is `max({{seeded_zero}}, {{absent}})`. The same
+  rule now covers a `{{ref}}` inside a quoted LITERAL used as configuration:
+  `join({{goals}}, "{{sep}}")` with `sep` unset ran the members together and
+  `list({{goals}}, "{{conj}}")` left a double space, both silently. `count()`
+  stays exempt on purpose — `count({{skipped}})` is a real zero — which does
+  mean `round({{pct}}, count({{digits}}))` answers rather than failing. A day count is configuration too: `addDays("now", {{trialDays}})` with
   `trialDays` unset used to return the start date unchanged, so a headline
   reading `"your trial ends {{trialEnd}}"` showed today. A free-text answer that merely looks bracketed
   (`"[not json]"`) is still one member. Where a machine key would reach prose

@@ -958,6 +958,47 @@ describe("expression stdlib — review round 4", () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
+  it("refuses an unseeded reference in a string configuration position", () => {
+    const warn = warnSpy();
+    // The string side of the same hazard, reachable since a literal's contents
+    // interpolate: `interpolate` substitutes "" for an absent name, so these
+    // used to store a double space, a run-together list and an empty word.
+    expect(ev('list({{goals}}, "{{conj}}")', goals).value).toBe("");
+    expect(ev('join({{goals}}, "{{sep}}")', goals).value).toBe("");
+    expect(ev('plural({{n}}, "{{one}}", "{{other}}")', {
+      n: { value: "3", kind: "int" },
+    }).value).toBe("");
+    expect(ev('format({{d}}, "{{spec}}")', {
+      d: { value: "2026-03-04T12:00:00.000Z" },
+    }).value).toBe("");
+    expect(warn).toHaveBeenCalledTimes(4);
+    // A literal whose references all resolve is untouched.
+    expect(ev('list({{goals}}, "{{conj}}")', {
+      ...goals,
+      conj: { value: "or" },
+    }).value).toBe("Sleep, Energy or Focus");
+  });
+
+  it("rejects an overflowing + or - instead of storing \"Infinity\"", () => {
+    warnSpy();
+    // 308 nines is ~9.99e307 — finite, so the tokenizer accepts it (309 would
+    // be Infinity and fail to tokenize instead). Doubling it overflows.
+    const huge = "9".repeat(308);
+    // `*` and `/` always checked this; `+` and `-` did not, and
+    // `valueToString` then stored the literal string "Infinity" as an int.
+    // Failing to parse falls back to plain interpolation, as it always has for
+    // `*` and `/` — the point is that "Infinity" is never STORED, least of all
+    // tagged `kind: "int"`, which every downstream reader parses as NaN.
+    for (const template of [`${huge} + ${huge}`, `0 - ${huge} - ${huge}`, `${huge} * 2`]) {
+      const out = ev(template);
+      expect(out.value, template).not.toBe("Infinity");
+      expect(out.value, template).not.toBe("-Infinity");
+      expect(out.kind, template).toBe("string");
+    }
+    // And the same arithmetic inside the representable range still evaluates.
+    expect(ev("2 + 2")).toEqual({ value: "4", kind: "int" });
+  });
+
   it("keeps clamp from laundering the taint when it clips to a bound", () => {
     const warn = warnSpy();
     // A clamp bound is a sanity limit, not a default the author nominated for

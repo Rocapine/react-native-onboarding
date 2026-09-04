@@ -368,3 +368,13 @@ provenance, not on the number: `max({{x}}, 0)` with `x` absent is the literal
 0, and so is a legitimately-zero seeded variable beside an absent one. A
 `clamp` bound is NOT such a default — it is a sanity limit — so a clipped
 result stays tainted; that carve-out was tried and reverted.
+
+The same rule covers STRINGS, because a literal's contents interpolate and
+`interpolate` substitutes `""` for a name that does not exist: an unseeded
+`{{ref}}` in `list`'s conjunction, `join`'s separator, `plural`'s forms or
+`format`'s spec is refused, where it used to leave a double space, run the
+members together, or store the empty string. `count()` is the one deliberate
+exemption — `count({{skipped}})` is a real zero, and `resolveVar` cannot tell a
+skipped screen from a typo — so `count()` does launder the sentinel into a
+configuration position. That trade is recorded at the `case "count"` comment,
+with what it would take to reverse it.

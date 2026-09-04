@@ -42,7 +42,11 @@ type Value =
   // string concat, and `asDate` — deliberately ignore it and keep using the
   // machine value, which is also what makes a `DatePicker` variable (ISO in
   // `value`, formatted text in `label`) still parseable as a date.
-  | { kind: "string"; s: string; label?: string }
+  // `unseeded` on a STRING marks one built from a literal whose `{{ref}}`
+  // named a variable that does not exist. `interpolate` substitutes "" there,
+  // so without the flag a separator or a conjunction silently becomes empty:
+  // `join({{goals}}, "{{sep}}")` stored "SleepEnergyFocus".
+  | { kind: "string"; s: string; label?: string; unseeded?: boolean }
   // A multi-select variable (the JSON-encoded `string[]` CheckboxGroup writes).
   // `items` are the member LABELS when available (matching `interpolate`'s
   // label-first display precedence); `raw` is the original JSON string so
@@ -315,7 +319,19 @@ const asNumber = (v: Value): { n: number; isInt: boolean } | null =>
  * `round(42.75, {{digits}})` reported 43.
  */
 const isUnseeded = (v: Value): boolean =>
-  v.kind === "number" && (v.missing === true || v.unseeded === true);
+  (v.kind === "number" && (v.missing === true || v.unseeded === true)) ||
+  (v.kind === "string" && v.unseeded === true);
+
+/** True when the template names a variable that does not exist. */
+const namesMissingVariable = (
+  template: string,
+  vars: Record<string, ComposableVariableEntry>
+): boolean => {
+  for (const m of template.matchAll(/\{\{([^}]+?)\}\}/g)) {
+    if (!vars[m[1].trim()]) return true;
+  }
+  return false;
+};
 
 /**
  * Resolve a value to a Date. Accepts the `"now"` sentinel — the same literal
@@ -503,7 +519,7 @@ function callFunction(name: string, args: Value[]): Value | null {
       if (args.length !== 2 && args.length !== 3) return null;
       const d = asDate(args[0]);
       if (!d) return null;
-      if (args[1].kind !== "string") return null;
+      if (args[1].kind !== "string" || isUnseeded(args[1])) return null;
       const opts = parseFormatSpec(args[1].s);
       if (!opts) return null;
       let locale: string | undefined;
@@ -530,7 +546,9 @@ function callFunction(name: string, args: Value[]): Value | null {
       if (!items) return null;
       let conjunction = "and";
       if (args.length === 2) {
-        if (args[1].kind !== "string") return null;
+        // A conjunction is configuration, like a bound: an unseeded one used to
+        // leave a double space where the word should be.
+        if (args[1].kind !== "string" || isUnseeded(args[1])) return null;
         conjunction = args[1].s;
       }
       return { kind: "string", s: grammaticalList(items, conjunction) };
@@ -543,7 +561,8 @@ function callFunction(name: string, args: Value[]): Value | null {
       // multi-select `label`, so `join(x)` reproduces today's string exactly.
       let separator = ", ";
       if (args.length === 2) {
-        if (args[1].kind !== "string") return null;
+        // Same for a separator: unseeded used to join the members with nothing.
+        if (args[1].kind !== "string" || isUnseeded(args[1])) return null;
         separator = args[1].s;
       }
       return { kind: "string", s: items.join(separator) };
@@ -552,8 +571,15 @@ function callFunction(name: string, args: Value[]): Value | null {
       if (args.length !== 1) return null;
       const items = asList(args[0]);
       if (!items) return null;
-      // NOT tainted: `count({{skipped}})` is a real answer — zero members —
-      // rather than a value derived from a name that does not exist.
+      // NOT tainted, and this is a decision rather than an omission:
+      // `count({{skipped}})` is a real answer — zero members on a screen the
+      // user never filled in — and `resolveVar` cannot tell that from a typo'd
+      // name. The cost is that `count()` launders the sentinel into a
+      // configuration position, so `round({{pct}}, count({{digits}}))` answers
+      // 43 rather than failing. Nobody writes that; a skipped multi-select is
+      // routine. If the trade is ever revisited, the fix is to taint here and
+      // accept that `count({{skipped}})` must be written
+      // `count({{skipped}}) + 0` or guarded by `renderWhen`.
       return { kind: "number", n: items.length, isInt: true };
     }
     case "plural": {
@@ -561,6 +587,8 @@ function callFunction(name: string, args: Value[]): Value | null {
       const n = asNumber(args[0]);
       if (!n) return null;
       if (args[1].kind !== "string" || args[2].kind !== "string") return null;
+      // Both plural forms are configuration; unseeded stored the empty string.
+      if (isUnseeded(args[1]) || isUnseeded(args[2])) return null;
       // Two-form selection only (Intl's `one` / `other` categories). Languages
       // with `few`/`many` need Intl.PluralRules and a locale argument.
       return { kind: "string", s: Math.abs(n.n) === 1 ? args[1].s : args[2].s };
@@ -760,7 +788,11 @@ function parse(tokens: Token[], vars: Record<string, ComposableVariableEntry>): 
       // "… for Ada" rather than emitting the braces to the user. Format specs,
       // separators and plural forms contain no `{{`, so they pass through
       // byte-identical. Label-first, like every other display path.
-      return { kind: "string", s: interpolate(t.value, vars) };
+      return {
+        kind: "string",
+        s: interpolate(t.value, vars),
+        unseeded: namesMissingVariable(t.value, vars),
+      };
     }
     if (t.kind === "var") {
       advance();
@@ -817,9 +849,14 @@ function parse(tokens: Token[], vars: Record<string, ComposableVariableEntry>): 
       if (!right) return null;
       if (op === "+") {
         if (left.kind === "number" && right.kind === "number") {
+          const sum: number = left.n + right.n;
+          // `*` and `/` have always checked this; `+` and `-` did not, so an
+          // overflow escaped as `Infinity` and `valueToString` stored the
+          // literal string "Infinity" under `kind: "int"`.
+          if (!Number.isFinite(sum)) return null;
           left = {
             kind: "number",
-            n: left.n + right.n,
+            n: sum,
             isInt: left.isInt && right.isInt,
             unseeded: left.unseeded || right.unseeded,
           };
@@ -828,9 +865,11 @@ function parse(tokens: Token[], vars: Record<string, ComposableVariableEntry>): 
         }
       } else {
         if (left.kind !== "number" || right.kind !== "number") return null;
+        const difference: number = left.n - right.n;
+        if (!Number.isFinite(difference)) return null;
         left = {
           kind: "number",
-          n: left.n - right.n,
+          n: difference,
           isInt: left.isInt && right.isInt,
           unseeded: left.unseeded || right.unseeded,
         };

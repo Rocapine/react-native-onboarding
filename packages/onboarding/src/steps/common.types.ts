@@ -116,14 +116,20 @@ export type SetVariableButtonAction = {
    * reported 0 for a score of 42). The taint follows the value, so it also
    * refuses one that reached a bound through arithmetic or a function
    * (`addDays({{d}}, {{weeks}} * 7)`), but is dropped where the result could
-   * have come from a literal: `max({{trialDays}}, 7)` is an explicit default
-   * and is honoured.
+   * have come from an untainted argument: `max({{trialDays}}, 7)` is an
+   * explicit default and is honoured, as is `max({{seeded_zero}}, {{absent}})`.
+   * A `{{ref}}` inside a quoted LITERAL is guarded the same way when it is
+   * configuration — `join({{goals}}, "{{sep}}")` with `sep` unset used to run
+   * the members together — though `count()` is deliberately exempt, since
+   * `count({{skipped}})` is a real zero.
    * "Attempts a call" means a **stdlib name** sits in front of a `(` whose
    * contents could actually be arguments. A bare word BETWEEN the parens makes
-   * them punctuation instead, and an unglued `(` is never a call, so the
-   * English optional-plural idiom survives: `"{{n}} day(s)"` reads "3 day(s)",
-   * `"{{n}} min(s) left"` reads "3 min(s) left", `"Goals ({{n}})"` reads
-   * "Goals (2)". A stdlib name DOES outrank bare words outside its own parens,
+   * them punctuation instead, and an unglued `(` after an UNKNOWN identifier
+   * is not a call, so the English optional-plural idiom survives:
+   * `"{{n}} day(s)"` reads "3 day(s)", `"{{n}} min(s) left"` reads
+   * "3 min(s) left", `"Goals ({{n}})"` reads "Goals (2)". A STDLIB name is
+   * called glued or not — `"max (2) options"` blanks — so prose starting with
+   * one needs `valueMode: "literal"`. A stdlib name DOES outrank bare words outside its own parens,
    * so `list({{goals}}) and more` fails loudly — **there is no implicit
    * concatenation**, and prose beside a call must be joined with `+ "…"`. That
    * is the one rule an author has to know to avoid a blank headline.

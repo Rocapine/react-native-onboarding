@@ -818,16 +818,19 @@ export const onboardingExample = {
                     {
                       type: "setVariable",
                       name: "weeklyPace",
-                      // Numeric helpers: rounds to nearest (not trunc) and holds
-                      // the result inside an inclusive range. Over the slider's
-                      // 0..1 / step-0.1 grid this reads 1,1,1,2,2,3,3,3,3,3,3 —
-                      // top-heavy on purpose, because it exercises what it
-                      // demonstrates: both clamp bounds (raw 0 and raw 5 fall
-                      // outside 1..3) and the two round-half-up positions a
-                      // trunc would get wrong. `round(1 + {{intensity}} * 2)`
-                      // spreads more evenly but never leaves the range, so
-                      // clamp becomes a no-op and demonstrates nothing.
-                      value: "clamp(round({{intensity}} * 5), 1, 3)",
+                      // Rounds to nearest, not trunc. Over the slider's
+                      // 0..1 / step-0.1 grid this reads 1,1,1,2,2,2,2,2,3,3,3 —
+                      // the most even 3/5/3 split available for 11 positions
+                      // across 3 values, so every drag of the slider does
+                      // something. What that trades away, deliberately: the
+                      // expression never leaves 1..3, so there is no `clamp`
+                      // here to demonstrate (`clamp(round({{intensity}} * 5),
+                      // 1, 3)` did exercise both bounds, but returned 3 at six
+                      // of the eleven positions — an inert upper half), and no
+                      // position lands on an exact .5 tie. A trunc regression
+                      // is still caught at 0.3 and 0.8; clamp's own behaviour
+                      // is covered by the unit tests instead.
+                      value: "round(1 + {{intensity}} * 2)",
                       valueMode: "expression",
                     },
                   ],

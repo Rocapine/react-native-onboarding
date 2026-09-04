@@ -703,10 +703,10 @@ export default function ComposableScreenExample() {
                     type: 'setVariable' as const,
                     name: 'weeklyPace',
                     // Over the slider's 0..1 / step-0.1 grid this reads
-                    // 1,1,1,2,2,3,3,3,3,3,3 — top-heavy on purpose: raw 0 and
-                    // raw 5 fall outside 1..3, so both clamp bounds are
-                    // exercised, as are the two round-half-up positions.
-                    value: 'clamp(round({{intensity}} * 5), 1, 3)',
+                    // 1,1,1,2,2,2,2,2,3,3,3 — a 3/5/3 split, the most even
+                    // available, so every drag moves the number. It never
+                    // leaves 1..3, so no `clamp` is needed here.
+                    value: 'round(1 + {{intensity}} * 2)',
                     valueMode: 'expression' as const,
                   },
                 ],

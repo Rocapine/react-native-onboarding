@@ -10,9 +10,12 @@ import { evaluateSetVariableExpression } from "../elements/expression";
 // The shipped example payload is the studio's seed data and the artifact
 // CLAUDE.md step 1 asks for, so it is the first thing an integrator copies. A
 // demo expression that is CONSTANT across its whole input domain demonstrates
-// nothing and would not catch `round` being swapped for `trunc` or the clamp
-// bounds being wrong — which is exactly what `clamp(round({{intensity}} / 2),
-// 1, 3)` was against a 0..1 step-0.1 slider: 1 at all eleven positions.
+// nothing and would not catch `round` being swapped for `trunc` — which is
+// exactly what `clamp(round({{intensity}} / 2), 1, 3)` was against a 0..1
+// step-0.1 slider: 1 at all eleven positions. Its first replacement,
+// `clamp(round({{intensity}} * 5), 1, 3)`, was only half a fix: it returned 3
+// at six of those eleven, so the slider's whole upper half was inert. Hence the
+// distribution test below, not just a "more than one distinct value" test.
 //
 // So rather than asserting a hand-computed number, this walks the real payload
 // for both the slider that feeds the expression and the expression itself, then
@@ -89,8 +92,19 @@ describe("example payload — the stdlib demo actually demonstrates the stdlib",
     expect(new Set(results).size).toBeGreaterThan(1);
   });
 
-  it("covers every value the clamp range allows, and nothing outside it", () => {
+  it("covers 1, 2 and 3, and nothing outside", () => {
     expect([...new Set(sweep())].sort()).toEqual(["1", "2", "3"]);
+  });
+
+  it("spreads evenly enough that no stretch of the slider is inert", () => {
+    // 3/5/3 is the most even split available for 11 positions across 3 values.
+    // The bar to clear is the previous expression's 3/2/6, whose top six
+    // positions all returned 3.
+    const counts = sweep().reduce<Record<string, number>>((acc, r) => {
+      acc[r] = (acc[r] ?? 0) + 1;
+      return acc;
+    }, {});
+    expect(counts).toEqual({ "1": 3, "2": 5, "3": 3 });
   });
 
   it("rises monotonically with the slider", () => {
@@ -100,19 +114,20 @@ describe("example payload — the stdlib demo actually demonstrates the stdlib",
     }
   });
 
-  it("exercises both clamp bounds", () => {
+  it("reaches both ends of its range at the slider's own extremes", () => {
     const results = sweep();
-    // At the bottom the raw product is 0 — below the lower bound — and at the
-    // top it is 5, above the upper bound. Both must come back clamped.
     expect(results[0]).toBe("1");
     expect(results[results.length - 1]).toBe("3");
   });
 
-  it("exercises round-to-nearest, which a trunc regression would fail", () => {
-    // 0.3 * 5 = 1.5 -> round 2, but trunc 1. 0.5 * 5 = 2.5 -> round 3, trunc 2.
+  it("discriminates round from trunc, the regression worth catching", () => {
+    // 1 + 0.3 * 2 = 1.6 -> round 2, trunc 1. 1 + 0.8 * 2 = 2.6 -> round 3,
+    // trunc 2. What this shape does NOT cover, unlike `* 5`, is an exact .5
+    // tie — no reachable position lands on one — so round-half-up is pinned in
+    // `expression.test.ts` instead of here.
     const results = sweep();
     expect(results[3]).toBe("2");
-    expect(results[5]).toBe("3");
+    expect(results[8]).toBe("3");
   });
 
   it("keeps the two shipped copies of the expression identical", () => {

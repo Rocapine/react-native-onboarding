@@ -38,9 +38,22 @@ here.
   a variable by an earlier press and then plainly interpolated; there is no
   render-time filter syntax.
 
+  **A quoted literal's contents interpolate**, so `{{var}}` means the same thing
+  everywhere in a template: `list({{goals}}) + " for {{name}}"` reads "… for
+  Ada" instead of emitting the braces to the user. Specs, separators and plural
+  forms hold no `{{` and pass through byte-identical. One edge moves relative to
+  before the stdlib: a template that is *entirely* one quoted string is a
+  literal now, so `"{{name}}"` stores `Ada` rather than `"Ada"` with the quotes
+  — the quote characters are delimiters, not content.
+
   **Failure is loud, which is the one behaviour change.** A template with no
   call still falls back to plain interpolation, because `"Hello {{name}}"` is a
-  legitimate expression-mode value. A template that *attempts* a call and fails
+  legitimate expression-mode value — and so is `"{{n}} day(s)"`. "Attempts a
+  call" is a property of the token stream rather than of the substring `word(`:
+  every identifier in the template must be a function name, so a single bare
+  word makes the whole template prose. That is what keeps the English
+  optional-plural idiom interpolating while a misspelled `addDay({{d}}, 1)`
+  still fails loudly. A template that *attempts* a call and fails
   stores the empty string and warns once, rather than interpolating broken
   source text into a variable a headline would then display verbatim. The same
   rule applies wherever the alternative was a believable constant: a value that
@@ -49,7 +62,10 @@ here.
   `count()` rather than answering 1, and an `addDays` offset that lands outside
   the representable `Date` range fails instead of throwing a `RangeError` out of
   the press handler. A free-text answer that merely looks bracketed
-  (`"[not json]"`) is still one member.
+  (`"[not json]"`) is still one member. Where a machine key would reach prose
+  because a member label cannot be recovered — `label` is the ", "-joined member
+  labels and one of them contains ", " too — the list helpers keep using the raw
+  values (an empty sentence is worse for the end user) but say so in a warning.
 
 ### Fixed
 

@@ -99,10 +99,17 @@ export type SetVariableButtonAction = {
    * earlier press (typically the previous screen's Continue) and then simply
    * interpolated.
    *
+   * A quoted literal's CONTENTS interpolate, so `{{var}}` means the same thing
+   * everywhere in the template: `list({{goals}}) + " for {{name}}"` reads
+   * "… for Ada" rather than emitting the braces to the user.
+   *
    * A template with no function call falls back to plain interpolation on parse
    * failure (so `"Hello {{name}}"` still works). A template that *attempts* a
    * call and fails stores the empty string and warns, rather than writing the
    * unevaluated source text into a variable a headline would display verbatim.
+   * "Attempts a call" means every identifier in the template is a function name
+   * (immediately followed by `(`); a bare word makes it prose, so the English
+   * optional-plural idiom `"{{n}} day(s)"` still interpolates to "3 day(s)".
    *
    * Defaults to `"literal"` — `value` stored verbatim.
    */

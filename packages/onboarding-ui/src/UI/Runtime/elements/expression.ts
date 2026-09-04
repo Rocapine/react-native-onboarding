@@ -34,8 +34,10 @@ type Value =
   // `items` are the member LABELS when available (matching `interpolate`'s
   // label-first display precedence); `raw` is the original JSON string so
   // `valueToString` — and therefore string concat — is byte-identical to the
-  // behaviour before this Value kind existed.
-  | { kind: "list"; items: string[]; raw: string };
+  // behaviour before this Value kind existed. `labelSplitFailed` records that
+  // labels EXISTED but could not be split back onto the values, so `items` are
+  // machine keys — see `asList`, which is where that gets reported.
+  | { kind: "list"; items: string[]; raw: string; labelSplitFailed?: boolean };
 
 const isDigit = (c: string) => c >= "0" && c <= "9";
 const isSpace = (c: string) => c === " " || c === "\t" || c === "\n" || c === "\r";
@@ -171,10 +173,14 @@ function resolveVar(name: string, vars: Record<string, ComposableVariableEntry>)
     // itself contains ", " would split wrong, and then the raw values are the
     // safer source.
     const labels = entry.label ? entry.label.split(", ") : undefined;
+    const usable = labels != null && labels.length === items.length;
     return {
       kind: "list",
-      items: labels && labels.length === items.length ? labels : items,
+      items: usable ? (labels as string[]) : items,
       raw,
+      // Only a MISMATCH is a problem. No label at all is the documented
+      // raw-values case (nothing better exists), and stays silent.
+      labelSplitFailed: labels != null && !usable,
     };
   }
   const trimmed = raw.trim();
@@ -290,7 +296,24 @@ function asDate(v: Value): Date | null {
 }
 
 function asList(v: Value): string[] | null {
-  if (v.kind === "list") return v.items;
+  if (v.kind === "list") {
+    if (v.labelSplitFailed) {
+      // The members have display labels, but `label` is their ", "-joined form
+      // and one of them contains ", " too, so the split is ambiguous and
+      // `items` fell back to the machine values. Those are about to appear in
+      // user-facing prose, which is exactly the believable-but-wrong output
+      // this module refuses to emit silently — so say so. Not a hard failure:
+      // the raw values are the only information left, and an empty sentence is
+      // worse for the end user than an unpolished one.
+      console.warn(
+        `[ComposableScreen] setVariable expression: a multi-select variable's label ` +
+          `(${JSON.stringify(v.raw)}) could not be split back onto its members, so the ` +
+          "list helpers used the raw values. A member label containing \", \" causes " +
+          "this; rename the option so its label has no comma-space in it."
+      );
+    }
+    return v.items;
+  }
   // An unset variable resolves to numeric 0; treat it as an empty selection so
   // `count()` / `list()` on a screen the user skipped are 0 and "".
   // A variable that holds a real NUMBER is not a list at all — `count({{age}})`
@@ -456,12 +479,37 @@ function callFunction(name: string, args: Value[]): Value | null {
   }
 }
 
-// A stdlib call is the only legitimate reason for an identifier to appear in an
-// expression template — the grammar has no bare identifiers otherwise. So a
-// template containing `ident(` is a call attempt, and a failure to evaluate it
-// is a HARD failure rather than something to paper over by interpolating the
-// broken source text into a user-visible variable.
-const LOOKS_LIKE_CALL = /[A-Za-z_$][A-Za-z0-9_$]*\(/;
+/**
+ * True when the template is an ATTEMPT at a stdlib call, so a parse failure has
+ * to be reported loudly rather than papered over by interpolating the broken
+ * source text into a user-visible variable.
+ *
+ * The test is a property of the TOKEN STREAM, not a substring of the template:
+ * every identifier present must be a function name (immediately followed by
+ * `(`), and there must be at least one. A BARE identifier is a word, and a
+ * template containing a word is prose.
+ *
+ * That distinction is the whole point. `word(` alone used to be the test, which
+ * made `"{{n}} day(s)"` — the English optional-plural idiom, and the most common
+ * shape of prose with a parenthesis in it — store the empty string. Here `s` is
+ * a bare identifier, so the template is prose and falls back to interpolation,
+ * while `"addDay({{d}}, 1)"` has no bare identifier and still fails loudly on
+ * the misspelled name. A template that does not even tokenize (`"{{p}} EUR(incl.
+ * VAT)"` — that `.` is not a decimal point) is prose by construction and never
+ * reaches this function.
+ *
+ * The residue: prose whose only word is glued to a parenthesised number
+ * (`"Save(50)"`) still reads as a call attempt. Write it with a space.
+ */
+function isCallAttempt(tokens: Token[]): boolean {
+  let sawCall = false;
+  for (let i = 0; i < tokens.length; i++) {
+    if (tokens[i].kind !== "ident") continue;
+    if (tokens[i + 1]?.kind !== "lparen") return false;
+    sawCall = true;
+  }
+  return sawCall;
+}
 
 function parse(tokens: Token[], vars: Record<string, ComposableVariableEntry>): Value | null {
   let pos = 0;
@@ -490,7 +538,12 @@ function parse(tokens: Token[], vars: Record<string, ComposableVariableEntry>): 
     }
     if (t.kind === "str") {
       advance();
-      return { kind: "string", s: t.value };
+      // A literal's CONTENTS interpolate, so `{{var}}` means the same thing
+      // everywhere in a template — `list({{goals}}) + " for {{name}}"` reads
+      // "… for Ada" rather than emitting the braces to the user. Format specs,
+      // separators and plural forms contain no `{{`, so they pass through
+      // byte-identical. Label-first, like every other display path.
+      return { kind: "string", s: interpolate(t.value, vars) };
     }
     if (t.kind === "var") {
       advance();
@@ -590,10 +643,17 @@ function parse(tokens: Token[], vars: Record<string, ComposableVariableEntry>): 
  * untagged JSON `string[]` is a member list. `+` on any non-numeric operand
  * becomes string concat.
  *
+ * A quoted literal's CONTENTS interpolate, so `{{var}}` means the same thing
+ * everywhere in the template — `list({{goals}}) + " for {{name}}"` reads
+ * "… for Ada" rather than emitting the braces to the user. Format specs,
+ * separators and plural forms hold no `{{`, so they pass through unchanged.
+ *
  * Failure handling differs by template shape:
  * - a template with no function call falls back to plain interpolation
  *   (unchanged `interpolate()` semantics), because `"Hello {{name}}"` is a
- *   legitimate expression-mode value
+ *   legitimate expression-mode value — and so is `"{{n}} day(s)"`, which is
+ *   prose because `s` is a bare word rather than a function name (see
+ *   `isCallAttempt`)
  * - a template that ATTEMPTS a call and fails returns the empty string and
  *   warns, rather than interpolating the broken source into a variable that a
  *   headline would then display verbatim
@@ -612,14 +672,14 @@ export function evaluateSetVariableExpression(
       // A bare multi-select reference stringifies to its raw JSON, as before.
       return { value: valueToString(result), kind: "string" };
     }
-  }
-  if (LOOKS_LIKE_CALL.test(template)) {
-    console.warn(
-      `[ComposableScreen] setVariable expression failed to evaluate: ${template}. ` +
-        "Check the function name, its argument count and any date/format string. " +
-        "Stored the empty string rather than the unevaluated template."
-    );
-    return { value: "", kind: "string" };
+    if (isCallAttempt(tokens)) {
+      console.warn(
+        `[ComposableScreen] setVariable expression failed to evaluate: ${template}. ` +
+          "Check the function name, its argument count and any date/format string. " +
+          "Stored the empty string rather than the unevaluated template."
+      );
+      return { value: "", kind: "string" };
+    }
   }
   return { value: interpolate(template, vars), kind: "string" };
 }

@@ -453,3 +453,100 @@ describe("expression stdlib — structured data of the wrong shape", () => {
     expect(ev('"" + {{g}}', { g: { value: "[1,2,3]" } }).value).toBe("[1,2,3]");
   });
 });
+
+describe("expression stdlib — prose is not a call attempt", () => {
+  // Review finding on #243. `word(` used to be enough to declare the template a
+  // failed call and store the empty string, which broke the English
+  // optional-plural idiom — the single most common shape of prose that contains
+  // a parenthesis. A call attempt is now a property of the TOKEN STREAM (every
+  // identifier is a function name, i.e. immediately followed by `(`), not of a
+  // substring, so prose keeps falling back to plain interpolation while a real
+  // call still fails loudly.
+  const warnSpy = () => vi.spyOn(console, "warn").mockImplementation(() => {});
+
+  it("interpolates the optional-plural idiom rather than storing the empty string", () => {
+    const warn = warnSpy();
+    expect(ev("{{n}} day(s)", { n: { value: "3", kind: "int" } })).toEqual({
+      value: "3 day(s)",
+      kind: "string",
+    });
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("interpolates prose whose parenthesis sits against a word", () => {
+    warnSpy();
+    expect(ev("{{n}} min(s) left", { n: { value: "3", kind: "int" } }).value).toBe(
+      "3 min(s) left"
+    );
+    // Lexically not an expression at all (the `.` is not a decimal point), so
+    // there is no token stream and the template is prose by construction.
+    expect(ev("{{p}} EUR(incl. VAT)", { p: { value: "9", kind: "int" } }).value).toBe(
+      "9 EUR(incl. VAT)"
+    );
+    // A parenthesis with a space before it was never affected; pinned so the
+    // new rule cannot regress it either.
+    expect(ev("Plan (recommended) {{n}}", { n: { value: "3", kind: "int" } }).value).toBe(
+      "Plan (recommended) 3"
+    );
+  });
+
+  it("still fails loudly when every identifier is a called function name", () => {
+    const warn = warnSpy();
+    // A misspelling is a call attempt: `addDay` is followed by `(` and nothing
+    // else in the template is a bare word.
+    expect(ev("addDay({{d}}, 1)", { d: { value: "2026-01-01T00:00:00.000Z" } }).value).toBe("");
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("expression stdlib — string literals interpolate", () => {
+  it("interpolates a quoted literal's contents", () => {
+    // Review finding on #243. The literal used to be returned verbatim, so a
+    // fully quoted template stored its own source text with no warning.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(ev('"{{name}}"', { name: { value: "Ada" } })).toEqual({
+      value: "Ada",
+      kind: "string",
+    });
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("interpolates a literal concatenated onto a call result", () => {
+    // The advertised sentence-assembly shape. Without this the braces reach the
+    // user: the variable would hold "Sleep, Energy and Focus for {{name}}".
+    expect(ev('list({{goals}}) + " for {{name}}"', {
+      ...goals,
+      name: { value: "Ada" },
+    }).value).toBe("Sleep, Energy and Focus for Ada");
+  });
+
+  it("leaves a literal with no reference in it byte-identical", () => {
+    expect(ev('join({{goals}}, " · ")', goals).value).toBe("Sleep · Energy · Focus");
+    expect(ev('format({{d}}, "medium", "en-US")', {
+      d: { value: "2026-03-04T12:00:00.000Z" },
+    }).value).toBe("Mar 4, 2026");
+  });
+});
+
+describe("expression stdlib — unsplittable member labels", () => {
+  it("warns when the joined label cannot be split back onto its values", () => {
+    // CheckboxGroup writes `label` as the ", "-joined member labels, so a member
+    // label that itself contains ", " makes the split ambiguous and the raw
+    // values are the only safe source. That is a machine key in user-facing
+    // prose, so it must not be silent — same rule as every other believable
+    // wrong answer in this module.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(ev("list({{g}})", {
+      g: { value: '["a","b"]', label: "Sleep, better, Energy" },
+    }).value).toBe("a and b");
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toContain("label");
+  });
+
+  it("does not warn when the arity matches", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(ev("list({{goals}})", goals).value).toBe("Sleep, Energy and Focus");
+    expect(ev("list({{g}})", { g: { value: '["sleep"]' } }).value).toBe("sleep");
+    expect(warn).not.toHaveBeenCalled();
+  });
+});

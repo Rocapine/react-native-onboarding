@@ -58,7 +58,7 @@ const flexGrowAnimRow = {
 const boundedScroll = {
   id: 'bounded-frame',
   type: 'YStack' as const,
-  props: { height: 130, backgroundColor: '#FFF3B0' },
+  props: { height: 105, backgroundColor: '#FFF3B0' },
   children: [
     {
       id: 'bounded-scroll',
@@ -105,7 +105,7 @@ const wrappedCarousel = {
   props: {
     carouselType: 'normal' as const,
     showDots: true,
-    height: 110,
+    height: 80,
     borderRadius: 12,
     animation: { entering: { preset: 'FadeIn' as const, duration: 350 } },
   },
@@ -113,7 +113,7 @@ const wrappedCarousel = {
     id: `slide-${i}`,
     type: 'YStack' as const,
     props: {
-      height: 110,
+      height: 80,
       borderRadius: 12,
       backgroundColor: COLORS[i % COLORS.length],
       alignItems: 'center' as const,
@@ -261,7 +261,7 @@ export default function ComposableScreenFlexWrappersContainersExample() {
             {
               id: 'root',
               type: 'YStack' as const,
-              props: { flex: 1, gap: 12, padding: 20 },
+              props: { flex: 1, gap: 10, padding: 20 },
               children: [
                 {
                   id: 'title',

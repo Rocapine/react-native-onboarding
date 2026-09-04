@@ -72,7 +72,9 @@ export const RichTextStyleContext = React.createContext<InheritedTextStyle>({});
 export const interpolate = (template: string, variables: Record<string, ComposableVariableEntry>): string =>
   // `.trim()` because the expression tokenizer trims a `{{ name }}` reference
   // and this did not, so the same reference resolved in `{{ name }} + "!"` and
-  // silently emptied in `"Hi {{ name }}"`. One trimming rule, not two.
+  // silently emptied in `"Hi {{ name }}"`. Every resolver in the runtime now
+  // trims — `interpolateIdentifier` below, `evaluateCondition`, `animatedGate`
+  // and `extractAssetUrls` — so a spaced reference means one thing everywhere.
   template.replace(/\{\{([^}]+?)\}\}/g, (_, key) => {
     const name = key.trim();
     return variables[name]?.label ?? variables[name]?.value ?? "";
@@ -91,7 +93,13 @@ export const interpolate = (template: string, variables: Record<string, Composab
 // today that's `purchase`'s `product` field (`runActions.ts`); reach for it
 // again for any future identifier-shaped resolution rather than `interpolate`.
 export const interpolateIdentifier = (template: string, variables: Record<string, ComposableVariableEntry>): string =>
-  template.replace(/\{\{([^}]+?)\}\}/g, (_, key) => variables[key]?.value ?? variables[key]?.label ?? "");
+  // Trimmed for the same reason as `interpolate` — the two must agree, or
+  // `product: "{{ plan }}"` resolves to an empty slot key and a paywall's buy
+  // button does nothing while the same reference renders fine in a `Text`.
+  template.replace(/\{\{([^}]+?)\}\}/g, (_, key) => {
+    const name = key.trim();
+    return variables[name]?.value ?? variables[name]?.label ?? "";
+  });
 
 // Cast number | string dimension values to DimensionValue for React Native style props
 export const dim = (v: number | string | undefined): import("react-native").DimensionValue | undefined =>

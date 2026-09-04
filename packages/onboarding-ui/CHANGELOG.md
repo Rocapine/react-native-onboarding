@@ -85,24 +85,24 @@ here.
   first argument stays data, so an untouched counter still clamps to its
   floor. A day count is configuration too: `addDays("now", {{trialDays}})` with
   `trialDays` unset used to return the start date unchanged, so "your trial ends
-  {{trialEnd}}" read as today.
-
-  Three more places where the answer was plausible rather than right, all found
-  by review and each now pinned by a test that fails when its guard is deleted:
-  a template that is nothing but a stdlib call with a **bare-word argument** —
-  `count(goals)`, the braces forgotten — used to store its own source text into
-  a variable a headline then displayed, with no warning; it still keeps the text
-  (it is indistinguishable from the `{{n}} min(s) left` idiom, and blanking real
-  copy would be worse) but now warns and suggests the braced form. A `format`
-  spec made only of hour **modifiers** (`"hour12:true"`, `"hourCycle:h23"`)
-  selected no component at all, so `toLocaleString` fell back to a full
-  date+time; it is rejected. And `interpolate` now trims a `{{ spaced }}`
-  reference like the expression tokenizer already did, so the same reference no
-  longer resolves bare and silently empties inside a quoted literal. A free-text answer that merely looks bracketed
+  {{trialEnd}}" read as today. A free-text answer that merely looks bracketed
   (`"[not json]"`) is still one member. Where a machine key would reach prose
   because a member label cannot be recovered — `label` is the ", "-joined member
   labels and one of them contains ", " too — the list helpers keep using the raw
   values (an empty sentence is worse for the end user) but say so in a warning.
+
+  Three more places where the answer was plausible rather than right, all found
+  by review and each now pinned by a test that fails when its guard is deleted.
+  A stdlib call with a **bare-word argument** — `count(goals)`, the braces
+  forgotten, or `count(goals) + " goals"` — used to store its own source text
+  into a variable a headline then displayed, with no warning; it still keeps the
+  text (it cannot be told apart from the `{{n}} min(s) left` idiom, and blanking
+  real copy would be worse) but now warns and names the arguments to brace. A
+  `format` spec made only of hour **modifiers** (`"hour12:true"`) selected no
+  component at all, so `toLocaleString` fell back to a full date+time; it is
+  rejected. And both `{{var}}` resolvers now **trim** a spaced reference like
+  the expression tokenizer already did, so `{{ plan }}` no longer renders in a
+  `Text` while resolving to an empty product slot key in a `purchase` action.
 
 ### Fixed
 

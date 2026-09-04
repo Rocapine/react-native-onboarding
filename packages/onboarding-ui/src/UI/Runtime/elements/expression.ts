@@ -28,7 +28,14 @@ type Value =
   // `missing: true` marks the numeric-0 default an *absent* variable resolves to.
   // Arithmetic ignores the flag (every result is a fresh object), but the list
   // helpers read it so `count({{never_answered}})` is 0 rather than a hard fail.
-  | { kind: "number"; n: number; isInt: boolean; missing?: boolean }
+  // `missing` marks a value that IS an absent variable; `unseeded` marks one
+  // DERIVED from an absent variable, because arithmetic mints a fresh number
+  // and the flag has to survive it — `addDays({{d}}, {{weeks}} * 7)` with
+  // `weeks` unset was returning the start date unchanged, silently, which is
+  // the form the parser's own JSDoc advertises. Two fields rather than one:
+  // `asList` keys on `missing` so `count({{skipped}})` is still 0, while
+  // `count({{gone}} + 1)` stays a hard failure rather than becoming 0.
+  | { kind: "number"; n: number; isInt: boolean; missing?: boolean; unseeded?: boolean }
   // `label` is the variable entry's display label, when it had one. Only the
   // list helpers read it, so `list({{plan}})` reads "Quarterly" the way
   // `interpolate` does rather than "quarterly_14d". `valueToString` — and so
@@ -152,7 +159,7 @@ function resolveVar(name: string, vars: Record<string, ComposableVariableEntry>)
   const entry = vars[name];
   // Missing variable in arithmetic context defaults to numeric 0 so increment
   // / decrement patterns work on first click before the variable is seeded.
-  if (!entry) return { kind: "number", n: 0, isInt: true, missing: true };
+  if (!entry) return { kind: "number", n: 0, isInt: true, missing: true, unseeded: true };
   const raw = entry.value;
   const k = entry.kind;
   if (k === "string") return { kind: "string", s: raw, label: entry.label };
@@ -307,7 +314,8 @@ const asNumber = (v: Value): { n: number; isInt: boolean } | null =>
  * `clamp({{score}}, {{floor}}, 3)` reported 3, and
  * `round(42.75, {{digits}})` reported 43.
  */
-const isUnseeded = (v: Value): boolean => v.kind === "number" && v.missing === true;
+const isUnseeded = (v: Value): boolean =>
+  v.kind === "number" && (v.missing === true || v.unseeded === true);
 
 /**
  * Resolve a value to a Date. Accepts the `"now"` sentinel — the same literal
@@ -614,35 +622,52 @@ function argsHoldBareWord(tokens: Token[], open: number): boolean {
 }
 
 /**
- * The name of a stdlib function that is the WHOLE template, at a call site
- * whose arguments contain a bare word: `count(goals)` — almost certainly
- * `count({{goals}})` with the braces forgotten.
+ * A stdlib call whose arguments contain a bare word: `count(goals)` — almost
+ * certainly `count({{goals}})` with the braces forgotten.
  *
  * `argsHoldBareWord` runs before the `STDLIB_NAMES` check in `isCallAttempt`,
- * deliberately, because `{{n}} min(s) left` has exactly the same token shape as
- * `count(goals)` and nothing in the stream separates them. So the
- * classification stays prose — rendering the author's copy is the safe answer
- * for the ambiguous case — and this exists only so the other reading is not
- * SILENT. `count(goals)` stored its own source text into a variable a headline
- * then displayed, with no warning at all.
+ * deliberately, because `{{n}} min(s) left` has the identical token shape and
+ * nothing in the stream separates them. So the classification stays prose —
+ * rendering the author's copy is the safe answer for the ambiguous case — and
+ * this exists only so the other reading is not SILENT. `count(goals)` stored
+ * its own source text into a variable a headline then displayed.
  *
- * Restricted to a template that is nothing BUT the call, which is what keeps
- * `{{n}} min(s) left` and `{{n}} day(s)` quiet: real optional-plural copy has
- * prose or a `{{var}}` around it, while a forgotten-braces call stands alone.
+ * Reported when the call is the WHOLE template, or when an operator appears
+ * outside its parens: `count(goals) + " goals"` and `1 + count(goals)` cannot
+ * be the optional-plural idiom, which is prose and carries no operators. The
+ * remaining false positive is a template that is exactly a stdlib word plus a
+ * parenthesised suffix (`min(s)`) — the text is kept, so the cost is one
+ * advisory warning, and `valueMode: "literal"` is the right mode for a
+ * constant anyway.
  */
-function unbracedCallName(tokens: Token[]): string | null {
-  // [ident, lparen, ...args, rparen, eof] — the call must span the template.
-  const head = tokens[0];
-  if (tokens.length < 4 || head.kind !== "ident" || tokens[1]?.kind !== "lparen") return null;
-  if (!STDLIB_NAMES.has(head.name)) return null;
-  let depth = 0;
-  for (let i = 1; i < tokens.length; i++) {
-    if (tokens[i].kind === "lparen") depth++;
-    else if (tokens[i].kind === "rparen") {
-      depth--;
-      // Only when the matching close paren is the last token before eof.
-      if (depth === 0) return i === tokens.length - 2 && argsHoldBareWord(tokens, 1) ? head.name : null;
+function unbracedCall(tokens: Token[]): { name: string; args: string[] } | null {
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (t.kind !== "ident" || isBareWord(t, tokens[i + 1]) || !STDLIB_NAMES.has(t.name)) continue;
+    // Find the paren that closes this call site.
+    let depth = 0;
+    let close = -1;
+    for (let j = i + 1; j < tokens.length; j++) {
+      if (tokens[j].kind === "lparen") depth++;
+      else if (tokens[j].kind === "rparen" && --depth === 0) {
+        close = j;
+        break;
+      }
     }
+    if (close === -1) continue;
+    // Only the bare-word identifiers, taken from the token stream. Building a
+    // suggested template out of the raw source instead would brace names
+    // inside string literals and nested calls, and `format({{d}}, "{{medium}}")`
+    // is worse advice than none — it blanks.
+    const args: string[] = [];
+    for (let j = i + 2; j < close; j++) {
+      const a = tokens[j];
+      if (a.kind === "ident" && isBareWord(a, tokens[j + 1])) args.push(a.name);
+    }
+    if (args.length === 0) continue;
+    const spansTemplate = i === 0 && close === tokens.length - 2;
+    const operatorOutside = tokens.some((x, j) => x.kind === "op" && (j < i || j > close));
+    if (spansTemplate || operatorOutside) return { name: t.name, args };
   }
   return null;
 }
@@ -686,7 +711,7 @@ function parse(tokens: Token[], vars: Record<string, ComposableVariableEntry>): 
       advance();
       const v = factor();
       if (!v || v.kind !== "number") return null;
-      return { kind: "number", n: -v.n, isInt: v.isInt };
+      return { kind: "number", n: -v.n, isInt: v.isInt, unseeded: v.unseeded };
     }
     if (t.kind === "num") {
       advance();
@@ -742,7 +767,7 @@ function parse(tokens: Token[], vars: Record<string, ComposableVariableEntry>): 
       const result: number = op === "*" ? left.n * right.n : left.n / right.n;
       if (!Number.isFinite(result)) return null;
       const isInt: boolean = op === "*" ? left.isInt && right.isInt : Number.isInteger(result);
-      left = { kind: "number", n: result, isInt };
+      left = { kind: "number", n: result, isInt, unseeded: left.unseeded || right.unseeded };
     }
     return left;
   };
@@ -756,13 +781,23 @@ function parse(tokens: Token[], vars: Record<string, ComposableVariableEntry>): 
       if (!right) return null;
       if (op === "+") {
         if (left.kind === "number" && right.kind === "number") {
-          left = { kind: "number", n: left.n + right.n, isInt: left.isInt && right.isInt };
+          left = {
+            kind: "number",
+            n: left.n + right.n,
+            isInt: left.isInt && right.isInt,
+            unseeded: left.unseeded || right.unseeded,
+          };
         } else {
           left = { kind: "string", s: valueToString(left) + valueToString(right) };
         }
       } else {
         if (left.kind !== "number" || right.kind !== "number") return null;
-        left = { kind: "number", n: left.n - right.n, isInt: left.isInt && right.isInt };
+        left = {
+          kind: "number",
+          n: left.n - right.n,
+          isInt: left.isInt && right.isInt,
+          unseeded: left.unseeded || right.unseeded,
+        };
       }
     }
     return left;
@@ -855,15 +890,16 @@ export function evaluateSetVariableExpression(
       );
       return { value: "", kind: "string" };
     }
-    const unbraced = unbracedCallName(tokens);
+    const unbraced = unbracedCall(tokens);
     if (unbraced) {
+      const braced = unbraced.args.map((a) => `{{${a}}}`).join(", ");
       console.warn(
         `[ComposableScreen] setVariable expression stored as text, not evaluated: ${template}. ` +
-          `\`${unbraced}\` is a stdlib function, but its argument is a bare word rather than a ` +
-          "`{{variable}}` — did you mean `" +
-          template.replace(/([A-Za-z_$][A-Za-z0-9_$]*)/g, (m, w) => (w === unbraced ? m : `{{${w}}}`)) +
-          "`? Templates like `{{n}} min(s) left` are indistinguishable from this, " +
-          "so the text was kept rather than blanked."
+          `\`${unbraced.name}\` is a stdlib function, but ${unbraced.args
+            .map((a) => `\`${a}\``)
+            .join(", ")} ${unbraced.args.length === 1 ? "is a bare word" : "are bare words"} ` +
+          `rather than a variable reference — if you meant the function, write ${braced}. ` +
+          "Copy like `{{n}} min(s) left` has the same shape, so the text was kept, not blanked."
       );
     }
   }

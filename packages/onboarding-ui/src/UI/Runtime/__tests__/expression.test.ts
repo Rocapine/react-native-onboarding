@@ -860,3 +860,64 @@ describe("expression stdlib — review round 3", () => {
     }
   });
 });
+
+describe("expression stdlib — review round 4", () => {
+  const warnSpy = () => vi.spyOn(console, "warn").mockImplementation(() => {});
+
+  it("names the bare arguments without inventing a template that would blank", () => {
+    // The first version of this warning built its suggestion with a regex over
+    // the raw source, so it braced identifiers inside string literals:
+    // `format({{d}}, "{{medium}}")` — advice that turns kept text into a blank,
+    // because `{{medium}}` is unset and an empty spec fails.
+    const warn = warnSpy();
+    ev('format(d, "medium")');
+    expect(warn).toHaveBeenCalledTimes(1);
+    const message = warn.mock.calls[0][0] as string;
+    expect(message).toContain("`d`");
+    expect(message).toContain("{{d}}");
+    expect(message).not.toContain("{{medium}}");
+  });
+
+  it("warns on the concatenated form too, which cannot be prose", () => {
+    // A whole-template-only rule left these silent. Prose carries no
+    // operators, so an operator outside the parens settles the ambiguity.
+    for (const template of ['count(goals) + " goals"', "1 + count(goals)", 'list(goals) + "!"']) {
+      const warn = warnSpy();
+      warn.mockClear();
+      ev(template, { goals: { value: '["a","b"]' } });
+      expect(warn, `no warning for ${template}`).toHaveBeenCalledTimes(1);
+      warn.mockRestore();
+    }
+  });
+
+  it("refuses an unseeded variable that reached a bound through arithmetic", () => {
+    // `missing` marks a value that IS an absent variable; arithmetic mints a
+    // fresh number, so the taint needs its own flag to survive. This form is
+    // the one the parser's JSDoc advertises.
+    const warn = warnSpy();
+    expect(ev("addDays({{d}}, {{weeks}} * 7)", {
+      d: { value: "2026-01-01T00:00:00.000Z" },
+    }).value).toBe("");
+    expect(ev("clamp({{score}}, {{floor}} + 1, 3)", {
+      score: { value: "42", kind: "int" },
+    }).value).toBe("");
+    expect(ev("round(1.555, {{digits}} + 1)").value).toBe("");
+    expect(warn).toHaveBeenCalledTimes(3);
+  });
+
+  it("keeps the two flags apart: a tainted operand is not an empty selection", () => {
+    warnSpy();
+    // `count({{skipped}})` is 0 — the documented sentinel, keyed on `missing`.
+    expect(ev("count({{skipped}})")).toEqual({ value: "0", kind: "int" });
+    // `count({{gone}} + 1)` is a type error and stays a hard failure. If the
+    // taint were folded into `missing` this would quietly become 0.
+    expect(ev("count({{gone}} + 1)").value).toBe("");
+  });
+
+  it("still evaluates the advertised arithmetic form when the variable exists", () => {
+    expect(ev("addDays({{d}}, {{weeks}} * 7)", {
+      d: { value: "2026-01-01T00:00:00.000Z" },
+      weeks: { value: "2", kind: "int" },
+    }).value).toBe("2026-01-15T00:00:00.000Z");
+  });
+});

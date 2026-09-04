@@ -368,3 +368,45 @@ provenance, not on the number: `max({{x}}, 0)` with `x` absent is the literal
 0, and so is a legitimately-zero seeded variable beside an absent one. A
 `clamp` bound is NOT such a default — it is a sanity limit — so a clipped
 result stays tainted; that carve-out was tried and reverted.
+
+The same rule covers STRINGS, because a literal's contents interpolate and
+`interpolate` substitutes `""` for a name that does not exist: an unseeded
+`{{ref}}` in `list`'s conjunction, `join`'s separator, `format`'s spec or its
+LOCALE, or either `plural` form, is refused — where it used to leave a double
+space, run the members together, silently flip a locale's day/month order, or
+store the empty string. A locale is the nastiest of those: `"en{{sfx}}"` with
+`sfx` unset resolves to the valid `"en"` rather than to nothing, so the date
+still rendered, with the day and month swapped.
+
+`plural` checks its COUNT and BOTH forms. Both forms rather than the one
+today's count selects, because an absent reference in a form is an authoring
+error whichever branch the current data takes, so refusing now beats a bug that
+surfaces when the count flips to 1. And the count as well, because otherwise an
+unseeded one picks a form silently and `plural` launders it onward —
+`join({{goals}}, plural({{n}}, "+", "~"))` chose `~` as the separator from a
+variable that does not exist, with both forms untainted literals so the
+both-forms check passed. A `count()` result is untainted by design, so the
+shipped `plural(count({{goals}}), "goal", "goals")` pattern is unaffected.
+
+### Known limits of the taint, and why they are deliberate
+
+Two places answer from an absent variable without tainting. Both are decisions,
+and each has a reason worth more than the hole costs:
+
+- **`count()`** is the one number-returning function that does not taint.
+  `count({{skipped}})` = 0 is a real answer — zero members on a screen the user
+  never filled in — and `resolveVar` cannot tell that from a typo'd name.
+  Tainting it would break the shipped pattern in the example payload,
+  `plural(count({{goals}}), "goal", "goals")`. The consequence: wrapping a name
+  in `count()` defeats the guard, so `round({{pct}}, count({{digits}}))` answers
+  43 and `addDays("now", count({{trialDays}}))` answers today. Nobody writes
+  those; the skipped multi-select is routine.
+- **`asDate` accepts any `Date.parse`-able string**, including a bare integer:
+  a *seeded* weight of 70 makes `format({{weight}} + "", "medium")` render
+  1 Jan 1970 while an age of 30 blanks, so it is erratic across values of the
+  same variable. No taint can reach it — the numbers are seeded — and it is
+  filed separately. `count()` is the one deliberate
+exemption — `count({{skipped}})` is a real zero, and `resolveVar` cannot tell a
+skipped screen from a typo — so `count()` does launder the sentinel into a
+configuration position. That trade is recorded at the `case "count"` comment,
+with what it would take to reverse it.

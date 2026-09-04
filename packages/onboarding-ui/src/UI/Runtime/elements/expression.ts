@@ -42,7 +42,11 @@ type Value =
   // string concat, and `asDate` — deliberately ignore it and keep using the
   // machine value, which is also what makes a `DatePicker` variable (ISO in
   // `value`, formatted text in `label`) still parseable as a date.
-  | { kind: "string"; s: string; label?: string }
+  // `unseeded` on a STRING marks one built from a literal whose `{{ref}}`
+  // named a variable that does not exist. `interpolate` substitutes "" there,
+  // so without the flag a separator or a conjunction silently becomes empty:
+  // `join({{goals}}, "{{sep}}")` stored "SleepEnergyFocus".
+  | { kind: "string"; s: string; label?: string; unseeded?: boolean }
   // A multi-select variable (the JSON-encoded `string[]` CheckboxGroup writes).
   // `items` are the member LABELS when available (matching `interpolate`'s
   // label-first display precedence); `raw` is the original JSON string so
@@ -156,7 +160,11 @@ function tokenize(input: string): Token[] | null {
 }
 
 function resolveVar(name: string, vars: Record<string, ComposableVariableEntry>): Value {
-  const entry = vars[name];
+  // `hasOwnProperty` rather than a plain index. `vars["toString"]` finds
+  // `Object.prototype.toString` — truthy, with an `undefined` `.value` — and
+  // `raw.trim()` then threw a TypeError straight out of the press handler,
+  // which is the dead-button failure this module exists to avoid.
+  const entry = Object.prototype.hasOwnProperty.call(vars, name) ? vars[name] : undefined;
   // Missing variable in arithmetic context defaults to numeric 0 so increment
   // / decrement patterns work on first click before the variable is seeded.
   if (!entry) return { kind: "number", n: 0, isInt: true, missing: true, unseeded: true };
@@ -315,7 +323,21 @@ const asNumber = (v: Value): { n: number; isInt: boolean } | null =>
  * `round(42.75, {{digits}})` reported 43.
  */
 const isUnseeded = (v: Value): boolean =>
-  v.kind === "number" && (v.missing === true || v.unseeded === true);
+  (v.kind === "number" && (v.missing === true || v.unseeded === true)) ||
+  (v.kind === "string" && v.unseeded === true);
+
+/** True when the template names a variable that does not exist. */
+const namesMissingVariable = (
+  template: string,
+  vars: Record<string, ComposableVariableEntry>
+): boolean => {
+  for (const m of template.matchAll(/\{\{([^}]+?)\}\}/g)) {
+    // `hasOwnProperty`, not a plain index: `{{valueOf}}` and `{{toString}}`
+    // would otherwise read as variables that exist and hold nothing.
+    if (!Object.prototype.hasOwnProperty.call(vars, m[1].trim())) return true;
+  }
+  return false;
+};
 
 /**
  * Resolve a value to a Date. Accepts the `"now"` sentinel — the same literal
@@ -324,6 +346,11 @@ const isUnseeded = (v: Value): boolean =>
  */
 function asDate(v: Value): Date | null {
   if (v.kind !== "string") return null;
+  // A date built from a variable that does not exist is not a date. The bare
+  // `{{d}}` form is refused because an absent variable resolves to a NUMBER,
+  // but `{{d}} + ""` reaches here as a tainted string whose content is "0",
+  // and `Date.parse("0")` is a real instant — 1 Jan 2000.
+  if (isUnseeded(v)) return null;
   const raw = v.s.trim();
   if (raw === "now") return new Date();
   const t = Date.parse(raw);
@@ -354,6 +381,8 @@ function asList(v: Value): string[] | null {
   // A variable that holds a real NUMBER is not a list at all — `count({{age}})`
   // is a type error the author should see, not a 1 — so it fails the call.
   if (v.kind === "number") return v.missing ? [] : null;
+  // Likewise a member list assembled out of a name that does not exist.
+  if (isUnseeded(v)) return null;
   const decoded = decodeStringArray(v.s);
   if (decoded) return decoded;
   // Structured data of the wrong shape. This can be end-user input as much as
@@ -503,12 +532,17 @@ function callFunction(name: string, args: Value[]): Value | null {
       if (args.length !== 2 && args.length !== 3) return null;
       const d = asDate(args[0]);
       if (!d) return null;
-      if (args[1].kind !== "string") return null;
+      if (args[1].kind !== "string" || isUnseeded(args[1])) return null;
       const opts = parseFormatSpec(args[1].s);
       if (!opts) return null;
       let locale: string | undefined;
       if (args.length === 3) {
-        if (args[2].kind !== "string" || args[2].s.trim() === "") return null;
+        // A locale that interpolates to a *valid but wrong* tag is the worst
+        // case here: `"en{{sfx}}"` with `sfx` absent becomes `"en"` and
+        // silently flips the day/month order against the seeded `"-GB"`.
+        if (args[2].kind !== "string" || isUnseeded(args[2]) || args[2].s.trim() === "") {
+          return null;
+        }
         locale = args[2].s.trim();
       }
       try {
@@ -530,10 +564,19 @@ function callFunction(name: string, args: Value[]): Value | null {
       if (!items) return null;
       let conjunction = "and";
       if (args.length === 2) {
-        if (args[1].kind !== "string") return null;
+        // A conjunction is configuration, like a bound: an unseeded one used to
+        // leave a double space where the word should be.
+        if (args[1].kind !== "string" || isUnseeded(args[1])) return null;
         conjunction = args[1].s;
       }
-      return { kind: "string", s: grammaticalList(items, conjunction) };
+      // `list({{sep}})` on an absent variable is an empty selection, so it
+      // returns "" — untainted, it then became an empty separator in
+      // `join({{goals}}, list({{sep}}))`. The taint travels with it.
+      return {
+        kind: "string",
+        s: grammaticalList(items, conjunction),
+        unseeded: isUnseeded(args[0]) || undefined,
+      };
     }
     case "join": {
       if (args.length !== 1 && args.length !== 2) return null;
@@ -543,17 +586,29 @@ function callFunction(name: string, args: Value[]): Value | null {
       // multi-select `label`, so `join(x)` reproduces today's string exactly.
       let separator = ", ";
       if (args.length === 2) {
-        if (args[1].kind !== "string") return null;
+        // Same for a separator: unseeded used to join the members with nothing.
+        if (args[1].kind !== "string" || isUnseeded(args[1])) return null;
         separator = args[1].s;
       }
-      return { kind: "string", s: items.join(separator) };
+      return {
+        kind: "string",
+        s: items.join(separator),
+        unseeded: isUnseeded(args[0]) || undefined,
+      };
     }
     case "count": {
       if (args.length !== 1) return null;
       const items = asList(args[0]);
       if (!items) return null;
-      // NOT tainted: `count({{skipped}})` is a real answer — zero members —
-      // rather than a value derived from a name that does not exist.
+      // NOT tainted, and this is a decision rather than an omission:
+      // `count({{skipped}})` is a real answer — zero members on a screen the
+      // user never filled in — and `resolveVar` cannot tell that from a typo'd
+      // name. The cost is that `count()` launders the sentinel into a
+      // configuration position, so `round({{pct}}, count({{digits}}))` answers
+      // 43 rather than failing. Nobody writes that; a skipped multi-select is
+      // routine. If the trade is ever revisited, the fix is to taint here and
+      // accept that `count({{skipped}})` must be written
+      // `count({{skipped}}) + 0` or guarded by `renderWhen`.
       return { kind: "number", n: items.length, isInt: true };
     }
     case "plural": {
@@ -561,6 +616,15 @@ function callFunction(name: string, args: Value[]): Value | null {
       const n = asNumber(args[0]);
       if (!n) return null;
       if (args[1].kind !== "string" || args[2].kind !== "string") return null;
+      // The count AND both forms. Both forms because an absent reference in a
+      // form is an authoring error whichever branch today's data takes, so
+      // refusing now beats a bug that hides until the count flips to 1. The
+      // count because otherwise an unseeded one picks a form silently and
+      // `plural` launders it onward: `join({{goals}}, plural({{n}}, "+", "~"))`
+      // chose "~" as the separator from a variable that does not exist. A
+      // `count()` result is untainted by design, so the shipped
+      // `plural(count({{goals}}), "goal", "goals")` pattern is unaffected.
+      if (isUnseeded(args[0]) || isUnseeded(args[1]) || isUnseeded(args[2])) return null;
       // Two-form selection only (Intl's `one` / `other` categories). Languages
       // with `few`/`many` need Intl.PluralRules and a locale argument.
       return { kind: "string", s: Math.abs(n.n) === 1 ? args[1].s : args[2].s };
@@ -757,10 +821,19 @@ function parse(tokens: Token[], vars: Record<string, ComposableVariableEntry>): 
       advance();
       // A literal's CONTENTS interpolate, so `{{var}}` means the same thing
       // everywhere in a template — `list({{goals}}) + " for {{name}}"` reads
-      // "… for Ada" rather than emitting the braces to the user. Format specs,
-      // separators and plural forms contain no `{{`, so they pass through
-      // byte-identical. Label-first, like every other display path.
-      return { kind: "string", s: interpolate(t.value, vars) };
+      // "… for Ada" rather than emitting the braces to the user. Label-first,
+      // like every other display path.
+      //
+      // A literal with no `{{` passes through byte-identical, which is the
+      // common case for a format spec, a separator or a plural form. When one
+      // DOES carry a reference, `interpolate` substitutes "" for a name that
+      // does not exist, so the literal is tainted and the configuration
+      // positions refuse it rather than joining with nothing.
+      return {
+        kind: "string",
+        s: interpolate(t.value, vars),
+        unseeded: namesMissingVariable(t.value, vars),
+      };
     }
     if (t.kind === "var") {
       advance();
@@ -817,20 +890,38 @@ function parse(tokens: Token[], vars: Record<string, ComposableVariableEntry>): 
       if (!right) return null;
       if (op === "+") {
         if (left.kind === "number" && right.kind === "number") {
+          const sum: number = left.n + right.n;
+          // `*` and `/` have always checked this; `+` and `-` did not, so an
+          // overflow escaped as `Infinity` and `valueToString` stored the
+          // literal string "Infinity" under `kind: "int"`.
+          if (!Number.isFinite(sum)) return null;
           left = {
             kind: "number",
-            n: left.n + right.n,
+            n: sum,
             isInt: left.isInt && right.isInt,
             unseeded: left.unseeded || right.unseeded,
           };
         } else {
-          left = { kind: "string", s: valueToString(left) + valueToString(right) };
+          left = {
+            kind: "string",
+            s: valueToString(left) + valueToString(right),
+            // Carried from EITHER operand and either kind, or the `+ "…"`
+            // idiom the docs push authors toward launders it. Gating on
+            // `kind === "string"` closed only half the shapes: a numeric
+            // absent variable concatenated to a string produced an untainted
+            // one, so `format({{d}} + "", "medium", "en-US")` stored
+            // "Jan 1, 2000" — `Date.parse("0")` — with no warning, while the
+            // direct `format({{d}}, …)` correctly blanked.
+            unseeded: isUnseeded(left) || isUnseeded(right) || undefined,
+          };
         }
       } else {
         if (left.kind !== "number" || right.kind !== "number") return null;
+        const difference: number = left.n - right.n;
+        if (!Number.isFinite(difference)) return null;
         left = {
           kind: "number",
-          n: left.n - right.n,
+          n: difference,
           isInt: left.isInt && right.isInt,
           unseeded: left.unseeded || right.unseeded,
         };
@@ -872,8 +963,13 @@ function parse(tokens: Token[], vars: Record<string, ComposableVariableEntry>): 
  *
  * A quoted literal's CONTENTS interpolate, so `{{var}}` means the same thing
  * everywhere in the template — `list({{goals}}) + " for {{name}}"` reads
- * "… for Ada" rather than emitting the braces to the user. Format specs,
- * separators and plural forms hold no `{{`, so they pass through unchanged.
+ * "… for Ada" rather than emitting the braces to the user. A literal with no
+ * `{{` passes through unchanged, which is the common case for a format spec, a
+ * separator or a plural form; one that DOES carry a reference to a variable
+ * that does not exist is refused in those positions rather than silently
+ * becoming empty. `plural` checks BOTH forms, whichever one the current count
+ * selects: an absent reference in a form is an authoring error either way, and
+ * refusing it now beats a bug that hides until the count flips.
  *
  * Failure handling differs by template shape:
  * - a template with no function call falls back to plain interpolation

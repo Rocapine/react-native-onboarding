@@ -52,6 +52,23 @@ function decodeStringArray(raw: string): string[] | null {
   }
 }
 
+// True when the string parses as a JSON array or object — structured data that
+// `decodeStringArray` has already refused. `"[1,2,3]"` is a mis-shaped member
+// list, never a scalar answer, so the list helpers must fail loudly on it
+// rather than report a believable `count()` of 1. A value that merely LOOKS
+// bracketed but is not JSON (`"[not json]"` typed into an Input) is still a
+// scalar and still counts as one member.
+function isJsonContainer(raw: string): boolean {
+  const t = raw.trim();
+  if (!t.startsWith("[") && !t.startsWith("{")) return false;
+  try {
+    const parsed = JSON.parse(t);
+    return typeof parsed === "object" && parsed !== null;
+  } catch {
+    return false;
+  }
+}
+
 function tokenize(input: string): Token[] | null {
   const tokens: Token[] = [];
   let i = 0;
@@ -203,6 +220,10 @@ const FORMAT_OPTION_VALUES: {
 };
 const STYLE_SHORTHANDS = FORMAT_OPTION_VALUES.dateStyle;
 const DAY_MS = 24 * 60 * 60 * 1000;
+// The widest instant a JS Date can represent (ECMA-262 time clip). `Date.parse`
+// already clips to it — it returns NaN past the maximum — so only arithmetic
+// can produce an out-of-range instant.
+const MAX_DATE_MS = 8.64e15;
 
 /**
  * Parse a `format()` spec string into Intl options.
@@ -265,6 +286,10 @@ function asList(v: Value): string[] | null {
   if (v.kind === "number") return v.missing ? [] : null;
   const decoded = decodeStringArray(v.s);
   if (decoded) return decoded;
+  // Wrong-shaped JSON is an authoring/data error. Answering as if it were one
+  // scalar member is the failure mode this programme keeps getting bitten by:
+  // a plausible constant instead of a visible failure.
+  if (isJsonContainer(v.s)) return null;
   return v.s.trim() === "" ? [] : [v.s];
 }
 
@@ -336,7 +361,13 @@ function callFunction(name: string, args: Value[]): Value | null {
       // the local time-of-day by an hour; use `format()` for display and don't
       // rely on the time component.
       const t = d.getTime() + n.n * DAY_MS;
-      if (!Number.isFinite(t)) return null;
+      // `Number.isFinite` is not enough: every t inside ±1.8e308 is finite, but
+      // past ±8.64e15 ms `new Date(t)` is an Invalid Date and `toISOString()`
+      // THROWS. That exception would escape into the press handler that ran the
+      // action — the same hazard `format`'s try/catch below exists for — and a
+      // Continue button carrying it would die silently. A units mistake is
+      // enough to reach it: `addDays("now", 90 * 365 * 24 * 60 * 60)`.
+      if (!Number.isFinite(t) || Math.abs(t) > MAX_DATE_MS) return null;
       return { kind: "string", s: new Date(t).toISOString() };
     }
     case "format": {
@@ -531,7 +562,9 @@ function parse(tokens: Token[], vars: Record<string, ComposableVariableEntry>): 
  *   (`"medium"`) or `key:value` pairs (`"weekday:long, day:numeric"`).
  * - listing — `list(x[, conjunction])` ("A, B and C"), `join(x[, separator])`,
  *   `count(x)`, `plural(n, one, other)`. `x` is a multi-select variable; its
- *   member LABELS are used when present.
+ *   member LABELS are used when present. A scalar answer is one member; a value
+ *   that parses as JSON but is not a `string[]` is a hard failure, not a
+ *   one-member list.
  *
  * Variable values are coerced according to their `kind` tag (string / int /
  * float), or inferred from their string content when no tag is present — an

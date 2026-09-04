@@ -86,7 +86,10 @@ export type SetVariableButtonAction = {
    * - listing — `list(x[, conjunction])` ("A, B and C"), `join(x[, separator])`,
    *   `count(x)`, `plural(n, one, other)`. `x` is a multi-select variable (the
    *   JSON `string[]` `CheckboxGroup` writes); member LABELS are used when
-   *   present, matching interpolation's label-first precedence.
+   *   present, matching interpolation's label-first precedence. A scalar answer
+   *   counts as one member, but a value that parses as JSON and is NOT a
+   *   `string[]` (`"[1,2,3]"`, `{"a":1}`) is an authoring error and fails the
+   *   call rather than counting as one.
    *
    * **This runs at press time only.** Actions have no mount/appear hook and
    * `Text mode: "expression"` interpolates rather than evaluating, so a

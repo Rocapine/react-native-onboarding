@@ -346,3 +346,41 @@ describe("runActions — restore", () => {
     warn.mockRestore();
   });
 });
+
+describe("runActions — a failing expression must not kill the action list", () => {
+  // The whole point of degrading a broken expression to a warning plus "" is
+  // that the press survives it. An exception thrown by the evaluator escapes
+  // here instead: `ButtonElement` awaits `runActions` inside an async onPress
+  // and `renderElement` calls `void runActions(...)`, so nothing catches it and
+  // a Continue button carrying a bad expression becomes a dead button with no
+  // console output at all — later actions never run and the host never
+  // advances. This pins the observable consequence, not just the return value.
+  it("keeps writing later variables and still continues after a bad expression", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const onContinue = vi.fn();
+    const ctx = makeCtx({ onContinue });
+
+    await runActions(
+      [
+        { type: "setVariable", name: "before", value: "written" },
+        {
+          type: "setVariable",
+          name: "goalDate",
+          // A units mistake: seconds where days were meant. The resulting
+          // instant is outside the representable Date range.
+          value: 'addDays("now", 90 * 365 * 24 * 60 * 60)',
+          valueMode: "expression",
+        },
+        { type: "setVariable", name: "after", value: "written" },
+        "continue",
+      ],
+      ctx
+    );
+
+    expect(ctx.getVariables().before?.value).toBe("written");
+    expect(ctx.getVariables().goalDate?.value).toBe("");
+    expect(ctx.getVariables().after?.value).toBe("written");
+    expect(onContinue).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+});

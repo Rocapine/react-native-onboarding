@@ -314,3 +314,106 @@ describe("expression stdlib — failure reporting", () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("expression stdlib — Date range hardening", () => {
+  // `Number.isFinite(t)` is true for any t up to ~1.8e308, but `new Date(t)` is
+  // an Invalid Date beyond ±8.64e15 ms and `.toISOString()` THROWS there. The
+  // throw escapes `evaluateSetVariableExpression` into the press handler that
+  // ran the action (`ButtonElement.tsx` awaits inside an async onPress;
+  // `renderElement.tsx` calls `void runActions(...)`), so the button dies
+  // silently: no warning, no later actions, no continue.
+  it("does not THROW on a day count that overflows the Date range", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    // The realistic trigger: a units mistake, seconds where days were meant.
+    const template = 'addDays("now", 90 * 365 * 24 * 60 * 60)';
+    expect(() => ev(template)).not.toThrow();
+    expect(ev(template)).toEqual({ value: "", kind: "string" });
+  });
+
+  it("warns exactly once on an overflowing day count, like any other failure", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    ev('addDays("now", 100000000000)');
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toContain("addDays");
+  });
+
+  it("still evaluates the largest representable instant — the guard must not over-reject", () => {
+    // Exactly 1e8 days after the epoch is 8.64e15 ms: the maximum valid
+    // instant, which `toISOString()` renders fine. A `>=` guard would break it.
+    expect(ev('addDays("1970-01-01T00:00:00.000Z", 100000000)').value).toBe(
+      "+275760-09-13T00:00:00.000Z"
+    );
+    expect(ev('addDays("1970-01-01T00:00:00.000Z", 0 - 100000000)').value).toBe(
+      "-271821-04-20T00:00:00.000Z"
+    );
+  });
+
+  it("degrades one day past each end of the range", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(ev('addDays("1970-01-01T00:00:00.000Z", 100000001)').value).toBe("");
+    expect(ev('addDays("1970-01-01T00:00:00.000Z", 0 - 100000001)').value).toBe("");
+    // Date.parse itself clamps at ±8.64e15 (it returns NaN past the maximum),
+    // so this is the largest date a payload can even hold — +1 day is over.
+    expect(() => ev('addDays("+275760-09-13T00:00:00.000Z", 1)')).not.toThrow();
+    expect(ev('addDays("+275760-09-13T00:00:00.000Z", 1)').value).toBe("");
+  });
+});
+
+describe("expression stdlib — structured data of the wrong shape", () => {
+  // `decodeStringArray` correctly refuses a non-`string[]`, but the value then
+  // fell through to the scalar branch and became a ONE-MEMBER list, so
+  // `count()` answered a plausible 1 with no warning. A believable constant is
+  // the worst failure mode this runtime can have; JSON that parses but is the
+  // wrong shape is an authoring error, never a scalar answer, so it hard-fails.
+  const warnSpy = () => vi.spyOn(console, "warn").mockImplementation(() => {});
+
+  it("count fails loudly on a JSON array that is not a string[]", () => {
+    const warn = warnSpy();
+    expect(ev("count({{g}})", { g: { value: "[1,2,3]" } })).toEqual({
+      value: "",
+      kind: "string",
+    });
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("count fails loudly on a JSON object", () => {
+    warnSpy();
+    expect(ev("count({{g}})", { g: { value: '{"a":1}' } }).value).toBe("");
+  });
+
+  it("count fails loudly on a mixed array", () => {
+    warnSpy();
+    expect(ev("count({{g}})", { g: { value: '["a",1]' } }).value).toBe("");
+    expect(ev("count({{g}})", { g: { value: '[["a"],["b"]]' } }).value).toBe("");
+  });
+
+  it("join and list fail loudly on the same value instead of echoing raw JSON", () => {
+    warnSpy();
+    expect(ev("join({{g}})", { g: { value: "[1,2,3]" } }).value).toBe("");
+    expect(ev("list({{g}})", { g: { value: "[1,2,3]" } }).value).toBe("");
+  });
+
+  it("still treats a free-text answer that merely looks bracketed as one member", () => {
+    // Not JSON, so not structured data of the wrong shape — a user who typed
+    // "[not json]" into an Input has given one answer, and count is 1.
+    expect(ev("count({{g}})", { g: { value: "[not json]" } })).toEqual({
+      value: "1",
+      kind: "int",
+    });
+  });
+
+  it("still counts a single-select scalar answer as one member", () => {
+    expect(ev("count({{choice}})", {
+      choice: { value: "health", label: "Improve health" },
+    })).toEqual({ value: "1", kind: "int" });
+    expect(ev("list({{choice}})", {
+      choice: { value: "health", label: "Improve health" },
+    }).value).toBe("health");
+  });
+
+  it("leaves string concatenation of the same value untouched", () => {
+    // Only the list helpers gained an opinion; `+` still stringifies whatever
+    // the variable holds, exactly as before.
+    expect(ev('"" + {{g}}', { g: { value: "[1,2,3]" } }).value).toBe("[1,2,3]");
+  });
+});

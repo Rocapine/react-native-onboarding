@@ -26,6 +26,7 @@ import {
   interpolate,
   resolveInheritedFontFamily,
   RichTextStyleContext,
+  type ParentType,
 } from "./shared";
 import { useVariables } from "./VariablesContext";
 import { buildEntering } from "./buildAnimation";
@@ -100,7 +101,7 @@ type TypewriterTextUIElement = Extract<UIElement, { type: "TypewriterText" }>;
 type Props = {
   element: TypewriterTextUIElement;
   ctx: RenderContext;
-  parentType?: "XStack" | "YStack" | "ZStack" | "RichText" | "XScroll";
+  parentType?: ParentType;
 };
 
 type CharItem = { ch: string; i: number };

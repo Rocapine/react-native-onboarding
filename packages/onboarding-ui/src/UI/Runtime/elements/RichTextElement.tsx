@@ -3,7 +3,7 @@ import { z } from "zod";
 import { evaluateCondition } from "@rocapine/react-native-onboarding";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
-import { RenderContext, dim, interpolate, RichTextStyleContext, InheritedTextStyle } from "./shared";
+import { RenderContext, dim, interpolate, RichTextStyleContext, InheritedTextStyle, type ParentType } from "./shared";
 import { useVariables } from "./VariablesContext";
 import { GradientBox } from "./GradientBox";
 
@@ -46,7 +46,7 @@ type TextChild = Extract<UIElement, { type: "Text" }>;
 type Props = {
   element: RichTextUIElement;
   ctx: RenderContext;
-  parentType?: "XStack" | "YStack" | "ZStack" | "RichText" | "XScroll";
+  parentType?: ParentType;
 };
 
 // `textAlign` aligns text *inside* a Text box, but RichText splits each word into

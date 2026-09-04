@@ -24,18 +24,16 @@ export const unstable_settings = {
 // the captures are comparable.
 const COLORS = ['#7C6BF2', '#F27B6B', '#33B8A0', '#E8B33C'];
 
-type Trigger = 'onPress' | 'animation' | 'transform' | 'flexGrow' | 'flexGrowAnim';
+type Trigger = 'onPress' | 'animation' | 'transform' | 'flexGrow';
 
 // One card = a flexed column with a solid block and a label under it. The block
 // has a fixed height, so nothing about the collapse depends on `aspectRatio` or
 // on a percentage width.
 const card = (trigger: Trigger, index: number) => {
   const sizing =
-    trigger === 'flexGrow' || trigger === 'flexGrowAnim'
-      ? { flexGrow: 1 as const }
-      : { flex: 1 as const };
+    trigger === 'flexGrow' ? { flexGrow: 1 as const } : { flex: 1 as const };
   const behaviour =
-    trigger === 'animation' || trigger === 'flexGrowAnim'
+    trigger === 'animation'
       ? { animation: { entering: { preset: 'FadeIn' as const, duration: 350 } } }
       : trigger === 'transform'
         ? { transform: { scale: 0.96 } }
@@ -86,9 +84,7 @@ const row = (trigger: Trigger) => ({
         content:
           trigger === 'flexGrow'
             ? 'flexGrow: 1 + onPress (the workaround, always worked)'
-            : trigger === 'flexGrowAnim'
-              ? 'flexGrow: 1 + animation (behaviour CHANGE: the wrapper now grows)'
-              : `flex: 1 + ${trigger}`,
+            : `flex: 1 + ${trigger}`,
         fontSize: 12,
         fontWeight: '600' as const,
         color: '#8A8A8E',

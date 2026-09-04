@@ -14,7 +14,7 @@ Every UIElement renderer that wraps content builds `containerStyle` from `BaseBo
 
 `parentType` controls the `flexShrink: 1` default applied to children of a row (`XStack`) in `StackElement`/`TextElement`/`RichTextElement` — and, when `renderElement` wraps the element (`onPress`/motion), on the **wrapper** instead, because that is the box the row lays out (`wrapperLayout.parentFacingLayout`; the element inside then carries the nested fill contract). Horizontal `ScrollView` passes `"XScroll"` instead (row layout, **no** flexShrink default) + drops `flexGrow:1` from its content container, so scroll children keep intrinsic width and overflow — else fixed-width cards shrink to the viewport and the row can't scroll.
 
-The union `XStack|YStack|ZStack|RichText|XScroll` now has a **canonical export**: `ParentType` in `elements/shared.ts`. Import it. Six sites still hand-copy the literal union (`ScreenRenderer.tsx:39`, `RepeatElement.tsx:28`, and the `Props.parentType` of `StackElement`/`TextElement`/`RichTextElement`/`TypewriterTextElement`), so adding a container type today means editing **7** spots, or 1 if you switch those six to the import first. Earlier versions of this rule said 6 and the container rule below said 5; both were wrong — count with `grep -rn '"XStack" | "YStack"' packages/onboarding-ui/src`.
+The union `XStack|YStack|ZStack|RichText|XScroll` is declared **once**, as `ParentType` in `elements/shared.ts`, and every other site imports it — so adding a container type is a one-line change plus its dispatch case. Keep it that way; `grep -rn '"XStack" | "YStack"' packages/onboarding-ui/src` should return exactly one hit, and a second means someone re-copied it. (Earlier versions of this rule claimed 6 spots and the container rule below claimed 5; the real number was 7, which is what prompted collapsing them.)
 
 ## ImageElement: webp + svg
 
@@ -267,7 +267,7 @@ When introducing a new element type with a `defaultValue` / `defaultIndex`:
 
 ## Adding a container element (with `children`)
 
-Beyond the schema-mirror checklist in the root CLAUDE.md, a container needs its type added to the `parentType` union everywhere that still hand-copies it, or tsc cascades (the `ScreenRenderer.tsx` `renderChildren` mismatch is the tell): the canonical `ParentType` in `shared.ts`, then the six copies listed in the `parentType` rule above, plus `renderElement.tsx`'s dispatch case. `renderElement.tsx` already imports `ParentType`; converting the rest is the cheapest way to make this a one-line change. Children render via `ctx.renderChildren(children, "<Type>")`.
+Beyond the schema-mirror checklist in the root CLAUDE.md, a container needs its type added to `ParentType` in `shared.ts` — one place, since every other site imports it — plus a dispatch case in `renderElement.tsx` and `ctx.renderChildren(children, "<Type>")` in the renderer. If tsc cascades with a `renderChildren` mismatch, someone has re-introduced a local copy of the union. Children render via `ctx.renderChildren(children, "<Type>")`.
 
 **Restricting children to one element type** (e.g. `RichText` → Text-only): extract that variant's `z.object` into a named const (`TextUIElementSchema`) in **both** `types.ts` files, reference it in the union slot **and** `children: z.array(...)`; TS type is `children: Array<Extract<UIElement, { type: "X" }>>`. A non-matching child then fails parse with `invalid_union`.
 

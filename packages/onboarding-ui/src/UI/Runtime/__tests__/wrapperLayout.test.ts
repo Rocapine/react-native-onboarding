@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import type { UIElement } from "../types";
 import type { BaseBoxProps } from "../elements/BaseBoxProps";
@@ -85,13 +85,16 @@ describe("nestedFillLayout", () => {
     expect(nestedFillLayout(props({ flexGrow: 1 }))).toEqual({ flexGrow: 1, flexShrink: 1 });
   });
 
-  // `flexShrink: 0` is RN's own default, so it changes nothing on its own — it
-  // is stated because the renderers default `flexShrink` to 1 under an `XStack`
-  // parent, and a nested box must not re-acquire a second shrink.
-  it("stays content-sized when the element asked for no flex sizing", () => {
+  // A nested box always shrinks, whether or not it fills. The reference is the
+  // single authored box: unwrapped, a content-sized box in a row with a
+  // definite height is stretched to that height and its content overflows.
+  // Wrapped, only `flexShrink: 1` reproduces that — `0` lets the inner box keep
+  // its content height and overflow the wrapper instead, which diverges from
+  // the box it is standing in for.
+  it("shrinks even when it is not filling", () => {
     expect(nestedFillLayout(props({ padding: 8 }))).toEqual({
       flexGrow: undefined,
-      flexShrink: 0,
+      flexShrink: 1,
     });
   });
 });
@@ -290,7 +293,11 @@ describe("wiring", () => {
   // above), so the renderer re-emits `flex: 1` on a nested box and the zero
   // basis comes back for the very elements this fixes. It also splits the
   // gradient fork from the non-gradient one, which the runtime rules forbid.
-  it("no renderer fills a nested box with flex", () => {
+  // The gradient forks: these five nest a box inside a GradientBox that carries
+  // the box layout, so each must gate on the shared predicate and fill with the
+  // shared contract. Positive assertions, so a rename cannot silently stop them
+  // guarding — the version before this keyed on the identifier `fillsParent`.
+  it("every gradient fork gates and fills through the shared helpers", () => {
     for (const file of [
       "ScrollViewElement.tsx",
       "SafeAreaViewElement.tsx",
@@ -299,20 +306,73 @@ describe("wiring", () => {
       "CarouselElement.tsx",
     ]) {
       const src = read(file);
-      // Positive, so this guards the shared helpers rather than a spelling: the
-      // previous version keyed on the identifier `fillsParent`, so renaming the
-      // local silently stopped it guarding anything.
       expect(src, `${file} must gate on the shared fillsParent`).toMatch(/fillsParent\(/);
       expect(src, `${file} must fill with the shared contract`).toMatch(/fillLayout\(/);
-      // Negative on the MECHANISM, not the name: a conditional `flex` is how an
-      // inner fill re-acquires `flexBasis: 0`. The outermost box's unconditional
+    }
+  });
+
+  // ENUMERATED, not whitelisted. The previous version of the negative guard
+  // listed those same five files, and the two renderers that actually violated
+  // the rule — `RiveElement`'s private sizing predicate, `TextElement`'s
+  // gradient fork — were simply not in the list and passed CI. A new renderer,
+  // or a new gradient fork in an old one, is covered by construction now.
+  const renderers = readdirSync(ELEMENTS).filter((f) => /Element\.tsx$/.test(f));
+
+  // Files allowed to write a conditional `flex`, each with its reason. This
+  // list names VIOLATIONS of the contract, so it should only ever shrink; a new
+  // entry needs an argument in review, which is the opposite property to the
+  // five-file list this replaced.
+  const CONDITIONAL_FLEX_ALLOWED: Record<string, string> = {
+    "KeyboardAvoidingViewElement.tsx":
+      "RN's behavior:'height' composes `{height, flex: 0}` over this node and Yoga " +
+      "prefers an explicit flexGrow, so its fill must be expressed as `flex`",
+  };
+
+  it("reads a plausible set of renderers", () => {
+    expect(renderers.length).toBeGreaterThan(20);
+  });
+
+  it("no renderer fills a nested box with flex", () => {
+    for (const file of renderers) {
+      const src = read(file);
+      // The mechanism, not a name: a conditional `flex` is how an inner fill
+      // re-acquires `flexBasis: 0`. An outermost box's unconditional
       // `flex: p.flex` in containerStyle/frameStyle is legitimate and stays.
-      expect(src, `${file} computes a conditional flex for a nested box`).not.toMatch(
-        /flex:\s*[^,\n]*\?/
-      );
+      if (!(file in CONDITIONAL_FLEX_ALLOWED)) {
+        expect(src, `${file} computes a conditional flex for a nested box`).not.toMatch(
+          /flex:\s*[^,\n]*\?/
+        );
+      }
       expect(src, `${file} hardcodes flex on a nested box`).not.toMatch(
         /style=\{\{\s*flex:\s*1\s*\}\}/
       );
+    }
+  });
+
+  // `RiveElement` rolled its own `p.flex != null || …` and omitted `flexGrow`,
+  // so every wrapped flexed Rive — arriving demoted — flipped onto the unsized
+  // branch and was forced square. Any renderer asking that question must ask it
+  // through the one predicate. (`ScreenRenderer`'s `rootIsFullBleed` is
+  // deliberately a different question — "does the root cover the screen" — and
+  // lives outside `elements/`.)
+  // `TextElement` is the one renderer whose gradient fork nests a *styled* box
+  // (the `<Text>` itself) inside its GradientBox, and both used to carry `flex`
+  // — #231 one level down, ungated while every other key in that object was
+  // gated on the gradient. A regex cannot tell which style object in a file
+  // belongs to which box, so this is deliberately file-specific rather than a
+  // general rule; the general version is #227 asserting computed styles.
+  it("the gradient Text fork nests with the contract", () => {
+    expect(read("TextElement.tsx")).toMatch(/nestedFillLayout\(p\)/);
+  });
+
+  it("no renderer rolls its own sizing predicate", () => {
+    for (const file of renderers) {
+      const src = read(file);
+      if (/\bflex != null/.test(src)) {
+        expect(src, `${file} tests flex != null without the shared predicate`).toMatch(
+          /fillsParent\(/
+        );
+      }
     }
   });
 });

@@ -121,14 +121,23 @@ export const nestedFillLayout = (p: FlexSizingProps): NestedFillLayout =>
  * `flex: 1`: `flex` implies `flexBasis: 0`, which measures 0 whenever the
  * outer box's own main size is auto.
  *
- * `flexShrink: 0` in the not-filling case is RN's own default, so it changes
- * nothing on its own; it is written out because the renderers default
- * `flexShrink` to 1 under an `XStack` parent and a nested box must not
- * re-acquire a second shrink.
+ * `flexShrink: 1` applies whether or not the box fills, and it is deliberate
+ * rather than symmetry: the reference is the single authored box. Unwrapped, a
+ * content-sized box in a row with a definite height is stretched to that height
+ * and its content overflows; wrapped, only a shrink reproduces that, because
+ * `0` lets the inner box keep its content height and overflow the wrapper.
+ *
+ * It also overrides the `?? (parentType === "XStack" ? 1 : undefined)` default
+ * the element's own renderer would apply — which is the point, not a
+ * side-effect. That default is about the ROW's main axis and this box's parent
+ * is the wrapper (a column), so leaving the renderer to decide it would mean
+ * the axis the value was chosen for and the axis it acts on are different.
+ * An earlier revision wrote `0` here and justified it as "RN's own default, so
+ * inert"; that was wrong — it suppressed a shrink that did act, vertically.
  */
 export const fillLayout = (fills: boolean): NestedFillLayout => ({
   flexGrow: fills ? 1 : undefined,
-  flexShrink: fills ? 1 : 0,
+  flexShrink: 1,
 });
 
 /**
@@ -162,7 +171,15 @@ const nestedCache = new WeakMap<UIElement, UIElement>();
 // the nested box for as long as the finger is down.
 //
 // `flex` is the ONLY key demoted here, because it is the only one with a
-// substitute: `fillLayout` stands in for it. `alignSelf` deliberately stays —
+// substitute: `fillLayout` stands in for it. Note the asymmetry that leaves: a
+// per-state `flexGrow: 3` becomes the contract's `flexGrow: 1` on the inner box
+// and never reaches the wrapper, so its factor is dropped — the wrapper is
+// built from the base props and has no press state. That is not a regression
+// (pre-PR a per-state flex landed on the element root and was equally inert on
+// the parent's axis) and per-state SIZING is a shape nothing authors today, but
+// it is the same "silently loses what the author wrote" objection that argues
+// for keeping `alignSelf` below, and it is left open rather than pretended away.
+// `alignSelf` deliberately stays —
 // the wrapper is built from the BASE props and has no press state, so demoting
 // a per-state `alignSelf` would drop it entirely rather than move it
 // (`{ alignSelf: "stretch", pressedStyle: { alignSelf: "center" } }` narrows on

@@ -191,6 +191,43 @@ const clampFrame = (id: string, pressable: boolean) => ({
   ],
 });
 
+// The four-box chain, which nothing else exercises on device: `onPress` AND
+// motion together, so `renderElement` inserts a Pressable INSIDE an AnimatedBox
+// and only the outermost of the four boxes may carry the authored `flex`. This
+// is the sole on-device case of `pressWrapperLayout(..., true)` — the unit test
+// asserts the chain, this shows it laying out.
+const pressAndMotionRow = {
+  id: 'press-motion-row',
+  type: 'XStack' as const,
+  props: { gap: 16, alignItems: 'flex-start' as const, backgroundColor: '#FFF3B0' },
+  children: [0, 1].map((i) => ({
+    id: `pm-${i}`,
+    type: 'YStack' as const,
+    props: {
+      flex: 1 as const,
+      gap: 8,
+      animation: { entering: { preset: 'FadeIn' as const, duration: 350 } },
+      transform: { scale: 0.98 },
+      onPress: [
+        { type: 'setVariable' as const, name: 'picked', value: `pm-${i}`, arrayOp: 'toggle' as const },
+      ],
+    },
+    children: [
+      {
+        id: `pm-block-${i}`,
+        type: 'YStack' as const,
+        props: { height: 44, borderRadius: 12, backgroundColor: COLORS[i % COLORS.length] },
+        children: [],
+      },
+      {
+        id: `pm-label-${i}`,
+        type: 'Text' as const,
+        props: { content: `press + motion ${i + 1}`, fontSize: 12, color: '#1C1C1E' },
+      },
+    ],
+  })),
+};
+
 const captioned = <T,>(id: string, caption: string, child: T) => ({
   id,
   type: 'YStack' as const,
@@ -236,6 +273,11 @@ export default function ComposableScreenFlexWrappersContainersExample() {
                     color: '#1C1C1E',
                   },
                 },
+                captioned(
+                  'press-motion',
+                  'flex: 1 + onPress + animation + transform — the 4-box chain',
+                  pressAndMotionRow
+                ),
                 captioned(
                   'fg-anim',
                   'flexGrow: 1 + animation — behaviour CHANGE: the wrapper now grows',

@@ -702,7 +702,9 @@ export default function ComposableScreenExample() {
                   {
                     type: 'setVariable' as const,
                     name: 'weeklyPace',
-                    value: 'clamp(round({{intensity}} / 2), 1, 3)',
+                    // `* 5` maps the 0..1 intensity slider onto 1..3 sessions a
+                    // week, so this sweeps 1 -> 2 -> 3 as the user drags.
+                    value: 'clamp(round({{intensity}} * 5), 1, 3)',
                     valueMode: 'expression' as const,
                   },
                 ],

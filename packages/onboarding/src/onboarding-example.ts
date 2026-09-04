@@ -819,8 +819,11 @@ export const onboardingExample = {
                       type: "setVariable",
                       name: "weeklyPace",
                       // Numeric helpers: rounds to nearest (not trunc) and holds
-                      // the result inside an inclusive range.
-                      value: "clamp(round({{intensity}} / 2), 1, 3)",
+                      // the result inside an inclusive range. `* 5` maps the
+                      // 0..1 intensity slider onto 1..3 sessions a week, so the
+                      // demo sweeps 1 -> 2 -> 3 as the user drags instead of
+                      // sitting on one constant.
+                      value: "clamp(round({{intensity}} * 5), 1, 3)",
                       valueMode: "expression",
                     },
                   ],

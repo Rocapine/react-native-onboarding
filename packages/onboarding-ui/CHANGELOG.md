@@ -7,6 +7,107 @@ here.
 
 ## [Unreleased]
 
+### Added
+
+- **A function stdlib for `setVariable valueMode: "expression"`** — date maths,
+  clamping, and grammatical listing, so a "your goal date is 3 April" or a
+  "2 goals: sleep and energy" headline is authored instead of hand-rolled in app
+  code. The engine could tokenize `{{var}}`, numeric literals, parens and
+  `+ - * /` and nothing else: a leading letter failed to tokenize, and the whole
+  template then degraded silently to plain interpolation, so the only rounding
+  an author had was an incidental `Math.trunc` on int-tagged values.
+
+  Eleven functions, over new string-literal and comma tokens: numeric `min`,
+  `max`, `abs`, `round(a[, digits])`, `clamp(a, lo, hi)`; dates
+  `addDays(date, n)`, `format(date, spec[, locale])`; listing
+  `list(x[, conjunction])`, `join(x[, separator])`, `count(x)`,
+  `plural(n, one, other)`. Two rules shape it. **Dates reuse what exists** — a
+  date is an ISO string (what `DatePicker` stores) or the `"now"` sentinel
+  `DatePicker` already accepts, and `format`'s spec vocabulary *is* the
+  `DatePicker.format` prop's Intl subset, so there is no second date-format
+  language and no `YYYY-MM-DD` tokens. **A multi-select resolves to its member
+  labels**, matching interpolation's label-first precedence — as does a scalar
+  answer — while string concat of the same variable still yields its raw value
+  exactly as before. "Multi-select" means an *untagged* entry, which is what
+  `CheckboxGroup` and `arrayOp` write; an entry explicitly tagged
+  `kind: "string"` is taken at its word and read as raw values.
+
+  **It runs at press time only.** The engine has one call site — a `setVariable`
+  action — and actions only run from a press handler. `Text mode: "expression"`
+  interpolates rather than evaluating, so a computed headline must be written to
+  a variable by an earlier press and then plainly interpolated; there is no
+  render-time filter syntax.
+
+  **A quoted literal's contents interpolate**, so `{{var}}` means the same thing
+  everywhere in a template: `list({{goals}}) + " for {{name}}"` reads "… for
+  Ada" instead of emitting the braces to the user. Specs, separators and plural
+  forms hold no `{{` and pass through byte-identical. One edge moves relative to
+  before the stdlib: a template that is *entirely* one quoted string is a
+  literal now, so `"{{name}}"` stores `Ada` rather than `"Ada"` with the quotes
+  — the quote characters are delimiters, not content.
+
+  **Failure is loud, which is the one behaviour change.** A template with no
+  call still falls back to plain interpolation, because `"Hello {{name}}"` is a
+  legitimate expression-mode value — and so is `"{{n}} day(s)"`. "Attempts a
+  call" is a property of the token stream rather than of the substring `word(`:
+  it needs a stdlib name (or an unknown name glued to its `(`, i.e. a probable
+  misspelling) in front of parentheses whose contents could actually be
+  arguments. A bare word is never a legal argument, so one *between* the parens
+  means they are punctuation — `"{{n}} day(s)"` and `"{{n}} min(s) left"` are
+  prose even though `min` is a real function — and whitespace before the `(`
+  means the same, so `"Goals ({{n}})"` and `"Save (50)"` are prose too. A
+  misspelled `addDay({{d}}, 1)` still fails loudly. So does a *valid* call with
+  prose beside it: this grammar has no implicit concatenation, so
+  `list({{goals}}) and more` is a broken call rather than prose and must be
+  written `list({{goals}}) + " and more"` — otherwise the evaluator's own source
+  text ends up in the variable. A template that *attempts* a call and fails
+  stores the empty string and warns once, rather than interpolating broken
+  source text into a variable a headline would then display verbatim. The one
+  residue: prose whose only word is glued to a parenthesised value with no space
+  (`"Save(50)"`) still reads as a misspelled call and blanks; add the space. The same
+  rule applies wherever the alternative was a believable constant: a value that
+  parses as JSON but is not a `string[]` (`"[1,2,3]"`, `{"a":1}`) fails the list
+  helpers instead of counting as one member, a variable holding a number fails
+  `count()` rather than answering 1, and an `addDays` offset that lands outside
+  the representable `Date` range fails instead of throwing a `RangeError` out of
+  the press handler.
+
+  One asymmetry inside that rule, because it decides a real case. An **absent**
+  variable still reads as numeric 0 wherever it is *data* — that sentinel is
+  what makes increment-before-seed arithmetic and `count()` on a screen the user
+  skipped work — but it is refused wherever it is *configuration*: a `clamp`
+  bound or a `round` digit count. Answering from the sentinel there turned a
+  typo'd variable name into a plausible constant with no warning:
+  `clamp({{score}}, {{floor}}, {{ceiling}})` reported **0** for a score of 42,
+  because `0 > 0` is false so the range check passed;
+  `clamp({{score}}, {{floor}}, 3)` reported **3**; and `round(42.75, {{digits}})`
+  reported **43**. All three now warn and store the empty string. `clamp`'s
+  first argument stays data, so an untouched counter still clamps to its floor.
+  The taint follows the value, so it also refuses one that reached a bound
+  through arithmetic or a function — `addDays({{d}}, {{weeks}} * 7)`,
+  `clamp({{trialDays}}, 1, 90)` — but it is dropped where the result could have
+  come from a literal instead: `max({{trialDays}}, 7)` is an explicit default
+  and is honoured. A day count is configuration too: `addDays("now", {{trialDays}})` with
+  `trialDays` unset used to return the start date unchanged, so a headline
+  reading `"your trial ends {{trialEnd}}"` showed today. A free-text answer that merely looks bracketed
+  (`"[not json]"`) is still one member. Where a machine key would reach prose
+  because a member label cannot be recovered — `label` is the ", "-joined member
+  labels and one of them contains ", " too — the list helpers keep using the raw
+  values (an empty sentence is worse for the end user) but say so in a warning.
+
+  Three more places where the answer was plausible rather than right, all found
+  by review and each now pinned by a test that fails when its guard is deleted.
+  A stdlib call with a **bare-word argument** — `count(goals)`, the braces
+  forgotten, or `count(goals) + " goals"` — used to store its own source text
+  into a variable a headline then displayed, with no warning; it still keeps the
+  text (it cannot be told apart from the `{{n}} min(s) left` idiom, and blanking
+  real copy would be worse) but now warns and names the arguments to brace. A
+  `format` spec made only of hour **modifiers** (`"hour12:true"`) selected no
+  component at all, so `toLocaleString` fell back to a full date+time; it is
+  rejected. And both `{{var}}` resolvers now **trim** a spaced reference like
+  the expression tokenizer already did, so `{{ plan }}` no longer renders in a
+  `Text` while resolving to an empty product slot key in a `purchase` action.
+
 ### Fixed
 
 - **An element gated on `{{ref}}` no longer vanishes on the UI thread.**

@@ -782,6 +782,77 @@ export const onboardingExample = {
                   marginVertical: 4,
                 },
               },
+              // Expression stdlib demo. Every function runs at PRESS time (the
+              // engine's only call site is a `setVariable` action), so a
+              // computed date or an assembled sentence is written into a
+              // variable here and then plainly interpolated by the Texts below.
+              {
+                id: "stdlib-compute",
+                type: "Button",
+                props: {
+                  label: "Compute my plan",
+                  variant: "outlined",
+                  marginVertical: 8,
+                  actions: [
+                    {
+                      type: "setVariable",
+                      name: "goalDate",
+                      // `"now"` is the same sentinel DatePicker accepts, and the
+                      // format spec is the DatePicker `format` prop vocabulary.
+                      value: 'format(addDays("now", 90), "medium")',
+                      valueMode: "expression",
+                    },
+                    {
+                      type: "setVariable",
+                      name: "goalSentence",
+                      // Grammatical listing over the CheckboxGroup member labels.
+                      value: "list({{goals}})",
+                      valueMode: "expression",
+                    },
+                    {
+                      type: "setVariable",
+                      name: "goalCount",
+                      value: 'count({{goals}}) + " " + plural(count({{goals}}), "goal", "goals")',
+                      valueMode: "expression",
+                    },
+                    {
+                      type: "setVariable",
+                      name: "weeklyPace",
+                      // Rounds to nearest — not trunc — and holds the result
+                      // inside an inclusive range. What it actually does over
+                      // the slider's 0..1 / step-0.1 grid, rather than what is
+                      // tidier to claim: the LOWER half sweeps 1 -> 2 -> 3
+                      // (raw 0,1,1,2,2,3 at 0..0.5) and the UPPER half
+                      // SATURATES at 3 (raw 3,4,4,5,5 at 0.6..1.0), so the
+                      // reachable outputs are 1,1,1,2,2,3,3,3,3,3,3.
+                      //
+                      // That saturation is the point, not a flaw: raw 0 is
+                      // below the floor and raw 4 and 5 are above the ceiling,
+                      // which is what makes `clamp` OBSERVABLE here. An evenly
+                      // spread alternative — `round(1 + {{intensity}} * 2)`,
+                      // giving 1,1,1,2,2,2,2,2,3,3,3 — never leaves 1..3, so
+                      // clamp would change no value at all and the demo would
+                      // show an inert function. Positions 0.3 and 0.5 also land
+                      // on exact .5 ties, which a trunc regression fails.
+                      value: "clamp(round({{intensity}} * 5), 1, 3)",
+                      valueMode: "expression",
+                    },
+                  ],
+                },
+              },
+              {
+                id: "stdlib-display",
+                type: "Text",
+                props: {
+                  content:
+                    "{{goalCount}}: {{goalSentence}} — by {{goalDate}}, {{weeklyPace}}x / week",
+                  mode: "expression",
+                  fontSize: 14,
+                  textAlign: "center",
+                  opacity: 0.6,
+                  marginVertical: 4,
+                },
+              },
               {
                 id: "hero-date-picker",
                 type: "DatePicker",

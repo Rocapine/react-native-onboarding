@@ -71,9 +71,70 @@ export type SetVariableButtonAction = {
   value: string;
   label?: string;
   /**
-   * When `"expression"`, `value` is parsed as an arithmetic expression with
-   * `{{var}}` references, numeric literals, and `+ - * /` (parens supported).
-   * On parse failure, falls back to plain interpolation (string).
+   * When `"expression"`, `value` is parsed as an expression over `{{var}}`
+   * references, numeric literals, quoted string literals, `+ - * /` (parens
+   * supported) and a small function stdlib:
+   *
+   * - numeric — `min(a, b, ...)`, `max(a, b, ...)`, `abs(a)`,
+   *   `round(a[, digits])`, `clamp(a, lo, hi)`
+   * - dates — `addDays(date, n)`, `format(date, spec[, locale])`. `date` is an
+   *   ISO string (what `DatePicker` stores) or the `"now"` sentinel `DatePicker`
+   *   already accepts. `spec` is the `DatePicker` `format` prop's Intl
+   *   vocabulary: a bare `dateStyle` name (`"medium"`) or `key:value` pairs
+   *   (`"weekday:long, month:short, day:numeric"`). Not a token language —
+   *   there is no `YYYY-MM-DD`.
+   * - listing — `list(x[, conjunction])` ("A, B and C"), `join(x[, separator])`,
+   *   `count(x)`, `plural(n, one, other)`. `x` is an untagged multi-select
+   *   variable (the JSON `string[]` `CheckboxGroup` writes); member LABELS are
+   *   used when present, matching interpolation's label-first precedence. A
+   *   scalar answer counts as one member, also by its label. Two things are not
+   *   lists and fail the call rather than counting as one: a variable holding a
+   *   number (`count({{age}})` — `plural({{age}}, ...)` is what you wanted),
+   *   and a value that parses as JSON and is NOT a `string[]` (`"[1,2,3]"`,
+   *   `{"a":1}`).
+   *
+   * **This runs at press time only.** Actions have no mount/appear hook and
+   * `Text mode: "expression"` interpolates rather than evaluating, so a
+   * headline needing a computed value must have it written to a variable by an
+   * earlier press (typically the previous screen's Continue) and then simply
+   * interpolated.
+   *
+   * A quoted literal's CONTENTS interpolate, so `{{var}}` means the same thing
+   * everywhere in the template: `list({{goals}}) + " for {{name}}"` reads
+   * "… for Ada" rather than emitting the braces to the user.
+   *
+   * A template with no function call falls back to plain interpolation on parse
+   * failure (so `"Hello {{name}}"` still works). A template that *attempts* a
+   * call and fails stores the empty string and warns, rather than writing the
+   * unevaluated source text into a variable a headline would display verbatim.
+   *
+   * An **absent** variable reads as numeric 0 wherever it is data — which is
+   * what makes increment-before-seed arithmetic and `count()` on a skipped
+   * screen work — but is refused wherever it is configuration: a `clamp` bound
+   * or a `round` digit count, where a typo'd variable name would otherwise
+   * produce a plausible constant (`clamp({{score}}, {{floor}}, {{ceiling}})`
+   * reported 0 for a score of 42). The taint follows the value, so it also
+   * refuses one that reached a bound through arithmetic or a function
+   * (`addDays({{d}}, {{weeks}} * 7)`), but is dropped where the result could
+   * have come from a literal: `max({{trialDays}}, 7)` is an explicit default
+   * and is honoured.
+   * "Attempts a call" means a **stdlib name** sits in front of a `(` whose
+   * contents could actually be arguments. A bare word BETWEEN the parens makes
+   * them punctuation instead, and an unglued `(` is never a call, so the
+   * English optional-plural idiom survives: `"{{n}} day(s)"` reads "3 day(s)",
+   * `"{{n}} min(s) left"` reads "3 min(s) left", `"Goals ({{n}})"` reads
+   * "Goals (2)". A stdlib name DOES outrank bare words outside its own parens,
+   * so `list({{goals}}) and more` fails loudly — **there is no implicit
+   * concatenation**, and prose beside a call must be joined with `+ "…"`. That
+   * is the one rule an author has to know to avoid a blank headline.
+   *
+   * Two residues, both warned about at runtime: an unknown name glued to a `(`
+   * with no bare word anywhere is taken as a misspelled call, so `"Save(50)"`
+   * and `"Total({{n}})"` blank (write them with a space); and a template that
+   * is nothing but a stdlib call with a bare-word argument — `count(goals)`,
+   * the braces forgotten — keeps its text but warns, because it cannot be told
+   * apart from `min(s)`.
+   *
    * Defaults to `"literal"` — `value` stored verbatim.
    */
   valueMode?: "literal" | "expression";

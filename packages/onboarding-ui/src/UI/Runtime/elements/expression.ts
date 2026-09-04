@@ -777,6 +777,20 @@ export function evaluateSetVariableExpression(
   template: string,
   vars: Record<string, ComposableVariableEntry>
 ): { value: string; kind: ComposableVariableKind } {
+  // DO NOT wrap this body in a blanket try/catch, however tempting it looks:
+  // the stdlib runs from a press handler that nothing guards (`ButtonElement`
+  // awaits inside an async onPress, `renderElement` calls `void
+  // runActions(...)`), so an escaping exception is a dead button with no
+  // console output, and a catch-all here would seem to fix that.
+  //
+  // It would also silently disarm this file's entire test suite. Every guard
+  // below is pinned by a test asserting the same observable outcome a catch-all
+  // would produce — the empty string plus one warning — so a catch-all makes
+  // all of those tests pass whether or not the guard they name still exists,
+  // and the next real throw becomes invisible to CI instead of failing it.
+  // Guard at the throw site (see `addDays`'s range check and `format`'s
+  // try/catch), and mutation-test the guard by deleting it and watching the
+  // test fail.
   const tokens = tokenize(template);
   if (tokens) {
     const result = parse(tokens, vars);

@@ -317,3 +317,43 @@ either resolver: they read `flatVariables` (`variables.ts`'s
 `flattenVariables`), which is `value`-only and never touches `label`. Reach
 for `interpolateIdentifier`, not `interpolate`, for any future `{{var}}`
 resolution that looks a value up rather than showing it.
+
+## The expression stdlib fails at the throw site, never with a catch-all
+
+`elements/expression.ts` is reached from exactly one place — a `setVariable`
+action with `valueMode: "expression"` — and actions only run from a press
+handler that **nothing guards**: `ButtonElement` awaits inside an async
+`onPress`, and `renderElement` calls `void runActions(...)`. So an exception
+that escapes the evaluator is a **dead button with no console output**: no
+warning, later actions never run, `onContinue` never fires. That shipped once,
+in `addDays` — `Number.isFinite(t)` is true for any `t` inside ±1.8e308, but
+past ±8.64e15 ms `new Date(t)` is an Invalid Date whose `toISOString()` throws.
+
+The remedy is a guard **at the throw site** (`addDays`'s range check,
+`format`'s `try/catch` around `toLocaleString`), never a blanket `try/catch`
+around the evaluator. A catch-all would also disarm the suite: every guard in
+that file is pinned by a test asserting the same observable outcome a catch-all
+produces — the empty string plus one warning — so wrapping the body makes all
+of those tests pass whether or not the guard they name still exists, and turns
+the next real throw from a CI failure into a silent degradation. **Delete the
+guard and watch the test fail** before believing it guards anything; that
+mutation check is what caught every one of this file's vacuous tests, including
+one that passed on the CI runner's `TZ=UTC` while failing locally.
+
+## An absent variable is data, never configuration
+
+`resolveVar` resolves a missing variable to numeric 0 with a `missing: true`
+sentinel, deliberately: it is what makes `{{counter}} + 1` work on the first
+press, before anything has seeded the counter, and `count({{skipped}})` read 0
+on a screen the user never answered. Both are legitimate readings of "absent".
+
+There is no legitimate reading of an absent **bound**. Nobody answers a `clamp`
+range or a `round` digit count — those are authored, so an unseeded one is a
+typo'd variable name, and answering from the sentinel turns it into a plausible
+constant: `clamp({{score}}, {{floor}}, {{ceiling}})` reported **0** for a score
+of 42 (`0 > 0` is false, so the range check passed),
+`clamp({{score}}, {{floor}}, 3)` reported **3**, and `round(42.75, {{digits}})`
+reported **43** — none of them warning. Hence `isUnseeded`, applied to
+configuration positions only. Any new function that takes a bound, a width, a
+precision or a count from an argument belongs on the same side of that line;
+operands stay data.

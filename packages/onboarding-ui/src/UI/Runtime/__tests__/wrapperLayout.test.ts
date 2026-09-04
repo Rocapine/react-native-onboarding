@@ -39,7 +39,7 @@ const card = (p: BaseBoxProps): UIElement => ({
 
 describe("parentFacingLayout", () => {
   it("carries the authored flex family", () => {
-    expect(parentFacingLayout(props({ flex: 1, alignSelf: "center" }), "YStack")).toEqual({
+    expect(parentFacingLayout(props({ flex: 1, alignSelf: "center" }), "YStack", "YStack")).toEqual({
       flex: 1,
       flexGrow: undefined,
       flexShrink: undefined,
@@ -47,16 +47,32 @@ describe("parentFacingLayout", () => {
     });
   });
 
-  it("applies the XStack flexShrink default", () => {
-    expect(parentFacingLayout(props({ flex: 1 }), "XStack").flexShrink).toBe(1);
+  // The wrapper stands in for the element, so it takes the `XStack` shrink
+  // default for exactly the element types whose own renderer applies it —
+  // `StackElement`, `TextElement`, `RichTextElement`, `TypewriterTextElement`.
+  // An `Image` in a row shrinks in neither the wrapped nor the unwrapped case,
+  // and an earlier revision of this PR gave every motion-wrapped element the
+  // default because `AnimatedBox` had never carried a `flexShrink` at all.
+  it("applies the XStack flexShrink default for the types that have one", () => {
+    expect(parentFacingLayout(props({ flex: 1 }), "XStack", "Text").flexShrink).toBe(1);
+    expect(parentFacingLayout(props({ flex: 1 }), "XStack", "XStack").flexShrink).toBe(1);
+  });
+
+  it("does not invent an XStack flexShrink for types without one", () => {
+    expect(parentFacingLayout(props({ flex: 1 }), "XStack", "Image").flexShrink).toBeUndefined();
+    expect(parentFacingLayout(props({ flex: 1 }), "XStack", "Lottie").flexShrink).toBeUndefined();
+  });
+
+  it("still lets an authored flexShrink through for any type", () => {
+    expect(parentFacingLayout(props({ flexShrink: 1 }), "XStack", "Image").flexShrink).toBe(1);
   });
 
   it("lets an authored flexShrink win over the XStack default", () => {
-    expect(parentFacingLayout(props({ flexShrink: 0 }), "XStack").flexShrink).toBe(0);
+    expect(parentFacingLayout(props({ flexShrink: 0 }), "XStack", "Text").flexShrink).toBe(0);
   });
 
   it("leaves a content-sized element unsized", () => {
-    expect(parentFacingLayout(props({ padding: 8 }), "YStack")).toEqual({
+    expect(parentFacingLayout(props({ padding: 8 }), "YStack", "YStack")).toEqual({
       flex: undefined,
       flexGrow: undefined,
       flexShrink: undefined,
@@ -101,7 +117,7 @@ describe("nestedFillLayout", () => {
 
 describe("pressWrapperLayout", () => {
   it("is parent-facing when the Pressable is the outermost box", () => {
-    expect(pressWrapperLayout(props({ flex: 1 }), "XStack", false)).toEqual({
+    expect(pressWrapperLayout(props({ flex: 1 }), "XStack", "YStack", false)).toEqual({
       flex: 1,
       flexGrow: undefined,
       flexShrink: 1,
@@ -110,7 +126,7 @@ describe("pressWrapperLayout", () => {
   });
 
   it("only fills when a motion wrapper sits outside it", () => {
-    expect(pressWrapperLayout(props({ flex: 1 }), "XStack", true)).toEqual({
+    expect(pressWrapperLayout(props({ flex: 1 }), "XStack", "YStack", true)).toEqual({
       flexGrow: 1,
       flexShrink: 1,
     });
@@ -160,6 +176,35 @@ describe("withNestedLayout", () => {
     expect(inner.pressedStyle?.backgroundColor).toBe("#000");
   });
 
+  it("keeps a per-state flexGrow / flexShrink, for the same reason", () => {
+    // Same argument as `alignSelf` below: the wrapper is built from the BASE
+    // props and has no press state, so overwriting these with the contract
+    // drops what the author wrote instead of moving it. Only `flex` — the one
+    // key with a substitute — is rewritten, and only when the override
+    // actually carries it.
+    const inner = withNestedLayout({
+      id: "cta",
+      type: "Button",
+      props: {
+        label: "Go",
+        flex: 1,
+        pressedStyle: { flexShrink: 0, flexGrow: 3 },
+      },
+    } as unknown as UIElement).props as BaseBoxProps & { pressedStyle?: BaseBoxProps };
+    expect(inner.pressedStyle?.flexShrink).toBe(0);
+    expect(inner.pressedStyle?.flexGrow).toBe(3);
+  });
+
+  it("substitutes the fill only for a per-state flex", () => {
+    const inner = withNestedLayout({
+      id: "cta",
+      type: "Button",
+      props: { label: "Go", pressedStyle: { flex: 1 } },
+    } as unknown as UIElement).props as BaseBoxProps & { pressedStyle?: BaseBoxProps };
+    expect(inner.pressedStyle?.flex).toBeUndefined();
+    expect(inner.pressedStyle?.flexGrow).toBe(1);
+  });
+
   it("keeps a per-state alignSelf, which has nowhere else to go", () => {
     // `flex` can move to the wrapper because `fillLayout` substitutes for it on
     // the inner box. `alignSelf` cannot: the wrapper carries the BASE props and
@@ -192,6 +237,10 @@ describe("withNestedLayout", () => {
     expect(p.backgroundColor).toBe("#fff");
     expect(p.aspectRatio).toBe(1);
     expect(p.gap).toBe(10);
+    // `renderElement` reads `element.props.mode` through the rebound
+    // `element` to pick the Text component, so the demotion preserving
+    // unrelated props is load-bearing, not incidental.
+    expect((withNestedLayout(card({ flex: 1 })).props as { mode?: string }).mode).toBeUndefined();
     expect(inner.id).toBe("card");
     expect(inner.type).toBe("YStack");
     expect(inner.children).toBe(el.children);
@@ -232,9 +281,9 @@ describe("the whole wrapper chain", () => {
   it("emits the zero-basis flex on exactly one box, the outermost", () => {
     const p = props({ flex: 1, transform: { scale: 0.98 }, onPress: [{ type: "continue" }] });
     const chain = [
-      parentFacingLayout(p, "XStack"), // AnimatedBox outer view
+      parentFacingLayout(p, "XStack", "YStack"), // AnimatedBox outer view
       nestedFillLayout(p), // AnimatedBox inner (static-transform) view
-      pressWrapperLayout(p, "XStack", true), // Pressable
+      pressWrapperLayout(p, "XStack", "YStack", true), // Pressable
       withNestedLayout(card(p)).props as BaseBoxProps, // the element's own root
     ];
     expect(chain.filter((box) => box.flex != null)).toHaveLength(1);
@@ -252,10 +301,15 @@ describe("the whole wrapper chain", () => {
  */
 describe("wiring", () => {
   const ELEMENTS = join(__dirname, "../elements");
+  // Strips block comments and BOTH whole-line and trailing `//` comments — the
+  // first version only stripped comments that began a line, so moving one to
+  // the end of a code line made these assertions fire on correct code. The
+  // `[^:]` guard keeps `https://` in string literals intact.
   const read = (file: string): string =>
     readFileSync(join(ELEMENTS, file), "utf8")
       .replace(/\/\*[\s\S]*?\*\//g, "")
-      .replace(/^[ \t]*\/\/.*$/gm, "");
+      .replace(/^[ \t]*\/\/.*$/gm, "")
+      .replace(/(^|[^:])\/\/.*$/gm, "$1");
 
   it("renderElement builds no wrapper style of its own", () => {
     const src = read("renderElement.tsx");
@@ -282,10 +336,13 @@ describe("wiring", () => {
     // `hidden` holds a deferred `entering.once` element invisible. Applied only
     // in the no-builder branch, an element that ALSO sets `exiting`/`layout`
     // renders visible through its hold.
-    // Both the builder and the no-builder branch must apply it — `hidden?:` in
-    // the props declaration matched a looser regex, so match the style entry.
+    // Both the builder and the no-builder branch must consider it. Asserting on
+    // the literal `hidden ? { opacity: 0 }` broke on a hoisted `hiddenStyle`
+    // const, which is a correct refactor; what matters is that the token
+    // appears in both style arrays.
     const src = read("AnimatedBox.tsx");
-    expect([...src.matchAll(/hidden\s*\?\s*\{\s*opacity:\s*0\s*\}/g)]).toHaveLength(2);
+    const styleArrays = [...src.matchAll(/style=\{\[[^\]]*\]\}/g)].map((m) => m[0]);
+    expect(styleArrays.filter((a) => a.includes("hidden"))).toHaveLength(2);
   });
 
   // The demotion cannot help a renderer that computes its own inner `flex` from

@@ -75,7 +75,11 @@ const renderConcrete = (
   // split for every wrapper here, and `withNestedLayout` hands the concrete
   // renderer the element as it must look INSIDE them, so no element renderer
   // has to know it was wrapped.
-  const wrapsPress = !!p.onPress?.length && !PRESS_HANDLED_TYPES.has(element.type);
+  // Captured before the rebind below. The demotion preserves `type`, so this is
+  // belt-and-braces — but the wrapper's `XStack` shrink default depends on it,
+  // and reading it off the clone would couple two unrelated things.
+  const elementType = element.type;
+  const wrapsPress = !!p.onPress?.length && !PRESS_HANDLED_TYPES.has(elementType);
   const wrapsMotion = !!(p.animation || p.transform);
   // Rebound once, deliberately: everything below renders the element as it must
   // look INSIDE those wrappers, and `p` above is already the AUTHORED props the
@@ -219,7 +223,7 @@ const renderConcrete = (
         onPress={() => {
           void runActions(onPress, ctx);
         }}
-        style={pressWrapperLayout(p, parentType, wrapsMotion)}
+        style={pressWrapperLayout(p, parentType, elementType, wrapsMotion)}
       >
         {content}
       </Pressable>
@@ -234,7 +238,7 @@ const renderConcrete = (
     const boxProps = {
       animation: p.animation,
       transform: p.transform,
-      outerLayout: parentFacingLayout(p, parentType),
+      outerLayout: parentFacingLayout(p, parentType, elementType),
     };
     // `entering.once` latches the entrance to one play per screen and defers an
     // initial-mount play until the screen settles. Checked BEFORE `replayWhen`

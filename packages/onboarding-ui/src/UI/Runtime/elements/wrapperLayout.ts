@@ -95,19 +95,41 @@ export const fillsParent = (
 export const wantsFlexSizing = (p: FlexSizingProps): boolean =>
   p.flex != null || p.flexGrow != null;
 
+/**
+ * The element types whose OWN renderer applies
+ * `?? (parentType === "XStack" ? 1 : undefined)`: `StackElement`,
+ * `TextElement`, `RichTextElement`, `TypewriterTextElement`. A wrapper stands
+ * in for the element it wraps, so it takes that default for exactly these and
+ * for nothing else — an `Image` in a row shrinks in neither the wrapped nor the
+ * unwrapped case. An earlier revision of this module applied the default to
+ * every wrapper, which silently gave motion-wrapped elements of every type a
+ * shrink they had never had (`AnimatedBox` used to forward no `flexShrink` at
+ * all), so two fixed-width images in a too-narrow row started shrinking
+ * instead of overflowing.
+ */
+const ROW_SHRINK_TYPES: ReadonlySet<string> = new Set([
+  "XStack",
+  "YStack",
+  "Text",
+  "RichText",
+  "TypewriterText",
+]);
+
 export const parentFacingLayout = (
   p: BaseBoxProps,
-  parentType?: ParentType
+  parentType: ParentType | undefined,
+  elementType: string
 ): ParentFacingLayout => ({
   flex: p.flex,
   flexGrow: p.flexGrow,
-  // The `XStack` default, applied to the box that is actually the row's child.
-  // NOT the only copy: the same `?? (parentType === "XStack" ? 1 : undefined)`
-  // still runs for UNWRAPPED elements in `StackElement:39`, `TextElement:160`
-  // and `:204`, `RichTextElement:159` and `TypewriterTextElement:303` — which
-  // is exactly why `fillLayout` writes `flexShrink: 0` explicitly on a nested
-  // box, to stop those defaults adding a second shrink underneath this one.
-  flexShrink: p.flexShrink ?? (parentType === "XStack" ? 1 : undefined),
+  // The `XStack` default, applied to the box that is actually the row's child,
+  // and only for the types that would have applied it themselves (see
+  // `ROW_SHRINK_TYPES`). NOT the only copy: the same expression still runs for
+  // UNWRAPPED elements in `StackElement:39`, `TextElement:160` and `:204`,
+  // `RichTextElement:159` and `TypewriterTextElement:303`.
+  flexShrink:
+    p.flexShrink ??
+    (parentType === "XStack" && ROW_SHRINK_TYPES.has(elementType) ? 1 : undefined),
   alignSelf: p.alignSelf,
 });
 
@@ -135,10 +157,14 @@ export const nestedFillLayout = (p: FlexSizingProps): NestedFillLayout =>
  * An earlier revision wrote `0` here and justified it as "RN's own default, so
  * inert"; that was wrong — it suppressed a shrink that did act, vertically.
  */
-export const fillLayout = (fills: boolean): NestedFillLayout => ({
-  flexGrow: fills ? 1 : undefined,
-  flexShrink: 1,
-});
+// Frozen and shared: every call site inlines the result into a `style`, so a
+// fresh object per call changes style identity on every render — and one of
+// those call sites is `CarouselElement`, which re-renders per progress tick.
+// There are only two possible results.
+const FILL: NestedFillLayout = Object.freeze({ flexGrow: 1, flexShrink: 1 });
+const NO_FILL: NestedFillLayout = Object.freeze({ flexGrow: undefined, flexShrink: 1 });
+
+export const fillLayout = (fills: boolean): NestedFillLayout => (fills ? FILL : NO_FILL);
 
 /**
  * Layout for the `onPress` wrapper. It faces the parent only when nothing else
@@ -148,9 +174,12 @@ export const fillLayout = (fills: boolean): NestedFillLayout => ({
 export const pressWrapperLayout = (
   p: BaseBoxProps,
   parentType: ParentType | undefined,
+  elementType: string,
   hasMotionWrapper: boolean
 ): ParentFacingLayout | NestedFillLayout =>
-  hasMotionWrapper ? nestedFillLayout(p) : parentFacingLayout(p, parentType);
+  hasMotionWrapper
+    ? nestedFillLayout(p)
+    : parentFacingLayout(p, parentType, elementType);
 
 // Cached on the element, which is referentially stable (it comes from the
 // memoized parsed step). A fresh clone per render would defeat the `React.memo`
@@ -187,18 +216,19 @@ const nestedCache = new WeakMap<UIElement, UIElement>();
 // no-change, and silently losing a prop the author wrote is the worse failure.
 const NESTED_OVERRIDE_KEYS = ["pressedStyle", "disabledStyle"] as const;
 
-const demoteOverride = (
-  override: unknown,
-  fill: NestedFillLayout
-): Record<string, unknown> | undefined => {
+const demoteOverride = (override: unknown): Record<string, unknown> | undefined => {
   if (!override || typeof override !== "object") return override as undefined;
   const o = override as BaseBoxProps;
+  // Nothing to substitute for, so nothing is touched. Overwriting a per-state
+  // `flexGrow`/`flexShrink` with the contract would drop the author's value the
+  // same way demoting `alignSelf` did — the wrapper has no press state to move
+  // it to.
+  if (o.flex == null) return override as Record<string, unknown>;
   return {
     ...(override as Record<string, unknown>),
     flex: undefined,
-    // An override that itself asks to fill keeps filling; one that says nothing
-    // inherits the base props' contract.
-    ...(wantsFlexSizing(o) ? fillLayout(true) : fill),
+    flexGrow: o.flexGrow ?? 1,
+    flexShrink: o.flexShrink ?? 1,
   };
 };
 
@@ -210,7 +240,7 @@ export const withNestedLayout = <T extends UIElement>(element: T): T => {
   const overrides: Record<string, unknown> = {};
   for (const key of NESTED_OVERRIDE_KEYS) {
     const value = (element.props as Record<string, unknown>)[key];
-    if (value != null) overrides[key] = demoteOverride(value, fill);
+    if (value != null) overrides[key] = demoteOverride(value);
   }
   const nested = {
     ...element,

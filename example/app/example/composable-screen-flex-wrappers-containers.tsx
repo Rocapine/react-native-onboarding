@@ -228,6 +228,39 @@ const pressAndMotionRow = {
   })),
 };
 
+// Settles a disagreement between two reviews of #240: does a gradient `Text`
+// with `flex` actually collapse? Its fork put the parent-facing `flex` on the
+// inner `<Text>` AND on the GradientBox. One reading said that is harmless
+// because both emit from the same expression, so the outer's main size is
+// line-determined; the other said the outer is a GradientBox rather than a
+// line-sized text box, so its auto main size resolves to 0. Two of them in an
+// `alignItems: "flex-start"` row, painted over yellow: a collapsed row shows no
+// band, exactly like the repro screen.
+const gradientTextRow = {
+  id: 'grad-row',
+  type: 'XStack' as const,
+  props: { gap: 16, alignItems: 'flex-start' as const, backgroundColor: '#FFF3B0' },
+  children: [0, 1].map((i) => ({
+    id: `grad-${i}`,
+    type: 'Text' as const,
+    props: {
+      content: `gradient text ${i + 1}`,
+      flex: 1 as const,
+      fontSize: 13,
+      color: '#FFFFFF',
+      paddingVertical: 12,
+      paddingHorizontal: 8,
+      borderRadius: 8,
+      backgroundGradient: {
+        type: 'linear' as const,
+        from: 'left' as const,
+        to: 'right' as const,
+        stops: [{ color: '#7C6BF2' }, { color: '#33B8A0' }],
+      },
+    },
+  })),
+};
+
 const captioned = <T,>(id: string, caption: string, child: T) => ({
   id,
   type: 'YStack' as const,
@@ -273,6 +306,7 @@ export default function ComposableScreenFlexWrappersContainersExample() {
                     color: '#1C1C1E',
                   },
                 },
+                captioned('grad', 'flex: 1 on a gradient Text — nested fork', gradientTextRow),
                 captioned(
                   'press-motion',
                   'flex: 1 + onPress + animation + transform — the 4-box chain',

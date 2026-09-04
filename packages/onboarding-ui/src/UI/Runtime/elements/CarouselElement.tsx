@@ -285,10 +285,15 @@ export function CarouselElementComponent({ element, ctx }: Props): React.ReactEl
   return (
     <GradientBox gradient={props.backgroundGradient} style={containerStyle}>
       {dotsPosition === "top" && pagination}
-      {/* The measuring box fills the container (which always has a definite
-          height: `props.height` or DEFAULT_HEIGHT unless flex/flexGrow was
-          authored). `fillLayout`, not `flex: 1`, so it never contributes a zero
-          basis to a container whose own main size is auto (#231). */}
+      {/* Unconditionally `true`, and that is right rather than sloppy: the
+          container's height is always resolvable — `props.height`, else
+          DEFAULT_HEIGHT via `heightFallback`, else the flex line it asked to be
+          sized by. So this box always has an outer to fill and never needs
+          `fillsParent(props)` to decide. `fillLayout`, not `flex: 1`, so it
+          contributes no zero basis if that outer turns out auto-sized (#231);
+          in that case the Carousel measures 0 and renders nothing, which is the
+          pre-existing "cannot measure under an all-auto chain" case, not
+          something the fill can repair. */}
       <View style={fillLayout(true)} onLayout={onLayout}>
         {ready && (
           <Carousel

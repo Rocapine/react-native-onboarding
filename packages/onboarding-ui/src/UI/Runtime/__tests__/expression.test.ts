@@ -352,12 +352,28 @@ describe("expression stdlib — Date range hardening", () => {
     // A DatePicker writes the ISO instant in `value` and its formatted display
     // text in `label`. The list helpers are label-first; `asDate` must not be,
     // or a date variable stops parsing the moment it has a label.
-    expect(ev('format({{birthdate}}, "medium", "en-US")', {
-      birthdate: { value: "1990-01-01T12:00:00.000Z", label: "1 January 1990" },
-    }).value).toBe("Jan 1, 1990");
-    expect(ev("addDays({{birthdate}}, 1)", {
-      birthdate: { value: "1990-01-01T00:00:00.000Z", label: "1 January 1990" },
-    }).value).toBe("1990-01-02T00:00:00.000Z");
+    //
+    // The label is a DIFFERENT, parseable date on purpose. A realistic label
+    // that formats back to the same day ("1 January 1990" beside
+    // 1990-01-01T00:00:00.000Z) passes whichever field `asDate` reads — under
+    // `TZ=UTC`, which is what CI runs, the two parse to the same millisecond —
+    // so that version of this test proved nothing.
+    const differentDate = {
+      birthdate: { value: "1990-01-01T00:00:00.000Z", label: "March 3, 2021" },
+    };
+    expect(ev('format({{birthdate}}, "medium", "en-US")', differentDate).value).toBe(
+      "Jan 1, 1990"
+    );
+    expect(ev("addDays({{birthdate}}, 1)", differentDate).value).toBe(
+      "1990-01-02T00:00:00.000Z"
+    );
+
+    // And a label that is not a date at all must not break the date functions:
+    // label-first here would fail to parse and degrade the whole call to "".
+    const prose = {
+      birthdate: { value: "1990-01-01T00:00:00.000Z", label: "your birthday" },
+    };
+    expect(ev("addDays({{birthdate}}, 1)", prose).value).toBe("1990-01-02T00:00:00.000Z");
   });
 
   it("degrades one day past each end of the range", () => {

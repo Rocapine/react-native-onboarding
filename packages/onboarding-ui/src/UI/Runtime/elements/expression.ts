@@ -280,8 +280,6 @@ function parseFormatSpec(spec: string): Intl.DateTimeFormatOptions | null {
 const asNumber = (v: Value): { n: number; isInt: boolean } | null =>
   v.kind === "number" ? { n: v.n, isInt: v.isInt } : null;
 
-const asText = (v: Value): string => valueToString(v);
-
 /**
  * Resolve a value to a Date. Accepts the `"now"` sentinel — the same literal
  * DatePicker already accepts for `defaultValue`/`minimumDate`/`maximumDate` —

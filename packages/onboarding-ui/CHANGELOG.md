@@ -61,7 +61,20 @@ here.
   helpers instead of counting as one member, a variable holding a number fails
   `count()` rather than answering 1, and an `addDays` offset that lands outside
   the representable `Date` range fails instead of throwing a `RangeError` out of
-  the press handler. A free-text answer that merely looks bracketed
+  the press handler.
+
+  One asymmetry inside that rule, because it decides a real case. An **absent**
+  variable still reads as numeric 0 wherever it is *data* — that sentinel is
+  what makes increment-before-seed arithmetic and `count()` on a screen the user
+  skipped work — but it is refused wherever it is *configuration*: a `clamp`
+  bound or a `round` digit count. Answering from the sentinel there turned a
+  typo'd variable name into a plausible constant with no warning:
+  `clamp({{score}}, {{floor}}, {{ceiling}})` reported **0** for a score of 42,
+  because `0 > 0` is false so the range check passed;
+  `clamp({{score}}, {{floor}}, 3)` reported **3**; and `round(42.75, {{digits}})`
+  reported **43**. All three now warn and store the empty string. `clamp`'s
+  first argument stays data, so an untouched counter still clamps to its
+  floor. A free-text answer that merely looks bracketed
   (`"[not json]"`) is still one member. Where a machine key would reach prose
   because a member label cannot be recovered — `label` is the ", "-joined member
   labels and one of them contains ", " too — the list helpers keep using the raw

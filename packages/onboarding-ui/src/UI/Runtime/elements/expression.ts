@@ -281,6 +281,22 @@ const asNumber = (v: Value): { n: number; isInt: boolean } | null =>
   v.kind === "number" ? { n: v.n, isInt: v.isInt } : null;
 
 /**
+ * True for the numeric-0 an ABSENT variable resolves to (`resolveVar`'s
+ * `missing` sentinel).
+ *
+ * That sentinel is right for DATA — it is what makes increment-before-seed
+ * arithmetic and `count()` on a screen the user skipped work — but a bound or a
+ * digit count is CONFIGURATION, and an unseeded one means the author referenced
+ * a variable that does not exist. Answering from the sentinel there turns a
+ * typo into a plausible constant with no warning:
+ * `clamp({{score}}, {{floor}}, {{ceiling}})` reported 0 for a score of 42
+ * (because `0 > 0` is false, so the range check passed),
+ * `clamp({{score}}, {{floor}}, 3)` reported 3, and
+ * `round(42.75, {{digits}})` reported 43.
+ */
+const isUnseeded = (v: Value): boolean => v.kind === "number" && v.missing === true;
+
+/**
  * Resolve a value to a Date. Accepts the `"now"` sentinel — the same literal
  * DatePicker already accepts for `defaultValue`/`minimumDate`/`maximumDate` —
  * or anything `Date.parse` understands (DatePicker stores `toISOString()`).
@@ -366,6 +382,8 @@ function callFunction(name: string, args: Value[]): Value | null {
       if (!a) return null;
       let digits = 0;
       if (args.length === 2) {
+        // A digit count is configuration, not data.
+        if (isUnseeded(args[1])) return null;
         const d = asNumber(args[1]);
         if (!d || !Number.isInteger(d.n) || d.n < 0 || d.n > 15) return null;
         digits = d.n;
@@ -378,6 +396,9 @@ function callFunction(name: string, args: Value[]): Value | null {
     }
     case "clamp": {
       if (args.length !== 3) return null;
+      // Bounds are configuration; the value being clamped is data, so an
+      // unseeded counter still clamps to its floor.
+      if (isUnseeded(args[1]) || isUnseeded(args[2])) return null;
       const [v, lo, hi] = args.map(asNumber);
       if (!v || !lo || !hi) return null;
       if (lo.n > hi.n) return null;
@@ -655,6 +676,8 @@ function parse(tokens: Token[], vars: Record<string, ComposableVariableEntry>): 
  * - a template that ATTEMPTS a call and fails returns the empty string and
  *   warns, rather than interpolating the broken source into a variable that a
  *   headline would then display verbatim
+ * - an ABSENT variable reads as numeric 0 wherever it is data, but is refused
+ *   as a `clamp` bound or a `round` digit count — see `isUnseeded`
  */
 export function evaluateSetVariableExpression(
   template: string,

@@ -107,6 +107,13 @@ export type SetVariableButtonAction = {
    * failure (so `"Hello {{name}}"` still works). A template that *attempts* a
    * call and fails stores the empty string and warns, rather than writing the
    * unevaluated source text into a variable a headline would display verbatim.
+   *
+   * An **absent** variable reads as numeric 0 wherever it is data — which is
+   * what makes increment-before-seed arithmetic and `count()` on a skipped
+   * screen work — but is refused wherever it is configuration: a `clamp` bound
+   * or a `round` digit count, where a typo'd variable name would otherwise
+   * produce a plausible constant (`clamp({{score}}, {{floor}}, {{ceiling}})`
+   * reported 0 for a score of 42).
    * "Attempts a call" means every identifier in the template is a function name
    * (immediately followed by `(`); a bare word makes it prose, so the English
    * optional-plural idiom `"{{n}} day(s)"` still interpolates to "3 day(s)".

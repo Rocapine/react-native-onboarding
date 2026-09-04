@@ -330,6 +330,20 @@ describe("expression stdlib — Date range hardening", () => {
     expect(ev(template)).toEqual({ value: "", kind: "string" });
   });
 
+  it("does not THROW when a VARIABLE carries the out-of-range offset", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    // The shape that will actually reach production is not a hand-typed
+    // literal but a variable holding a millisecond timestamp or a duration in
+    // ms, passed where days were meant. This also pins the `asNumber` path
+    // rather than the numeric-literal token.
+    const vars: Vars = {
+      t: { value: "2026-01-01T00:00:00.000Z" },
+      ms: { value: "1767225600000", kind: "int" },
+    };
+    expect(() => ev("addDays({{t}}, {{ms}})", vars)).not.toThrow();
+    expect(ev("addDays({{t}}, {{ms}})", vars)).toEqual({ value: "", kind: "string" });
+  });
+
   it("warns exactly once on an overflowing day count, like any other failure", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     ev('addDays("now", 100000000000)');
@@ -564,5 +578,49 @@ describe("expression stdlib — unsplittable member labels", () => {
     expect(ev("list({{goals}})", goals).value).toBe("Sleep, Energy and Focus");
     expect(ev("list({{g}})", { g: { value: '["sleep"]' } }).value).toBe("sleep");
     expect(warn).not.toHaveBeenCalled();
+  });
+});
+
+describe("expression stdlib — an unseeded variable is data, never configuration", () => {
+  // `missing: true` is the documented numeric-0 sentinel for an absent
+  // variable (`expression.ts:22-24`), and it is deliberate: it is what makes
+  // increment-before-seed arithmetic and `count()` on a skipped screen work.
+  // But a bound and a digit count are not data, they are CONFIGURATION, and an
+  // unseeded one means the author referenced a variable that does not exist.
+  // Answering from the sentinel there turns a typo into a plausible constant.
+  const warnSpy = () => vi.spyOn(console, "warn").mockImplementation(() => {});
+
+  it("clamp refuses bounds that are unseeded variables", () => {
+    const warn = warnSpy();
+    // Both bounds resolved to 0, `0 > 0` is false so the range check passed,
+    // and a legitimate 42 came back as "0" with NO warning at all.
+    expect(
+      ev("clamp({{score}}, {{floor}}, {{ceiling}})", { score: { value: "42", kind: "int" } })
+    ).toEqual({ value: "", kind: "string" });
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("clamp refuses a single unseeded bound as a bound, not as an inverted range", () => {
+    warnSpy();
+    const score: Vars = { score: { value: "42", kind: "int" } };
+    expect(ev("clamp({{score}}, 1, {{ceiling}})", score).value).toBe("");
+    expect(ev("clamp({{score}}, {{floor}}, 3)", score).value).toBe("");
+  });
+
+  it("round refuses an unseeded digit count instead of rounding to whole numbers", () => {
+    warnSpy();
+    // `round(42.75, {{typo}})` silently became `round(42.75, 0)` -> 43.
+    expect(ev("round(42.75, {{digits}})").value).toBe("");
+    // The seeded case is untouched.
+    expect(ev("round(42.75, 1)")).toEqual({ value: "42.8", kind: "float" });
+  });
+
+  it("still reads an unseeded variable as 0 everywhere it is DATA", () => {
+    expect(ev("{{counter}} + 1")).toEqual({ value: "1", kind: "int" });
+    expect(ev("count({{never_answered}})")).toEqual({ value: "0", kind: "int" });
+    // The clamp INPUT is data: a counter nobody has touched yet clamps to its
+    // floor, which is the same answer it will give after the first press.
+    expect(ev("clamp({{unset}}, 1, 3)")).toEqual({ value: "1", kind: "int" });
+    expect(ev("min({{unset}}, 5)")).toEqual({ value: "0", kind: "int" });
   });
 });

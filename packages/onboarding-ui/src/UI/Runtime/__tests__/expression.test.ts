@@ -914,6 +914,27 @@ describe("expression stdlib — review round 4", () => {
     expect(ev("count({{gone}} + 1)").value).toBe("");
   });
 
+  it("carries the taint through the numeric functions, not just the operators", () => {
+    const warn = warnSpy();
+    // Otherwise the guard closes one hole and leaves the next expression shape
+    // open: a function result had no flag to inherit.
+    expect(ev("addDays({{d}}, abs({{weeks}}) * 7)", {
+      d: { value: "2026-01-01T00:00:00.000Z" },
+    }).value).toBe("");
+    expect(ev("clamp({{score}}, min({{floor}}, 2), 3)", {
+      score: { value: "42", kind: "int" },
+    }).value).toBe("");
+    expect(ev("addDays({{d}}, round({{weeks}}))", {
+      d: { value: "2026-01-01T00:00:00.000Z" },
+    }).value).toBe("");
+    expect(warn).toHaveBeenCalledTimes(3);
+    // `count()` of a screen the user skipped is a real zero, not a taint, so
+    // it stays usable as a day count.
+    expect(ev("addDays({{d}}, count({{skipped}}))", {
+      d: { value: "2026-01-01T00:00:00.000Z" },
+    }).value).toBe("2026-01-01T00:00:00.000Z");
+  });
+
   it("still evaluates the advertised arithmetic form when the variable exists", () => {
     expect(ev("addDays({{d}}, {{weeks}} * 7)", {
       d: { value: "2026-01-01T00:00:00.000Z" },

@@ -414,13 +414,18 @@ function callFunction(name: string, args: Value[]): Value | null {
       const n = name === "min"
         ? Math.min(...vals.map((x) => x.n))
         : Math.max(...vals.map((x) => x.n));
-      return { kind: "number", n, isInt: vals.every((x) => x.isInt) };
+      return {
+        kind: "number",
+        n,
+        isInt: vals.every((x) => x.isInt),
+        unseeded: args.some(isUnseeded),
+      };
     }
     case "abs": {
       if (args.length !== 1) return null;
       const a = asNumber(args[0]);
       if (!a) return null;
-      return { kind: "number", n: Math.abs(a.n), isInt: a.isInt };
+      return { kind: "number", n: Math.abs(a.n), isInt: a.isInt, unseeded: args.some(isUnseeded) };
     }
     case "round": {
       if (args.length !== 1 && args.length !== 2) return null;
@@ -434,11 +439,12 @@ function callFunction(name: string, args: Value[]): Value | null {
         if (!d || !Number.isInteger(d.n) || d.n < 0 || d.n > 15) return null;
         digits = d.n;
       }
-      if (digits === 0) return { kind: "number", n: Math.round(a.n), isInt: true };
+      const tainted = isUnseeded(args[0]);
+      if (digits === 0) return { kind: "number", n: Math.round(a.n), isInt: true, unseeded: tainted };
       const f = Math.pow(10, digits);
       const n = Math.round(a.n * f) / f;
       if (!Number.isFinite(n)) return null;
-      return { kind: "number", n, isInt: false };
+      return { kind: "number", n, isInt: false, unseeded: tainted };
     }
     case "clamp": {
       if (args.length !== 3) return null;
@@ -452,6 +458,9 @@ function callFunction(name: string, args: Value[]): Value | null {
         kind: "number",
         n: Math.min(Math.max(v.n, lo.n), hi.n),
         isInt: v.isInt && lo.isInt && hi.isInt,
+        // The bounds are already refused when unseeded; only the clamped
+        // VALUE can still carry the taint onward.
+        unseeded: isUnseeded(args[0]),
       };
     }
 
@@ -532,6 +541,8 @@ function callFunction(name: string, args: Value[]): Value | null {
       if (args.length !== 1) return null;
       const items = asList(args[0]);
       if (!items) return null;
+      // NOT tainted: `count({{skipped}})` is a real answer — zero members —
+      // rather than a value derived from a name that does not exist.
       return { kind: "number", n: items.length, isInt: true };
     }
     case "plural": {

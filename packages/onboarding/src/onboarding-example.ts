@@ -782,6 +782,63 @@ export const onboardingExample = {
                   marginVertical: 4,
                 },
               },
+              // Expression stdlib demo. Every function runs at PRESS time (the
+              // engine's only call site is a `setVariable` action), so a
+              // computed date or an assembled sentence is written into a
+              // variable here and then plainly interpolated by the Texts below.
+              {
+                id: "stdlib-compute",
+                type: "Button",
+                props: {
+                  label: "Compute my plan",
+                  variant: "outlined",
+                  marginVertical: 8,
+                  actions: [
+                    {
+                      type: "setVariable",
+                      name: "goalDate",
+                      // `"now"` is the same sentinel DatePicker accepts, and the
+                      // format spec is the DatePicker `format` prop vocabulary.
+                      value: 'format(addDays("now", 90), "medium")',
+                      valueMode: "expression",
+                    },
+                    {
+                      type: "setVariable",
+                      name: "goalSentence",
+                      // Grammatical listing over the CheckboxGroup member labels.
+                      value: "list({{goals}})",
+                      valueMode: "expression",
+                    },
+                    {
+                      type: "setVariable",
+                      name: "goalCount",
+                      value: 'count({{goals}}) + " " + plural(count({{goals}}), "goal", "goals")',
+                      valueMode: "expression",
+                    },
+                    {
+                      type: "setVariable",
+                      name: "weeklyPace",
+                      // Numeric helpers: rounds to nearest (not trunc) and holds
+                      // the result inside an inclusive range.
+                      value: "clamp(round({{intensity}} / 2), 1, 3)",
+                      valueMode: "expression",
+                    },
+                  ],
+                },
+              },
+              {
+                id: "stdlib-display",
+                type: "Text",
+                props: {
+                  content:
+                    "{{goalCount}}: {{goalSentence}} — by {{goalDate}}, {{weeklyPace}}x / week",
+                  mode: "expression",
+                  fontSize: 14,
+                  textAlign: "center",
+                  opacity: 0.6,
+                  marginVertical: 4,
+                },
+              },
               {
                 id: "hero-date-picker",
                 type: "DatePicker",

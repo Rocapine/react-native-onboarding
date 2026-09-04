@@ -965,7 +965,8 @@ describe("expression stdlib — review round 4", () => {
     // used to store a double space, a run-together list and an empty word.
     expect(ev('list({{goals}}, "{{conj}}")', goals).value).toBe("");
     expect(ev('join({{goals}}, "{{sep}}")', goals).value).toBe("");
-    expect(ev('plural({{n}}, "{{one}}", "{{other}}")', {
+    // `other` is the form a count of 3 selects, so this one is refused.
+    expect(ev('plural({{n}}, "one thing", "{{other}}")', {
       n: { value: "3", kind: "int" },
     }).value).toBe("");
     expect(ev('format({{d}}, "{{spec}}")', {
@@ -1100,5 +1101,54 @@ describe("expression stdlib — review round 4", () => {
       d: { value: "2026-01-01T00:00:00.000Z" },
       weeks: { value: "2", kind: "int" },
     }).value).toBe("2026-01-15T00:00:00.000Z");
+  });
+});
+
+describe("expression stdlib — review round 5", () => {
+  const warnSpy = () => vi.spyOn(console, "warn").mockImplementation(() => {});
+
+  it("carries the taint through concat from either operand and either kind", () => {
+    const warn = warnSpy();
+    // Gating on `kind === "string"` closed only half the shapes: a NUMERIC
+    // absent variable concatenated to a string produced an untainted one, so
+    // this stored "Jan 1, 2000" — `Date.parse("0")` — with no warning.
+    expect(ev('format({{d}} + "", "medium", "en-US")').value).toBe("");
+    expect(ev('format(addDays({{d}} + "", 30), "medium", "en-US")').value).toBe("");
+    expect(ev("join({{goals}}, {{sep}} + \"\")", goals).value).toBe("");
+    expect(ev('join({{goals}}, "-" + {{sep}})', goals).value).toBe("");
+    expect(warn).toHaveBeenCalledTimes(4);
+    // Seeded, the same shapes evaluate.
+    expect(ev('join({{goals}}, "-" + {{sep}})', { ...goals, sep: { value: "-" } }).value).toBe(
+      "Sleep--Energy--Focus"
+    );
+  });
+
+  it("refuses a member list assembled out of a name that does not exist", () => {
+    const warn = warnSpy();
+    // Without the coercion guard, `{{g}} + ""` is the string "0" and the
+    // scalar fallback counts it as one member — a plausible 1 for a variable
+    // that does not exist.
+    expect(ev('count({{g}} + "")').value).toBe("");
+    expect(ev('list({{g}} + "")').value).toBe("");
+    expect(warn).toHaveBeenCalledTimes(2);
+    // A real multi-select still counts, and an untouched screen is still 0.
+    expect(ev("count({{goals}})", goals)).toEqual({ value: "3", kind: "int" });
+    expect(ev("count({{skipped}})")).toEqual({ value: "0", kind: "int" });
+  });
+
+  it("refuses only the plural form it actually selects", () => {
+    const warn = warnSpy();
+    // A plural form is the one configuration position that is user-facing
+    // prose, so refusing on the form NOT taken blanked a headline that would
+    // have rendered correctly.
+    expect(ev('plural({{n}}, "{{singular}}", "days")', {
+      n: { value: "3", kind: "int" },
+    }).value).toBe("days");
+    expect(warn).not.toHaveBeenCalled();
+    // And the selected form is still refused when it is the unseeded one.
+    expect(ev('plural({{n}}, "{{singular}}", "days")', {
+      n: { value: "1", kind: "int" },
+    }).value).toBe("");
+    expect(warn).toHaveBeenCalledTimes(1);
   });
 });

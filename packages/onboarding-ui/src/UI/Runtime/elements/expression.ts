@@ -346,6 +346,11 @@ const namesMissingVariable = (
  */
 function asDate(v: Value): Date | null {
   if (v.kind !== "string") return null;
+  // A date built from a variable that does not exist is not a date. The bare
+  // `{{d}}` form is refused because an absent variable resolves to a NUMBER,
+  // but `{{d}} + ""` reaches here as a tainted string whose content is "0",
+  // and `Date.parse("0")` is a real instant — 1 Jan 2000.
+  if (isUnseeded(v)) return null;
   const raw = v.s.trim();
   if (raw === "now") return new Date();
   const t = Date.parse(raw);
@@ -376,6 +381,8 @@ function asList(v: Value): string[] | null {
   // A variable that holds a real NUMBER is not a list at all — `count({{age}})`
   // is a type error the author should see, not a 1 — so it fails the call.
   if (v.kind === "number") return v.missing ? [] : null;
+  // Likewise a member list assembled out of a name that does not exist.
+  if (isUnseeded(v)) return null;
   const decoded = decodeStringArray(v.s);
   if (decoded) return decoded;
   // Structured data of the wrong shape. This can be end-user input as much as
@@ -598,11 +605,17 @@ function callFunction(name: string, args: Value[]): Value | null {
       const n = asNumber(args[0]);
       if (!n) return null;
       if (args[1].kind !== "string" || args[2].kind !== "string") return null;
-      // Both plural forms are configuration; unseeded stored the empty string.
-      if (isUnseeded(args[1]) || isUnseeded(args[2])) return null;
       // Two-form selection only (Intl's `one` / `other` categories). Languages
       // with `few`/`many` need Intl.PluralRules and a locale argument.
-      return { kind: "string", s: Math.abs(n.n) === 1 ? args[1].s : args[2].s };
+      //
+      // Only the SELECTED form has to be seeded — the same provenance rule
+      // min/max use. A plural form is the one configuration position in the
+      // stdlib that is user-facing prose, so refusing on the form that was not
+      // taken blanked a headline that would have rendered correctly:
+      // `plural({{n}}, "{{singular}}", "days")` with `n` = 3 returns "days".
+      const form = Math.abs(n.n) === 1 ? args[1] : args[2];
+      if (isUnseeded(form)) return null;
+      return { kind: "string", s: form.s };
     }
     default:
       return null;
@@ -880,13 +893,14 @@ function parse(tokens: Token[], vars: Record<string, ComposableVariableEntry>): 
           left = {
             kind: "string",
             s: valueToString(left) + valueToString(right),
-            // Carried like the numeric branches, or the `+ "…"` idiom the docs
-            // push authors toward would launder it:
-            // `join({{goals}}, "{{a}}" + "{{b}}")` joined with "-" silently.
-            unseeded:
-              (left.kind === "string" && left.unseeded) ||
-              (right.kind === "string" && right.unseeded) ||
-              undefined,
+            // Carried from EITHER operand and either kind, or the `+ "…"`
+            // idiom the docs push authors toward launders it. Gating on
+            // `kind === "string"` closed only half the shapes: a numeric
+            // absent variable concatenated to a string produced an untainted
+            // one, so `format({{d}} + "", "medium", "en-US")` stored
+            // "Jan 1, 2000" — `Date.parse("0")` — with no warning, while the
+            // direct `format({{d}}, …)` correctly blanked.
+            unseeded: isUnseeded(left) || isUnseeded(right) || undefined,
           };
         }
       } else {

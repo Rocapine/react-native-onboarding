@@ -9,6 +9,56 @@ here.
 
 ### Fixed
 
+- **An element carrying `flex` together with `onPress`, `animation` or
+  `transform` no longer collapses to height 0.** An author writes one `flex: 1`;
+  `renderElement` was emitting it on every box it wraps the element in — the
+  `Pressable` for a generic `onPress`, `AnimatedBox`'s outer view, its inner
+  static-transform view, and the element's own root. In React Native `flex: N`
+  expands to `{ flexGrow: N, flexShrink: 1, flexBasis: 0 }`, so a nested copy
+  contributes **zero** main size: a wrapper whose own main size is auto measured
+  0, its children went on painting at full size over whatever followed, and
+  every press target in a row landed on the same point. **A tappable or animated
+  card, tile or option authored the obvious way — `flex: 1` plus `onPress` — was
+  therefore unusable, and nothing warned**: both props are legal, and it does not
+  reproduce on react-native-web, so a Studio canvas or web preview showed the
+  screen correct right up to the device. (The divergence is intrinsic sizing:
+  CSS resolves an auto-sized flex container from its items' max-content
+  contributions, Yoga from their flex *base* sizes, and a `flex: N` item's base
+  is 0.)
+
+  The rule now, owned in one place (`Runtime/elements/wrapperLayout.ts`): the
+  **outermost** box carries the parent-facing props — `flex`, `flexGrow`,
+  `flexShrink`, `alignSelf` — and every box below it *fills* with
+  `flexGrow: 1` + `flexShrink: 1`, never `flex`. The five renderers that nest
+  their own box inside a `GradientBox` fill the same way, and the element
+  renderers themselves are unchanged: they still read `props.flex`, and the
+  renderer hands them a demoted element.
+
+  Two things to know when you upgrade. `flexGrow: 1` was the working
+  workaround and still behaves exactly as before. But `flexGrow` (or
+  `flexShrink`) *together with* `animation`/`transform` now **takes effect** —
+  `AnimatedBox` never forwarded those, so they sat inert on the inner box and
+  the wrapper stayed content-sized; a screen relying on that will see those
+  elements grow into their row. `flexGrow` + `onPress` is unaffected.
+
+- **A `Text` with both `flex` and a `backgroundGradient` no longer renders an
+  empty pill.** The gradient fork nests the `<Text>` inside a `GradientBox` that
+  carries the box layout, and every parent-facing key on that inner text was
+  already suppressed under a gradient — `flexGrow`, `alignSelf`, `width`,
+  `height`, `minWidth` all read `p.backgroundGradient ? undefined : …`. Exactly
+  two were missed: `flex` and `flexShrink`. So the inner text got
+  `flexBasis: 0` and measured **0**, while the `GradientBox` took its height
+  from padding alone — nothing was line-determined, and nothing reserved space
+  for the glyphs. **The gradient band rendered with no label in it at all, and
+  an author had no way to diagnose that**: the payload is valid, the element is
+  present, the text is simply invisible. Measured on device, the two `Text`
+  nodes had no layout frame at all before and `h=16.0` after, with everything
+  below the row one line height higher.
+
+  Independent of the collapse above — it needs no wrapper and bit an
+  unwrapped, plainly authored element — and fixed by the same rule: the inner
+  text now takes the fill contract instead of the parent-facing `flex`.
+
 - **An element gated on `{{ref}}` no longer vanishes on the UI thread.**
   `renderWhen` has two evaluators: the store-backed `evaluateCondition`, and the
   UI-thread fast path in `Runtime/elements/animatedGate.ts` that lets an element

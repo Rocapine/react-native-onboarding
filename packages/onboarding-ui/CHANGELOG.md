@@ -7,6 +7,46 @@ here.
 
 ## [Unreleased]
 
+### Added
+
+- **A function stdlib for `setVariable valueMode: "expression"`** — date maths,
+  clamping, and grammatical listing, so a "your goal date is 3 April" or a
+  "2 goals: sleep and energy" headline is authored instead of hand-rolled in app
+  code. The engine could tokenize `{{var}}`, numeric literals, parens and
+  `+ - * /` and nothing else: a leading letter failed to tokenize, and the whole
+  template then degraded silently to plain interpolation, so the only rounding
+  an author had was an incidental `Math.trunc` on int-tagged values.
+
+  Eleven functions, over new string-literal and comma tokens: numeric `min`,
+  `max`, `abs`, `round(a[, digits])`, `clamp(a, lo, hi)`; dates
+  `addDays(date, n)`, `format(date, spec[, locale])`; listing
+  `list(x[, conjunction])`, `join(x[, separator])`, `count(x)`,
+  `plural(n, one, other)`. Two rules shape it. **Dates reuse what exists** — a
+  date is an ISO string (what `DatePicker` stores) or the `"now"` sentinel
+  `DatePicker` already accepts, and `format`'s spec vocabulary *is* the
+  `DatePicker.format` prop's Intl subset, so there is no second date-format
+  language and no `YYYY-MM-DD` tokens. **A multi-select resolves to its member
+  labels**, matching interpolation's label-first precedence, while string concat
+  of the same variable still yields its raw JSON exactly as before.
+
+  **It runs at press time only.** The engine has one call site — a `setVariable`
+  action — and actions only run from a press handler. `Text mode: "expression"`
+  interpolates rather than evaluating, so a computed headline must be written to
+  a variable by an earlier press and then plainly interpolated; there is no
+  render-time filter syntax.
+
+  **Failure is loud, which is the one behaviour change.** A template with no
+  call still falls back to plain interpolation, because `"Hello {{name}}"` is a
+  legitimate expression-mode value. A template that *attempts* a call and fails
+  stores the empty string and warns once, rather than interpolating broken
+  source text into a variable a headline would then display verbatim. The same
+  rule applies wherever the alternative was a believable constant: a value that
+  parses as JSON but is not a `string[]` (`"[1,2,3]"`, `{"a":1}`) fails the list
+  helpers instead of counting as one member, and an `addDays` offset that lands
+  outside the representable `Date` range fails instead of throwing a `RangeError`
+  out of the press handler. A free-text answer that merely looks bracketed
+  (`"[not json]"`) is still one member.
+
 ### Fixed
 
 - **An element gated on `{{ref}}` no longer vanishes on the UI thread.**

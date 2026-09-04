@@ -702,8 +702,10 @@ export default function ComposableScreenExample() {
                   {
                     type: 'setVariable' as const,
                     name: 'weeklyPace',
-                    // `* 5` maps the 0..1 intensity slider onto 1..3 sessions a
-                    // week, so this sweeps 1 -> 2 -> 3 as the user drags.
+                    // Over the slider's 0..1 / step-0.1 grid this reads
+                    // 1,1,1,2,2,3,3,3,3,3,3 — top-heavy on purpose: raw 0 and
+                    // raw 5 fall outside 1..3, so both clamp bounds are
+                    // exercised, as are the two round-half-up positions.
                     value: 'clamp(round({{intensity}} * 5), 1, 3)',
                     valueMode: 'expression' as const,
                   },

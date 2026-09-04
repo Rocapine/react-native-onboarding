@@ -23,7 +23,13 @@ type Value =
   // Arithmetic ignores the flag (every result is a fresh object), but the list
   // helpers read it so `count({{never_answered}})` is 0 rather than a hard fail.
   | { kind: "number"; n: number; isInt: boolean; missing?: boolean }
-  | { kind: "string"; s: string }
+  // `label` is the variable entry's display label, when it had one. Only the
+  // list helpers read it, so `list({{plan}})` reads "Quarterly" the way
+  // `interpolate` does rather than "quarterly_14d". `valueToString` — and so
+  // string concat, and `asDate` — deliberately ignore it and keep using the
+  // machine value, which is also what makes a `DatePicker` variable (ISO in
+  // `value`, formatted text in `label`) still parseable as a date.
+  | { kind: "string"; s: string; label?: string }
   // A multi-select variable (the JSON-encoded `string[]` CheckboxGroup writes).
   // `items` are the member LABELS when available (matching `interpolate`'s
   // label-first display precedence); `raw` is the original JSON string so
@@ -141,14 +147,18 @@ function resolveVar(name: string, vars: Record<string, ComposableVariableEntry>)
   if (!entry) return { kind: "number", n: 0, isInt: true, missing: true };
   const raw = entry.value;
   const k = entry.kind;
-  if (k === "string") return { kind: "string", s: raw };
+  if (k === "string") return { kind: "string", s: raw, label: entry.label };
   if (k === "int") {
     const n = parseInt(raw, 10);
-    return Number.isFinite(n) ? { kind: "number", n, isInt: true } : { kind: "string", s: raw };
+    return Number.isFinite(n)
+      ? { kind: "number", n, isInt: true }
+      : { kind: "string", s: raw, label: entry.label };
   }
   if (k === "float") {
     const n = parseFloat(raw);
-    return Number.isFinite(n) ? { kind: "number", n, isInt: false } : { kind: "string", s: raw };
+    return Number.isFinite(n)
+      ? { kind: "number", n, isInt: false }
+      : { kind: "string", s: raw, label: entry.label };
   }
   // No kind tag — infer from string content. A JSON `string[]` is how
   // CheckboxGroup (and `setVariable arrayOp`) store a multi-select, and neither
@@ -172,7 +182,7 @@ function resolveVar(name: string, vars: Record<string, ComposableVariableEntry>)
     const n = parseFloat(trimmed);
     if (Number.isFinite(n)) return { kind: "number", n, isInt: Number.isInteger(n) && !trimmed.includes(".") };
   }
-  return { kind: "string", s: raw };
+  return { kind: "string", s: raw, label: entry.label };
 }
 
 function valueToString(v: Value): string {
@@ -283,14 +293,21 @@ function asList(v: Value): string[] | null {
   if (v.kind === "list") return v.items;
   // An unset variable resolves to numeric 0; treat it as an empty selection so
   // `count()` / `list()` on a screen the user skipped are 0 and "".
+  // A variable that holds a real NUMBER is not a list at all — `count({{age}})`
+  // is a type error the author should see, not a 1 — so it fails the call.
   if (v.kind === "number") return v.missing ? [] : null;
   const decoded = decodeStringArray(v.s);
   if (decoded) return decoded;
-  // Wrong-shaped JSON is an authoring/data error. Answering as if it were one
-  // scalar member is the failure mode this programme keeps getting bitten by:
-  // a plausible constant instead of a visible failure.
+  // Structured data of the wrong shape. This can be end-user input as much as
+  // an authoring mistake — someone pasting `[1,2,3]` into an `Input` reaches it
+  // — and the author will not see the console warning in production. Failing
+  // still beats the alternative: answering a believable `count()` of 1 for a
+  // value that plainly holds three things. Only JSON that PARSES is refused, so
+  // free text that merely looks bracketed (`"[not json]"`) is still one member.
   if (isJsonContainer(v.s)) return null;
-  return v.s.trim() === "" ? [] : [v.s];
+  // One member, displayed the way every other display path shows it: the label
+  // when there is one, matching `interpolate`'s label-first precedence.
+  return v.s.trim() === "" ? [] : [v.label ?? v.s];
 }
 
 /** "A", "A and B", "A, B and C" — no Oxford comma. */
@@ -561,10 +578,12 @@ function parse(tokens: Token[], vars: Record<string, ComposableVariableEntry>): 
  *   DatePicker `format` prop's Intl vocabulary, either a bare `dateStyle` name
  *   (`"medium"`) or `key:value` pairs (`"weekday:long, day:numeric"`).
  * - listing — `list(x[, conjunction])` ("A, B and C"), `join(x[, separator])`,
- *   `count(x)`, `plural(n, one, other)`. `x` is a multi-select variable; its
- *   member LABELS are used when present. A scalar answer is one member; a value
- *   that parses as JSON but is not a `string[]` is a hard failure, not a
- *   one-member list.
+ *   `count(x)`, `plural(n, one, other)`. `x` is an untagged multi-select
+ *   variable; its member LABELS are used when present. A scalar answer is one
+ *   member, also by its label. Two things are NOT lists and fail the call
+ *   rather than counting as one: a variable holding a number (`count({{age}})`
+ *   — you wanted `plural({{age}}, ...)`), and a value that parses as JSON but
+ *   is not a `string[]` (`"[1,2,3]"`, `{"a":1}`).
  *
  * Variable values are coerced according to their `kind` tag (string / int /
  * float), or inferred from their string content when no tag is present — an

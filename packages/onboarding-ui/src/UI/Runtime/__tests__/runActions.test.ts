@@ -382,5 +382,6 @@ describe("runActions — a failing expression must not kill the action list", ()
     expect(ctx.getVariables().after?.value).toBe("written");
     expect(onContinue).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
   });
 });

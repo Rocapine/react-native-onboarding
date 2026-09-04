@@ -348,6 +348,18 @@ describe("expression stdlib — Date range hardening", () => {
     );
   });
 
+  it("keeps the date functions on the machine value, not the label", () => {
+    // A DatePicker writes the ISO instant in `value` and its formatted display
+    // text in `label`. The list helpers are label-first; `asDate` must not be,
+    // or a date variable stops parsing the moment it has a label.
+    expect(ev('format({{birthdate}}, "medium", "en-US")', {
+      birthdate: { value: "1990-01-01T12:00:00.000Z", label: "1 January 1990" },
+    }).value).toBe("Jan 1, 1990");
+    expect(ev("addDays({{birthdate}}, 1)", {
+      birthdate: { value: "1990-01-01T00:00:00.000Z", label: "1 January 1990" },
+    }).value).toBe("1990-01-02T00:00:00.000Z");
+  });
+
   it("degrades one day past each end of the range", () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     expect(ev('addDays("1970-01-01T00:00:00.000Z", 100000001)').value).toBe("");
@@ -402,13 +414,37 @@ describe("expression stdlib — structured data of the wrong shape", () => {
     });
   });
 
-  it("still counts a single-select scalar answer as one member", () => {
-    expect(ev("count({{choice}})", {
-      choice: { value: "health", label: "Improve health" },
-    })).toEqual({ value: "1", kind: "int" });
-    expect(ev("list({{choice}})", {
-      choice: { value: "health", label: "Improve health" },
-    }).value).toBe("health");
+  it("counts a single-select scalar answer as one member, by its label", () => {
+    // `list` / `join` are display helpers and every other display path is
+    // label-first (`interpolate`, shared.ts:72), so a scalar has to read like
+    // the multi-select beside it: "You chose Improve health", never
+    // "You chose health".
+    const choice = { choice: { value: "health", label: "Improve health" } };
+    expect(ev("count({{choice}})", choice)).toEqual({ value: "1", kind: "int" });
+    expect(ev("list({{choice}})", choice).value).toBe("Improve health");
+    expect(ev("join({{choice}})", choice).value).toBe("Improve health");
+    // No label — the machine value is all there is.
+    expect(ev("list({{choice}})", { choice: { value: "health" } }).value).toBe("health");
+    // String concat is deliberately NOT label-first and stays on the value.
+    expect(ev('"" + {{choice}}', choice).value).toBe("health");
+  });
+
+  it("fails the list helpers on a variable that holds a number", () => {
+    // `count({{age}})` is a type error, not a 1: the author wanted
+    // `plural({{age}}, ...)`. Both the tagged and the sniffed-numeric shapes
+    // reach it, and this is what the docs now say — they previously promised a
+    // scalar always counts as one, which was false for every numeric answer.
+    warnSpy();
+    expect(ev("count({{age}})", { age: { value: "30", kind: "int" } }).value).toBe("");
+    expect(ev("count({{age}})", { age: { value: "30.5", kind: "float" } }).value).toBe("");
+    expect(ev("count({{age}})", { age: { value: "30" } }).value).toBe("");
+    // A non-numeric scalar is still one member, and an UNSET variable is still
+    // an empty selection rather than a failure.
+    expect(ev("count({{age}})", { age: { value: "thirty" } })).toEqual({
+      value: "1",
+      kind: "int",
+    });
+    expect(ev("count({{never_set}})")).toEqual({ value: "0", kind: "int" });
   });
 
   it("leaves string concatenation of the same value untouched", () => {

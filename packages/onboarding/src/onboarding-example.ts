@@ -819,10 +819,14 @@ export const onboardingExample = {
                       type: "setVariable",
                       name: "weeklyPace",
                       // Numeric helpers: rounds to nearest (not trunc) and holds
-                      // the result inside an inclusive range. `* 5` maps the
-                      // 0..1 intensity slider onto 1..3 sessions a week, so the
-                      // demo sweeps 1 -> 2 -> 3 as the user drags instead of
-                      // sitting on one constant.
+                      // the result inside an inclusive range. Over the slider's
+                      // 0..1 / step-0.1 grid this reads 1,1,1,2,2,3,3,3,3,3,3 —
+                      // top-heavy on purpose, because it exercises what it
+                      // demonstrates: both clamp bounds (raw 0 and raw 5 fall
+                      // outside 1..3) and the two round-half-up positions a
+                      // trunc would get wrong. `round(1 + {{intensity}} * 2)`
+                      // spreads more evenly but never leaves the range, so
+                      // clamp becomes a no-op and demonstrates nothing.
                       value: "clamp(round({{intensity}} * 5), 1, 3)",
                       valueMode: "expression",
                     },

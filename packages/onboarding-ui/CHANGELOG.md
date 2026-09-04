@@ -26,8 +26,11 @@ here.
   `DatePicker` already accepts, and `format`'s spec vocabulary *is* the
   `DatePicker.format` prop's Intl subset, so there is no second date-format
   language and no `YYYY-MM-DD` tokens. **A multi-select resolves to its member
-  labels**, matching interpolation's label-first precedence, while string concat
-  of the same variable still yields its raw JSON exactly as before.
+  labels**, matching interpolation's label-first precedence — as does a scalar
+  answer — while string concat of the same variable still yields its raw value
+  exactly as before. "Multi-select" means an *untagged* entry, which is what
+  `CheckboxGroup` and `arrayOp` write; an entry explicitly tagged
+  `kind: "string"` is taken at its word and read as raw values.
 
   **It runs at press time only.** The engine has one call site — a `setVariable`
   action — and actions only run from a press handler. `Text mode: "expression"`
@@ -42,9 +45,10 @@ here.
   source text into a variable a headline would then display verbatim. The same
   rule applies wherever the alternative was a believable constant: a value that
   parses as JSON but is not a `string[]` (`"[1,2,3]"`, `{"a":1}`) fails the list
-  helpers instead of counting as one member, and an `addDays` offset that lands
-  outside the representable `Date` range fails instead of throwing a `RangeError`
-  out of the press handler. A free-text answer that merely looks bracketed
+  helpers instead of counting as one member, a variable holding a number fails
+  `count()` rather than answering 1, and an `addDays` offset that lands outside
+  the representable `Date` range fails instead of throwing a `RangeError` out of
+  the press handler. A free-text answer that merely looks bracketed
   (`"[not json]"`) is still one member.
 
 ### Fixed

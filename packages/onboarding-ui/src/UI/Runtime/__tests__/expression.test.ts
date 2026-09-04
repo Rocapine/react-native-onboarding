@@ -527,6 +527,96 @@ describe("expression stdlib — prose is not a call attempt", () => {
     expect(ev("addDay({{d}}, 1)", { d: { value: "2026-01-01T00:00:00.000Z" } }).value).toBe("");
     expect(warn).toHaveBeenCalledTimes(1);
   });
+
+  it("interpolates a word followed by a spaced parenthesised number", () => {
+    // Second review finding on #243. The token stream is whitespace-free, so
+    // `"Goals ({{count}})"` and `"Goals({{count}})"` tokenize identically —
+    // which made the very shape the previous comment recommended ("write it
+    // with a space") store the empty string. The comment's advice is now true
+    // because a call site has to be GLUED to its parenthesis or carry a known
+    // stdlib name.
+    const warn = warnSpy();
+    const n = { n: { value: "2", kind: "int" as const } };
+    expect(ev("Goals ({{n}})", n).value).toBe("Goals (2)");
+    expect(ev("Save (50)").value).toBe("Save (50)");
+    expect(ev("Deposit (100)").value).toBe("Deposit (100)");
+    expect(ev("Basic ({{n}})", n).value).toBe("Basic (2)");
+    expect(ev("Week ({{n}}-{{n}})", n).value).toBe("Week (2-2)");
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("fails loudly when a real call is followed by unconcatenated prose", () => {
+    // Third review finding on #243. `and`/`more` are bare words, so the whole
+    // template used to read as prose and the evaluator's OWN SOURCE — function
+    // name, parentheses and all — was interpolated into the variable with no
+    // warning. A known stdlib name at a call site outranks any bare word.
+    const warn = warnSpy();
+    expect(ev("list({{goals}}) and more", goals).value).toBe("");
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).toContain('+ "');
+    expect(ev("count({{goals}}) goals", goals).value).toBe("");
+  });
+
+  it("decides on WHERE the bare word sits, not whether one exists", () => {
+    // The two shapes the classifier has to tell apart, side by side. Both hold a
+    // known stdlib name at a call site and a bare word somewhere; only the
+    // position of the bare word distinguishes them. A bare identifier is never a
+    // legal argument, so one INSIDE the parens proves they are punctuation
+    // ("min" is short for minutes); one OUTSIDE proves nothing about the call.
+    const warn = warnSpy();
+    expect(ev("{{n}} min(s) left", { n: { value: "3", kind: "int" } }).value).toBe("3 min(s) left");
+    expect(ev("{{n}} max(s)", { n: { value: "3", kind: "int" } }).value).toBe("3 max(s)");
+    // Tokenizes cleanly (no `.`), so this one really does go through the
+    // classifier rather than failing to lex: the known `round` call site is
+    // disqualified by the bare `up` between its parens.
+    expect(ev("Total (before round(up))").value).toBe("Total (before round(up))");
+    expect(warn).not.toHaveBeenCalled();
+    // Same names, arguments that ARE arguments: a call, and a loud failure.
+    expect(ev("min({{n}}, 2) minutes", { n: { value: "3", kind: "int" } }).value).toBe("");
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("expression stdlib — the name set is the dispatch table", () => {
+  const warnSpy = () => vi.spyOn(console, "warn").mockImplementation(() => {});
+
+  // `STDLIB_NAMES` gates BOTH `callFunction`'s dispatch and `isCallAttempt`'s
+  // prose classification, so a name can only be in one of the two places by
+  // being in neither. These two tests pin one direction each: a name missing
+  // from the set is not callable, and a name missing from the switch is not
+  // reported loudly. Add a function, add it to both tables here.
+  const validCalls: Record<string, string> = {
+    min: "min(1, 2)",
+    max: "max(1, 2)",
+    abs: "abs(0 - 1)",
+    round: "round(1.4)",
+    clamp: "clamp(5, 1, 3)",
+    addDays: 'format(addDays("now", 1), "medium", "en-US")',
+    format: 'format("now", "medium", "en-US")',
+    list: "list({{goals}})",
+    join: "join({{goals}})",
+    count: "count({{goals}})",
+    plural: 'plural(1, "day", "days")',
+  };
+
+  it("dispatches every documented name", () => {
+    const warn = warnSpy();
+    for (const [name, template] of Object.entries(validCalls)) {
+      expect(ev(template, goals).value, name).not.toBe("");
+    }
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("reports a misused documented name loudly, never as prose", () => {
+    const warn = warnSpy();
+    for (const name of Object.keys(validCalls)) {
+      // Zero arguments is wrong for all of them, so each parse fails; the point
+      // is that the failure is a warning and an empty string rather than the
+      // source text interpolated back into the variable.
+      expect(ev(`${name}()`, goals).value, name).toBe("");
+    }
+    expect(warn).toHaveBeenCalledTimes(Object.keys(validCalls).length);
+  });
 });
 
 describe("expression stdlib — string literals interpolate", () => {

@@ -11,7 +11,13 @@ type Token =
   | { kind: "num"; value: number; isInt: boolean }
   | { kind: "str"; value: string }
   | { kind: "var"; name: string }
-  | { kind: "ident"; name: string }
+  // `glued` records that the NEXT character in the source was `(`, with no
+  // whitespace between. The token stream itself is whitespace-free, so without
+  // this flag `"Goals ({{n}})"` and `"Goals({{n}})"` are indistinguishable —
+  // and only the second is plausibly a function call. `isCallAttempt` is the
+  // only reader; the parser stays whitespace-insensitive, so `list ({{x}})`
+  // still evaluates.
+  | { kind: "ident"; name: string; glued: boolean }
   | { kind: "op"; op: "+" | "-" | "*" | "/" }
   | { kind: "lparen" }
   | { kind: "rparen" }
@@ -111,7 +117,7 @@ function tokenize(input: string): Token[] | null {
     if (isIdentStart(c)) {
       let j = i;
       while (j < input.length && isIdentPart(input[j])) j++;
-      tokens.push({ kind: "ident", name: input.slice(i, j) });
+      tokens.push({ kind: "ident", name: input.slice(i, j), glued: input[j] === "(" });
       i = j;
       continue;
     }
@@ -356,7 +362,32 @@ function grammaticalList(items: string[], conjunction: string): string {
   return `${head.join(", ")} ${conjunction} ${tail}`;
 }
 
+/**
+ * Every name the stdlib answers to.
+ *
+ * Load-bearing TWICE, on purpose: `callFunction` refuses anything absent from
+ * it, and `isCallAttempt` uses it to tell a real call from prose. Keeping one
+ * set for both means it cannot drift silently — a `case` added to the switch
+ * below without a matching entry here is not callable at all, which its own
+ * tests catch immediately, instead of the drift showing up much later as prose
+ * classification for a function that does exist.
+ */
+const STDLIB_NAMES: ReadonlySet<string> = new Set([
+  "min",
+  "max",
+  "abs",
+  "round",
+  "clamp",
+  "addDays",
+  "format",
+  "list",
+  "join",
+  "count",
+  "plural",
+]);
+
 function callFunction(name: string, args: Value[]): Value | null {
+  if (!STDLIB_NAMES.has(name)) return null;
   switch (name) {
     // --- numeric -----------------------------------------------------------
     case "min":
@@ -503,31 +534,92 @@ function callFunction(name: string, args: Value[]): Value | null {
  * to be reported loudly rather than papered over by interpolating the broken
  * source text into a user-visible variable.
  *
- * The test is a property of the TOKEN STREAM, not a substring of the template:
- * every identifier present must be a function name (immediately followed by
- * `(`), and there must be at least one. A BARE identifier is a word, and a
- * template containing a word is prose.
+ * A "call site" is an identifier followed by `(` whose parentheses hold no bare
+ * word. That last clause is what separates `"{{n}} min(s) left"` from
+ * `"list({{goals}}) and more"`, which are otherwise the same shape — a known
+ * name at a call site, bare words in the template. A bare identifier is never a
+ * legal ARGUMENT in this grammar (arguments are numbers, strings, `{{vars}}` and
+ * nested calls), so a bare word between the parentheses proves the parentheses
+ * are punctuation and the name is a word: `min(s)` is an abbreviation of
+ * "minutes", not a two-argument minimum. Outside the parentheses it proves
+ * nothing about the call.
  *
- * That distinction is the whole point. `word(` alone used to be the test, which
- * made `"{{n}} day(s)"` — the English optional-plural idiom, and the most common
- * shape of prose with a parenthesis in it — store the empty string. Here `s` is
- * a bare identifier, so the template is prose and falls back to interpolation,
- * while `"addDay({{d}}, 1)"` has no bare identifier and still fails loudly on
- * the misspelled name. A template that does not even tokenize (`"{{p}} EUR(incl.
- * VAT)"` — that `.` is not a decimal point) is prose by construction and never
- * reaches this function.
+ * Then two signals, strongest first:
  *
- * The residue: prose whose only word is glued to a parenthesised number
- * (`"Save(50)"`) still reads as a call attempt. Write it with a space.
+ * 1. A call site carrying a name the stdlib actually HAS (`STDLIB_NAMES`) is a
+ *    call attempt, whatever else the template contains. This is what makes
+ *    `"list({{goals}}) and more"` fail loudly: `and` / `more` are bare words,
+ *    yet the author plainly meant the `list` call, and interpolating instead
+ *    would write the evaluator's own source text — `"list(Sleep, Energy,
+ *    Focus) and more"` — into a variable a headline then displays. This grammar
+ *    has no implicit concatenation, so trailing prose needs `+ "…"`.
+ * 2. Otherwise, an UNKNOWN name GLUED to its `(` is a probable misspelling of a
+ *    stdlib name — but only when no bare word appears anywhere, because a bare
+ *    word is the signature of prose. `"addDay({{d}}, 1)"` still fails loudly on
+ *    the typo; `"{{n}} day(s)"` — the English optional-plural idiom, and the
+ *    most common shape of prose with a parenthesis in it — is prose twice over,
+ *    by the bare `s` inside the parens and by the bare `s` in the template.
+ *
+ * Whitespace is why signal 2 tests `glued` rather than just adjacency in the
+ * stream. The tokenizer discards spaces, so `"Goals ({{n}})"` and
+ * `"Goals({{n}})"` produce the identical stream; treating both as calls blanked
+ * a whole family of ordinary copy (`"Save (50)"`, `"Basic ({{price}})"`) that no
+ * previous revision of this file broke.
+ *
+ * A template that does not even tokenize (`"{{p}} EUR(incl. VAT)"` — that `.` is
+ * not a decimal point) is prose by construction and never reaches this function.
+ *
+ * The residue: prose whose only word is glued to a parenthesised value
+ * (`"Save(50)"`, no space) still reads as a misspelled call under signal 2 and
+ * stores the empty string. Writing it with a space — `"Save (50)"` — is now
+ * genuinely the fix, which is what the previous revision of this comment
+ * claimed while the code did the opposite.
  */
-function isCallAttempt(tokens: Token[]): boolean {
-  let sawCall = false;
-  for (let i = 0; i < tokens.length; i++) {
-    if (tokens[i].kind !== "ident") continue;
-    if (tokens[i + 1]?.kind !== "lparen") return false;
-    sawCall = true;
+const isBareWord = (t: Token, next: Token | undefined) =>
+  t.kind === "ident" && next?.kind !== "lparen";
+
+/**
+ * True when the parenthesised group opening at `open` holds a bare word at any
+ * depth — i.e. something that cannot be an argument, so the group is prose.
+ * An unbalanced group holds nothing and answers false; the parse fails on it
+ * regardless, and the two signals above decide it on the name instead.
+ */
+function argsHoldBareWord(tokens: Token[], open: number): boolean {
+  let depth = 0;
+  for (let i = open; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (t.kind === "lparen") {
+      depth++;
+      continue;
+    }
+    if (t.kind === "rparen") {
+      depth--;
+      if (depth === 0) return false;
+      continue;
+    }
+    if (depth > 0 && isBareWord(t, tokens[i + 1])) return true;
   }
-  return sawCall;
+  return false;
+}
+
+function isCallAttempt(tokens: Token[]): boolean {
+  let knownCall = false;
+  let gluedUnknownCall = false;
+  let bareWord = false;
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (t.kind !== "ident") continue;
+    if (isBareWord(t, tokens[i + 1])) {
+      bareWord = true;
+      continue;
+    }
+    // Parentheses used as punctuation around prose — not a call site at all.
+    if (argsHoldBareWord(tokens, i + 1)) continue;
+    if (STDLIB_NAMES.has(t.name)) knownCall = true;
+    else if (t.glued) gluedUnknownCall = true;
+  }
+  if (knownCall) return true;
+  return gluedUnknownCall && !bareWord;
 }
 
 function parse(tokens: Token[], vars: Record<string, ComposableVariableEntry>): Value | null {
@@ -670,12 +762,14 @@ function parse(tokens: Token[], vars: Record<string, ComposableVariableEntry>): 
  * Failure handling differs by template shape:
  * - a template with no function call falls back to plain interpolation
  *   (unchanged `interpolate()` semantics), because `"Hello {{name}}"` is a
- *   legitimate expression-mode value — and so is `"{{n}} day(s)"`, which is
- *   prose because `s` is a bare word rather than a function name (see
- *   `isCallAttempt`)
+ *   legitimate expression-mode value — and so is `"{{n}} day(s)"` and
+ *   `"Goals ({{n}})"`, which are prose rather than failed calls (see
+ *   `isCallAttempt` for the two signals that decide it)
  * - a template that ATTEMPTS a call and fails returns the empty string and
  *   warns, rather than interpolating the broken source into a variable that a
- *   headline would then display verbatim
+ *   headline would then display verbatim. That includes a VALID call with prose
+ *   beside it (`list({{goals}}) and more`) — this grammar has no implicit
+ *   concatenation, so the prose has to be `+ " and more"`
  * - an ABSENT variable reads as numeric 0 wherever it is data, but is refused
  *   as a `clamp` bound or a `round` digit count — see `isUnseeded`
  */
@@ -697,6 +791,7 @@ export function evaluateSetVariableExpression(
       console.warn(
         `[ComposableScreen] setVariable expression failed to evaluate: ${template}. ` +
           "Check the function name, its argument count and any date/format string. " +
+          'There is no implicit concatenation: prose beside a call must be joined with + "…". ' +
           "Stored the empty string rather than the unevaluated template."
       );
       return { value: "", kind: "string" };

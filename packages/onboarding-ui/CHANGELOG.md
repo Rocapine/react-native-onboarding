@@ -50,12 +50,21 @@ here.
   call still falls back to plain interpolation, because `"Hello {{name}}"` is a
   legitimate expression-mode value — and so is `"{{n}} day(s)"`. "Attempts a
   call" is a property of the token stream rather than of the substring `word(`:
-  every identifier in the template must be a function name, so a single bare
-  word makes the whole template prose. That is what keeps the English
-  optional-plural idiom interpolating while a misspelled `addDay({{d}}, 1)`
-  still fails loudly. A template that *attempts* a call and fails
+  it needs a stdlib name (or an unknown name glued to its `(`, i.e. a probable
+  misspelling) in front of parentheses whose contents could actually be
+  arguments. A bare word is never a legal argument, so one *between* the parens
+  means they are punctuation — `"{{n}} day(s)"` and `"{{n}} min(s) left"` are
+  prose even though `min` is a real function — and whitespace before the `(`
+  means the same, so `"Goals ({{n}})"` and `"Save (50)"` are prose too. A
+  misspelled `addDay({{d}}, 1)` still fails loudly. So does a *valid* call with
+  prose beside it: this grammar has no implicit concatenation, so
+  `list({{goals}}) and more` is a broken call rather than prose and must be
+  written `list({{goals}}) + " and more"` — otherwise the evaluator's own source
+  text ends up in the variable. A template that *attempts* a call and fails
   stores the empty string and warns once, rather than interpolating broken
-  source text into a variable a headline would then display verbatim. The same
+  source text into a variable a headline would then display verbatim. The one
+  residue: prose whose only word is glued to a parenthesised value with no space
+  (`"Save(50)"`) still reads as a misspelled call and blanks; add the space. The same
   rule applies wherever the alternative was a believable constant: a value that
   parses as JSON but is not a `string[]` (`"[1,2,3]"`, `{"a":1}`) fails the list
   helpers instead of counting as one member, a variable holding a number fails

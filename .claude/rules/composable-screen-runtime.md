@@ -357,3 +357,14 @@ reported **43** — none of them warning. Hence `isUnseeded`, applied to
 configuration positions only. Any new function that takes a bound, a width, a
 precision or a count from an argument belongs on the same side of that line;
 operands stay data.
+
+The taint follows the **value**, which is why it is a second flag rather than
+`missing` itself: it survives `+ - * /` and the numeric functions, so
+`addDays({{d}}, {{weeks}} * 7)` and `clamp({{trialDays}}, 1, 90)` fail rather
+than reading as "today" and "tomorrow". It is dropped in exactly one place —
+where the result could have come from an untainted argument, so
+`max({{trialDays}}, 7)` is honoured as the explicit default it is. Keyed on
+provenance, not on the number: `max({{x}}, 0)` with `x` absent is the literal
+0, and so is a legitimately-zero seeded variable beside an absent one. A
+`clamp` bound is NOT such a default — it is a sanity limit — so a clipped
+result stays tainted; that carve-out was tried and reverted.

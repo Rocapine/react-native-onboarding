@@ -418,13 +418,15 @@ function callFunction(name: string, args: Value[]): Value | null {
         kind: "number",
         n,
         isInt: vals.every((x) => x.isInt),
-        // Only when the argument that WON is the unseeded one. `args.some`
-        // blanked the fallback idiom an author writes for exactly this case:
-        // `max({{trialDays}}, 7)` with `trialDays` unset returns the literal
-        // 7, which does not depend on the absent variable at all, so there is
-        // no believable-but-wrong value to protect against. `min({{floor}}, 2)`
-        // returns 0 — that one came from the absent variable, and still fails.
-        unseeded: vals.some((x, k) => x.n === n && isUnseeded(args[k])),
+        // Tainted only when the result could NOT have come from an untainted
+        // argument. That keeps the fallback idiom an author writes for exactly
+        // this case — `max({{trialDays}}, 7)` with `trialDays` unset returns
+        // the literal 7, which does not depend on the absent variable — while
+        // `min({{floor}}, 2)` still fails loudly, because its 0 could only have
+        // come from the absent variable. Keyed on provenance rather than on the
+        // number: `max({{x}}, 0)` with `x` unset is the literal 0, and so is a
+        // legitimately-zero seeded variable beside an absent one.
+        unseeded: vals.every((x, k) => x.n !== n || isUnseeded(args[k])),
       };
     }
     case "abs": {
@@ -464,11 +466,12 @@ function callFunction(name: string, args: Value[]): Value | null {
         kind: "number",
         n: Math.min(Math.max(v.n, lo.n), hi.n),
         isInt: v.isInt && lo.isInt && hi.isInt,
-        // Same winning-argument rule as min/max: the bounds are already
-        // refused when unseeded, so the taint only travels when the value
-        // itself came through unclamped. `clamp({{gone}}, 5, 10)` returns the
-        // literal floor, which is the default the author asked for.
-        unseeded: Math.min(Math.max(v.n, lo.n), hi.n) === v.n && isUnseeded(args[0]),
+        // The taint travels whenever the VALUE is tainted, clipped or not.
+        // Unlike `max({{x}}, 7)`, a clamp bound is a sanity limit rather than a
+        // default the author nominated for the absent case, so dropping the
+        // flag on a clipped result re-opened the silent case this exists for:
+        // `addDays({{d}}, clamp({{trialDays}}, 1, 90))` read as "tomorrow".
+        unseeded: isUnseeded(args[0]),
       };
     }
 
@@ -651,13 +654,17 @@ function argsHoldBareWord(tokens: Token[], open: number): boolean {
  * this exists only so the other reading is not SILENT. `count(goals)` stored
  * its own source text into a variable a headline then displayed.
  *
- * Reported when the call is the WHOLE template, or when an operator appears
- * outside its parens: `count(goals) + " goals"` and `1 + count(goals)` cannot
- * be the optional-plural idiom, which is prose and carries no operators. The
- * remaining false positive is a template that is exactly a stdlib word plus a
- * parenthesised suffix (`min(s)`) — the text is kept, so the cost is one
- * advisory warning, and `valueMode: "literal"` is the right mode for a
- * constant anyway.
+ * Reported when the call is the WHOLE template, or when an operator sits
+ * immediately beside it (stepping over any enclosing parens):
+ * `count(goals) + " goals"`, `1 + count(goals)` and `(count(goals)) + 1` are
+ * all arithmetic around a call, which prose is not. Merely CONTAINING an
+ * operator is not enough — a hyphen in copy tokenizes as one, and
+ * `"{{a}} - {{b}} min(s)"` is a range.
+ *
+ * Two false positives remain, both advisory only because the text is kept: a
+ * template that is exactly a stdlib word plus a parenthesised suffix
+ * (`min(s)`), and one with an operator beside it (`"{{n}} min(s) - 1"`).
+ * `valueMode: "literal"` is the right mode for a constant anyway.
  */
 function unbracedCall(tokens: Token[]): { name: string; args: string[] } | null {
   for (let i = 0; i < tokens.length; i++) {
@@ -685,12 +692,17 @@ function unbracedCall(tokens: Token[]): { name: string; args: string[] } | null 
     }
     if (args.length === 0) continue;
     const spansTemplate = i === 0 && close === tokens.length - 2;
-    // Adjacent to the call's own parens, not merely present: a hyphen in
-    // ordinary copy tokenizes as an operator too, and `"{{a}} - {{b}} min(s)"`
-    // is a range, not a forgotten-braces call. `count(goals) + " goals"` and
-    // `1 + count(goals)` both still qualify.
+    // Adjacent to the call, not merely present anywhere: a hyphen in ordinary
+    // copy tokenizes as an operator too, and `"{{a}} - {{b}} min(s)"` is a
+    // range, not a forgotten-braces call. Enclosing parens are stepped over on
+    // the way out, so `(count(goals)) + 1` still qualifies alongside
+    // `count(goals) + " goals"` and `1 + count(goals)`.
+    let left = i - 1;
+    while (tokens[left]?.kind === "lparen") left--;
+    let right = close + 1;
+    while (tokens[right]?.kind === "rparen") right++;
     const operatorTouchingCall =
-      tokens[i - 1]?.kind === "op" || tokens[close + 1]?.kind === "op";
+      tokens[left]?.kind === "op" || tokens[right]?.kind === "op";
     if (spansTemplate || operatorTouchingCall) return { name: t.name, args };
   }
   return null;

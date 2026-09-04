@@ -113,7 +113,11 @@ export type SetVariableButtonAction = {
    * screen work — but is refused wherever it is configuration: a `clamp` bound
    * or a `round` digit count, where a typo'd variable name would otherwise
    * produce a plausible constant (`clamp({{score}}, {{floor}}, {{ceiling}})`
-   * reported 0 for a score of 42).
+   * reported 0 for a score of 42). The taint follows the value, so it also
+   * refuses one that reached a bound through arithmetic or a function
+   * (`addDays({{d}}, {{weeks}} * 7)`), but is dropped where the result could
+   * have come from a literal: `max({{trialDays}}, 7)` is an explicit default
+   * and is honoured.
    * "Attempts a call" means a **stdlib name** sits in front of a `(` whose
    * contents could actually be arguments. A bare word BETWEEN the parens makes
    * them punctuation instead, and an unglued `(` is never a call, so the

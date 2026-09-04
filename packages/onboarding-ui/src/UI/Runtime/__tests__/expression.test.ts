@@ -879,8 +879,10 @@ describe("expression stdlib — review round 4", () => {
   });
 
   it("warns on the concatenated form too, which cannot be prose", () => {
-    // A whole-template-only rule left these silent. Prose carries no
-    // operators, so an operator outside the parens settles the ambiguity.
+    // A whole-template-only rule left these silent. An operator sitting
+    // immediately beside the call settles the ambiguity — prose does not do
+    // arithmetic around a word — while an operator merely present elsewhere in
+    // the sentence does not, since a hyphen in copy tokenizes as one.
     for (const template of ['count(goals) + " goals"', "1 + count(goals)", 'list(goals) + "!"']) {
       const warn = warnSpy();
       warn.mockClear();
@@ -953,6 +955,49 @@ describe("expression stdlib — review round 4", () => {
     expect(ev("clamp({{score}}, min({{floor}}, 2), 3)", {
       score: { value: "42", kind: "int" },
     }).value).toBe("");
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps clamp from laundering the taint when it clips to a bound", () => {
+    const warn = warnSpy();
+    // A clamp bound is a sanity limit, not a default the author nominated for
+    // the absent case, so a clipped result stays tainted. Dropping the flag
+    // here read as "your trial ends tomorrow" for a typo'd variable name.
+    expect(ev("addDays({{d}}, clamp({{trialDays}}, 1, 90))", {
+      d: { value: "2026-01-01T00:00:00.000Z" },
+    }).value).toBe("");
+    expect(ev("round({{pct}}, clamp({{digits}}, 1, 3))", {
+      pct: { value: "42.75", kind: "float" },
+    }).value).toBe("");
+    expect(warn).toHaveBeenCalledTimes(2);
+  });
+
+  it("keys min/max on provenance, not on the number that came out", () => {
+    const warn = warnSpy();
+    const d: Vars = { d: { value: "2026-01-01T00:00:00.000Z" } };
+    // 0 is the commonest default, and it collides with the sentinel's value.
+    // The literal could have produced this result, so it is not tainted.
+    expect(ev("addDays({{d}}, max({{x}}, 0))", d).value).toBe("2026-01-01T00:00:00.000Z");
+    expect(ev("addDays({{d}}, max(0, {{x}}))", d).value).toBe("2026-01-01T00:00:00.000Z");
+    expect(ev("addDays({{d}}, min({{x}}, 0))", d).value).toBe("2026-01-01T00:00:00.000Z");
+    // A legitimately-zero seeded variable beside an absent one, likewise.
+    expect(ev("addDays({{d}}, max({{zero}}, {{absent}}))", {
+      ...d,
+      zero: { value: "0", kind: "int" },
+    }).value).toBe("2026-01-01T00:00:00.000Z");
+    expect(warn).not.toHaveBeenCalled();
+    // But a result only the absent variable could have produced still fails.
+    expect(ev("clamp({{score}}, min({{floor}}, 2), 3)", {
+      score: { value: "42", kind: "int" },
+    }).value).toBe("");
+  });
+
+  it("still warns when the forgotten-braces call is parenthesised", () => {
+    const warn = warnSpy();
+    // The adjacency rule steps over enclosing parens on the way out.
+    expect(ev("(count(goals)) + 1", { goals: { value: '["a","b"]' } }).value).toBe(
+      "(count(goals)) + 1"
+    );
     expect(warn).toHaveBeenCalledTimes(1);
   });
 

@@ -82,8 +82,12 @@ here.
   because `0 > 0` is false so the range check passed;
   `clamp({{score}}, {{floor}}, 3)` reported **3**; and `round(42.75, {{digits}})`
   reported **43**. All three now warn and store the empty string. `clamp`'s
-  first argument stays data, so an untouched counter still clamps to its
-  floor. A day count is configuration too: `addDays("now", {{trialDays}})` with
+  first argument stays data, so an untouched counter still clamps to its floor.
+  The taint follows the value, so it also refuses one that reached a bound
+  through arithmetic or a function — `addDays({{d}}, {{weeks}} * 7)`,
+  `clamp({{trialDays}}, 1, 90)` — but it is dropped where the result could have
+  come from a literal instead: `max({{trialDays}}, 7)` is an explicit default
+  and is honoured. A day count is configuration too: `addDays("now", {{trialDays}})` with
   `trialDays` unset used to return the start date unchanged, so a headline
   reading `"your trial ends {{trialEnd}}"` showed today. A free-text answer that merely looks bracketed
   (`"[not json]"`) is still one member. Where a machine key would reach prose

@@ -71,9 +71,34 @@ export type SetVariableButtonAction = {
   value: string;
   label?: string;
   /**
-   * When `"expression"`, `value` is parsed as an arithmetic expression with
-   * `{{var}}` references, numeric literals, and `+ - * /` (parens supported).
-   * On parse failure, falls back to plain interpolation (string).
+   * When `"expression"`, `value` is parsed as an expression over `{{var}}`
+   * references, numeric literals, quoted string literals, `+ - * /` (parens
+   * supported) and a small function stdlib:
+   *
+   * - numeric — `min(a, b, ...)`, `max(a, b, ...)`, `abs(a)`,
+   *   `round(a[, digits])`, `clamp(a, lo, hi)`
+   * - dates — `addDays(date, n)`, `format(date, spec[, locale])`. `date` is an
+   *   ISO string (what `DatePicker` stores) or the `"now"` sentinel `DatePicker`
+   *   already accepts. `spec` is the `DatePicker` `format` prop's Intl
+   *   vocabulary: a bare `dateStyle` name (`"medium"`) or `key:value` pairs
+   *   (`"weekday:long, month:short, day:numeric"`). Not a token language —
+   *   there is no `YYYY-MM-DD`.
+   * - listing — `list(x[, conjunction])` ("A, B and C"), `join(x[, separator])`,
+   *   `count(x)`, `plural(n, one, other)`. `x` is a multi-select variable (the
+   *   JSON `string[]` `CheckboxGroup` writes); member LABELS are used when
+   *   present, matching interpolation's label-first precedence.
+   *
+   * **This runs at press time only.** Actions have no mount/appear hook and
+   * `Text mode: "expression"` interpolates rather than evaluating, so a
+   * headline needing a computed value must have it written to a variable by an
+   * earlier press (typically the previous screen's Continue) and then simply
+   * interpolated.
+   *
+   * A template with no function call falls back to plain interpolation on parse
+   * failure (so `"Hello {{name}}"` still works). A template that *attempts* a
+   * call and fails stores the empty string and warns, rather than writing the
+   * unevaluated source text into a variable a headline would display verbatim.
+   *
    * Defaults to `"literal"` — `value` stored verbatim.
    */
   valueMode?: "literal" | "expression";

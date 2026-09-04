@@ -818,19 +818,23 @@ export const onboardingExample = {
                     {
                       type: "setVariable",
                       name: "weeklyPace",
-                      // Rounds to nearest, not trunc. Over the slider's
-                      // 0..1 / step-0.1 grid this reads 1,1,1,2,2,2,2,2,3,3,3 —
-                      // the most even 3/5/3 split available for 11 positions
-                      // across 3 values, so every drag of the slider does
-                      // something. What that trades away, deliberately: the
-                      // expression never leaves 1..3, so there is no `clamp`
-                      // here to demonstrate (`clamp(round({{intensity}} * 5),
-                      // 1, 3)` did exercise both bounds, but returned 3 at six
-                      // of the eleven positions — an inert upper half), and no
-                      // position lands on an exact .5 tie. A trunc regression
-                      // is still caught at 0.3 and 0.8; clamp's own behaviour
-                      // is covered by the unit tests instead.
-                      value: "round(1 + {{intensity}} * 2)",
+                      // Rounds to nearest — not trunc — and holds the result
+                      // inside an inclusive range. What it actually does over
+                      // the slider's 0..1 / step-0.1 grid, rather than what is
+                      // tidier to claim: the LOWER half sweeps 1 -> 2 -> 3
+                      // (raw 0,1,1,2,2,3 at 0..0.5) and the UPPER half
+                      // SATURATES at 3 (raw 3,4,4,5,5 at 0.6..1.0), so the
+                      // reachable outputs are 1,1,1,2,2,3,3,3,3,3,3.
+                      //
+                      // That saturation is the point, not a flaw: raw 0 is
+                      // below the floor and raw 4 and 5 are above the ceiling,
+                      // which is what makes `clamp` OBSERVABLE here. An evenly
+                      // spread alternative — `round(1 + {{intensity}} * 2)`,
+                      // giving 1,1,1,2,2,2,2,2,3,3,3 — never leaves 1..3, so
+                      // clamp would change no value at all and the demo would
+                      // show an inert function. Positions 0.3 and 0.5 also land
+                      // on exact .5 ties, which a trunc regression fails.
+                      value: "clamp(round({{intensity}} * 5), 1, 3)",
                       valueMode: "expression",
                     },
                   ],

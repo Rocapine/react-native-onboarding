@@ -555,6 +555,11 @@ describe("expression stdlib — prose is not a call attempt", () => {
     expect(warn).toHaveBeenCalledTimes(1);
     expect(String(warn.mock.calls[0][0])).toContain('+ "');
     expect(ev("count({{goals}}) goals", goals).value).toBe("");
+    // The remedy, pinned so the warning's advice stays true.
+    expect(ev('count({{goals}}) + " goals"', goals).value).toBe("3 goals");
+    expect(ev('list({{goals}}) + " and more"', goals).value).toBe(
+      "Sleep, Energy and Focus and more"
+    );
   });
 
   it("decides on WHERE the bare word sits, not whether one exists", () => {

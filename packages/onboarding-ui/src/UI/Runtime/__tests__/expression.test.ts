@@ -979,6 +979,50 @@ describe("expression stdlib — review round 4", () => {
     }).value).toBe("Sleep, Energy or Focus");
   });
 
+  it("refuses a format spec or locale that interpolates to something VALID", () => {
+    const warn = warnSpy();
+    const d: Vars = { d: { value: "2026-03-04T12:00:00.000Z" } };
+    // The dangerous shape is not an empty spec — that already failed — but one
+    // that resolves to a valid value which is not what the author wrote.
+    // `"medium{{x}}"` becomes `"medium"`, and `"en{{sfx}}"` becomes `"en"`,
+    // which formats 4 March as "Mar 4" where the seeded "-GB" gives "4 Mar".
+    expect(ev('format({{d}}, "medium{{x}}", "en-US")', d).value).toBe("");
+    expect(ev('format({{d}}, "medium", "en{{sfx}}")', d).value).toBe("");
+    expect(warn).toHaveBeenCalledTimes(2);
+    // Seeded, both evaluate — and to different strings, so the test can tell.
+    const gb = ev('format({{d}}, "medium", "en{{sfx}}")', { ...d, sfx: { value: "-GB" } }).value;
+    const us = ev('format({{d}}, "medium", "en{{sfx}}")', { ...d, sfx: { value: "-US" } }).value;
+    expect(gb).not.toBe("");
+    expect(gb).not.toBe(us);
+  });
+
+  it("carries the string taint through concatenation", () => {
+    const warn = warnSpy();
+    // The `+ "…"` idiom the docs push authors toward would otherwise launder
+    // it: this joined the members with "-" and said nothing.
+    expect(ev('join({{goals}}, "{{a}}" + "{{b}}")', {
+      ...goals,
+      a: { value: "-" },
+    }).value).toBe("");
+    expect(warn).toHaveBeenCalledTimes(1);
+    // Both halves seeded, it evaluates.
+    expect(ev('join({{goals}}, "{{a}}" + "{{b}}")', {
+      ...goals,
+      a: { value: " " },
+      b: { value: "| " },
+    }).value).toBe("Sleep | Energy | Focus");
+  });
+
+  it("does not mistake an Object.prototype key for a variable", () => {
+    const warn = warnSpy();
+    // `vars["toString"]` finds a function with an undefined `.value`, and
+    // `raw.trim()` threw a TypeError out of the press handler — a dead button.
+    expect(() => ev("{{toString}} + 1")).not.toThrow();
+    expect(ev("{{toString}} + 1")).toEqual({ value: "1", kind: "int" });
+    expect(ev('join({{goals}}, "{{valueOf}}")', goals).value).toBe("");
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
   it("rejects an overflowing + or - instead of storing \"Infinity\"", () => {
     warnSpy();
     // 308 nines is ~9.99e307 — finite, so the tokenizer accepts it (309 would

@@ -40,8 +40,10 @@ here.
 
   **A quoted literal's contents interpolate**, so `{{var}}` means the same thing
   everywhere in a template: `list({{goals}}) + " for {{name}}"` reads "… for
-  Ada" instead of emitting the braces to the user. Specs, separators and plural
-  forms hold no `{{` and pass through byte-identical. One edge moves relative to
+  Ada" instead of emitting the braces to the user. A literal with no `{{`
+  passes through byte-identical, which is the common case for a spec, a
+  separator or a plural form; one that references a variable which does not
+  exist is refused in those positions rather than silently becoming empty. One edge moves relative to
   before the stdlib: a template that is *entirely* one quoted string is a
   literal now, so `"{{name}}"` stores `Ada` rather than `"Ada"` with the quotes
   — the quote characters are delimiters, not content.
@@ -114,6 +116,16 @@ here.
   rejected. And both `{{var}}` resolvers now **trim** a spaced reference like
   the expression tokenizer already did, so `{{ plan }}` no longer renders in a
   `Text` while resolving to an empty product slot key in a `purchase` action.
+
+  Two smaller robustness fixes with observable edges. `+` and `-` now carry the
+  `Number.isFinite` check `*` and `/` always had, so an overflowing sum falls
+  back to plain interpolation like every other failed arithmetic instead of
+  storing the literal string `"Infinity"` tagged `kind: "int"` — which every
+  downstream reader parsed as `NaN`. Reaching it needs a ~308-digit literal. And
+  variable lookup uses `hasOwnProperty`, so `{{toString}}` and `{{valueOf}}` no
+  longer find `Object.prototype` members: `{{toString}} + 1` used to throw a
+  `TypeError` out of the press handler, which is the dead-button failure this
+  engine is built to avoid.
 
 ### Fixed
 

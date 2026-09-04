@@ -160,7 +160,11 @@ function tokenize(input: string): Token[] | null {
 }
 
 function resolveVar(name: string, vars: Record<string, ComposableVariableEntry>): Value {
-  const entry = vars[name];
+  // `hasOwnProperty` rather than a plain index. `vars["toString"]` finds
+  // `Object.prototype.toString` — truthy, with an `undefined` `.value` — and
+  // `raw.trim()` then threw a TypeError straight out of the press handler,
+  // which is the dead-button failure this module exists to avoid.
+  const entry = Object.prototype.hasOwnProperty.call(vars, name) ? vars[name] : undefined;
   // Missing variable in arithmetic context defaults to numeric 0 so increment
   // / decrement patterns work on first click before the variable is seeded.
   if (!entry) return { kind: "number", n: 0, isInt: true, missing: true, unseeded: true };
@@ -328,7 +332,9 @@ const namesMissingVariable = (
   vars: Record<string, ComposableVariableEntry>
 ): boolean => {
   for (const m of template.matchAll(/\{\{([^}]+?)\}\}/g)) {
-    if (!vars[m[1].trim()]) return true;
+    // `hasOwnProperty`, not a plain index: `{{valueOf}}` and `{{toString}}`
+    // would otherwise read as variables that exist and hold nothing.
+    if (!Object.prototype.hasOwnProperty.call(vars, m[1].trim())) return true;
   }
   return false;
 };
@@ -524,7 +530,12 @@ function callFunction(name: string, args: Value[]): Value | null {
       if (!opts) return null;
       let locale: string | undefined;
       if (args.length === 3) {
-        if (args[2].kind !== "string" || args[2].s.trim() === "") return null;
+        // A locale that interpolates to a *valid but wrong* tag is the worst
+        // case here: `"en{{sfx}}"` with `sfx` absent becomes `"en"` and
+        // silently flips the day/month order against the seeded `"-GB"`.
+        if (args[2].kind !== "string" || isUnseeded(args[2]) || args[2].s.trim() === "") {
+          return null;
+        }
         locale = args[2].s.trim();
       }
       try {
@@ -785,9 +796,14 @@ function parse(tokens: Token[], vars: Record<string, ComposableVariableEntry>): 
       advance();
       // A literal's CONTENTS interpolate, so `{{var}}` means the same thing
       // everywhere in a template — `list({{goals}}) + " for {{name}}"` reads
-      // "… for Ada" rather than emitting the braces to the user. Format specs,
-      // separators and plural forms contain no `{{`, so they pass through
-      // byte-identical. Label-first, like every other display path.
+      // "… for Ada" rather than emitting the braces to the user. Label-first,
+      // like every other display path.
+      //
+      // A literal with no `{{` passes through byte-identical, which is the
+      // common case for a format spec, a separator or a plural form. When one
+      // DOES carry a reference, `interpolate` substitutes "" for a name that
+      // does not exist, so the literal is tainted and the configuration
+      // positions refuse it rather than joining with nothing.
       return {
         kind: "string",
         s: interpolate(t.value, vars),
@@ -861,7 +877,17 @@ function parse(tokens: Token[], vars: Record<string, ComposableVariableEntry>): 
             unseeded: left.unseeded || right.unseeded,
           };
         } else {
-          left = { kind: "string", s: valueToString(left) + valueToString(right) };
+          left = {
+            kind: "string",
+            s: valueToString(left) + valueToString(right),
+            // Carried like the numeric branches, or the `+ "…"` idiom the docs
+            // push authors toward would launder it:
+            // `join({{goals}}, "{{a}}" + "{{b}}")` joined with "-" silently.
+            unseeded:
+              (left.kind === "string" && left.unseeded) ||
+              (right.kind === "string" && right.unseeded) ||
+              undefined,
+          };
         }
       } else {
         if (left.kind !== "number" || right.kind !== "number") return null;
@@ -911,8 +937,11 @@ function parse(tokens: Token[], vars: Record<string, ComposableVariableEntry>): 
  *
  * A quoted literal's CONTENTS interpolate, so `{{var}}` means the same thing
  * everywhere in the template — `list({{goals}}) + " for {{name}}"` reads
- * "… for Ada" rather than emitting the braces to the user. Format specs,
- * separators and plural forms hold no `{{`, so they pass through unchanged.
+ * "… for Ada" rather than emitting the braces to the user. A literal with no
+ * `{{` passes through unchanged, which is the common case for a format spec, a
+ * separator or a plural form; one that DOES carry a reference to a variable
+ * that does not exist is refused in those positions rather than silently
+ * becoming empty.
  *
  * Failure handling differs by template shape:
  * - a template with no function call falls back to plain interpolation

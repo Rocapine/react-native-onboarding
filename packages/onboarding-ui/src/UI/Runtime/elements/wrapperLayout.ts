@@ -31,11 +31,22 @@ import type { ParentType } from "./shared";
  *   box only — that is the one the parent lays out.
  * - Every box **below** it gets the FILL CONTRACT instead: `flexGrow: 1` to
  *   fill a parent-facing box that got a definite main size (and only if the
- *   element asked for flex sizing at all), plus `flexShrink: 1` so it is still
- *   CLAMPED by that box. `flexBasis: 0` was doing both jobs — it collapsed the
- *   box (the bug) and it clamped it — so dropping it without the shrink lets a
- *   nested box grow to its own content and overflow the wrapper, which is how a
- *   wrapped `ScrollView` would lose its bounded height and stop scrolling.
+ *   element asked for flex sizing at all), plus `flexShrink: 1` so the nested
+ *   triple matches what `flex: N` means (grow, shrink 1, basis) — that
+ *   correspondence is *why* the pair behaves like the single authored box.
+ *
+ *   On the `flexShrink`, an honest note, because a review disagreed and the
+ *   measurement settles it: `flexBasis: 0` was clamping as well as collapsing,
+ *   but the clamp turns out to be supplied anyway by the wrapper's definite
+ *   main size — Yoga resolves the nested box's `basis: auto` AT_MOST the
+ *   available space, so its hypothetical main size never exceeds the wrapper
+ *   and there is no negative free space for a shrink to act on. Measured on
+ *   device (iOS 26.1) over the guards screen's accessibility tree, with and
+ *   without this `flexShrink`: **all 24 frames identical**, including a
+ *   `justifyContent: "center"` box in a 90pt frame (90.0 both ways, not 137)
+ *   and a wrapped `ScrollView` in a 130pt frame (130.0 both ways). So it is
+ *   kept for semantic parity, and it is NOT known to change any pixel. Do not
+ *   describe it as load-bearing without a case that measurably discriminates.
  * - The nested box's flex props are the contract, NOT the author's props. The
  *   authored values are applied exactly once, on the box the parent lays out;
  *   writing them on both boxes is the duplication this module removes.
@@ -133,8 +144,15 @@ const nestedCache = new WeakMap<UIElement, UIElement>();
 // Per-state style overrides are `BaseBoxPropsSchema.extend({…}).partial()` and
 // are spread OVER the element's own props at render time (`ButtonElement`'s
 // `eff`), so an authored `pressedStyle.flex` would put `flexBasis: 0` back on
-// the nested box for as long as the finger is down. Only the parent-facing keys
-// move; everything else in the override is untouched.
+// the nested box for as long as the finger is down.
+//
+// `flex` is the ONLY key demoted here, because it is the only one with a
+// substitute: `fillLayout` stands in for it. `alignSelf` deliberately stays —
+// the wrapper is built from the BASE props and has no press state, so demoting
+// a per-state `alignSelf` would drop it entirely rather than move it
+// (`{ alignSelf: "stretch", pressedStyle: { alignSelf: "center" } }` narrows on
+// touch-down). It only ever landed on the inner box, so leaving it is a
+// no-change, and silently losing a prop the author wrote is the worse failure.
 const NESTED_OVERRIDE_KEYS = ["pressedStyle", "disabledStyle"] as const;
 
 const demoteOverride = (
@@ -146,7 +164,6 @@ const demoteOverride = (
   return {
     ...(override as Record<string, unknown>),
     flex: undefined,
-    alignSelf: undefined,
     // An override that itself asks to fill keeps filling; one that says nothing
     // inherits the base props' contract.
     ...(wantsFlexSizing(o) ? fillLayout(true) : fill),

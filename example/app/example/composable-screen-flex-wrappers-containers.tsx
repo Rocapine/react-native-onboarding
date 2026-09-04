@@ -132,8 +132,23 @@ const wrappedCarousel = {
 // The invariant under a microscope: one authored `flex: 1` box in a 90pt frame
 // with ~137pt of content, rendered twice — WRAPPED (an `onPress`, so the
 // renderer inserts a Pressable and demotes the element) and plain. The two must
-// be the same height. `overflow: hidden` makes each box's real height visible
-// as the line where the text is cut.
+// be the same height.
+//
+// `justifyContent: "center"` is here so the box's OWN height is observable
+// rather than inferred: with the default `flex-start`, a 90pt box holding
+// overflowing content and a taller box clipped to 90 paint the same first 90pt.
+//
+// What this pair verifies is the invariant — wrapped and unwrapped are the same
+// height — and nothing more. It does NOT discriminate the fill contract's
+// `flexShrink`: measured on device with and without it, every frame here is
+// identical (see `wrapperLayout.ts`). Don't read a shrink regression into it.
+//
+// Check it with numbers, not by eye — a clipped box and an overflowing one look
+// alike in a screenshot:
+//   idb ui describe-all --udid <sim> | jq '.. | objects
+//     | select(.AXLabel? // "" | test("wrapped line|plain line"))
+//     | {AXLabel, frame}'
+// The wrapped box's clipped region and the plain box's own frame must match.
 const clampFrame = (id: string, pressable: boolean) => ({
   id: `${id}-frame`,
   type: 'YStack' as const,
@@ -149,6 +164,7 @@ const clampFrame = (id: string, pressable: boolean) => ({
         backgroundColor: pressable ? '#1C1C1E' : '#4A4A52',
         padding: 6,
         gap: 2,
+        justifyContent: 'center' as const,
         ...(pressable
           ? {
               onPress: [
@@ -238,7 +254,7 @@ export default function ComposableScreenFlexWrappersContainersExample() {
                 ),
                 captioned(
                   'clamp-plain',
-                  'flex: 1, no wrapper — the reference, must match',
+                  'flex: 1, no wrapper — the reference, same height required',
                   clampFrame('clamp-plain', false)
                 ),
                 {

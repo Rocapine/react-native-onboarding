@@ -156,6 +156,30 @@ describe("withNestedLayout", () => {
     expect(inner.pressedStyle?.backgroundColor).toBe("#000");
   });
 
+  it("keeps a per-state alignSelf, which has nowhere else to go", () => {
+    // `flex` can move to the wrapper because `fillLayout` substitutes for it on
+    // the inner box. `alignSelf` cannot: the wrapper carries the BASE props and
+    // has no press state, so demoting it would silently drop a prop the author
+    // wrote — `{ alignSelf: "stretch", pressedStyle: { alignSelf: "center" } }`
+    // narrowed on touch-down and would stop doing anything in either state.
+    // It only ever landed on the inner box, so leaving it there is a no-change.
+    const inner = withNestedLayout({
+      id: "cta",
+      type: "Button",
+      props: {
+        label: "Go",
+        flex: 1,
+        alignSelf: "stretch",
+        pressedStyle: { alignSelf: "center" },
+      },
+    } as unknown as UIElement).props as BaseBoxProps & {
+      pressedStyle?: BaseBoxProps;
+    };
+    expect(inner.pressedStyle?.alignSelf).toBe("center");
+    // The base one still moves to the wrapper.
+    expect(inner.alignSelf).toBeUndefined();
+  });
+
   it("preserves everything that is not parent-facing layout", () => {
     const el = card({ flex: 1, padding: 12, backgroundColor: "#fff", aspectRatio: 1 });
     const inner = withNestedLayout(el);

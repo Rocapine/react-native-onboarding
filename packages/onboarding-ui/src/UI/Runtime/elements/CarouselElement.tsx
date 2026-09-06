@@ -33,6 +33,7 @@ import Carousel, { Pagination, ICarouselInstance } from "react-native-reanimated
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import type { UIElement } from "../types";
 import { dim, type RenderContext } from "./shared";
+import { fillLayout, fillsParent } from "./wrapperLayout";
 import { useVariables } from "./VariablesContext";
 import { useAnimatedVariables } from "./AnimatedVariablesContext";
 import { GradientBox } from "./GradientBox";
@@ -189,8 +190,7 @@ export function CarouselElementComponent({ element, ctx }: Props): React.ReactEl
         ? availableWidth * 0.82
         : availableWidth;
 
-  const hasExplicitSize =
-    props.height != null || props.flex != null || props.flexGrow != null;
+  const hasExplicitSize = fillsParent(props);
   const heightFallback = hasExplicitSize ? undefined : DEFAULT_HEIGHT;
 
   const containerStyle = {
@@ -285,7 +285,16 @@ export function CarouselElementComponent({ element, ctx }: Props): React.ReactEl
   return (
     <GradientBox gradient={props.backgroundGradient} style={containerStyle}>
       {dotsPosition === "top" && pagination}
-      <View style={{ flex: 1 }} onLayout={onLayout}>
+      {/* Unconditionally `true`, and that is right rather than sloppy: the
+          container's height is always resolvable — `props.height`, else
+          DEFAULT_HEIGHT via `heightFallback`, else the flex line it asked to be
+          sized by. So this box always has an outer to fill and never needs
+          `fillsParent(props)` to decide. `fillLayout`, not `flex: 1`, so it
+          contributes no zero basis if that outer turns out auto-sized (#231);
+          in that case the Carousel measures 0 and renders nothing, which is the
+          pre-existing "cannot measure under an all-auto chain" case, not
+          something the fill can repair. */}
+      <View style={fillLayout(true)} onLayout={onLayout}>
         {ready && (
           <Carousel
             ref={ref}

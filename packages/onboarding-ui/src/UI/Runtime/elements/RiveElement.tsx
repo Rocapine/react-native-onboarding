@@ -4,6 +4,7 @@ import { View, Text, StyleSheet } from "react-native";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
 import { RenderContext, dim, areElementPropsEqual } from "./shared";
+import { fillsParent } from "./wrapperLayout";
 import { getTextStyle } from "../../Theme/helpers";
 
 export type RiveElementProps = BaseBoxProps & {
@@ -62,9 +63,12 @@ const RiveElementRendererBase = ({ element, ctx }: Props): React.ReactElement =>
   // intrinsic — which fills the screen. Fall back to aspectRatio:1 (square)
   // so width:100% bounds the box deterministically when the author hasn't
   // sized it.
+  // `fillsParent` covers height/flex/flexGrow — the `flexGrow` term matters
+  // because a wrapped element arrives demoted (`flex` → `flexGrow`), and a
+  // private copy missing it would flip every wrapped flexed Rive onto the
+  // unsized branch and force it square. The extra terms are Rive-specific.
   const hasExplicitSize =
-    p.height != null ||
-    p.flex != null ||
+    fillsParent(p) ||
     p.aspectRatio != null ||
     p.minHeight != null ||
     p.maxHeight != null;

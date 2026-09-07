@@ -8,7 +8,7 @@ argument-hint: "[patch|minor|major]"
 Bump both `@rocapine/react-native-onboarding` and `@rocapine/react-native-onboarding-ui` to a new version, write changelog entries for both, and create a commit.
 
 Both packages always share the same version number — **and so does the Claude Code
-plugin manifest.** Five files carry that number and all five move together:
+plugin manifest.** Six files carry that number and all six move together:
 
 ```
 packages/onboarding/package.json              ← the version is computed from here
@@ -16,11 +16,21 @@ packages/onboarding-ui/package.json
 claude-plugin/.claude-plugin/plugin.json      ← historically the one that got left behind
 packages/onboarding/CHANGELOG.md
 packages/onboarding-ui/CHANGELOG.md
+package-lock.json                             ← npm records both workspace versions
 ```
 
-`npm run check:versions` asserts all five agree and runs in CI, so a half-done
-release fails the build rather than shipping a plugin that advertises a version it
-was never tested against.
+`npm run check:versions` asserts all six agree — seven readings, since the lockfile
+states each workspace separately — and runs in CI, so a half-done release fails the
+build rather than shipping a plugin that advertises a version it was never tested
+against.
+
+**The lockfile is the newest entry on this list, and it earned a check the same way
+the plugin manifest did.** It was a sixth mirror that nothing pointed at: this skill
+said five files and staged five. Worse, the obvious safety net does not exist —
+`npm ci` does **not** notice, because it resolves a workspace by path rather than by
+version, so a lock reading `1.74.1` for a `1.75.0` package installs, builds and
+tests green. That was checked with `npm ci --dry-run` rather than assumed, and it
+means nothing but a reader ever caught it. Now something does.
 
 ---
 
@@ -99,7 +109,7 @@ Call this `NEW_VERSION`.
 
 ---
 
-## Step 4 — Update package.json + plugin.json files
+## Step 4 — Update package.json + plugin.json, then regenerate the lockfile
 
 Edit **all three** files — only the `"version"` field:
 - `packages/onboarding/package.json`
@@ -107,6 +117,18 @@ Edit **all three** files — only the `"version"` field:
 - `claude-plugin/.claude-plugin/plugin.json`
 
 Set `"version": "<NEW_VERSION>"` in each. The Claude Code plugin always tracks the SDK version it was tested against.
+
+Then regenerate the lockfile, so its record of the two workspaces follows:
+
+```bash
+npm install --package-lock-only --ignore-scripts
+```
+
+`--package-lock-only` writes nothing into `node_modules`, and the diff should be
+**exactly two lines** — the `packages/onboarding` and `packages/onboarding-ui`
+version fields. Anything larger is unrelated dependency drift riding along in a
+release commit: look at it before you stage it, rather than after someone bisects
+to it.
 
 ---
 
@@ -147,7 +169,7 @@ history. Do not recreate the file.
 
 ## Step 6 — Verify, then commit
 
-Prove the five agree before committing. This is not ceremony: the previous version
+Prove the six agree before committing. This is not ceremony: the previous version
 of this skill edited `plugin.json` in step 4 and then staged four files that did
 not include it, so the edit was made and dropped on every release, which is how the
 plugin came to advertise a version it had never been tested against.
@@ -156,11 +178,12 @@ plugin came to advertise a version it had never been tested against.
 npm run check:versions
 ```
 
-Stage all **five** files:
+Stage all **six** files:
 ```bash
 git add packages/onboarding/package.json packages/onboarding-ui/package.json \
         claude-plugin/.claude-plugin/plugin.json \
-        packages/onboarding/CHANGELOG.md packages/onboarding-ui/CHANGELOG.md
+        packages/onboarding/CHANGELOG.md packages/onboarding-ui/CHANGELOG.md \
+        package-lock.json
 ```
 
 Commit message format (gitmoji conventional):
@@ -198,7 +221,7 @@ Print:
 
 ```
 Bumped: x.y.z → NEW_VERSION (BUMP_TYPE)
-Files:  5 staged (2 packages, plugin manifest, 2 changelogs)
+Files:  6 staged (2 packages, plugin manifest, 2 changelogs, lockfile)
 Checks: npm run check:versions ✓
 Commit: <sha or "done">
 Next:   npm run publish:all  (when ready to publish)

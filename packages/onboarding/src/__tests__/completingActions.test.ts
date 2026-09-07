@@ -137,3 +137,63 @@ describe("hasCompletingAction", () => {
     expect(hasCompletingAction([button("cta", [{ type: "continue" }])])).toBe(false);
   });
 });
+
+/**
+ * `requestPermission` (#196) adds three more outcome hooks — `onGranted`,
+ * `onDenied`, `onUnavailable` — and the walk finds branch lists by SHAPE rather
+ * than by name, so it covers them with no change here. These pin that, because
+ * the alternative is the exact trap this predicate exists to close: a permission
+ * screen whose only `"continue"` lives inside `onGranted` would read as "no way
+ * forward", the renderer would bolt on a redundant Continue button, and — worse
+ * in the other direction — a future name-keyed rewrite would read a real CTA as
+ * absent.
+ */
+describe("hasCompletingAction — requestPermission outcome hooks", () => {
+  it("finds a continue inside onGranted", () => {
+    expect(
+      hasCompletingAction([
+        button("cta", [
+          { type: "requestPermission", kind: "notifications", onGranted: ["continue"] },
+        ]),
+      ])
+    ).toBe(true);
+  });
+
+  it("finds a continue inside onDenied", () => {
+    expect(
+      hasCompletingAction([
+        button("cta", [
+          { type: "requestPermission", kind: "notifications", onDenied: ["continue"] },
+        ]),
+      ])
+    ).toBe(true);
+  });
+
+  it("finds a dismiss inside onUnavailable", () => {
+    expect(
+      hasCompletingAction([
+        button("cta", [
+          {
+            type: "requestPermission",
+            kind: "camera",
+            onUnavailable: [{ type: "dismiss" }],
+          },
+        ]),
+      ])
+    ).toBe(true);
+  });
+
+  it("reports no way forward for a permission ask with no terminal hook", () => {
+    expect(
+      hasCompletingAction([
+        button("cta", [
+          {
+            type: "requestPermission",
+            kind: "notifications",
+            onGranted: [{ type: "setVariable", name: "push", value: "on" }],
+          },
+        ]),
+      ])
+    ).toBe(false);
+  });
+});

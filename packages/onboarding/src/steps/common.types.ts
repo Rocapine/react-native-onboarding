@@ -229,6 +229,86 @@ export const PresentPaywallButtonActionSchema = z.object({
   placement: z.string().min(1, "placement must not be empty"),
 });
 
+/**
+ * The permissions a `requestPermission` action can ask for.
+ *
+ * Deliberately narrow, and closed. Every member here is reachable through an
+ * **optionally installed** Expo module that the UI package dynamic-`require`s
+ * at press time (the `expo-haptics` precedent), so an app that does not need a
+ * permission does not carry its native code:
+ *
+ * | kind | module(s) tried, in order |
+ * |---|---|
+ * | `notifications` | `expo-notifications` |
+ * | `appTrackingTransparency` | `expo-tracking-transparency` (iOS 14+; other platforms report `granted`) |
+ * | `locationWhenInUse` | `expo-location` (foreground only — background location needs its own review justification) |
+ * | `camera` | `expo-camera` |
+ * | `microphone` | `expo-audio`, then `expo-camera` |
+ * | `photoLibrary` | `expo-image-picker`, then `expo-media-library` |
+ *
+ * NOT members, on purpose: **HealthKit** and **Screen Time / Family Controls**.
+ * Both need app-owned entitlements and a config plugin neither package ships,
+ * so neither can be honestly requested from inside the SDK. They arrive through
+ * the host `requestPermission` resolver on the `ScreenHost` (the same seam as
+ * `products` / `presentPaywall`) once a `kind` for them is added — a
+ * deliberately separate decision, not a silent no-op today.
+ *
+ * READING a permission's current status is not here either: this is a press
+ * action, and "skip the screen when already granted" is a variable-bag
+ * capability with nowhere to live in this shape. Tracked separately.
+ */
+export const PERMISSION_KINDS = [
+  "notifications",
+  "appTrackingTransparency",
+  "locationWhenInUse",
+  "camera",
+  "microphone",
+  "photoLibrary",
+] as const;
+
+export type PermissionKind = (typeof PERMISSION_KINDS)[number];
+
+export const PermissionKindSchema = z.enum(PERMISSION_KINDS);
+
+/**
+ * Ask the OS for a permission, then branch on the answer **within the same
+ * press**.
+ *
+ * This is what `[{type:"custom", …}, "continue"]` could not do: a custom
+ * handler's return value is discarded, so a host asking for notifications could
+ * only influence a LATER screen, through a variable it wrote. Here `onGranted`
+ * and `onDenied` are ordinary nested `ButtonAction[]` lists — the exact shape
+ * `purchase.onSuccess` / `restore.onNothingToRestore` already use, recursed
+ * through the same `runActions` — so one CTA can advance on a grant and, say,
+ * set a variable and still advance on a refusal.
+ *
+ * Asking is **idempotent from the OS's point of view, not the SDK's**: iOS shows
+ * its system prompt only the first time, and every later request resolves
+ * immediately with the standing answer. So a second press does not re-prompt —
+ * but it does re-run the matching hook.
+ *
+ * `onUnavailable` covers "this build cannot ask": the Expo module is not
+ * installed, or the platform has no such permission. When it is omitted the
+ * runtime falls back to `onDenied` (and warns), because a screen whose only
+ * `"continue"` sits in `onGranted` would otherwise be a screen nobody can
+ * leave. Declaring neither is an authoring error the runtime reports with
+ * `console.error` rather than papering over by advancing a flow the author
+ * chose to gate.
+ */
+export type RequestPermissionButtonAction = {
+  type: "requestPermission";
+  kind: PermissionKind;
+  /** Runs when the OS reports the permission granted. */
+  onGranted?: ButtonAction[];
+  /** Runs when the OS reports it denied, restricted, or dismissed. */
+  onDenied?: ButtonAction[];
+  /**
+   * Runs when this build cannot ask at all — module absent, or platform has no
+   * such permission. Falls back to `onDenied` when omitted.
+   */
+  onUnavailable?: ButtonAction[];
+};
+
 export type ButtonAction =
   | "continue"
   | CustomButtonAction
@@ -236,7 +316,8 @@ export type ButtonAction =
   | PurchaseButtonAction
   | RestoreButtonAction
   | DismissButtonAction
-  | PresentPaywallButtonAction;
+  | PresentPaywallButtonAction
+  | RequestPermissionButtonAction;
 
 export const PurchaseButtonActionSchema: z.ZodType<PurchaseButtonAction> = z.lazy(() =>
   z.object({
@@ -258,6 +339,17 @@ export const RestoreButtonActionSchema: z.ZodType<RestoreButtonAction> = z.lazy(
   })
 );
 
+export const RequestPermissionButtonActionSchema: z.ZodType<RequestPermissionButtonAction> =
+  z.lazy(() =>
+    z.object({
+      type: z.literal("requestPermission"),
+      kind: PermissionKindSchema,
+      onGranted: z.array(ButtonActionSchema).optional(),
+      onDenied: z.array(ButtonActionSchema).optional(),
+      onUnavailable: z.array(ButtonActionSchema).optional(),
+    })
+  );
+
 export const ButtonActionSchema: z.ZodType<ButtonAction> = z.lazy(() =>
   z.union([
     z.literal("continue"),
@@ -267,6 +359,7 @@ export const ButtonActionSchema: z.ZodType<ButtonAction> = z.lazy(() =>
     RestoreButtonActionSchema,
     DismissButtonActionSchema,
     PresentPaywallButtonActionSchema,
+    RequestPermissionButtonActionSchema,
   ])
 );
 

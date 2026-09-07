@@ -3,13 +3,13 @@ import type { PermissionKind } from "./actions";
 /**
  * The bundled resolver behind the `requestPermission` ButtonAction (#196).
  *
- * Every permission module is an **optional** peer dep, dynamic-`require`d at
- * press time — the `expo-haptics` / `expo-store-review` / `expo-linear-gradient`
- * pattern (`./haptics.ts`), so an app that never asks for the camera does not
- * carry `expo-camera`. Two departures from that precedent, both deliberate:
+ * Every permission module is an **optional** peer dep, `require`d at press time
+ * — the `expo-haptics` / `expo-store-review` / `expo-linear-gradient` pattern
+ * (`./haptics.ts`), so an app that never asks for the camera does not carry
+ * `expo-camera`. Two departures from that precedent, both deliberate:
  *
  *  - **The require is lazy, not module-level.** `haptics.ts` requires on import;
- *    doing that here would pull in up to eight native modules — several of
+ *    doing that here would pull in up to seven native modules — several of
  *    which register listeners or notification handlers as an import side effect
  *    — on any screen that merely renders a Button. A kind is loaded the first
  *    time it is asked for, then cached.
@@ -19,9 +19,29 @@ import type { PermissionKind } from "./actions";
  *    which `runActions` routes to `onUnavailable` (falling back to `onDenied`,
  *    and reporting an error when the author declared neither).
  *
- * `require` is used rather than `import()` because Metro resolves only literal
- * `require` strings — hence one hard-coded loader per module rather than a
- * table keyed by name.
+ * ## The `require` shape is load-bearing (review round 1)
+ *
+ * Metro resolves every literal `require` string when it BUILDS the graph, long
+ * before any of this runs, so a module that is not installed fails the whole
+ * bundle — unless Metro marks the dependency *optional*. Its rule
+ * (`isOptionalDependency` in
+ * `@expo/metro-config/build/transform-worker/collect-dependencies.js`, enabled
+ * by `allowOptionalDependencies: true` in Expo's default config) is purely
+ * syntactic: walk at most three statements up from the call, and answer yes
+ * only if the first `BlockStatement` reached is a `TryStatement`'s own `block`.
+ *
+ * So each `require` below sits DIRECTLY inside a literal `try` block, exactly
+ * like `haptics.ts`. The first version of this file put them in arrow functions
+ * that a try/catch helper invoked instead — semantically identical, and it made
+ * every one of the seven MANDATORY: `expo start` on the example app died with
+ * `Unable to resolve module expo-notifications` on ios, android and web, and
+ * the whole app was unbundleable rather than just this screen.
+ * `__tests__/permissionModules.test.ts` asserts the shape at source level,
+ * because nothing observable in Node tells the two forms apart.
+ *
+ * The module name must also stay a literal — `require(candidate.module)` cannot
+ * be resolved by a static bundler at all — hence a table of named loaders
+ * rather than one parameterised loader.
  */
 
 /** What one request resolves to. `"unavailable"` means this build could not ask at all. */
@@ -88,97 +108,153 @@ export function pickPermissionRequester(
 }
 
 /**
- * `require` a module without ever throwing. Catches both the resolution failure
- * (module not installed) and the `ReferenceError` from an ESM context where
- * `require` is not defined at all — which is how this reads under vitest, and
- * is also the honest answer there: no native module, so nothing to ask.
+ * One optional module, and the function name(s) the permission is asked
+ * through on it.
  */
-const safeRequire = (load: () => unknown): unknown => {
+export type PermissionModuleCandidate = {
+  /** npm name — must have an entry in `permissionModuleLoaders`. */
+  module: string;
+  fns: readonly string[];
+};
+
+/**
+ * `require` one optional module, keyed by name. Each body is the literal
+ * `try { return require("…"); } catch { … }` Metro needs to treat the
+ * dependency as optional (see this file's header); a module that is not
+ * installed answers `null` here instead of failing the bundle.
+ *
+ * `catch` swallows both the resolution failure and the `ReferenceError` from an
+ * ESM context where `require` is not defined at all — which is how this reads
+ * under vitest, and is also the honest answer there: no native module, so
+ * nothing to ask.
+ */
+export const permissionModuleLoaders: Record<string, () => unknown> = {
+  "expo-notifications": () => {
+    try {
+      return require("expo-notifications");
+    } catch {
+      return null;
+    }
+  },
+  "expo-tracking-transparency": () => {
+    try {
+      return require("expo-tracking-transparency");
+    } catch {
+      return null;
+    }
+  },
+  "expo-location": () => {
+    try {
+      return require("expo-location");
+    } catch {
+      return null;
+    }
+  },
+  "expo-camera": () => {
+    try {
+      return require("expo-camera");
+    } catch {
+      return null;
+    }
+  },
+  "expo-audio": () => {
+    try {
+      return require("expo-audio");
+    } catch {
+      return null;
+    }
+  },
+  "expo-image-picker": () => {
+    try {
+      return require("expo-image-picker");
+    } catch {
+      return null;
+    }
+  },
+  "expo-media-library": () => {
+    try {
+      return require("expo-media-library");
+    } catch {
+      return null;
+    }
+  },
+};
+
+/**
+ * Which module(s) each kind is asked through, in order. The first candidate
+ * that both loads and exposes one of its named functions wins.
+ *
+ * Exported so `__tests__/permissionModules.test.ts` can assert the table is
+ * complete and pin the names: a typo in a function name is invisible in Node
+ * (every kind reads `"unavailable"` either way) and would report a real GRANT
+ * on a device as a refusal.
+ */
+export const PERMISSION_MODULES: Record<PermissionKind, readonly PermissionModuleCandidate[]> = {
+  notifications: [{ module: "expo-notifications", fns: ["requestPermissionsAsync"] }],
+  appTrackingTransparency: [
+    { module: "expo-tracking-transparency", fns: ["requestTrackingPermissionsAsync"] },
+  ],
+  // Foreground only. Background location needs its own App Store review
+  // justification, so it is not something a template should be able to ask for.
+  locationWhenInUse: [{ module: "expo-location", fns: ["requestForegroundPermissionsAsync"] }],
+  camera: [{ module: "expo-camera", fns: ["requestCameraPermissionsAsync"] }],
+  // `expo-audio` is the current module; `expo-camera` also owns a microphone
+  // permission and is the more commonly installed of the two in a video app.
+  microphone: [
+    { module: "expo-audio", fns: ["requestRecordingPermissionsAsync"] },
+    { module: "expo-camera", fns: ["requestMicrophonePermissionsAsync"] },
+  ],
+  // Both ask for the same OS photo-library read permission.
+  photoLibrary: [
+    { module: "expo-image-picker", fns: ["requestMediaLibraryPermissionsAsync"] },
+    { module: "expo-media-library", fns: ["requestPermissionsAsync"] },
+  ],
+};
+
+/** Load a module by name, never throwing. `null` = not installed here. */
+type ModuleLoader = (module: string) => unknown;
+
+const loadInstalledModule: ModuleLoader = (module) => {
+  const loader = permissionModuleLoaders[module];
+  if (!loader) return null;
   try {
-    return load();
+    return loader();
   } catch {
     return null;
   }
 };
 
-type Candidate = { load: () => unknown; fns: readonly string[] };
-
-/**
- * Which module(s) each kind is asked through, in order. The first candidate
- * that both resolves and exposes one of its named functions wins.
- */
-const CANDIDATES: Record<PermissionKind, readonly Candidate[]> = {
-  notifications: [
-    {
-      load: () => require("expo-notifications"),
-      fns: ["requestPermissionsAsync"],
-    },
-  ],
-  appTrackingTransparency: [
-    {
-      load: () => require("expo-tracking-transparency"),
-      fns: ["requestTrackingPermissionsAsync"],
-    },
-  ],
-  // Foreground only. Background location needs its own App Store review
-  // justification, so it is not something a template should be able to ask for.
-  locationWhenInUse: [
-    {
-      load: () => require("expo-location"),
-      fns: ["requestForegroundPermissionsAsync"],
-    },
-  ],
-  camera: [
-    {
-      load: () => require("expo-camera"),
-      fns: ["requestCameraPermissionsAsync"],
-    },
-  ],
-  // `expo-audio` is the current module; `expo-camera` also owns a microphone
-  // permission and is the more commonly installed of the two in a video app.
-  microphone: [
-    {
-      load: () => require("expo-audio"),
-      fns: ["requestRecordingPermissionsAsync"],
-    },
-    {
-      load: () => require("expo-camera"),
-      fns: ["requestMicrophonePermissionsAsync"],
-    },
-  ],
-  // Both ask for the same OS photo-library read permission.
-  photoLibrary: [
-    {
-      load: () => require("expo-image-picker"),
-      fns: ["requestMediaLibraryPermissionsAsync"],
-    },
-    {
-      load: () => require("expo-media-library"),
-      fns: ["requestPermissionsAsync"],
-    },
-  ],
+const resolveRequester = (kind: PermissionKind, loadModule: ModuleLoader): Requester | null => {
+  for (const candidate of PERMISSION_MODULES[kind] ?? []) {
+    let mod: unknown = null;
+    try {
+      mod = loadModule(candidate.module);
+    } catch {
+      continue;
+    }
+    // `pickPermissionRequester` reads the namespace's own values, and a module
+    // export can in principle be a throwing getter — so the read is guarded
+    // too, not just the load.
+    try {
+      const found = pickPermissionRequester(mod, candidate.fns);
+      if (found) return found;
+    } catch {
+      continue;
+    }
+  }
+  return null;
 };
 
 // Resolved requester per kind, or `null` for "checked, nothing available".
 // Cached because the require cost is per-press otherwise, and a module that was
-// absent on the first press is absent for the life of the bundle.
+// absent on the first press is absent for the life of the bundle. Only the
+// DEFAULT loader is cached: an injected one (tests, and any future host-side
+// module registry) must neither read nor poison this.
 const requesterCache = new Map<PermissionKind, Requester | null>();
 
-const resolveRequester = (kind: PermissionKind): Requester | null => {
+const cachedRequester = (kind: PermissionKind): Requester | null => {
   if (requesterCache.has(kind)) return requesterCache.get(kind) ?? null;
-  let found: Requester | null = null;
-  for (const candidate of CANDIDATES[kind] ?? []) {
-    const mod = safeRequire(candidate.load);
-    // `pickPermissionRequester` reads the namespace's own values, and a module
-    // export can in principle be a throwing getter — so the read is guarded
-    // too, not just the require.
-    try {
-      found = pickPermissionRequester(mod, candidate.fns);
-    } catch {
-      found = null;
-    }
-    if (found) break;
-  }
+  const found = resolveRequester(kind, loadInstalledModule);
   requesterCache.set(kind, found);
   return found;
 };
@@ -189,11 +265,18 @@ const resolveRequester = (kind: PermissionKind): Requester | null => {
  * Never throws: a module that rejects or returns a shape this does not
  * understand resolves `"unavailable"`, which the caller routes to an explicit
  * outcome hook rather than swallowing.
+ *
+ * @param options.loadModule Resolve a module by name instead of `require`ing
+ *   it. Test seam only — production passes nothing and gets the cached
+ *   `require` path.
  */
 export const requestPermissionViaExpoModules = async (
-  kind: PermissionKind
+  kind: PermissionKind,
+  options?: { loadModule?: ModuleLoader }
 ): Promise<PermissionOutcome> => {
-  const request = resolveRequester(kind);
+  const request = options?.loadModule
+    ? resolveRequester(kind, options.loadModule)
+    : cachedRequester(kind);
   if (!request) return "unavailable";
   try {
     return normalizePermissionResponse(await request());

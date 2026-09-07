@@ -25,6 +25,15 @@ export * from "./UI/Pages";
 // export) but it makes the public surface accidental. List what is public.
 export { ScreenRenderer, noopScreenHost } from "./UI/Runtime";
 export type { ScreenRendererProps, ScreenHost, CompleteOutcome } from "./UI/Runtime";
+// The `requestPermission` action's host seam (#196). A host overriding the
+// bundled Expo resolver — the documented route for HealthKit and Screen Time,
+// which need app-owned entitlements — has to be able to name these types.
+export type {
+  PermissionResolver,
+  PermissionOutcome,
+  PermissionModuleCandidate,
+} from "./UI/Runtime/elements/permissions";
+export type { PermissionKind } from "./UI/Runtime/elements/actions";
 
 // Paywall host — the second ScreenHost, rendering a paywall in a fullScreen Modal.
 export { PaywallHost } from "./UI/Paywall";

@@ -2,10 +2,12 @@ import type {
   ComposableVariableEntry,
   ComposableVariableKind,
 } from "@rocapine/react-native-onboarding";
-import type { ButtonAction } from "./actions";
+import type { ButtonAction, PermissionKind } from "./actions";
 import type { RenderContext } from "./shared";
 import { interpolateIdentifier } from "./shared";
 import { evaluateSetVariableExpression } from "./expression";
+import { requestPermissionViaExpoModules } from "./permissions";
+import type { PermissionOutcome } from "./permissions";
 
 // Decode a multi-select variable's stored value (JSON-encoded string[], as
 // written by CheckboxGroup) into a string array. Tolerates undefined / non-array
@@ -34,6 +36,11 @@ function decodeArrayValue(raw: string | undefined): string[] {
 //   - {presentPaywall} → ask the host to present a paywall by placement; warns
 //                      and no-ops (continues the loop) when the host has no
 //                      `presentPaywall` capability.
+//   - {requestPermission} → ask the OS, then run onGranted/onDenied/onUnavailable
+//                      — nested ButtonAction[] recursed through this same
+//                      function, so one press can diverge on the answer. See
+//                      `resolvePermissionOutcome` below for the resolver order
+//                      and `./permissions.ts` for the module tried per kind.
 export async function runActions(
   actions: ButtonAction[],
   ctx: RenderContext
@@ -178,6 +185,51 @@ export async function runActions(
       continue;
     }
 
+    if (act.type === "requestPermission") {
+      const outcome = await resolvePermissionOutcome(act.kind, ctx);
+
+      if (outcome === "granted") {
+        if (act.onGranted) await runActions(act.onGranted, ctx);
+        else
+          console.warn(
+            `[ComposableScreen] \`requestPermission\` ("${act.kind}") was GRANTED with no \`onGranted\` actions declared — nothing ran, so the screen is unchanged.`
+          );
+        continue;
+      }
+
+      if (outcome === "denied") {
+        if (act.onDenied) await runActions(act.onDenied, ctx);
+        else
+          console.warn(
+            `[ComposableScreen] \`requestPermission\` ("${act.kind}") was DENIED with no \`onDenied\` actions declared — nothing ran, so the screen is unchanged. A permission screen should still let the user move on after a refusal.`
+          );
+        continue;
+      }
+
+      // "unavailable" — the optional Expo module is not installed, or the
+      // platform has no such permission. NOT treated as the repo's usual silent
+      // no-op for an absent press-time dep (haptics): a CTA whose only
+      // "continue" sits in `onGranted` would leave the user on a screen with no
+      // way forward. Fall back to `onDenied` — "we did not get it" — so an
+      // author who declared both real outcomes is safe by construction, and say
+      // out loud that the substitution happened.
+      if (act.onUnavailable) {
+        await runActions(act.onUnavailable, ctx);
+        continue;
+      }
+      if (act.onDenied) {
+        console.warn(
+          `[ComposableScreen] \`requestPermission\` ("${act.kind}") could not be requested on this build (module not installed, or unsupported platform) and no \`onUnavailable\` actions are declared — running \`onDenied\` instead. Install the optional Expo module for this kind, or declare \`onUnavailable\` explicitly.`
+        );
+        await runActions(act.onDenied, ctx);
+        continue;
+      }
+      console.error(
+        `[ComposableScreen] \`requestPermission\` ("${act.kind}") could not be requested on this build and neither \`onUnavailable\` nor \`onDenied\` is declared — nothing ran. If this action is the screen's only way forward, the user is now stuck. Declare \`onUnavailable\`.`
+      );
+      continue;
+    }
+
     const handler = customActions[act.function];
     if (!handler) {
       console.warn(
@@ -198,4 +250,34 @@ export async function runActions(
       return;
     }
   }
+}
+
+/**
+ * Resolver order for one `requestPermission` press: the host's own resolver
+ * first (the entitlement seam — HealthKit, Screen Time), falling back to the
+ * bundled optional-Expo-module resolver when the host has none or returns
+ * `undefined` for a kind it does not handle.
+ *
+ * Never throws. A host resolver that rejects reports `"unavailable"` rather
+ * than aborting the press, because the alternative — the `custom` action's
+ * abort-the-loop behaviour — would strand the user on a screen whose CTA just
+ * silently did nothing.
+ */
+async function resolvePermissionOutcome(
+  kind: PermissionKind,
+  ctx: RenderContext
+): Promise<PermissionOutcome> {
+  if (ctx.requestPermission) {
+    try {
+      const hostOutcome = await ctx.requestPermission(kind);
+      if (hostOutcome) return hostOutcome;
+    } catch (err) {
+      console.error(
+        `[ComposableScreen] host \`requestPermission\` resolver threw for "${kind}":`,
+        err
+      );
+      return "unavailable";
+    }
+  }
+  return requestPermissionViaExpoModules(kind);
 }

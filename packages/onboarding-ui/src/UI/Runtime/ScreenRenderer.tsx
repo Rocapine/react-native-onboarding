@@ -44,7 +44,7 @@ export type ScreenRendererProps = {
  */
 export const ScreenRenderer = ({ elements, host }: ScreenRendererProps) => {
   const { theme } = useTheme();
-  const { variables: hostVariables, setVariable, complete, customActions, products, presentPaywall, keyboardVerticalOffset } = host;
+  const { variables: hostVariables, setVariable, complete, customActions, products, presentPaywall, requestPermission, keyboardVerticalOffset } = host;
 
   // Defaults declared inline on UIElements are overlaid BENEATH the host store so
   // renderWhen / {{var}} interpolation see them on first render, before per-element
@@ -103,9 +103,10 @@ export const ScreenRenderer = ({ elements, host }: ScreenRendererProps) => {
       customActions,
       products,
       presentPaywall,
+      requestPermission,
       renderChildren,
     }),
-    [theme, getVariables, setVariable, stableOnContinue, customActions, products, presentPaywall, renderChildren]
+    [theme, getVariables, setVariable, stableOnContinue, customActions, products, presentPaywall, requestPermission, renderChildren]
   );
   ctxRef.current = ctx;
 

@@ -105,6 +105,54 @@ export const PresentPaywallButtonActionSchema = z.object({
   placement: z.string().min(1, "placement must not be empty"),
 });
 
+/**
+ * UI mirror of the headless `PERMISSION_KINDS` (`common.types.ts`). Re-declared
+ * inline per the mirror rule — this module imports only zod on purpose.
+ *
+ * Every kind is reachable through an OPTIONAL Expo module the runtime
+ * dynamic-`require`s at press time; see `./permissions.ts` for the module tried
+ * per kind. HealthKit and Screen Time / Family Controls are deliberately absent
+ * — they need app-owned entitlements and arrive through the host
+ * `requestPermission` resolver on the ScreenHost.
+ */
+export const PERMISSION_KINDS = [
+  "notifications",
+  "appTrackingTransparency",
+  "locationWhenInUse",
+  "camera",
+  "microphone",
+  "photoLibrary",
+] as const;
+
+export type PermissionKind = (typeof PERMISSION_KINDS)[number];
+
+export const PermissionKindSchema = z.enum(PERMISSION_KINDS);
+
+/**
+ * Ask the OS for a permission and branch on the answer within the SAME press.
+ *
+ * `[{type:"custom"}, "continue"]` could already ask-then-advance, but a custom
+ * handler's return value is discarded, so a grant and a refusal could only
+ * diverge on a LATER screen through a variable the handler wrote. These hooks
+ * are ordinary nested `ButtonAction[]`, recursed through `runActions` exactly
+ * like `purchase.onSuccess`.
+ *
+ * `onUnavailable` is "this build cannot ask" — the optional Expo module is not
+ * installed, or the platform has no such permission. Omitted, it falls back to
+ * `onDenied` (with a warning), because a screen whose only `"continue"` sits in
+ * `onGranted` would otherwise be a screen nobody can leave.
+ */
+export type RequestPermissionButtonAction = {
+  type: "requestPermission";
+  kind: PermissionKind;
+  /** Runs when the OS reports the permission granted. */
+  onGranted?: ButtonAction[];
+  /** Runs when the OS reports it denied, restricted, or dismissed. */
+  onDenied?: ButtonAction[];
+  /** Runs when this build cannot ask at all. Falls back to `onDenied`. */
+  onUnavailable?: ButtonAction[];
+};
+
 export type ButtonAction =
   | "continue"
   | CustomButtonAction
@@ -112,7 +160,8 @@ export type ButtonAction =
   | PurchaseButtonAction
   | RestoreButtonAction
   | DismissButtonAction
-  | PresentPaywallButtonAction;
+  | PresentPaywallButtonAction
+  | RequestPermissionButtonAction;
 
 export const PurchaseButtonActionSchema: z.ZodType<PurchaseButtonAction> = z.lazy(() =>
   z.object({
@@ -134,6 +183,17 @@ export const RestoreButtonActionSchema: z.ZodType<RestoreButtonAction> = z.lazy(
   })
 );
 
+export const RequestPermissionButtonActionSchema: z.ZodType<RequestPermissionButtonAction> =
+  z.lazy(() =>
+    z.object({
+      type: z.literal("requestPermission"),
+      kind: PermissionKindSchema,
+      onGranted: z.array(ButtonActionSchema).optional(),
+      onDenied: z.array(ButtonActionSchema).optional(),
+      onUnavailable: z.array(ButtonActionSchema).optional(),
+    })
+  );
+
 export const ButtonActionSchema: z.ZodType<ButtonAction> = z.lazy(() =>
   z.union([
     z.literal("continue"),
@@ -143,5 +203,6 @@ export const ButtonActionSchema: z.ZodType<ButtonAction> = z.lazy(() =>
     RestoreButtonActionSchema,
     DismissButtonActionSchema,
     PresentPaywallButtonActionSchema,
+    RequestPermissionButtonActionSchema,
   ])
 );

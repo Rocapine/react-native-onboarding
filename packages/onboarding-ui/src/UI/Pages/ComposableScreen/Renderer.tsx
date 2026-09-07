@@ -14,6 +14,7 @@ import { useTheme } from "../../Theme/useTheme";
 import { ScreenRenderer } from "../../Runtime/ScreenRenderer";
 import { getRenderableElementTypes } from "../../Runtime/renderableElementTypes";
 import type { ScreenHost } from "../../Runtime/ScreenHost";
+import type { PermissionResolver } from "../../Runtime/elements/permissions";
 
 /**
  * Label for the escape CTA the strip may have to supply. Hardcoded, like the
@@ -28,6 +29,8 @@ type ContentProps = {
   onContinue: () => void;
   /** Distance between the top of the screen and this page's top (e.g. a fixed host header). */
   keyboardVerticalOffset?: number;
+  /** See OnboardingPageProps — host override for the `requestPermission` action. */
+  requestPermission?: PermissionResolver;
   /** See OnboardingPageProps — overrides the `entering.once` settle delay. */
   enteringSettleDelayMs?: number;
 };
@@ -37,7 +40,7 @@ type ContentProps = {
  * contexts into a ScreenHost and supplies the onboarding chrome. All rendering
  * lives in UI/Runtime and is shared with the paywall renderer.
  */
-const ComposableScreenRendererBase = ({ step, onContinue, keyboardVerticalOffset, enteringSettleDelayMs }: ContentProps) => {
+const ComposableScreenRendererBase = ({ step, onContinue, keyboardVerticalOffset, enteringSettleDelayMs, requestPermission }: ContentProps) => {
   const { theme } = useTheme();
   const { headerHeight } = useOnboardingHeaderHeight();
   // FORWARD COMPATIBILITY (#209). An element type published after this app
@@ -143,6 +146,7 @@ const ComposableScreenRendererBase = ({ step, onContinue, keyboardVerticalOffset
       customActions,
       products,
       presentPaywall,
+      requestPermission,
       keyboardVerticalOffset: keyboardVerticalOffset ?? headerHeight,
       enteringSettleDelayMs,
     }),
@@ -153,6 +157,7 @@ const ComposableScreenRendererBase = ({ step, onContinue, keyboardVerticalOffset
       customActions,
       products,
       presentPaywall,
+      requestPermission,
       keyboardVerticalOffset,
       enteringSettleDelayMs,
       headerHeight,

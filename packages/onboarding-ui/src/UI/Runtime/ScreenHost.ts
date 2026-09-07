@@ -3,6 +3,7 @@ import type {
   CustomActions,
   ProductRuntime,
 } from "@rocapine/react-native-onboarding";
+import type { PermissionResolver } from "./elements/permissions";
 
 /**
  * Outcome passed to `complete`. The `dismiss` ButtonAction passes
@@ -48,6 +49,22 @@ export type ScreenHost = {
    * no-ops, mirroring `products`/`purchase`/`restore`.
    */
   presentPaywall?: (placement: string) => void;
+  /**
+   * Override the `requestPermission` ButtonAction's resolver. Undefined on a
+   * host that has nothing special to add — the action then asks through
+   * whichever optional Expo module is installed (`Runtime/elements/permissions.ts`).
+   *
+   * This is the seam for a permission the SDK cannot honestly request itself:
+   * HealthKit and Screen Time / Family Controls need entitlements and a config
+   * plugin that belong to the app, not to a library. Return `undefined` for a
+   * kind you do not handle and the bundled resolver runs instead, so a host
+   * only has to know about its own.
+   *
+   * MUST be referentially stable — it lands in RenderContext, and an unstable
+   * value re-renders every memoized element on every variable write (same
+   * contract as `products`).
+   */
+  requestPermission?: PermissionResolver;
   /** Offset for keyboard avoidance — the measured progress header, or 0. */
   keyboardVerticalOffset: number;
   /**

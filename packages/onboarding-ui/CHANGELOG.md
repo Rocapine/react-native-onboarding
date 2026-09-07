@@ -40,8 +40,24 @@ here.
 
   **A quoted literal's contents interpolate**, so `{{var}}` means the same thing
   everywhere in a template: `list({{goals}}) + " for {{name}}"` reads "… for
-  Ada" instead of emitting the braces to the user. Specs, separators and plural
-  forms hold no `{{` and pass through byte-identical. One edge moves relative to
+  Ada" instead of emitting the braces to the user. A literal with no `{{`
+  passes through byte-identical, which is the common case for a spec, a
+  separator or a plural form; one that references a variable which does not
+  exist is refused in those positions rather than silently becoming empty.
+  `plural` checks its COUNT and both forms — both forms because an absent
+  reference in a form is an authoring error whichever one the count selects,
+  and the count because otherwise an unseeded one picks a form silently and
+  `plural` launders it into whatever consumes the result. `format`'s
+  **locale** is guarded too, and it is the nastiest of the set: `"en{{sfx}}"`
+  with `sfx` unset resolves to the valid `"en"` rather than to nothing, so the
+  date still rendered with its day and month swapped.
+
+  Two known limits, both deliberate: `count()` does not taint, because
+  `count({{skipped}})` = 0 is a real answer and the shipped
+  `plural(count({{goals}}), …)` pattern depends on it — so wrapping a name in
+  `count()` defeats the guard — and `asDate` still accepts any
+  `Date.parse`-able string, including a bare integer, which no taint can reach
+  because the numbers involved are seeded. Both are filed rather than hidden. One edge moves relative to
   before the stdlib: a template that is *entirely* one quoted string is a
   literal now, so `"{{name}}"` stores `Ada` rather than `"Ada"` with the quotes
   — the quote characters are delimiters, not content.
@@ -55,7 +71,9 @@ here.
   arguments. A bare word is never a legal argument, so one *between* the parens
   means they are punctuation — `"{{n}} day(s)"` and `"{{n}} min(s) left"` are
   prose even though `min` is a real function — and whitespace before the `(`
-  means the same, so `"Goals ({{n}})"` and `"Save (50)"` are prose too. A
+  means the same for an UNKNOWN name, so `"Goals ({{n}})"` and `"Save (50)"`
+  are prose too. A stdlib name is called glued or not, so `"max (2)"` is a
+  call; prose starting with one needs `valueMode: "literal"`. A
   misspelled `addDay({{d}}, 1)` still fails loudly. So does a *valid* call with
   prose beside it: this grammar has no implicit concatenation, so
   `list({{goals}}) and more` is a broken call rather than prose and must be
@@ -86,8 +104,13 @@ here.
   The taint follows the value, so it also refuses one that reached a bound
   through arithmetic or a function — `addDays({{d}}, {{weeks}} * 7)`,
   `clamp({{trialDays}}, 1, 90)` — but it is dropped where the result could have
-  come from a literal instead: `max({{trialDays}}, 7)` is an explicit default
-  and is honoured. A day count is configuration too: `addDays("now", {{trialDays}})` with
+  come from an untainted argument: `max({{trialDays}}, 7)` is the explicit
+  default it looks like, and so is `max({{seeded_zero}}, {{absent}})`. The same
+  rule now covers a `{{ref}}` inside a quoted LITERAL used as configuration:
+  `join({{goals}}, "{{sep}}")` with `sep` unset ran the members together and
+  `list({{goals}}, "{{conj}}")` left a double space, both silently. `count()`
+  stays exempt on purpose — `count({{skipped}})` is a real zero — which does
+  mean `round({{pct}}, count({{digits}}))` answers rather than failing. A day count is configuration too: `addDays("now", {{trialDays}})` with
   `trialDays` unset used to return the start date unchanged, so a headline
   reading `"your trial ends {{trialEnd}}"` showed today. A free-text answer that merely looks bracketed
   (`"[not json]"`) is still one member. Where a machine key would reach prose
@@ -107,6 +130,16 @@ here.
   rejected. And both `{{var}}` resolvers now **trim** a spaced reference like
   the expression tokenizer already did, so `{{ plan }}` no longer renders in a
   `Text` while resolving to an empty product slot key in a `purchase` action.
+
+  Two smaller robustness fixes with observable edges. `+` and `-` now carry the
+  `Number.isFinite` check `*` and `/` always had, so an overflowing sum falls
+  back to plain interpolation like every other failed arithmetic instead of
+  storing the literal string `"Infinity"` tagged `kind: "int"` — which every
+  downstream reader parsed as `NaN`. Reaching it needs a ~308-digit literal. And
+  variable lookup uses `hasOwnProperty`, so `{{toString}}` and `{{valueOf}}` no
+  longer find `Object.prototype` members: `{{toString}} + 1` used to throw a
+  `TypeError` out of the press handler, which is the dead-button failure this
+  engine is built to avoid.
 
 ### Fixed
 

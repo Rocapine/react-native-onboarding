@@ -15,6 +15,11 @@ const ev = (template: string, vars: Vars = {}) =>
 const localized = (iso: string, options: Intl.DateTimeFormatOptions) =>
   new Date(iso).toLocaleString("en-US", options);
 
+// One helper, not one per describe: `afterEach`'s `restoreAllMocks` covers the
+// teardown, and how the suite silences and counts warnings should change in
+// one place.
+const warnSpy = () => vi.spyOn(console, "warn").mockImplementation(() => {});
+
 // A CheckboxGroup-written multi-select variable: JSON-encoded string[] in
 // `value`, ", "-joined member labels in `label`, no `kind` tag.
 const goals: Vars = {
@@ -431,7 +436,6 @@ describe("expression stdlib — structured data of the wrong shape", () => {
   // `count()` answered a plausible 1 with no warning. A believable constant is
   // the worst failure mode this runtime can have; JSON that parses but is the
   // wrong shape is an authoring error, never a scalar answer, so it hard-fails.
-  const warnSpy = () => vi.spyOn(console, "warn").mockImplementation(() => {});
 
   it("count fails loudly on a JSON array that is not a string[]", () => {
     const warn = warnSpy();
@@ -516,7 +520,6 @@ describe("expression stdlib — prose is not a call attempt", () => {
   // identifier is a function name, i.e. immediately followed by `(`), not of a
   // substring, so prose keeps falling back to plain interpolation while a real
   // call still fails loudly.
-  const warnSpy = () => vi.spyOn(console, "warn").mockImplementation(() => {});
 
   it("interpolates the optional-plural idiom rather than storing the empty string", () => {
     const warn = warnSpy();
@@ -607,8 +610,6 @@ describe("expression stdlib — prose is not a call attempt", () => {
 });
 
 describe("expression stdlib — the name set is the dispatch table", () => {
-  const warnSpy = () => vi.spyOn(console, "warn").mockImplementation(() => {});
-
   // `STDLIB_NAMES` gates BOTH `callFunction`'s dispatch and `isCallAttempt`'s
   // prose classification, so a name can only be in one of the two places by
   // being in neither. These two tests pin one direction each: a name missing
@@ -707,7 +708,6 @@ describe("expression stdlib — an unseeded variable is data, never configuratio
   // But a bound and a digit count are not data, they are CONFIGURATION, and an
   // unseeded one means the author referenced a variable that does not exist.
   // Answering from the sentinel there turns a typo into a plausible constant.
-  const warnSpy = () => vi.spyOn(console, "warn").mockImplementation(() => {});
 
   it("clamp refuses bounds that are unseeded variables", () => {
     const warn = warnSpy();
@@ -745,8 +745,6 @@ describe("expression stdlib — an unseeded variable is data, never configuratio
 });
 
 describe("expression stdlib — review round 3", () => {
-  const warnSpy = () => vi.spyOn(console, "warn").mockImplementation(() => {});
-
   it("warns when a stdlib call's argument is a bare word, instead of silently storing source", () => {
     // The likeliest typo with a new stdlib: forgetting the braces. This used to
     // store its own source text into a variable a headline then displayed, with
@@ -862,8 +860,6 @@ describe("expression stdlib — review round 3", () => {
 });
 
 describe("expression stdlib — review round 4", () => {
-  const warnSpy = () => vi.spyOn(console, "warn").mockImplementation(() => {});
-
   it("names the bare arguments without inventing a template that would blank", () => {
     // The first version of this warning built its suggestion with a regex over
     // the raw source, so it braced identifiers inside string literals:
@@ -958,6 +954,92 @@ describe("expression stdlib — review round 4", () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
+  it("refuses an unseeded reference in a string configuration position", () => {
+    const warn = warnSpy();
+    // The string side of the same hazard, reachable since a literal's contents
+    // interpolate: `interpolate` substitutes "" for an absent name, so these
+    // used to store a double space, a run-together list and an empty word.
+    expect(ev('list({{goals}}, "{{conj}}")', goals).value).toBe("");
+    expect(ev('join({{goals}}, "{{sep}}")', goals).value).toBe("");
+    // `other` is the form a count of 3 selects, so this one is refused.
+    expect(ev('plural({{n}}, "one thing", "{{other}}")', {
+      n: { value: "3", kind: "int" },
+    }).value).toBe("");
+    expect(ev('format({{d}}, "{{spec}}")', {
+      d: { value: "2026-03-04T12:00:00.000Z" },
+    }).value).toBe("");
+    expect(warn).toHaveBeenCalledTimes(4);
+    // A literal whose references all resolve is untouched.
+    expect(ev('list({{goals}}, "{{conj}}")', {
+      ...goals,
+      conj: { value: "or" },
+    }).value).toBe("Sleep, Energy or Focus");
+  });
+
+  it("refuses a format spec or locale that interpolates to something VALID", () => {
+    const warn = warnSpy();
+    const d: Vars = { d: { value: "2026-03-04T12:00:00.000Z" } };
+    // The dangerous shape is not an empty spec — that already failed — but one
+    // that resolves to a valid value which is not what the author wrote.
+    // `"medium{{x}}"` becomes `"medium"`, and `"en{{sfx}}"` becomes `"en"`,
+    // which formats 4 March as "Mar 4" where the seeded "-GB" gives "4 Mar".
+    expect(ev('format({{d}}, "medium{{x}}", "en-US")', d).value).toBe("");
+    expect(ev('format({{d}}, "medium", "en{{sfx}}")', d).value).toBe("");
+    expect(warn).toHaveBeenCalledTimes(2);
+    // Seeded, both evaluate — and to different strings, so the test can tell.
+    const gb = ev('format({{d}}, "medium", "en{{sfx}}")', { ...d, sfx: { value: "-GB" } }).value;
+    const us = ev('format({{d}}, "medium", "en{{sfx}}")', { ...d, sfx: { value: "-US" } }).value;
+    expect(gb).not.toBe("");
+    expect(gb).not.toBe(us);
+  });
+
+  it("carries the string taint through concatenation", () => {
+    const warn = warnSpy();
+    // The `+ "…"` idiom the docs push authors toward would otherwise launder
+    // it: this joined the members with "-" and said nothing.
+    expect(ev('join({{goals}}, "{{a}}" + "{{b}}")', {
+      ...goals,
+      a: { value: "-" },
+    }).value).toBe("");
+    expect(warn).toHaveBeenCalledTimes(1);
+    // Both halves seeded, it evaluates.
+    expect(ev('join({{goals}}, "{{a}}" + "{{b}}")', {
+      ...goals,
+      a: { value: " " },
+      b: { value: "| " },
+    }).value).toBe("Sleep | Energy | Focus");
+  });
+
+  it("does not mistake an Object.prototype key for a variable", () => {
+    const warn = warnSpy();
+    // `vars["toString"]` finds a function with an undefined `.value`, and
+    // `raw.trim()` threw a TypeError out of the press handler — a dead button.
+    expect(() => ev("{{toString}} + 1")).not.toThrow();
+    expect(ev("{{toString}} + 1")).toEqual({ value: "1", kind: "int" });
+    expect(ev('join({{goals}}, "{{valueOf}}")', goals).value).toBe("");
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects an overflowing + or - instead of storing \"Infinity\"", () => {
+    warnSpy();
+    // 308 nines is ~9.99e307 — finite, so the tokenizer accepts it (309 would
+    // be Infinity and fail to tokenize instead). Doubling it overflows.
+    const huge = "9".repeat(308);
+    // `*` and `/` always checked this; `+` and `-` did not, and
+    // `valueToString` then stored the literal string "Infinity" as an int.
+    // Failing to parse falls back to plain interpolation, as it always has for
+    // `*` and `/` — the point is that "Infinity" is never STORED, least of all
+    // tagged `kind: "int"`, which every downstream reader parses as NaN.
+    for (const template of [`${huge} + ${huge}`, `0 - ${huge} - ${huge}`, `${huge} * 2`]) {
+      const out = ev(template);
+      expect(out.value, template).not.toBe("Infinity");
+      expect(out.value, template).not.toBe("-Infinity");
+      expect(out.kind, template).toBe("string");
+    }
+    // And the same arithmetic inside the representable range still evaluates.
+    expect(ev("2 + 2")).toEqual({ value: "4", kind: "int" });
+  });
+
   it("keeps clamp from laundering the taint when it clips to a bound", () => {
     const warn = warnSpy();
     // A clamp bound is a sanity limit, not a default the author nominated for
@@ -1015,5 +1097,97 @@ describe("expression stdlib — review round 4", () => {
       d: { value: "2026-01-01T00:00:00.000Z" },
       weeks: { value: "2", kind: "int" },
     }).value).toBe("2026-01-15T00:00:00.000Z");
+  });
+});
+
+describe("expression stdlib — review round 5", () => {
+  it("carries the taint through concat from either operand and either kind", () => {
+    const warn = warnSpy();
+    // Gating on `kind === "string"` closed only half the shapes: a NUMERIC
+    // absent variable concatenated to a string produced an untainted one, so
+    // this stored "Jan 1, 2000" — `Date.parse("0")` — with no warning.
+    expect(ev('format({{d}} + "", "medium", "en-US")').value).toBe("");
+    expect(ev('format(addDays({{d}} + "", 30), "medium", "en-US")').value).toBe("");
+    expect(ev("join({{goals}}, {{sep}} + \"\")", goals).value).toBe("");
+    expect(ev('join({{goals}}, "-" + {{sep}})', goals).value).toBe("");
+    expect(warn).toHaveBeenCalledTimes(4);
+    // Seeded, the same shapes evaluate.
+    expect(ev('join({{goals}}, "-" + {{sep}})', { ...goals, sep: { value: "-" } }).value).toBe(
+      "Sleep--Energy--Focus"
+    );
+  });
+
+  it("refuses a member list assembled out of a name that does not exist", () => {
+    const warn = warnSpy();
+    // Without the coercion guard, `{{g}} + ""` is the string "0" and the
+    // scalar fallback counts it as one member — a plausible 1 for a variable
+    // that does not exist.
+    expect(ev('count({{g}} + "")').value).toBe("");
+    expect(ev('list({{g}} + "")').value).toBe("");
+    expect(warn).toHaveBeenCalledTimes(2);
+    // A real multi-select still counts, and an untouched screen is still 0.
+    expect(ev("count({{goals}})", goals)).toEqual({ value: "3", kind: "int" });
+    expect(ev("count({{skipped}})")).toEqual({ value: "0", kind: "int" });
+  });
+
+  it("refuses an unseeded plural form whichever one the count selects", () => {
+    const warn = warnSpy();
+    // BOTH forms are checked on purpose. Checking only the selected one is
+    // unsafe by itself — an unseeded count is deterministically 0, which picks
+    // `other` and leaves a typo'd `one` form uninspected — and an absent
+    // reference in a form is an authoring error whichever branch today's data
+    // takes, so refusing now beats a bug that hides until the count flips.
+    expect(ev('plural({{n}}, "{{singular}}", "days")', {
+      n: { value: "3", kind: "int" },
+    }).value).toBe("");
+    expect(ev('plural({{n}}, "day", "{{plural}}")', {
+      n: { value: "1", kind: "int" },
+    }).value).toBe("");
+    // The unseeded-count case the suite was missing: with nothing seeded the
+    // sentinel 0 selects `other`, so only the both-forms check catches it.
+    expect(ev('plural({{n}}, "{{singular}}", "days")').value).toBe("");
+    expect(ev('plural({{n}}, "{{one}}", "{{other}}")').value).toBe("");
+    expect(warn).toHaveBeenCalledTimes(4);
+    // Seeded forms still work, including the shipped skipped-screen pattern —
+    // a `count()` result is untainted by design, so the count clause below
+    // does not touch it.
+    expect(ev('plural(count({{skipped}}), "goal", "goals")').value).toBe("goals");
+    expect(ev('plural({{n}}, "{{singular}}", "days")', {
+      n: { value: "1", kind: "int" },
+      singular: { value: "day" },
+    }).value).toBe("day");
+  });
+});
+
+describe("expression stdlib — review round 6", () => {
+  it("does not launder an unseeded count through plural", () => {
+    const warn = warnSpy();
+    // Both forms here are untainted literals, so the both-forms check passes
+    // and an unseeded count picked the separator silently.
+    expect(ev('join({{goals}}, plural({{n}}, "+", "~"))', goals).value).toBe("");
+    expect(ev('format({{d}}, plural({{n}}, "short", "medium"), "en-US")', {
+      d: { value: "2026-03-04T12:00:00.000Z" },
+    }).value).toBe("");
+    expect(warn).toHaveBeenCalledTimes(2);
+    // Seeded count, both shapes evaluate.
+    expect(ev('join({{goals}}, plural({{n}}, "+", "~"))', {
+      ...goals,
+      n: { value: "3", kind: "int" },
+    }).value).toBe("Sleep~Energy~Focus");
+  });
+
+  it("does not launder an absent variable through list or join", () => {
+    const warn = warnSpy();
+    // `list({{sep}})` on an absent variable is an empty selection, so it
+    // returns "" — which then became an empty separator, one of the two
+    // outputs the string taint exists to prevent.
+    expect(ev("join({{goals}}, list({{sep}}))", goals).value).toBe("");
+    expect(ev("list({{goals}}, join({{conj}}))", goals).value).toBe("");
+    expect(warn).toHaveBeenCalledTimes(2);
+    // Seeded, the same nesting works.
+    expect(ev("join({{goals}}, list({{sep}}))", {
+      ...goals,
+      sep: { value: '["-"]' },
+    }).value).toBe("Sleep-Energy-Focus");
   });
 });

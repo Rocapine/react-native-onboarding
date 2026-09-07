@@ -147,14 +147,18 @@ describe("expoIapProductProvider — purchase", () => {
   const resolved = async (M: any) => (await expoIapProductProvider(M).getProducts([YEARLY]))[0];
 
   it("sends the per-platform request shape with the subscription type", async () => {
-    // The old flat `{ request: { sku } }` reached neither platform branch, so
-    // StoreKit received an undefined sku.
-    const M = mock5({ requestPurchase: vi.fn().mockResolvedValue({ id: "tx" }) });
+    // `apple` / `google`, which is what `normalizeRequestProps` reads — on 5.x
+    // exclusively, and on 4.x in preference to the deprecated `ios` / `android`.
+    // This assertion previously named `ios` / `android`, so it passed while
+    // every real purchase was rejected with `empty-sku-list`; the behavioural
+    // proof now lives in expoIap.contract.test.ts, which cannot agree with a
+    // payload the store would refuse.
+    const M = mock5({ requestPurchase: vi.fn().mockResolvedValue({ id: "tx", productId: "pro_yearly" }) });
     const provider = expoIapProductProvider(M);
     const product = (await provider.getProducts([YEARLY]))[0];
     await provider.purchase(product);
     expect(M.requestPurchase).toHaveBeenCalledWith({
-      request: { ios: { sku: "pro_yearly" }, android: { skus: ["pro_yearly"] } },
+      request: { apple: { sku: "pro_yearly" }, google: { skus: ["pro_yearly"] } },
       type: "subs",
     });
   });
@@ -167,10 +171,15 @@ describe("expoIapProductProvider — purchase", () => {
     expect(M.requestPurchase.mock.calls[0][0].type).toBe("in-app");
   });
 
-  it("resolves pending — not purchased — when requestPurchase resolves null", async () => {
-    // The normal 5.x outcome: the transaction arrives via purchaseUpdatedListener,
-    // so nothing is confirmed yet. Reporting "purchased" granted access for a
-    // purchase that may still fail.
+  it("resolves pending on a peer with no purchase listeners at all", async () => {
+    // `mock5` has no `purchaseUpdatedListener`, which is a peer too old to
+    // report an outcome. Nothing is confirmed, so "pending" is the only honest
+    // answer — and it is returned at once rather than after the timeout, since
+    // there is no event that could ever arrive.
+    //
+    // On a real 5.x peer this is NOT the normal path: the transaction lands on
+    // the listener and resolves "purchased". That is the #241 fix, proved in
+    // expoIap.contract.test.ts.
     const M = mock5({ requestPurchase: vi.fn().mockResolvedValue(null) });
     const provider = expoIapProductProvider(M);
     const product = (await provider.getProducts([YEARLY]))[0];

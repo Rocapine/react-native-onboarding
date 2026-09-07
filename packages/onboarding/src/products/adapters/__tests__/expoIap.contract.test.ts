@@ -270,7 +270,10 @@ describe("expoIapProductProvider — cancellation is not an error", () => {
     expect(await provider.purchase(product)).toEqual({ status: "cancelled" });
   });
 
-  it("reports a real store failure as an error", async () => {
+  it("reports a real store failure as an error, keeping the store's diagnosis", async () => {
+    // The listener delivers the PLAIN `{ code, message }` PurchaseError from
+    // types.d.ts:1164, not the Error subclass `requestPurchase` rejects with.
+    // `new Error(String(obj))` would hand the host "[object Object]".
     const M = makeExpoIap5({
       catalog: [iosYearly],
       platform,
@@ -281,6 +284,22 @@ describe("expoIapProductProvider — cancellation is not an error", () => {
     const result = await provider.purchase(product);
     expect(result.status).toBe("error");
     expect((result as any).error.message).toContain("offline");
+    expect((result as any).error.code).toBe("network-error");
+  });
+});
+
+describe("expoIapProductProvider — a store that answers nothing", () => {
+  it("reports pending rather than hanging forever", async () => {
+    // The store's verdict is an event, so a promise waiting on one that never
+    // arrives never settles — and `products.purchasing` would stay true, with
+    // the buy button dead for the life of the process. "pending" is the honest
+    // answer for an unconfirmed purchase; it is never reported as purchased.
+    const M = makeExpoIap5({ catalog: [iosYearly], platform, onDispatch: () => null });
+    const provider = expoIapProductProvider(M, { purchaseTimeoutMs: 10 });
+    const [product] = await provider.getProducts([YEARLY_IOS]);
+    expect(await provider.purchase(product)).toEqual({ status: "pending" });
+    expect(M.calls.finishTransaction).toHaveLength(0);
+    expect(M.calls.liveListeners).toBe(0);
   });
 });
 

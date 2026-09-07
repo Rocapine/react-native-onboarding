@@ -4,6 +4,125 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- **`expoIapProductProvider` could not complete a purchase against expo-iap
+  5.x, and never finished the ones it did take.** Both halves were verified
+  against the installed `expo-iap@5.3.2` before anything was changed.
+
+  The request went out as `request: { ios, android }`. `normalizeRequestProps`
+  (`build/index.js:650-656`) reads `request.apple` / `request.google`, so it
+  resolved `undefined` and expo-iap threw `EmptySkuList` before the store was
+  ever asked — the adapter's `catch` turned that into `{ status: "error" }`, so
+  a user tapping Buy could only ever reach `onError`. The comment claiming 5.x
+  wanted `{ ios, android }` was true of early 5.0/5.1 and stopped being true
+  inside the 5.x line. One shape is now sent for every supported peer, because
+  4.x reads `apple`/`google` first too and only *warns* when it falls back
+  (4.7.2 `build/index.js:666-679`) — and the `fetchProducts`-presence probe that
+  was meant to separate the generations never could, since 4.4+ ships it.
+
+  Nothing subscribed to `purchaseUpdatedListener`. `requestPurchase` resolves
+  `null` on the normal path and delivers the transaction as an event ("the
+  result is delivered through `purchaseUpdatedListener` — NOT the return
+  value", expo-iap's own docstring), so `finishTransaction` only ran on the
+  path expo-iap documents as abnormal. An unfinished transaction is re-delivered
+  by StoreKit on every launch, and **Play auto-refunds an unacknowledged
+  purchase after 3 days** — money taken and silently given back. `purchase()`
+  now subscribes to `purchaseUpdatedListener` / `purchaseErrorListener` before
+  dispatching, resolves from whichever fires, finishes the transaction, and
+  removes both subscriptions. A transaction for another product is ignored
+  rather than mistaken for this one.
+
+- **A dismissed store sheet is `"cancelled"` again, not an error.** 5.x
+  normalized every code to openiap kebab-case (`ErrorCode.UserCancelled ===
+  "user-cancelled"`) and carries no `userCancelled` boolean; only the pre-5.x
+  screaming-snake codes were tested. All shapes are now accepted.
+
+- **Play products resolve at all, and to the right base plan.** Refs are
+  authored `productId:basePlanId`, but `fetchProducts` filters the store's
+  answer by the bare `item.id`, so the composite id matched nothing and the
+  product was dropped with no warning — a blank Android paywall reporting
+  `status: "ready"`. The id is now split: the product half queries the store,
+  the base plan half selects the offer, and its `offerTokenAndroid` is sent as
+  `subscriptionOffers: [{ sku, offerToken }]`, without which Play cannot select
+  a base plan.
+
+- **An Android billing period no longer comes from the free trial.**
+  `pricingPhaseList[0]` is the trial or intro phase whenever one exists, so a
+  $59.99/year plan with a one-week trial reported `periodIso: "P1W"` — and,
+  since `deriveProductFields` divides the price by the period it is given, a
+  `pricePerYear` around $3,130. The infinite-recurring phase is used instead.
+
+- **`restore()` returns product ids, and only for purchases that were paid
+  for.** `Purchase.id` is the transaction id and is always present, so
+  `p.id ?? p.productId` never fell through and the host was handed transaction
+  ids to match against its entitlements. `getAvailablePurchases` also reports
+  unfinished purchases, so an Android slow-payment purchase entitled the user
+  before the money moved; only an explicit `purchaseState: "purchased"` now
+  counts.
+
+- **A failed product query is an error, not an empty catalog.**
+  `FetchProductsResult` includes `null`, which was coerced to `[]` — putting
+  the runtime in `status: "ready"` with every `{{product.*}}` blank and nothing
+  said about why. A ref the store returns nothing for is now named in a
+  `console.warn`.
+
+- **The store connection recovers.** `endConnection` is process-wide, so any
+  other `useIAP` unmounting — or an Android `ServiceDisconnected` — closed the
+  connection this adapter opened, and the cached resolved connect promise then
+  made every later call fail for the life of the process. A connection-lost
+  code now reopens the connection and retries once. Safe on the purchase path:
+  those codes are thrown by expo-iap's own guard before any billing flow
+  starts, so the retry cannot double-charge.
+
+- **An iOS consumable is consumed rather than acknowledged**, so it can be
+  re-bought. Only iOS publishes the discriminator (`typeIOS`); Android
+  one-time products are all `type: "in-app"` and consumability is the app's
+  own decision, so a Play consumable still needs the host to say so.
+
+- **A second `getProducts` no longer wipes the first.** The per-product store
+  metadata was cleared on every resolve, so already-rendered products lost the
+  offer token and type discriminator needed to buy them. It is also keyed per
+  ref now, not per product id — two refs routinely name one Play subscription
+  through different base plans.
+
+- **A subscription with a compound period is bought as a subscription.**
+  `toPeriod` rejects `P1Y1M`, so a `period`-based discriminator labelled a real
+  subscription `in-app` and Play rejects the wrong type outright. `periodIso`
+  decides now.
+
+- **A store error keeps the store's own message.** `purchaseErrorListener`
+  delivers the plain `{ code, message }` `PurchaseError` from `types.d.ts`, not
+  the `Error` subclass `requestPurchase` rejects with, so
+  `new Error(String(e))` handed the host `"[object Object]"` at the one point it
+  would read a diagnosis. The code is preserved on the `Error` too.
+
+### Added
+
+- `expoIapProductProvider(Iap?, { purchaseTimeoutMs })` — how long to wait for
+  the store's verdict before reporting `"pending"` (default 3 minutes). The
+  outcome is an event and nothing bounds how long a user spends in the store
+  sheet, so this is a guard against a promise that never settles — which would
+  leave `products.purchasing` true and the buy button dead — not a deadline for
+  the user. It resolves `"pending"`, never `"purchased"`.
+
+### Known gaps
+
+- **A transaction replayed at launch is still not finished.** iOS re-delivers
+  an unfinished transaction on every launch precisely so the app can grant
+  access for it; finishing one blind would destroy that recovery path while
+  granting nothing, which is worse than the replay. Doing it properly needs an
+  entitlement seam the `ProductProvider` interface does not have.
+- **A daily plan still reports `period: "week"`.** All three adapters share the
+  mapping and `ProductPeriod` has no `"day"` member, so this is a shared-type
+  change rather than part of this fix. `periodIso` is exact, so every derived
+  per-period price is already correct.
+- **Android consumables cannot be detected**, only declared — see above.
+
+---
+
 ## [1.75.0] - 2026-09-07
 
 ### Fixed

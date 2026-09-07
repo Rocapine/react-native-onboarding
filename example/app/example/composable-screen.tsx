@@ -1315,9 +1315,13 @@ export default function ComposableScreenExample() {
             // a network failure would pop an unexpected system dialog for a real
             // user); this example app is where you can actually press it.
             //
-            // On a build with none of the optional Expo permission modules
-            // installed the outcome is "unavailable", which runs `onUnavailable`.
-            // Without that branch it would fall back to `onDenied` and warn.
+            // This app installs NONE of the optional Expo permission modules,
+            // deliberately: it is the proof that they are optional to Metro
+            // (review round 1 — a `require` outside a literal try block made
+            // them mandatory and the whole app stopped bundling). So the outcome
+            // here is "unavailable", which runs `onUnavailable`; without that
+            // branch it would fall back to `onDenied` and warn. Install
+            // `expo-notifications` to see a real system prompt.
             {
               id: 'btn-request-notifications',
               type: 'Button' as const,
@@ -1346,7 +1350,13 @@ export default function ComposableScreenExample() {
               id: 'txt-push-optin',
               type: 'Text' as const,
               props: {
+                // `mode: 'expression'` is REQUIRED for `{{var}}` to resolve in
+                // Text — without it the content is rendered verbatim, which is
+                // how the first version of this demo shipped: it read
+                // "Permission answer: {{push_optin}}" forever, so the one
+                // manual check of the action showed nothing.
                 content: 'Permission answer: {{push_optin}}',
+                mode: 'expression' as const,
                 fontSize: 13,
                 color: '#6b7280',
                 marginVertical: 8,

@@ -37,11 +37,33 @@ here.
   seam HealthKit / Screen Time will use. The paywall hosts do NOT expose it yet
   — a paywall's own elements get the bundled resolver only.
 
+  New exports: `PermissionResolver`, `PermissionOutcome`,
+  `PermissionModuleCandidate`, `PermissionKind` — a host implementing the
+  documented HealthKit / Screen Time escape hatch has to be able to name the
+  resolver's own types.
+
+  **Optional means optional to Metro, and that is a syntax requirement.** Each
+  module is `require`d directly inside a literal `try` block, from a name-keyed
+  table of loaders (`permissionModuleLoaders`). Metro marks a dependency
+  optional only when the first `BlockStatement` within three statements above
+  the call is a `TryStatement`'s own block
+  (`isOptionalDependency`, `@expo/metro-config`), so the first version of this
+  file — which put the same `require`s inside arrows that a try/catch helper
+  invoked — made all seven MANDATORY: the example app failed to bundle on ios,
+  android and web with `Unable to resolve module expo-notifications`, and any
+  consumer app that had not installed all seven would have done the same. The
+  shape is now asserted at source level
+  (`Runtime/__tests__/permissionModules.test.ts`), because nothing observable at
+  runtime distinguishes the two forms. Found in review round 1 of #196.
+
   **Not verified on a device.** There is no device test framework in this repo
   (#216 is open) and a system permission dialog cannot be driven headless or in
   a web preview. Covered: schema round-trip, dispatch against a stubbed
-  resolver, headless↔UI mirror parity, and the module-absent path. Every real
-  grant/deny is unverified until someone runs it on hardware.
+  resolver and against an injected module loader (including the two-candidate
+  fallbacks for `microphone` / `photoLibrary`), headless↔UI mirror parity, the
+  module-absent path, and the example app bundling on ios + android with none of
+  the seven installed. Every real grant/deny is unverified until someone runs it
+  on hardware.
 
 ---
 

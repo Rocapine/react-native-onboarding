@@ -34,6 +34,30 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   New exports: `PERMISSION_KINDS`, `PermissionKindSchema`, `PermissionKind`,
   `RequestPermissionButtonAction`, `RequestPermissionButtonActionSchema`.
 
+  **The escape-CTA guard reads this action with AND, not OR.**
+  `hasCompletingAction` (the #209 "can the user still get off this screen?"
+  predicate) finds branch lists by shape, which for `requestPermission` was
+  wrong: a CTA holding its only `"continue"` in `onGranted` read as a way
+  forward, so the strip withheld its escape button from exactly the screen that
+  needs one — a refusal, or a build that never installed the optional module,
+  runs nothing and the user is stuck with no signal. It now counts the action
+  only when a grant AND a non-grant both reach `"continue"` / `{dismiss}`,
+  mirroring the runtime's own `onUnavailable ?? onDenied` fallback.
+  `purchase` / `restore` keep the OR reading deliberately: a cancelled purchase
+  can be retried, a standing OS denial cannot. Found in review round 1 of #196.
+
+  **A misspelled outcome hook is now reported.** `collectUnknownElementKeys`
+  walks `props.actions` and `props.onPress` as well as element nodes, deriving
+  each action's key set from `ButtonActionSchema` itself, and reports unknown
+  keys with `scope: "action"` and the action's `type`. The schema stays
+  non-strict for the reason it always was (rejecting unknown keys would take
+  down published payloads to report a no-op), but
+  `{ type: "requestPermission", onGranted: [...], onDeneid: [...] }` previously
+  validated clean with a dead denial branch — on a permission screen, a CTA the
+  refusing user cannot get past. It surfaces through the `__DEV__` check
+  `OnboardingProvider` already runs on every fetched payload, and covers
+  `purchase.onSucces` and any hook added later for free.
+
   **Forward compatibility:** `ButtonActionSchema` is a plain `z.union`, and
   #209's strip is keyed to unknown *element* types only. An app on a pre-1.76
   SDK that receives a `requestPermission` action fails `invalid_union`, and the

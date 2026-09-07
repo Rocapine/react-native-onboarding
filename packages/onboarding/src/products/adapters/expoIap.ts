@@ -22,8 +22,8 @@ const toPeriod = (iso: string | null | undefined): { period: ProductPeriod | nul
   // `D: "week"` is wrong for a daily plan and is deliberately left alone here:
   // `ProductPeriod` has no "day" member, all three adapters share the same
   // mapping, and widening a published union is a release-visible change rather
-  // than part of this fix. Tracked as its own ticket. Only `period` is affected
-  // — `periodIso` is what `deriveProductFields` divides by, and it is exact.
+  // than part of this fix. Tracked in #258. Only `period` is affected —
+  // `periodIso` is what `deriveProductFields` divides by, and it is exact.
   const map: Record<string, ProductPeriod> = { D: "week", W: "week", M: "month", Y: "year" };
   return { period: map[m[2]] ?? null, count: Number(m[1]) };
 };
@@ -44,12 +44,16 @@ const isCancellation = (e: any): boolean =>
   e?.userCancelled === true;
 
 /**
- * Codes that mean "the store connection is gone", not "this call is invalid".
+ * Codes that mean the store connection is gone, so a READ is worth retrying
+ * after reopening it.
  *
  * `endConnection` is process-wide: any other `useIAP` in the host unmounting,
  * or an Android `ServiceDisconnected`, closes the connection this adapter
  * opened. Caching a RESOLVED connect promise then made every later call fail
  * for the life of the process.
+ *
+ * **Reads only.** `requestPurchase` is never retried on these — see the comment
+ * on `withConnection`.
  */
 const CONNECTION_LOST = new Set([
   "not-prepared",
@@ -165,6 +169,16 @@ const deliversFor = (purchase: any, sku: string): boolean =>
   purchase?.productId === sku ||
   (Array.isArray(purchase?.ids) && purchase.ids.includes(sku));
 
+/** The products a `PurchaseError` names, if it names any (`types.d.ts:1164-1174`). */
+const errorSkus = (e: any): string[] =>
+  [e?.productId, ...(Array.isArray(e?.productIds) ? e.productIds : [])].filter(
+    (s): s is string => typeof s === "string" && s.length > 0
+  );
+
+/** A transaction id, which is what `Purchase.id` carries (`types.d.ts:1151`). */
+const txIdOf = (purchase: any): string | null =>
+  typeof purchase?.id === "string" && purchase.id ? purchase.id : null;
+
 /**
  * `purchaseState` is `'pending' | 'purchased' | 'unknown'` (`types.d.ts:1264`).
  *
@@ -198,30 +212,62 @@ const asError = (e: unknown): Error => {
   return error;
 };
 
+const failureFor = (e: any): PurchaseResult =>
+  isCancellation(e) ? { status: "cancelled" } : { status: "error", error: asError(e) };
+
 /** What `getProducts` remembers per ref so `purchase` can dispatch correctly. */
 type ResolvedMeta = {
   /** expo-iap's own discriminator: "subs" | "in-app". */
   type?: string;
   /** Play's handle on the chosen base plan. Required to buy a subscription. */
   offerToken?: string;
-  /** iOS consumables must be CONSUMED, not acknowledged, or they can't be re-bought. */
-  isConsumable: boolean;
+};
+
+/** One caller waiting for an answer. Its lifetime is NOT the transaction's. */
+type Waiter = {
+  sku: string;
+  productKey: string;
+  settled?: PurchaseResult;
+  answer: (r: PurchaseResult) => void;
+  promise: Promise<PurchaseResult>;
 };
 
 export type ExpoIapProviderOptions = {
   /**
-   * How long to wait for the store's verdict after a purchase is dispatched,
-   * before reporting `"pending"`.
+   * How long to wait for the store's verdict before answering `"pending"`.
    *
-   * The real outcome arrives on `purchaseUpdatedListener` /
-   * `purchaseErrorListener` and nothing bounds how long the user spends in the
-   * store sheet, so this is a safety net against a promise that never settles
-   * (which would leave `products.purchasing` true and the buy button dead
-   * forever), not a deadline for the user. It resolves `"pending"` — the honest
-   * "unconfirmed" answer — never `"purchased"`.
+   * The verdict is an event and nothing bounds how long a user spends in the
+   * store sheet — Ask to Buy, an SCA step-up, or adding a card inside the sheet
+   * routinely exceed the default — so this bounds only how long the CALLER
+   * waits. It does not end the transaction: the provider's listeners stay
+   * attached, and a verdict arriving after the timeout is still acknowledged.
+   * It resolves `"pending"`, never `"purchased"`.
    */
   purchaseTimeoutMs?: number;
+  /**
+   * Honour a transaction this process never asked for, so it can be finished.
+   *
+   * StoreKit re-delivers an unfinished transaction on **every launch**, and a
+   * purchase can also arrive from an Ask to Buy approval, a promoted product,
+   * or a pending Play purchase that cleared while the app was closed. None of
+   * those has a caller waiting, and finishing one blind would take the money
+   * while granting nothing — destroying the very replay that lets the app
+   * recover. So the host decides: return `true` once entitlement is granted and
+   * the transaction is finished; return `false` (or leave this unset) and it is
+   * left alone to be re-delivered next launch.
+   *
+   * A purchase this provider DISPATCHED in this process never comes here — the
+   * caller was told about it, so acknowledging it needs no second opinion.
+   */
+  onUnclaimedPurchase?: (purchase: any) => boolean | Promise<boolean>;
 };
+
+/**
+ * `dispose()` is additive to `ProductProvider`: hosts that never call it are
+ * unaffected, but a provider holds a store subscription for its lifetime, so a
+ * host that rebuilds one per render should tear the old one down.
+ */
+export type ExpoIapProvider = ProductProvider & { dispose(): void };
 
 const DEFAULT_PURCHASE_TIMEOUT_MS = 180_000;
 
@@ -229,7 +275,7 @@ const DEFAULT_PURCHASE_TIMEOUT_MS = 180_000;
 export const expoIapProductProvider = (
   Iap: any = IAP,
   options: ExpoIapProviderOptions = {}
-): ProductProvider => {
+): ExpoIapProvider => {
   const purchaseTimeoutMs = options.purchaseTimeoutMs ?? DEFAULT_PURCHASE_TIMEOUT_MS;
 
   const required = () => {
@@ -241,6 +287,159 @@ export const expoIapProductProvider = (
     return Iap;
   };
 
+  // ---------------------------------------------------------------------------
+  // The finish lifetime.
+  //
+  // Acknowledging the money is a SEPARATE concern from answering the caller,
+  // and an earlier version of this file conflated them: it guarded both on one
+  // `claimed` flag and removed its listeners the moment the caller had an
+  // answer. Every path that answered early — an unrelated product's error, a
+  // `pending` update, the timeout — permanently lost the ability to finish the
+  // charge, and Play auto-refunds an unacknowledged purchase after 3 days.
+  //
+  // So the listeners are opened ONCE, on first connect, and live as long as the
+  // provider. That is also forced by expo-iap's iOS dedupe: each new
+  // `purchaseUpdatedListener` seeds its history from a PROCESS-WIDE set
+  // (`ids: new Set(purchaseUpdatedDedupeHistoryIOS.ids)`, `build/index.js`
+  // :148-151, recorded into the global at :164, cleared only by a successful
+  // `endConnection`). Subscribing per Buy tap therefore inherits every
+  // transaction id any other listener in the process has ever seen — the host's
+  // own `useIAP`, for instance — and silently drops them. One early
+  // subscription sees each transaction exactly once instead.
+  // ---------------------------------------------------------------------------
+  let subscriptions: { remove?(): void }[] | null = null;
+  /** Skus this process asked to buy. A delivery for one of these is ours. */
+  const dispatchedSkus = new Set<string>();
+  /** Transaction ids already acknowledged, so no delivery finishes twice. */
+  const finishedTxIds = new Set<string>();
+  /** Acknowledgements that threw, retried on the next store round-trip. */
+  const unfinished = new Map<string, { purchase: any; isConsumable: boolean }>();
+  const waiters = new Set<Waiter>();
+  let warnedUnclaimed = false;
+  /** Only iOS publishes a consumable discriminator; see `getProducts`. */
+  const consumableBySku = new Map<string, boolean>();
+
+  const finish = async (purchase: any, isConsumable: boolean) => {
+    const M = required();
+    const tx = txIdOf(purchase);
+    if (tx && finishedTxIds.has(tx)) return;
+    if (typeof M.finishTransaction !== "function") return;
+    try {
+      await M.finishTransaction({ purchase, isConsumable });
+      if (tx) {
+        finishedTxIds.add(tx);
+        unfinished.delete(tx);
+      }
+    } catch (e) {
+      // Best-effort: a failure here does not un-buy anything, so it must not
+      // turn a completed purchase into an error. But it must not be forgotten
+      // either — Play's 3-day window is still running.
+      if (tx) unfinished.set(tx, { purchase, isConsumable });
+      console.warn(
+        `expoIapProductProvider: could not finish transaction ${tx ?? "(no id)"} ` +
+          `for "${purchase?.productId}" — will retry on the next store call. ${String(e)}`
+      );
+    }
+  };
+
+  /** Give an earlier failed acknowledgement another go; never throws. */
+  const retryUnfinished = async () => {
+    for (const [, record] of [...unfinished]) {
+      try {
+        await finish(record.purchase, record.isConsumable);
+      } catch {
+        // finish() already swallows and re-queues; belt and braces
+      }
+    }
+  };
+
+  /** Hand a result to the one caller waiting on this transaction's sku, if any. */
+  const answer = (purchase: any, result: PurchaseResult) => {
+    for (const w of waiters) {
+      if (w.settled || !deliversFor(purchase, w.sku)) continue;
+      w.answer(result.status === "purchased" ? { ...result, productKey: w.productKey } : result);
+      return;
+    }
+  };
+
+  const handleUpdated = async (purchase: any) => {
+    const sku: string | undefined = purchase?.productId;
+    const isConsumable = (sku != null && consumableBySku.get(sku)) || false;
+
+    // Play's slow-payment path: the user has committed but the money has not
+    // moved, and Android cannot acknowledge it anyway (no `purchaseToken` yet,
+    // `build/index.js:865-874`). Tell the caller — then keep listening, because
+    // Play emits `purchased` for the SAME transaction once it clears. Treating
+    // this as terminal is what left a cleared purchase unfinished.
+    if (purchase?.purchaseState === "pending") {
+      answer(purchase, { status: "pending" });
+      return;
+    }
+
+    if (sku != null && dispatchedSkus.has(sku)) {
+      await finish(purchase, isConsumable);
+      // `productKey` is filled in by `answer` from the waiting caller's ref.
+      answer(purchase, { status: "purchased", productKey: "" });
+      return;
+    }
+
+    // Nobody here asked for this one: a replay from a previous process, an Ask
+    // to Buy approval, a promoted product. Only the host knows whether it has
+    // been honoured, so only the host can authorise finishing it.
+    if (options.onUnclaimedPurchase) {
+      if (await options.onUnclaimedPurchase(purchase)) await finish(purchase, isConsumable);
+      return;
+    }
+    if (!warnedUnclaimed) {
+      warnedUnclaimed = true;
+      console.warn(
+        `expoIapProductProvider: the store delivered a transaction nobody is waiting for ` +
+          `("${sku}"). It is left unfinished, so it will be re-delivered next launch. ` +
+          `Pass onUnclaimedPurchase to grant entitlement and finish it.`
+      );
+    }
+  };
+
+  /**
+   * Attribute a store failure to the purchase it belongs to.
+   *
+   * The error listener is process-wide and unfiltered — expo-iap forwards the
+   * event verbatim (`build/index.js:195-200`), and on Android the module emits
+   * from a single listener registered per module (`ExpoIapHelper.kt`), buffering
+   * events while disconnected and flushing them on the next successful
+   * `initConnection` (`ExpoIapModule.kt:198-205`). Claiming unconditionally
+   * therefore let another product's failure — or a stale buffered one — answer
+   * this purchase, after which the real transaction arrived to a caller that
+   * had already been told "error".
+   */
+  const handleError = (e: any) => {
+    const open = [...waiters].filter((w) => !w.settled);
+    if (open.length === 0) return;
+    const named = errorSkus(e);
+    // With no product named there is nothing to match on, so attribute it only
+    // when a single purchase is in flight and it cannot be anyone else's.
+    const target =
+      named.length > 0
+        ? open.find((w) => named.includes(w.sku))
+        : open.length === 1
+          ? open[0]
+          : undefined;
+    target?.answer(failureFor(e));
+  };
+
+  const listen = () => {
+    if (subscriptions) return;
+    const M = required();
+    const subs: { remove?(): void }[] = [];
+    if (typeof M.purchaseUpdatedListener === "function") {
+      subs.push(M.purchaseUpdatedListener((p: any) => void handleUpdated(p)));
+    }
+    if (typeof M.purchaseErrorListener === "function") {
+      subs.push(M.purchaseErrorListener((e: any) => handleError(e)));
+    }
+    subscriptions = subs;
+  };
+
   // Every expo-iap query fails until the store connection is open, and nothing
   // opens it implicitly — `useIAP` does it for hook consumers, but this adapter
   // is not a hook. Cached so concurrent getProducts/purchase/restore calls share
@@ -250,7 +449,10 @@ export const expoIapProductProvider = (
   let connecting: Promise<unknown> | null = null;
   const connect = async () => {
     const M = required();
-    if (typeof M.initConnection !== "function") return; // older peer: implicit connection
+    if (typeof M.initConnection !== "function") {
+      listen(); // older peer: implicit connection, but events still arrive
+      return;
+    }
     if (!connecting) {
       connecting = Promise.resolve(M.initConnection()).catch((e: unknown) => {
         connecting = null;
@@ -258,15 +460,26 @@ export const expoIapProductProvider = (
       });
     }
     await connecting;
+    // As early as possible, and before any purchase: a transaction replayed at
+    // launch has no caller, and a listener attached later would inherit a
+    // dedupe history that hides it.
+    listen();
   };
 
   /**
-   * Run a store call, reopening the connection once if it turns out to be gone.
+   * Run a READ, reopening the connection once if it turns out to be gone.
    *
-   * Safe on the purchase path too: a CONNECTION_LOST code is thrown by
-   * expo-iap's own guard before any billing flow is started, so the retry
-   * cannot double-charge. Anything the store itself rejected has a different
-   * code and is not retried.
+   * `requestPurchase` is deliberately NOT run through this. An earlier version
+   * did, on the stated reasoning that a CONNECTION_LOST code is thrown before
+   * any billing flow starts — which the Android module disproves.
+   * `requestPurchase` sets `reachedOpenIapRequest = true` BEFORE calling
+   * `openIap.requestPurchase` (`ExpoIapModule.kt:435-436`), and
+   * `deliverPurchaseRequestFailure` (`:63-75`) rejects the pending promise on
+   * every path, mid-flight included. Worse, `service-disconnected` is the
+   * catch-all code for any failure that is not an `OpenIapError` (`:60-61`), so
+   * the code carries no information about whether the sheet was ever shown.
+   * Retrying it can present a SECOND sheet, charge a consumable twice, and
+   * discard the result.
    */
   const withConnection = async <T>(op: () => Promise<T>): Promise<T> => {
     await connect();
@@ -287,6 +500,17 @@ export const expoIapProductProvider = (
   const metaByKey = new Map<string, ResolvedMeta>();
 
   return {
+    dispose() {
+      for (const s of subscriptions ?? []) {
+        try {
+          s.remove?.();
+        } catch {
+          // a peer whose subscription has no remove(); nothing to undo
+        }
+      }
+      subscriptions = null;
+    },
+
     async getProducts(refs: ProductRef[]): Promise<ResolvedProduct[]> {
       const M = required();
       const wanted = refs
@@ -348,11 +572,11 @@ export const expoIapProductProvider = (
         metaByKey.set(ref.key, {
           type: s.type,
           offerToken: offer?.offerTokenAndroid ?? undefined,
-          // Only iOS publishes the discriminator. Android one-time products are
-          // all `type: "in-app"` and consumability is the app's decision, so a
-          // Play consumable still needs the host to say so — see the CHANGELOG.
-          isConsumable: s.typeIOS === "consumable",
         });
+        // Only iOS publishes the discriminator. Android one-time products are
+        // all `type: "in-app"` and consumability is the app's decision, so a
+        // Play consumable still needs the host to say so — see the CHANGELOG.
+        consumableBySku.set(productId, s.typeIOS === "consumable");
 
         out.push({
           key: ref.key,
@@ -388,68 +612,36 @@ export const expoIapProductProvider = (
       // "P1Y1M", so a `period`-based test called a real subscription "in-app"
       // and Play rejects the wrong type outright.
       const isSubs = (meta?.type ?? (product.periodIso ? "subs" : "in-app")) === "subs";
-      const isConsumable = meta?.isConsumable ?? false;
 
-      const subscriptions: { remove(): void }[] = [];
-      let claimed = false;
-      let resolveOutcome!: (r: PurchaseResult) => void;
-      const outcome = new Promise<PurchaseResult>((resolve) => {
-        resolveOutcome = resolve;
-      });
-      /** First terminal answer wins; the rest are replays or other products. */
-      const claim = (r: PurchaseResult) => {
-        if (claimed) return;
-        claimed = true;
-        resolveOutcome(r);
+      try {
+        await connect();
+      } catch (e) {
+        return failureFor(e);
+      }
+      // An acknowledgement that failed earlier gets another go now that the
+      // store is reachable, before anything new is dispatched.
+      await retryUnfinished();
+
+      let resolveWaiter!: (r: PurchaseResult) => void;
+      const waiter: Waiter = {
+        sku,
+        productKey: product.key,
+        answer: (r) => {
+          if (waiter.settled) return;
+          waiter.settled = r;
+          resolveWaiter(r);
+        },
+        promise: new Promise<PurchaseResult>((resolve) => {
+          resolveWaiter = resolve;
+        }),
       };
-
-      const deliver = async (purchase: any) => {
-        if (claimed) return;
-        // A pending purchase is not money yet — Play's slow-payment path. It
-        // cannot be acknowledged, and granting access would entitle a user who
-        // may never pay.
-        if (purchase?.purchaseState === "pending") return claim({ status: "pending" });
-        claimed = true;
-        // Unfinished transactions are re-delivered by StoreKit on every launch,
-        // and Play AUTO-REFUNDS an unacknowledged purchase after 3 days — this
-        // is the call whose absence silently reversed paid subscriptions.
-        // Best-effort: a failure here does not un-buy anything, so it must not
-        // turn a completed purchase into an error.
-        if (typeof M.finishTransaction === "function") {
-          try {
-            await M.finishTransaction({ purchase, isConsumable });
-          } catch {
-            // ignore — reported as purchased, will be re-delivered and finished later
-          }
-        }
-        resolveOutcome({ status: "purchased", productKey: product.key });
-      };
-
-      const failure = (e: any): PurchaseResult =>
-        isCancellation(e) ? { status: "cancelled" } : { status: "error", error: asError(e) };
+      waiters.add(waiter);
+      // Recorded BEFORE dispatch: on a fast store the transaction can be
+      // delivered before `requestPurchase` resolves.
+      dispatchedSkus.add(sku);
 
       let timer: ReturnType<typeof setTimeout> | undefined;
       try {
-        await connect();
-
-        // Subscribe BEFORE dispatching. `requestPurchase` "is delivered through
-        // `purchaseUpdatedListener` — NOT the return value" (expo-iap's own
-        // docstring, `build/index.js:676-679`), and the store can emit before
-        // the dispatch call resolves, so a listener attached afterwards misses
-        // its own purchase.
-        const listening = typeof M.purchaseUpdatedListener === "function";
-        if (listening) {
-          subscriptions.push(
-            M.purchaseUpdatedListener((p: any) => {
-              if (!deliversFor(p, sku)) return; // a replay for some other product
-              void deliver(p);
-            })
-          );
-        }
-        if (typeof M.purchaseErrorListener === "function") {
-          subscriptions.push(M.purchaseErrorListener((e: any) => claim(failure(e))));
-        }
-
         const apple = { sku };
         const google: Record<string, unknown> = { skus: [sku] };
         if (isSubs) {
@@ -473,47 +665,58 @@ export const expoIapProductProvider = (
         // `request.ios` / `request.android` (4.7.2 `build/index.js:666-679`).
         // So there is nothing to version-probe here — and probing on
         // `fetchProducts` never worked anyway, since 4.4+ has it too.
-        const dispatched = await withConnection(() =>
-          M.requestPurchase({ request: { apple, google }, type: isSubs ? "subs" : "in-app" })
-        );
+        //
+        // NOT wrapped in `withConnection`: see its comment. A retry here can
+        // present a second store sheet.
+        const dispatched = await M.requestPurchase({
+          request: { apple, google },
+          type: isSubs ? "subs" : "in-app",
+        });
 
         // iOS resolves the transaction directly when StoreKit hands one back,
-        // and `[]` / `null` otherwise (`build/index.js:745-751`). Use it when
-        // it is there; wait for the listener when it is not.
+        // and `[]` / `null` otherwise (`build/index.js:745-751`). Route it
+        // through the same handler — including the sku check, which the
+        // listener path applies and this one used to skip.
         const direct = Array.isArray(dispatched) ? dispatched[0] : dispatched;
-        if (direct) void deliver(direct);
+        if (direct && deliversFor(direct, sku)) await handleUpdated(direct);
+        if (waiter.settled) return waiter.settled;
 
-        // A peer too old to have `purchaseUpdatedListener` has no way to tell
-        // us how this ended, so there is nothing to wait for — report the
-        // unconfirmed outcome now rather than sitting out the whole timeout.
-        if (!listening && !claimed) return { status: "pending" };
+        // A peer too old to have `purchaseUpdatedListener` has no way to tell us
+        // how this ended, so there is nothing to wait for.
+        if (typeof M.purchaseUpdatedListener !== "function") return { status: "pending" };
 
         return await Promise.race([
-          outcome,
+          waiter.promise,
           new Promise<PurchaseResult>((resolve) => {
             timer = setTimeout(() => resolve({ status: "pending" }), purchaseTimeoutMs);
           }),
         ]);
       } catch (e: any) {
-        return failure(e);
+        // The store's own event is more specific than a rejection that may only
+        // say `service-disconnected`, so an answer already delivered wins.
+        return waiter.settled ?? failureFor(e);
       } finally {
         if (timer) clearTimeout(timer);
-        // A subscription left behind on every Buy tap accumulates for the life
-        // of the process, and each stale one would finish transactions again.
-        for (const s of subscriptions) {
-          try {
-            s.remove?.();
-          } catch {
-            // a peer whose subscription has no remove(); nothing to undo
-          }
-        }
+        // Only the ANSWER slot closes here. The listeners stay attached and the
+        // sku stays in `dispatchedSkus`, so a verdict arriving after this call
+        // has returned is still acknowledged.
+        waiters.delete(waiter);
       }
     },
 
     async restore() {
       const M = required();
       try {
-        const purchases = await withConnection(() => M.getAvailablePurchases());
+        const purchases = await withConnection(async () => {
+          // `restorePurchases()` performs the iOS StoreKit sync first and then
+          // refreshes, but deliberately returns nothing — "consumers should
+          // call `getAvailablePurchases`" (`build/index.js:886-899`). Behind a
+          // user-facing Restore button that sync is the point.
+          if (typeof M.restorePurchases === "function") {
+            await M.restorePurchases();
+          }
+          return M.getAvailablePurchases();
+        });
         // `productId`, not `id`: `Purchase.id` is the TRANSACTION id and is
         // always set (`types.d.ts:1151`), so `p.id ?? p.productId` never fell
         // through and restore handed the host transaction ids to match against

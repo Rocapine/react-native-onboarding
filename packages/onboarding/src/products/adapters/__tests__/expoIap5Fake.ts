@@ -25,10 +25,40 @@
  *             the store does not know simply does not come back.
  *   :676-679  "The result is delivered through `purchaseUpdatedListener` — NOT
  *             the return value."
- *   :145,:195 purchaseUpdatedListener / purchaseErrorListener return an
- *             EmitterSubscription with `.remove()`.
+ *   :145-176  purchaseUpdatedListener's iOS DEDUPE — see below, it is the whole
+ *             reason this fake exists in its current form.
+ *   :195-200  purchaseErrorListener forwards the event verbatim: no product
+ *             filtering of any kind, so attribution is the caller's problem.
+ *   :886-899  restorePurchases() syncs and refreshes, and returns nothing.
  *   types.js:41 ErrorCode.UserCancelled === "user-cancelled" — kebab-case,
  *             and PurchaseError carries no `userCancelled` boolean.
+ *
+ * ## The dedupe, which the first version of this fake got wrong
+ *
+ * That version modelled listeners as plain push/splice. Real 5.3.2 keeps a
+ * **process-wide** history of iOS transaction ids and seeds every NEW listener
+ * from it:
+ *
+ *     const listenerDedupeHistoryIOS = {
+ *       ids: new Set(purchaseUpdatedDedupeHistoryIOS.ids),   // :148
+ *       ...
+ *     };
+ *     // on each event, recorded into BOTH (:163-164):
+ *     rememberPurchaseUpdatedTransactionIOS(transactionId, listenerDedupeHistoryIOS);
+ *     rememberPurchaseUpdatedTransactionIOS(transactionId, purchaseUpdatedDedupeHistoryIOS);
+ *     if (!receiveDuplicateTransactionUpdatesIOS && isDuplicateForListener) return;  // :165-167
+ *
+ * So a listener subscribed *after* a transaction has been seen anywhere in the
+ * process — by the host's own `useIAP`, for instance — never receives it.
+ * Modelling this without the dedupe made a subscribe-per-Buy-tap adapter look
+ * correct. It is iOS-only (`if (Platform.OS === 'ios')`, :155), and the global
+ * history is cleared only by a successful `endConnection`.
+ *
+ * Two other divergences were checked and left unmodelled on purpose, because
+ * nothing in this adapter can reach them: `validateAndroidPurchaseBranchOptions`
+ * (the adapter never sends subscription-only fields on an `in-app` request) and
+ * the `isProductIOS`/`isProductAndroid` platform filter inside `fetchProducts`
+ * (the catalogs here are single-platform).
  *
  * Deliberately NOT modelled: Play's requirement that a subscription purchase
  * carry an `offerToken`. That rule lives in openiap-google's native layer, and
@@ -41,6 +71,7 @@ export type FakePurchase = {
   productId: string;
   purchaseState?: "purchased" | "pending" | "unknown";
   purchaseToken?: string;
+  ids?: string[];
 };
 
 export type FakeOptions = {
@@ -54,33 +85,48 @@ export type FakeOptions = {
   /**
    * What the store does when a purchase is dispatched. Default: deliver a
    * purchased transaction through purchaseUpdatedListener — the normal 5.x
-   * outcome. Return `null` to model a store that emits nothing.
+   * outcome. Return `null` to model a store that emits nothing yet.
    */
   onDispatch?: (sku: string, type: string) => FakePurchase | { error: any } | null;
   /** What `getAvailablePurchases` reports — unfinished purchases included. */
   purchases?: FakePurchase[];
   /** Stand in for a store that answers the product query with `null`. */
   fetchProductsResult?: null;
+  /** Make `finishTransaction` throw, to exercise the retry path. */
+  finishFails?: () => boolean;
 };
 
 const err = (code: string, message: string) => Object.assign(new Error(message), { code });
 
 export const makeExpoIap5 = (options: FakeOptions = {}) => {
   const catalog = options.catalog ?? [];
-  const updatedListeners: ((p: FakePurchase) => void)[] = [];
+  const platformOf = () => options.platform?.() ?? "ios";
+
+  // The process-wide dedupe history (`purchaseUpdatedDedupeHistoryIOS`).
+  const globalSeenIOS = new Set<string>();
+
+  type Registered = { listener: (p: FakePurchase) => void; seen: Set<string> };
+  const updatedListeners: Registered[] = [];
   const errorListeners: ((e: any) => void)[] = [];
 
   const calls = {
     initConnection: 0,
     endConnection: 0,
+    restorePurchases: 0,
     requestPurchase: [] as any[],
     fetchProducts: [] as any[],
     finishTransaction: [] as any[],
-    /** Subscriptions taken out minus subscriptions removed. Must land back on 0. */
+    /** Subscriptions taken out minus subscriptions removed. */
     liveListeners: 0,
+    /** How many times purchaseUpdatedListener was ever called. */
+    updatedSubscribes: 0,
   };
 
   let prepared = false;
+  // A real store issues a NEW transaction id per purchase, and the dedupe above
+  // makes that load-bearing: reusing one id would make the second Buy tap look
+  // like a duplicate and be dropped.
+  let txSeq = 0;
 
   const api = {
     calls,
@@ -88,8 +134,28 @@ export const makeExpoIap5 = (options: FakeOptions = {}) => {
     dropConnection() {
       prepared = false;
     },
+    /**
+     * Attach a listener that is not the adapter's — the host's own `useIAP`.
+     * Its only job in a test is to populate the process-wide dedupe history.
+     */
+    attachForeignListener() {
+      return api.purchaseUpdatedListener(() => {});
+    },
     emitUpdated(p: FakePurchase) {
-      updatedListeners.forEach((l) => l(p));
+      // :153-171, in order: check this listener's own history, record into both
+      // it and the global, then drop if it was already there for THIS listener.
+      for (const reg of [...updatedListeners]) {
+        if (platformOf() === "ios") {
+          const tx = typeof p.id === "string" && p.id ? p.id : null;
+          if (tx != null) {
+            const duplicateForListener = reg.seen.has(tx);
+            reg.seen.add(tx);
+            globalSeenIOS.add(tx);
+            if (duplicateForListener) continue;
+          }
+        }
+        reg.listener(p);
+      }
     },
     emitError(e: any) {
       errorListeners.forEach((l) => l(e));
@@ -103,15 +169,19 @@ export const makeExpoIap5 = (options: FakeOptions = {}) => {
     async endConnection() {
       calls.endConnection += 1;
       prepared = false;
+      globalSeenIOS.clear(); // :568-571
       return true;
     },
 
     purchaseUpdatedListener(listener: (p: FakePurchase) => void) {
-      updatedListeners.push(listener);
+      // :147-151 — seeded from the PROCESS-WIDE set, not from nothing.
+      const reg: Registered = { listener, seen: new Set(globalSeenIOS) };
+      updatedListeners.push(reg);
       calls.liveListeners += 1;
+      calls.updatedSubscribes += 1;
       return {
         remove() {
-          const i = updatedListeners.indexOf(listener);
+          const i = updatedListeners.indexOf(reg);
           if (i >= 0) updatedListeners.splice(i, 1);
           calls.liveListeners -= 1;
         },
@@ -138,7 +208,7 @@ export const makeExpoIap5 = (options: FakeOptions = {}) => {
       }
       if (!prepared) throw err("not-prepared", "IAP not prepared");
       // FetchProductsResult is `Product[] | ... | null` (types.d.ts:527).
-      if (options.fetchProductsResult === null && "fetchProductsResult" in options) return null;
+      if ("fetchProductsResult" in options && options.fetchProductsResult === null) return null;
       const wanted = new Set(skus);
       return catalog.filter((p) => wanted.has(p.id));
     },
@@ -152,9 +222,8 @@ export const makeExpoIap5 = (options: FakeOptions = {}) => {
         throw err("developer-error", "Product type all is only supported for product queries.");
       }
 
-      const platform = options.platform?.() ?? "ios";
       let sku: string;
-      if (platform === "ios") {
+      if (platformOf() === "ios") {
         const apple = request?.apple; // :652
         if (!apple?.sku) {
           throw err(
@@ -176,7 +245,11 @@ export const makeExpoIap5 = (options: FakeOptions = {}) => {
 
       const outcome = options.onDispatch
         ? options.onDispatch(sku, type)
-        : ({ id: `tx-${sku}`, productId: sku, purchaseState: "purchased" } as FakePurchase);
+        : ({
+            id: `tx-${sku}-${(txSeq += 1)}`,
+            productId: sku,
+            purchaseState: "purchased",
+          } as FakePurchase);
 
       // The store answers on its own turn of the event loop, never inside the
       // dispatch call — which is why an adapter reading the return value sees
@@ -194,6 +267,14 @@ export const makeExpoIap5 = (options: FakeOptions = {}) => {
     async finishTransaction(args: { purchase: any; isConsumable?: boolean }) {
       calls.finishTransaction.push(args);
       if (!args?.purchase) throw err("developer-error", "purchase is required");
+      if (options.finishFails?.()) throw err("network-error", "could not finish");
+      return undefined;
+    },
+
+    // :886-899 — syncs, then refreshes, and returns nothing itself.
+    async restorePurchases() {
+      calls.restorePurchases += 1;
+      if (!prepared) throw err("not-prepared", "IAP not prepared");
       return undefined;
     },
 

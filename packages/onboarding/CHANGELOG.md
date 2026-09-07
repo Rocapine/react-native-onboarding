@@ -29,11 +29,55 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   value", expo-iap's own docstring), so `finishTransaction` only ran on the
   path expo-iap documents as abnormal. An unfinished transaction is re-delivered
   by StoreKit on every launch, and **Play auto-refunds an unacknowledged
-  purchase after 3 days** — money taken and silently given back. `purchase()`
-  now subscribes to `purchaseUpdatedListener` / `purchaseErrorListener` before
-  dispatching, resolves from whichever fires, finishes the transaction, and
-  removes both subscriptions. A transaction for another product is ignored
-  rather than mistaken for this one.
+  purchase after 3 days** — money taken and silently given back.
+
+- **Answering the caller and acknowledging the money are now separate.** The
+  first attempt at the above conflated them: one `claimed` flag guarded both,
+  and both listeners were removed as soon as the caller had an answer. Every
+  path that answered early therefore lost the ability to finish the charge — an
+  unrelated product's error, a `pending` update, the wait elapsing. The
+  provider now opens its listeners **once**, on first connect, and keeps them
+  for its lifetime; a caller's answer slot closes independently. Four
+  money-losing consequences, all now covered by tests:
+
+  - **A `pending` purchase that clears is finished.** Play emits
+    `purchaseState: "pending"` and then `"purchased"` for the same transaction.
+    Not finishing the pending one is correct — Android has no `purchaseToken`
+    yet (`build/index.js:865-874`) — but treating it as terminal meant the
+    cleared purchase was never acknowledged, and Play refunded it.
+  - **A verdict that arrives after the wait elapses is finished.** Ask to Buy,
+    an SCA step-up, or adding a card inside the sheet routinely exceed the
+    3-minute default.
+  - **Another product's failure no longer answers this purchase.**
+    `purchaseErrorListener` is process-wide and expo-iap forwards the event
+    verbatim (`build/index.js:195-200`); on Android the module emits from a
+    single per-module listener and flushes events buffered while disconnected on
+    the next successful `initConnection` (`ExpoIapModule.kt:198-205`). Failures
+    are now attributed by `productId`/`productIds`, and an error naming no
+    product is taken only when a single purchase is in flight.
+  - **An acknowledgement that throws is retried** on the next store round-trip
+    instead of being logged and forgotten, and no transaction is ever finished
+    twice.
+
+  Keeping one long-lived subscription is also forced by expo-iap's iOS dedupe:
+  each new `purchaseUpdatedListener` seeds its history from a **process-wide**
+  set of transaction ids (`ids: new Set(purchaseUpdatedDedupeHistoryIOS.ids)`,
+  `build/index.js:148-151`). Subscribing per Buy tap inherits every id any other
+  listener in the process has seen — the host's own `useIAP`, for instance — and
+  silently drops those deliveries.
+
+- **`requestPurchase` is no longer retried on a lost connection.** An earlier
+  version of this entry claimed the retry "cannot double-charge" because the
+  relevant codes are thrown before any billing flow starts. **That claim was
+  wrong** and is withdrawn: `requestPurchase` sets `reachedOpenIapRequest =
+  true` *before* calling `openIap.requestPurchase`
+  (`ExpoIapModule.kt:435-436`), `deliverPurchaseRequestFailure` (`:63-75`)
+  rejects the pending promise on every path including mid-flight, and
+  `service-disconnected` is the **catch-all** code for any failure that is not
+  an `OpenIapError` (`:60-61`) — so it carries no information about whether the
+  store sheet was ever shown. The retry could present a second sheet, charge a
+  consumable twice and discard the result. Reads still retry; the purchase path
+  does not.
 
 - **A dismissed store sheet is `"cancelled"` again, not an error.** 5.x
   normalized every code to openiap kebab-case (`ErrorCode.UserCancelled ===
@@ -55,12 +99,15 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   since `deriveProductFields` divides the price by the period it is given, a
   `pricePerYear` around $3,130. The infinite-recurring phase is used instead.
 
-- **`restore()` returns product ids, and only for purchases that were paid
-  for.** `Purchase.id` is the transaction id and is always present, so
-  `p.id ?? p.productId` never fell through and the host was handed transaction
-  ids to match against its entitlements. `getAvailablePurchases` also reports
-  unfinished purchases, so an Android slow-payment purchase entitled the user
-  before the money moved; only an explicit `purchaseState: "purchased"` now
+- **`restore()` syncs before it reads, returns product ids, and only counts
+  purchases that were paid for.** It called `getAvailablePurchases()` bare;
+  `restorePurchases()` performs the iOS StoreKit sync first and then refreshes
+  (`build/index.js:886-899`), which behind a user-facing Restore button is the
+  point of pressing it. `Purchase.id` is the transaction id and is always
+  present, so `p.id ?? p.productId` never fell through and the host was handed
+  transaction ids to match against its entitlements. And `getAvailablePurchases`
+  reports unfinished purchases, so an Android slow-payment purchase entitled the
+  user before the money moved; only an explicit `purchaseState: "purchased"` now
   counts.
 
 - **A failed product query is an error, not an empty catalog.**
@@ -73,14 +120,17 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   other `useIAP` unmounting — or an Android `ServiceDisconnected` — closed the
   connection this adapter opened, and the cached resolved connect promise then
   made every later call fail for the life of the process. A connection-lost
-  code now reopens the connection and retries once. Safe on the purchase path:
-  those codes are thrown by expo-iap's own guard before any billing flow
-  starts, so the retry cannot double-charge.
+  code now reopens the connection and retries the read once.
 
 - **An iOS consumable is consumed rather than acknowledged**, so it can be
   re-bought. Only iOS publishes the discriminator (`typeIOS`); Android
   one-time products are all `type: "in-app"` and consumability is the app's
   own decision, so a Play consumable still needs the host to say so.
+
+- **A transaction returned inline is checked against the sku like a delivered
+  one.** iOS sometimes resolves the transaction from `requestPurchase` itself;
+  that path skipped the product check the listener path applies, so a replayed
+  transaction handed back inline could answer the wrong purchase.
 
 - **A second `getProducts` no longer wipes the first.** The per-product store
   metadata was cleared on every resolve, so already-rendered products lost the
@@ -99,27 +149,59 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   `new Error(String(e))` handed the host `"[object Object]"` at the one point it
   would read a diagnosis. The code is preserved on the `Error` too.
 
+- **The plugin's paywall docs no longer scope `"pending"` to Stripe.**
+  `setup-paywalls`, `compose-screen-builder`, `validate-step-json` and the
+  `step-json-reviewer` agent all said a `"pending"` result was a Stripe-only
+  outcome, so an integrator could compose an expo-iap paywall with no
+  `onPending` and have both the validator and the reviewer stay silent — the
+  frozen-paywall failure. They now name which providers can produce it:
+  `stripeLinkProductProvider` always, `expoIapProductProvider` for a purchase
+  awaiting payment, and `revenueCatProductProvider`/`stubProductProvider`
+  never.
+
+- **The test fake no longer ships in the published package.**
+  `packages/onboarding/tsconfig.json` excluded `**/*.test.ts` but nothing that
+  matched `__tests__/expoIap5Fake.ts`, so `build:headless` emitted it into
+  `dist/products/adapters/__tests__/` and `files: ["dist", "src"]` put it in the
+  tarball. The exclude list now covers `**/__tests__/**`.
+
 ### Added
 
-- `expoIapProductProvider(Iap?, { purchaseTimeoutMs })` — how long to wait for
-  the store's verdict before reporting `"pending"` (default 3 minutes). The
-  outcome is an event and nothing bounds how long a user spends in the store
-  sheet, so this is a guard against a promise that never settles — which would
-  leave `products.purchasing` true and the buy button dead — not a deadline for
-  the user. It resolves `"pending"`, never `"purchased"`.
+- **`expoIapProductProvider(Iap?, options?)`**, with the option type exported
+  from the package root (`ExpoIapProviderOptions`, `ExpoIapProvider`) the way
+  `StripeLinkProviderConfig` already was:
+
+  - `onUnclaimedPurchase(purchase) => boolean | Promise<boolean>` — closes
+    [#257](https://github.com/Rocapine/react-native-onboarding/issues/257).
+    StoreKit re-delivers an unfinished transaction on **every launch**, and a
+    purchase can also arrive from an Ask to Buy approval, a promoted product, or
+    a pending Play purchase that cleared while the app was closed. None of those
+    has a caller waiting, and finishing one blind would take the money while
+    granting nothing — destroying the very replay that lets the app recover. So
+    the host decides: return `true` once entitlement is granted and the
+    transaction is finished; leave it unset and it is left alone, re-delivered
+    next launch, with one `console.warn` naming the product. A purchase this
+    provider dispatched in this process never goes here.
+  - `purchaseTimeoutMs` — how long the CALLER waits before being told
+    `"pending"` (default 3 minutes). It no longer ends the transaction: the
+    listeners stay attached and a later verdict is still acknowledged.
+  - `dispose()` on the returned provider, additive to `ProductProvider`. A
+    provider now holds a store subscription for its lifetime, so a host that
+    rebuilds one per render should tear the old one down.
 
 ### Known gaps
 
-- **A transaction replayed at launch is still not finished.** iOS re-delivers
-  an unfinished transaction on every launch precisely so the app can grant
-  access for it; finishing one blind would destroy that recovery path while
-  granting nothing, which is worse than the replay. Doing it properly needs an
-  entitlement seam the `ProductProvider` interface does not have.
 - **A daily plan still reports `period: "week"`.** All three adapters share the
   mapping and `ProductPeriod` has no `"day"` member, so this is a shared-type
-  change rather than part of this fix. `periodIso` is exact, so every derived
-  per-period price is already correct.
+  change rather than part of this fix — tracked in
+  [#258](https://github.com/Rocapine/react-native-onboarding/issues/258).
+  `periodIso` is exact, so every derived per-period price is already correct.
 - **Android consumables cannot be detected**, only declared — see above.
+- **The iOS dedupe still bounds what any adapter can hear.** A transaction id
+  already recorded process-wide before this provider's listener is attached is
+  invisible to it, and the global history is cleared only by a successful
+  `endConnection`. Subscribing once, on first connect, makes that window as
+  small as this adapter can make it; nothing here can shrink it further.
 
 ---
 

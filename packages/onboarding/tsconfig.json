@@ -27,6 +27,7 @@
     "dist",
     "**/*.test.ts",
     "**/*.test.tsx",
-    "**/*.spec.ts"
+    "**/*.spec.ts",
+    "**/__tests__/**"
   ]
 }

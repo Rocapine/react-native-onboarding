@@ -185,7 +185,7 @@ It renders **in flow position** — progress header and all — and the audience
 You wire nothing extra for it, but two facts decide whether it works at all:
 
 - **It requires an ancestor `PaywallProvider`.** The step reads the paywall catalog. With no provider it logs the mount instruction and SKIPS the step — deliberately, because a paywall that structurally cannot appear must not trap the user in the funnel forever.
-- **It is HARD-GATED: only a purchase advances.** A `dismiss` action on the paywall does nothing there. Note that pending does **not** advance, and pending is reachable on every billing path: a Stripe Payment Link always resolves `"pending"`, and a store purchase awaiting payment does too. So a paywall on such a step needs an `onPending` branch, or the user has no way forward.
+- **It is HARD-GATED: only a purchase advances.** A `dismiss` action on the paywall does nothing there. Note that pending does **not** advance, and it is reachable on two of the four providers: a Stripe Payment Link **always** resolves `"pending"`, and `expoIapProductProvider` resolves it for a store purchase awaiting payment. (`revenueCatProductProvider` and `stubProductProvider` never produce it.) So a paywall on such a step needs an `onPending` branch unless it is RevenueCat-backed, or the user has no way forward.
 
 The same skip-rather-than-trap rule covers a mis-typed moment key, an unpublished paywall, a moment whose audiences matched nothing, and an unregistered custom screen. Each logs what was wrong and what was available.
 
@@ -289,14 +289,14 @@ Three things to tell the user explicitly, because none is visible from the call 
 - **Don't** call `present()` before `isReady` and expect no spinner — that flag is what "no spinner" means.
 - **Don't** hand-roll the modal without wiring `acknowledgePresentation`. `PaywallHost` does it for you; skip it in a custom host and the failure is silent and permanent.
 - **Don't** render a price you computed yourself. Interpolate `{{product.<key>.price}}` so the store's own formatting and currency are used.
-- **Don't** treat `purchase()` returning `"pending"` as failure. It is the normal outcome on the Stripe path, and a real one on a store path too — Play's slow-payment purchases arrive unpaid, and `expoIapProductProvider` reports them `"pending"` rather than entitling a user whose money has not moved.
+- **Don't** treat `purchase()` returning `"pending"` as failure. It is the normal outcome on the Stripe path, and a real one under `expoIapProductProvider` — Play's slow-payment purchases arrive unpaid, and it reports them `"pending"` rather than entitling a user whose money has not moved.
 - **Don't** hardcode moment keys the studio does not have. `unknown-moment` is the single most common wiring bug.
 
 ## Wire `onPending` — Stripe needs it, and a store button should have it
 
 **A Stripe Payment Link purchase always resolves `"pending"`**, never `"purchased"`: `purchase()` opens the link, the browser takes over, and nothing is confirmed yet. So the authored buy button must declare `onPending`, or tapping it runs nothing and the user returns from Safari to an untouched screen.
 
-**A store purchase can resolve `"pending"` too**, so do not read it as Stripe-only. `expoIapProductProvider` reports it for a Play purchase delivered with `purchaseState: "pending"` — the slow-payment path, where the user has committed but the money has not moved — and for a store that returns no verdict at all. Neither is a purchase, and neither may grant access.
+**`expoIapProductProvider` can resolve `"pending"` too**, so do not read it as Stripe-only. It reports it for a Play purchase delivered with `purchaseState: "pending"` — the slow-payment path, where the user has committed but the money has not moved — and when the store returns no verdict before the wait elapses. Neither is a purchase, and neither may grant access. `revenueCatProductProvider` never returns `"pending"` (it maps everything to purchased/cancelled/error), so a RevenueCat-only paywall can omit the branch.
 
 ```json
 {

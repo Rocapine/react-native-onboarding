@@ -164,7 +164,9 @@ describe("expoIapProductProvider — purchase", () => {
   });
 
   it("sends type in-app for a one-off product", async () => {
-    const M = mock5({ requestPurchase: vi.fn().mockResolvedValue({ id: "tx" }) });
+    const M = mock5({
+      requestPurchase: vi.fn().mockResolvedValue({ id: "tx", productId: "pro_lifetime" }),
+    });
     const provider = expoIapProductProvider(M);
     const product = (await provider.getProducts([LIFETIME]))[0];
     await provider.purchase(product);
@@ -189,7 +191,10 @@ describe("expoIapProductProvider — purchase", () => {
 
   it("finishes the transaction when one comes back", async () => {
     // Unfinished transactions are re-delivered by StoreKit on every launch.
-    const purchase = { id: "tx-1" };
+    // `productId` is not decoration: the directly-returned transaction goes
+    // through the same sku check as a delivered one, so a `Purchase` without it
+    // is not attributed to this call.
+    const purchase = { id: "tx-1", productId: "pro_yearly" };
     const M = mock5({ requestPurchase: vi.fn().mockResolvedValue(purchase) });
     const provider = expoIapProductProvider(M);
     const product = (await provider.getProducts([YEARLY]))[0];
@@ -200,7 +205,7 @@ describe("expoIapProductProvider — purchase", () => {
   it("still reports purchased when finishing throws", async () => {
     // A finish failure does not un-buy anything; it must not become an error.
     const M = mock5({
-      requestPurchase: vi.fn().mockResolvedValue({ id: "tx-1" }),
+      requestPurchase: vi.fn().mockResolvedValue({ id: "tx-1", productId: "pro_yearly" }),
       finishTransaction: vi.fn().mockRejectedValue(new Error("finish failed")),
     });
     const provider = expoIapProductProvider(M);

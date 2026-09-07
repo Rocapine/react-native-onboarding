@@ -19,7 +19,9 @@
  *
  * WHAT COUNTS. `runActions` calls `onContinue` for exactly two actions —
  * `"continue"` and `{type:"dismiss"}` — so those two, wherever a press can
- * reach them, are the whole definition. Everything else (`setVariable`,
+ * reach them, are the whole definition. One exception to "wherever":
+ * `requestPermission` is read with AND across its outcome hooks rather than OR
+ * (see `permissionAskCompletes`), because a grant is not the user's to give. Everything else (`setVariable`,
  * `presentPaywall`, `custom`) leaves the user on the screen as far as this SDK
  * can tell, and is not counted.
  *
@@ -64,15 +66,42 @@ const PRESS_HANDLED_TYPES: ReadonlySet<string> = new Set([
  * Branch lists are found by shape rather than by name, so a branch added to
  * `purchase`/`restore` later is covered without a change here.
  */
+const listCompletes = (value: unknown): boolean =>
+  Array.isArray(value) && value.some(isCompletingAction);
+
+/**
+ * `requestPermission` is the one action read with AND rather than OR, because
+ * its outcome is not the user's to choose.
+ *
+ * `runActions` has exactly three paths: a grant runs `onGranted`, a refusal
+ * runs `onDenied`, and "this build cannot ask" runs `onUnavailable` when
+ * declared and `onDenied` otherwise. All of them have to reach a `"continue"` /
+ * `{dismiss}` for the ask to be a way OFF the screen — a CTA whose only
+ * `"continue"` sits in `onGranted` strands everyone who refuses, and strands
+ * EVERY user of a build that never installed the optional Expo module, which is
+ * a packaging fact the person pressing the button cannot influence.
+ *
+ * `purchase` / `restore` keep the generic OR reading on purpose: a cancelled
+ * purchase leaves the user free to press again, whereas a standing OS denial is
+ * final for the life of the install. Not symmetric, so not shared.
+ *
+ * Mirrors the runtime's own fallback shape (`runActions.ts` — `onUnavailable`
+ * present but empty runs nothing, exactly as an empty array does here).
+ */
+const permissionAskCompletes = (action: Record<string, unknown>): boolean => {
+  const onDenied = listCompletes(action.onDenied);
+  const onUnavailable = action.onUnavailable ? listCompletes(action.onUnavailable) : onDenied;
+  return listCompletes(action.onGranted) && onDenied && onUnavailable;
+};
+
 const isCompletingAction = (action: unknown): boolean => {
   // `ButtonActionSchema` declares continue as the string literal, not an
   // object: `{type:"continue"}` is not an action the runtime runs.
   if (action === "continue") return true;
   if (!isRecord(action)) return false;
   if (action.type === "dismiss") return true;
-  return Object.values(action).some(
-    (value) => Array.isArray(value) && value.some(isCompletingAction)
-  );
+  if (action.type === "requestPermission") return permissionAskCompletes(action);
+  return Object.values(action).some(listCompletes);
 };
 
 const nodeCanComplete = (node: unknown): boolean => {

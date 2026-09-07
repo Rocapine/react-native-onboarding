@@ -139,61 +139,128 @@ describe("hasCompletingAction", () => {
 });
 
 /**
- * `requestPermission` (#196) adds three more outcome hooks — `onGranted`,
- * `onDenied`, `onUnavailable` — and the walk finds branch lists by SHAPE rather
- * than by name, so it covers them with no change here. These pin that, because
- * the alternative is the exact trap this predicate exists to close: a permission
- * screen whose only `"continue"` lives inside `onGranted` would read as "no way
- * forward", the renderer would bolt on a redundant Continue button, and — worse
- * in the other direction — a future name-keyed rewrite would read a real CTA as
- * absent.
+ * `requestPermission` (#196) is the one action whose branch lists must NOT be
+ * read with the generic "any nested list completes it" rule, and review round 1
+ * caught the first version doing exactly that.
+ *
+ * The question this predicate answers is "can the user still get off this
+ * screen?", and for a permission ask the honest answer is "only on the outcomes
+ * the author covered". The runtime has three: a grant runs `onGranted`, a
+ * refusal runs `onDenied`, and "this build cannot ask" runs
+ * `onUnavailable ?? onDenied`. A CTA holding its only `"continue"` in
+ * `onGranted` traps every user who refuses — and traps EVERY user on a build
+ * that never installed the optional Expo module, which is a packaging fact the
+ * person pressing the button cannot do anything about.
+ *
+ * So the rule is AND across the outcomes, not OR: the action counts as a way
+ * forward only when a grant AND a non-grant both reach `"continue"` /
+ * `{dismiss}`. That is the file's stated bias ("errs toward no") applied to the
+ * one action whose result the user does not fully control. `purchase` and
+ * `restore` keep the OR reading deliberately — a cancelled purchase leaves the
+ * user free to press again, whereas a standing OS denial cannot be retried.
  */
 describe("hasCompletingAction — requestPermission outcome hooks", () => {
-  it("finds a continue inside onGranted", () => {
+  const ask = (hooks: Record<string, unknown[]>) => [
+    button("cta", [{ type: "requestPermission", kind: "notifications", ...hooks }]),
+  ];
+
+  it("counts an ask that advances on a grant AND on a refusal", () => {
+    expect(hasCompletingAction(ask({ onGranted: ["continue"], onDenied: ["continue"] }))).toBe(true);
+  });
+
+  it("counts a grant path that continues and a refusal path that dismisses", () => {
     expect(
-      hasCompletingAction([
-        button("cta", [
-          { type: "requestPermission", kind: "notifications", onGranted: ["continue"] },
-        ]),
-      ])
+      hasCompletingAction(ask({ onGranted: ["continue"], onDenied: [{ type: "dismiss" }] }))
     ).toBe(true);
   });
 
-  it("finds a continue inside onDenied", () => {
+  // The trap. `onGranted` alone reads as NO way forward, so the #209 strip
+  // supplies its own escape CTA.
+  it("reports no way forward when only the grant path advances", () => {
+    expect(hasCompletingAction(ask({ onGranted: ["continue"] }))).toBe(false);
+  });
+
+  it("reports no way forward when only the refusal path advances", () => {
+    expect(hasCompletingAction(ask({ onDenied: ["continue"] }))).toBe(false);
+  });
+
+  // `onUnavailable` covers the module-absent outcome only; a denial still needs
+  // `onDenied`, so this shape strands the user who taps "Don't Allow".
+  it("reports no way forward when onDenied is missing but onUnavailable advances", () => {
     expect(
-      hasCompletingAction([
-        button("cta", [
-          { type: "requestPermission", kind: "notifications", onDenied: ["continue"] },
-        ]),
-      ])
+      hasCompletingAction(ask({ onGranted: ["continue"], onUnavailable: ["continue"] }))
+    ).toBe(false);
+  });
+
+  // All three declared: every runtime path advances.
+  it("counts an ask that covers all three outcomes", () => {
+    expect(
+      hasCompletingAction(
+        ask({ onGranted: ["continue"], onDenied: ["continue"], onUnavailable: ["continue"] })
+      )
     ).toBe(true);
   });
 
-  it("finds a dismiss inside onUnavailable", () => {
+  // `onUnavailable` present but dead, while `onDenied` advances: the
+  // module-absent build runs onUnavailable and stays put, so this is a trap the
+  // OR reading would have missed too.
+  it("reports no way forward when a declared onUnavailable does not advance", () => {
     expect(
-      hasCompletingAction([
-        button("cta", [
-          {
-            type: "requestPermission",
-            kind: "camera",
-            onUnavailable: [{ type: "dismiss" }],
-          },
-        ]),
-      ])
-    ).toBe(true);
+      hasCompletingAction(
+        ask({
+          onGranted: ["continue"],
+          onDenied: ["continue"],
+          onUnavailable: [{ type: "setVariable", name: "push", value: "n/a" }],
+        })
+      )
+    ).toBe(false);
+  });
+
+  // A typo'd hook name is stripped by the (deliberately non-strict) schema, so
+  // the payload validates clean and the denial path is dead. The AND rule is
+  // what turns that into a visible escape CTA rather than a silent trap.
+  it("reports no way forward when the refusal hook is misspelled", () => {
+    expect(
+      hasCompletingAction(ask({ onGranted: ["continue"], onDeneid: ["continue"] }))
+    ).toBe(false);
   });
 
   it("reports no way forward for a permission ask with no terminal hook", () => {
     expect(
+      hasCompletingAction(ask({ onGranted: [{ type: "setVariable", name: "push", value: "on" }] }))
+    ).toBe(false);
+  });
+
+  // A separate CTA elsewhere on the screen is still a way forward — the rule
+  // narrows what the ASK itself counts for, nothing else.
+  it("still finds a sibling skip button", () => {
+    expect(
+      hasCompletingAction([
+        button("cta", [{ type: "requestPermission", kind: "notifications", onGranted: ["continue"] }]),
+        button("skip", ["continue"]),
+      ])
+    ).toBe(true);
+  });
+
+  // Nesting: an ask inside another action's branch list is walked the same way.
+  it("counts a fully covered ask nested inside purchase.onSuccess", () => {
+    expect(
       hasCompletingAction([
         button("cta", [
           {
-            type: "requestPermission",
-            kind: "notifications",
-            onGranted: [{ type: "setVariable", name: "push", value: "on" }],
+            type: "purchase",
+            product: "yearly",
+            onSuccess: [
+              {
+                type: "requestPermission",
+                kind: "notifications",
+                onGranted: ["continue"],
+                onDenied: ["continue"],
+              },
+            ],
           },
         ]),
       ])
-    ).toBe(false);
+    ).toBe(true);
   });
 });

@@ -525,7 +525,7 @@ An omitted side is **not** `0` — that axis falls back to the stack's shared an
 
 #### `onPress` — make any element tappable (every element)
 
-Every UIElement also inherits an optional `onPress: ButtonAction[]` from `BaseBoxProps` — the **same action list as `Button.actions`** (`"continue"`, `{ type: "setVariable", … }`, `{ type: "custom", … }`, `{ type: "purchase", … }`, `{ type: "restore", … }`, `{ type: "dismiss" }`, `{ type: "presentPaywall", … }`, run sequentially, `"continue"`/`"dismiss"` terminal; see the **Button actions** section below). Use it to make a static element react to a tap — a tappable card/`Image`, a logo that advances the flow, a `Text` row that fires a custom action.
+Every UIElement also inherits an optional `onPress: ButtonAction[]` from `BaseBoxProps` — the **same action list as `Button.actions`** (`"continue"`, `{ type: "setVariable", … }`, `{ type: "custom", … }`, `{ type: "purchase", … }`, `{ type: "restore", … }`, `{ type: "dismiss" }`, `{ type: "presentPaywall", … }`, `{ type: "requestPermission", … }`, run sequentially, `"continue"`/`"dismiss"` terminal; see the **Button actions** section below). Use it to make a static element react to a tap — a tappable card/`Image`, a logo that advances the flow, a `Text` row that fires a custom action.
 
 ```json
 {
@@ -939,6 +939,26 @@ Plain-text children are automatically split into **one item per word** so the ro
 - `{ type: "restore", onSuccess?: ButtonAction[], onNothingToRestore?: ButtonAction[], onError?: ButtonAction[] }` — restores prior purchases. Runs `onSuccess` when a purchase is restored, `onNothingToRestore` when the user had nothing to restore, `onError` on failure. All three follow-up lists are optional.
 - `{ type: "dismiss" }` — finishes the current screen with a `{ status: "dismissed" }` outcome. In a paywall (see [Paywalls](./getting-started.mdx#paywalls)), this resolves the pending `present()` call — upgraded to `"purchased"`/`"cancelled"` instead if a purchase actually completed during this presentation. Outside a paywall (an onboarding step), it behaves like an early, unconditional exit from the screen.
 - `{ type: "presentPaywall", placement: string }` — asks the host to present a paywall by placement (see [Paywalls](./getting-started.mdx#paywalls)). Works from an onboarding step or from a paywall's own content alike (a paywall can open another paywall). Not terminal — the action chain continues after it. Warns via `console.warn` and does nothing if no `PaywallProvider` is mounted anywhere above the host.
+- `{ type: "requestPermission", kind: PermissionKind, onGranted?: ButtonAction[], onDenied?: ButtonAction[], onUnavailable?: ButtonAction[] }` — asks the OS for a permission, then runs the branch matching the answer. The hooks are ordinary nested `ButtonAction[]`, recursed exactly like `purchase`'s, which is what lets ONE press advance on a grant and do something different on a refusal — `[{ type: "custom" }, "continue"]` could ask and advance, but a custom handler's return value is discarded, so a grant and a refusal could only diverge on a later screen through a variable the handler wrote.
+
+  `kind` is one of six, each asked through an **optional** Expo peer dep the app installs itself (nothing is bundled):
+
+  | `kind` | needs |
+  |---|---|
+  | `notifications` | `expo-notifications` |
+  | `appTrackingTransparency` | `expo-tracking-transparency` |
+  | `locationWhenInUse` | `expo-location` (foreground only) |
+  | `camera` | `expo-camera` |
+  | `microphone` | `expo-audio`, or `expo-camera` |
+  | `photoLibrary` | `expo-image-picker`, or `expo-media-library` |
+
+  Not terminal in itself — put `"continue"` inside a hook to advance. `onGranted` or `onDenied` with no actions declared logs a `console.warn` rather than silently doing nothing. `onUnavailable` is the "this build cannot ask" branch — the module is not installed, or the platform has no such permission; omitted, it **falls back to `onDenied`** (with a warning), because a screen whose only `"continue"` lives in `onGranted` would otherwise be a screen nobody can leave. Declare neither and the runtime logs a `console.error` and runs nothing.
+
+  Asking twice does not re-prompt: iOS shows its system dialog once and every later request resolves immediately with the standing answer — but the matching hook still runs, so a second press repeats whatever it does.
+
+  **HealthKit and Screen Time / Family Controls are deliberately not kinds.** Both need entitlements and a config plugin that belong to the app, not to a library. A host supplies its own resolver via `OnboardingPage`'s `requestPermission` prop and returns `undefined` for any kind it does not handle, which falls back to the bundled Expo resolver.
+
+  **Reading a permission's current status is not available.** This is a press action; there is no way to skip a screen because the permission was already granted, and no variable carries the outcome to a later step.
 
 Execution rules:
 

@@ -5,6 +5,46 @@ here.
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- **`requestPermission` ButtonAction dispatch** (#196) — the renderer half of
+  the new headless action. `elements/permissions.ts` asks through whichever
+  optional Expo module is installed (`expo-notifications`,
+  `expo-tracking-transparency`, `expo-location`, `expo-camera`, `expo-audio`,
+  `expo-image-picker`, `expo-media-library` — all newly declared as OPTIONAL
+  peer deps), and `runActions` routes the answer to `onGranted` / `onDenied` /
+  `onUnavailable`.
+
+  Two decisions worth knowing, because both depart from a nearby precedent:
+
+  - The `require` is **lazy**, not module-level like `haptics.ts`. Requiring
+    seven native modules on any screen that merely renders a Button would pull
+    in import-time side effects (notification handlers, listeners) nothing on
+    that screen asked for.
+  - A missing module is **not a silent no-op**. Haptics can vanish unnoticed; a
+    permission gate can be the only thing between the user and the next screen.
+    Absence resolves a distinct `"unavailable"` outcome, and `"unavailable"`
+    with no `onUnavailable` falls back to `onDenied` (with a warning) rather
+    than doing nothing — a CTA whose only `"continue"` sits in `onGranted`
+    would otherwise be a screen nobody can leave. Declaring neither logs a
+    `console.error`.
+
+  New `ScreenHost.requestPermission` (threaded from `OnboardingPage`'s new
+  `requestPermission` prop) overrides the bundled resolver per kind; return
+  `undefined` for a kind you do not handle and the bundled one runs. That is the
+  seam HealthKit / Screen Time will use. The paywall hosts do NOT expose it yet
+  — a paywall's own elements get the bundled resolver only.
+
+  **Not verified on a device.** There is no device test framework in this repo
+  (#216 is open) and a system permission dialog cannot be driven headless or in
+  a web preview. Covered: schema round-trip, dispatch against a stubbed
+  resolver, headless↔UI mirror parity, and the module-absent path. Every real
+  grant/deny is unverified until someone runs it on hardware.
+
+---
+
 ## [1.75.0] - 2026-09-07
 
 ### Added

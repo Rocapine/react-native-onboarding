@@ -6,6 +6,41 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- **`requestPermission` ButtonAction** — ask the OS for a permission and branch
+  on the answer within the SAME press (#196). An eighth `ButtonAction` member:
+  `{ type: "requestPermission", kind, onGranted?, onDenied?, onUnavailable? }`,
+  with all three hooks ordinary nested `ButtonAction[]` recursed through
+  `runActions` exactly like `purchase.onSuccess`.
+
+  What was missing was the divergence, not the asking:
+  `[{ type: "custom" }, "continue"]` already ran host code and advanced, but the
+  custom handler's return value is discarded and there is no conditional action,
+  so a grant and a refusal could only lead somewhere different on a LATER
+  screen, through a variable the handler happened to write.
+
+  `kind` is closed and deliberately narrow — `notifications`,
+  `appTrackingTransparency`, `locationWhenInUse`, `camera`, `microphone`,
+  `photoLibrary`. Each is asked through an *optional* Expo peer dep the app
+  installs itself; nothing native is bundled. HealthKit and Screen Time /
+  Family Controls are NOT members: both need app-owned entitlements and a config
+  plugin a library cannot ship, so they belong behind the new host
+  `requestPermission` resolver rather than pretending to work.
+
+  Reading a permission's current status is NOT part of this — there is still no
+  way to skip a screen because the permission was already granted.
+
+  New exports: `PERMISSION_KINDS`, `PermissionKindSchema`, `PermissionKind`,
+  `RequestPermissionButtonAction`, `RequestPermissionButtonActionSchema`.
+
+  **Forward compatibility:** `ButtonActionSchema` is a plain `z.union`, and
+  #209's strip is keyed to unknown *element* types only. An app on a pre-1.76
+  SDK that receives a `requestPermission` action fails `invalid_union`, and the
+  whole ComposableScreen fails to parse — the element strip does not rescue an
+  action variant. Publishing one is a capability-floor decision (#233 / studio
+  #313), not something this release makes safe on its own.
+
 ### Fixed
 
 - **`expoIapProductProvider` could not complete a purchase against expo-iap

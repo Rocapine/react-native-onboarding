@@ -1308,6 +1308,50 @@ export default function ComposableScreenExample() {
                 },
               },
             },
+            // requestPermission (#196) — asks the OS and branches on the answer in
+            // the SAME press: a grant and a refusal write different variables and
+            // both still advance. Deliberately NOT added to the shipped
+            // `onboardingExample` (that is the documented `fallbackOnboarding`, so
+            // a network failure would pop an unexpected system dialog for a real
+            // user); this example app is where you can actually press it.
+            //
+            // On a build with none of the optional Expo permission modules
+            // installed the outcome is "unavailable", which runs `onUnavailable`.
+            // Without that branch it would fall back to `onDenied` and warn.
+            {
+              id: 'btn-request-notifications',
+              type: 'Button' as const,
+              props: {
+                label: 'Enable notifications',
+                variant: 'filled' as const,
+                marginVertical: 4,
+                actions: [
+                  {
+                    type: 'requestPermission' as const,
+                    kind: 'notifications' as const,
+                    onGranted: [
+                      { type: 'setVariable' as const, name: 'push_optin', value: 'granted', label: 'Allowed' },
+                    ],
+                    onDenied: [
+                      { type: 'setVariable' as const, name: 'push_optin', value: 'denied', label: 'Not now' },
+                    ],
+                    onUnavailable: [
+                      { type: 'setVariable' as const, name: 'push_optin', value: 'unavailable', label: 'expo-notifications not installed' },
+                    ],
+                  },
+                ],
+              },
+            },
+            {
+              id: 'txt-push-optin',
+              type: 'Text' as const,
+              props: {
+                content: 'Permission answer: {{push_optin}}',
+                fontSize: 13,
+                color: '#6b7280',
+                marginVertical: 8,
+              },
+            },
             // Disable-on-condition demo: gated continue + a setVariable companion.
             {
               id: 'consent-toggle',

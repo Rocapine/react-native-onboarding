@@ -667,6 +667,65 @@ export default function ComposableScreenExample() {
                 marginVertical: 4,
               },
             },
+            // Expression stdlib — date maths, numeric clamping and grammatical
+            // listing. All of it runs at PRESS time (the expression engine's
+            // only call site is a `setVariable` action), so the results are
+            // written to variables here and plainly interpolated below.
+            {
+              id: 'stdlib-compute',
+              type: 'Button' as const,
+              props: {
+                label: 'Compute my plan',
+                variant: 'outlined' as const,
+                marginVertical: 8,
+                actions: [
+                  {
+                    type: 'setVariable' as const,
+                    name: 'goalDate',
+                    // '"now"' is DatePicker's sentinel; the spec is DatePicker's
+                    // `format` prop vocabulary, not a token language.
+                    value: 'format(addDays("now", 90), "medium")',
+                    valueMode: 'expression' as const,
+                  },
+                  {
+                    type: 'setVariable' as const,
+                    name: 'goalSentence',
+                    value: 'list({{goals}})',
+                    valueMode: 'expression' as const,
+                  },
+                  {
+                    type: 'setVariable' as const,
+                    name: 'goalCount',
+                    value: 'count({{goals}}) + " " + plural(count({{goals}}), "goal", "goals")',
+                    valueMode: 'expression' as const,
+                  },
+                  {
+                    type: 'setVariable' as const,
+                    name: 'weeklyPace',
+                    // Over the slider's 0..1 / step-0.1 grid the outputs are
+                    // 1,1,1,1,2,2,2,3,3,3,3 — a 4/3/4 split. The multiplier
+                    // overshoots the bounds a little (raw 0,0,1,1,2,2,2,3,3,4,4)
+                    // so `clamp` is observable at both ends; an expression whose
+                    // raw range sits inside 1..3 makes clamp do nothing.
+                    value: 'clamp(round({{intensity}} * 4), 1, 3)',
+                    valueMode: 'expression' as const,
+                  },
+                ],
+              },
+            },
+            {
+              id: 'stdlib-display',
+              type: 'Text' as const,
+              props: {
+                content:
+                  '{{goalCount}}: {{goalSentence}} — by {{goalDate}}, {{weeklyPace}}x / week',
+                mode: 'expression' as const,
+                fontSize: 14,
+                textAlign: 'center' as const,
+                opacity: 0.7,
+                marginVertical: 4,
+              },
+            },
             // Date picker element
             {
               id: 'hero-date-picker',

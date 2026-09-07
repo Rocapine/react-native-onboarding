@@ -23,6 +23,15 @@ export type SetVariableButtonAction = {
   name: string;
   value: string;
   label?: string;
+  /**
+   * When `"expression"`, `value` is evaluated by
+   * `./expression.ts` (`evaluateSetVariableExpression`) rather than stored
+   * verbatim: `{{var}}` refs, numeric and quoted-string literals, `+ - * /`
+   * with parens, and the function stdlib (`min` `max` `abs` `round` `clamp`
+   * `addDays` `format` `list` `join` `count` `plural`). See that file's doc
+   * comment, and `common.types.ts` in the headless package, for the full
+   * grammar and the press-time-only constraint. Defaults to `"literal"`.
+   */
   valueMode?: "literal" | "expression";
   kind?: "int" | "float" | "string";
   /**

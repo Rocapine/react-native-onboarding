@@ -782,6 +782,84 @@ export const onboardingExample = {
                   marginVertical: 4,
                 },
               },
+              // Expression stdlib demo. Every function runs at PRESS time (the
+              // engine's only call site is a `setVariable` action), so a
+              // computed date or an assembled sentence is written into a
+              // variable here and then plainly interpolated by the Texts below.
+              {
+                id: "stdlib-compute",
+                type: "Button",
+                props: {
+                  label: "Compute my plan",
+                  variant: "outlined",
+                  marginVertical: 8,
+                  actions: [
+                    {
+                      type: "setVariable",
+                      name: "goalDate",
+                      // `"now"` is the same sentinel DatePicker accepts, and the
+                      // format spec is the DatePicker `format` prop vocabulary.
+                      value: 'format(addDays("now", 90), "medium")',
+                      valueMode: "expression",
+                    },
+                    {
+                      type: "setVariable",
+                      name: "goalSentence",
+                      // Grammatical listing over the CheckboxGroup member labels.
+                      value: "list({{goals}})",
+                      valueMode: "expression",
+                    },
+                    {
+                      type: "setVariable",
+                      name: "goalCount",
+                      value: 'count({{goals}}) + " " + plural(count({{goals}}), "goal", "goals")',
+                      valueMode: "expression",
+                    },
+                    {
+                      type: "setVariable",
+                      name: "weeklyPace",
+                      // Rounds to nearest — not trunc — and holds the result
+                      // inside an inclusive range. Over the slider's
+                      // 0..1 / step-0.1 grid the reachable outputs are
+                      // 1,1,1,1,2,2,2,3,3,3,3 — a 4/3/4 split, the most even
+                      // available for eleven positions across three values, so
+                      // no stretch of the slider is inert.
+                      //
+                      // The multiplier is chosen so the RAW value overshoots
+                      // the bounds a little and not a lot: raw runs
+                      // 0,0,1,1,2,2,2,3,3,4,4, so `clamp` is OBSERVABLE at both
+                      // ends (0 -> 1 twice, 4 -> 3 twice). That is the whole
+                      // constraint — an expression whose raw range already sits
+                      // inside 1..3, like `round(1 + {{intensity}} * 2)`, makes
+                      // clamp change no value at all and demonstrates an inert
+                      // function; one that overshoots hard, like `* 5`, returns
+                      // 3 at six of the eleven positions and leaves the upper
+                      // half of the slider dead.
+                      //
+                      // What this shape does not cover: no reachable position
+                      // lands on an exact .5 tie, so round-half-up is pinned in
+                      // `expression.test.ts` rather than here. A trunc
+                      // regression is still caught at 0.4 (1.6 -> 2, not 1) and
+                      // 0.7 (2.8 -> 3, not 2).
+                      value: "clamp(round({{intensity}} * 4), 1, 3)",
+                      valueMode: "expression",
+                    },
+                  ],
+                },
+              },
+              {
+                id: "stdlib-display",
+                type: "Text",
+                props: {
+                  content:
+                    "{{goalCount}}: {{goalSentence}} — by {{goalDate}}, {{weeklyPace}}x / week",
+                  mode: "expression",
+                  fontSize: 14,
+                  textAlign: "center",
+                  opacity: 0.6,
+                  marginVertical: 4,
+                },
+              },
               {
                 id: "hero-date-picker",
                 type: "DatePicker",

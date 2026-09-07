@@ -24,6 +24,18 @@ describe("interpolate", () => {
 });
 
 describe("interpolateIdentifier", () => {
+  it("trims a spaced reference, exactly as interpolate does", () => {
+    // These two must agree: `purchase.product` resolves through this one, so a
+    // paywall authored `product: "{{ plan }}"` used to resolve to an empty slot
+    // key and buy nothing, while the same reference rendered fine in a Text.
+    const vars = { plan: { value: "yearly", label: "Yearly" } };
+    expect(interpolateIdentifier("{{ plan }}", vars)).toBe("yearly");
+    expect(interpolate("{{ plan }}", vars)).toBe("Yearly");
+    expect(interpolateIdentifier("https://cdn/{{ plan }}.png", vars)).toBe(
+      "https://cdn/yearly.png"
+    );
+  });
+
   // The inverse of `interpolate` — this is the whole point of the helper.
   // A RadioGroup item's `value` ("yearly") and `label` ("Yearly") commonly
   // differ; a `purchase` action resolving `{{plan}}` needs the machine

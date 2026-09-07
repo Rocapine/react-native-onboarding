@@ -119,6 +119,17 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ### Added
 
+- **`setVariable valueMode: "expression"` now documents a function stdlib**, and
+  the shipped example payload demonstrates it. Nothing in this package's schema
+  changed — `value` is still a plain string and the grammar is not
+  schema-encoded — but `SetVariableButtonAction`'s JSDoc is where an author
+  reads what an expression may contain, and the `onboarding-example.ts`
+  ComposableScreen step now computes a goal date, a grammatical goal sentence
+  and a weekly pace from one press. The evaluator itself lives in the UI package
+  (`Runtime/elements/expression.ts`); the two are joined by a peer-dependency
+  range, so on a UI build older than that the call cannot tokenize and the
+  template falls back to plain interpolation, storing the literal source text.
+
 - **`resolveRenderableStep` is public API** — the whole render-boundary decision
   in one pure call: what to parse, what to report, and whether the renderer must
   supply its own way off the screen.

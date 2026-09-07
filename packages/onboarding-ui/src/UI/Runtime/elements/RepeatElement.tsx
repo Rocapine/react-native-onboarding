@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { z } from "zod";
 import type { UIElement } from "../types";
-import type { RenderContext } from "./shared";
+import type { RenderContext, ParentType } from "./shared";
 import { VariablesContext, useVariables } from "./VariablesContext";
 import { buildRowEntries, buildRowFlat, buildRowKeys, suffixIds } from "./repeatScope";
 
@@ -25,7 +25,6 @@ export const RepeatElementPropsSchema = z.object({
 });
 
 type RepeatUIElement = Extract<UIElement, { type: "Repeat" }>;
-type ParentType = "XStack" | "YStack" | "ZStack" | "RichText" | "XScroll";
 
 type Props = {
   element: RepeatUIElement;

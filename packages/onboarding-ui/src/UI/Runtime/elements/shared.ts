@@ -6,6 +6,13 @@ import type { ComposableVariableEntry } from "@rocapine/react-native-onboarding"
 import type { BaseBoxProps } from "./BaseBoxProps";
 import type { CompleteOutcome } from "../ScreenHost";
 
+/**
+ * The container an element is being laid out by. Declared here — the leaf
+ * module with no `react-native` import — so the wrapper-layout split and the
+ * renderers share one definition instead of hand-copying the union.
+ */
+export type ParentType = "XStack" | "YStack" | "ZStack" | "RichText" | "XScroll";
+
 export type RenderContext = {
   theme: Theme;
   // Live read of the merged variable map (elementDefaults ⊕ composableVariables)
@@ -33,7 +40,7 @@ export type RenderContext = {
    */
   renderChildren: (
     elements: UIElement[],
-    parentType: "XStack" | "YStack" | "ZStack" | "RichText" | "XScroll",
+    parentType: ParentType,
     ctxOverride?: RenderContext
   ) => React.ReactNode;
 };

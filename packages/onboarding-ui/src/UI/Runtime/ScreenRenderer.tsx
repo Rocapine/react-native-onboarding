@@ -4,7 +4,7 @@ import { productVariables } from "@rocapine/react-native-onboarding";
 import type { UIElement } from "./types";
 import type { ScreenHost, CompleteOutcome } from "./ScreenHost";
 import { useTheme } from "../Theme/useTheme";
-import { RenderContext } from "./elements/shared";
+import { RenderContext, type ParentType } from "./elements/shared";
 import {
   EnteringLatchContext,
   useEnteringLatchValue,
@@ -36,7 +36,6 @@ export type ScreenRendererProps = {
   host: ScreenHost;
 };
 
-type ParentType = "XStack" | "YStack" | "ZStack" | "RichText" | "XScroll";
 
 /**
  * The screen-agnostic rendering engine. Renders a UIElement tree against an
@@ -134,7 +133,13 @@ export const ScreenRenderer = ({ elements, host }: ScreenRendererProps) => {
   const rootIsFullBleed =
     !!rootElement &&
     !rootElement.renderWhen &&
-    (rootProps?.flex != null || rootProps?.height === "100%");
+    // `flexGrow` counts too — a root authored `flexGrow: 1` fills the screen
+    // exactly as `flex: 1` does, and it is also what a demoted root would
+    // carry. Deliberately NOT `fillsParent`: this asks "does the root cover the
+    // screen", so `height: "100%"` qualifies and a `height: 200` root does not.
+    (rootProps?.flex != null ||
+      rootProps?.flexGrow != null ||
+      rootProps?.height === "100%");
   const rootBackgroundColor = rootIsFullBleed ? rootProps?.backgroundColor : undefined;
   const keyboardAvoidingStyle = useMemo(
     () => (rootBackgroundColor ? [styles.flex, { backgroundColor: rootBackgroundColor }] : styles.flex),

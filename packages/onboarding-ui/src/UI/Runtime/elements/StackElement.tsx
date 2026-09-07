@@ -2,7 +2,7 @@ import React from "react";
 import { z } from "zod";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
-import { RenderContext, dim, buildShadowStyle, areElementPropsEqual } from "./shared";
+import { RenderContext, dim, buildShadowStyle, areElementPropsEqual, type ParentType } from "./shared";
 import { GradientBox } from "./GradientBox";
 
 export type StackElementProps = BaseBoxProps & {
@@ -24,7 +24,7 @@ type StackUIElement = Extract<UIElement, { type: "YStack" | "XStack" }>;
 type Props = {
   element: StackUIElement;
   ctx: RenderContext;
-  parentType?: "XStack" | "YStack" | "ZStack" | "RichText" | "XScroll";
+  parentType?: ParentType;
 };
 
 const StackElementComponentBase = ({ element, ctx, parentType }: Props): React.ReactElement => {

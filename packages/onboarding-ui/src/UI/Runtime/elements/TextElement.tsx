@@ -4,10 +4,11 @@ import { Text } from "react-native";
 import { useResolvedFontStyle } from "@rocapine/react-native-onboarding";
 import { BaseBoxProps, BaseBoxPropsSchema } from "./BaseBoxProps";
 import { UIElement } from "../types";
-import { RenderContext, areElementPropsEqual, interpolate, dim, resolveInheritedFontFamily, RichTextStyleContext } from "./shared";
+import { RenderContext, areElementPropsEqual, interpolate, dim, resolveInheritedFontFamily, RichTextStyleContext, type ParentType } from "./shared";
 import { useVariables } from "./VariablesContext";
 import type { ComposableVariableEntry } from "@rocapine/react-native-onboarding";
 import { GradientBox } from "./GradientBox";
+import { nestedFillLayout } from "./wrapperLayout";
 
 export type TextSpan = {
   text: string;
@@ -120,7 +121,7 @@ type TextUIElement = Extract<UIElement, { type: "Text" }>;
 type Props = {
   element: TextUIElement;
   ctx: RenderContext;
-  parentType?: "XStack" | "YStack" | "ZStack" | "RichText" | "XScroll";
+  parentType?: ParentType;
 };
 
 // Shared implementation. `variables` is injected by the two memo wrappers below —
@@ -156,9 +157,20 @@ const TextElementBase = ({ element, ctx, parentType, variables }: Props & { vari
   const textNode = (
     <Text
       style={{
-        flex: p.flex,
-        flexShrink: p.flexShrink ?? (parentType === "XStack" ? 1 : undefined),
-        flexGrow: p.backgroundGradient ? undefined : p.flexGrow,
+        // Under a gradient this `<Text>` is NESTED inside the GradientBox that
+        // carries the box layout, so it takes the fill contract — never `flex`,
+        // which would put `flexBasis: 0` on a nested box and collapse the
+        // gradient band (#231, one level down: the two lines below used to be
+        // ungated while every other key here is gated on the gradient). It also
+        // has to be a fill rather than nothing, or a wrapped gradient Text —
+        // whose props arrive demoted, `flex` already gone — would have neither.
+        ...(p.backgroundGradient
+          ? nestedFillLayout(p)
+          : {
+              flex: p.flex,
+              flexShrink: p.flexShrink ?? (parentType === "XStack" ? 1 : undefined),
+              flexGrow: p.flexGrow,
+            }),
         alignSelf: p.backgroundGradient ? undefined : p.alignSelf,
         width: p.backgroundGradient ? undefined : dim(p.width),
         height: p.backgroundGradient ? undefined : dim(p.height),

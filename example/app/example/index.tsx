@@ -27,6 +27,8 @@ const examples: Example[] = [
       { name: "Progressive Blur", route: "/example/composable-screen-blur" },
       { name: "ScrollView", route: "/example/composable-screen-scrollview" },
       { name: "Grid Select (onPress)", route: "/example/composable-screen-grid-select" },
+      { name: "Flex + wrapper (#231)", route: "/example/composable-screen-flex-wrappers" },
+      { name: "Flex + wrapper: containers", route: "/example/composable-screen-flex-wrappers-containers" },
       { name: "Keyboard", route: "/example/composable-screen-keyboard" },
       { name: "Drawing Pad", route: "/example/composable-screen-drawing-pad" },
       { name: "Runtime Fonts", route: "/example/composable-screen-fonts" },

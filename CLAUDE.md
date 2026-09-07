@@ -246,8 +246,11 @@ own worktree and open a draft PR: `sdk-parity-dev` for this repo, `studio-parity
 `onboarding-studio`. Neither may merge, mark a PR ready, bump a version, or publish. They
 move their own card on project #1 (`In progress` on pickup, `In review` once the draft PR
 is open) and never set `Done`, because that follows a merge. The batch workflow that drives
-them, `parity-programme-batch`, is saved in **`onboarding-studio`** under
-`.claude/workflows/` — it covers both repos, and lives there because that repo holds most
-of the board. Do not write a second one here.
+them is `board-run`, shared by every `~/Developer` repo and living at
+`~/.claude/workflows/board-run.mjs`; the programme's own config — both repos, the selection
+rules, the routing — is `.claude/board.json` in **`onboarding-studio`**, because that repo
+holds most of the board. Run it from there:
+`Workflow({name: 'board-run', args: {limit: 2}})`. Do not write a second workflow or a
+second `board.json` here — a copy of either is what the shared spine replaced.
 
 **Ticket conventions.** Labels: `parity-gap` on everything; tier is `atom:element|prop|logic|action|chrome` or `cell`; `need:A`–`need:J` maps to the audit's need sections; `prio:P0`–`P3`. Priority is *also* set on the org-level `Priority` **issue field** (Urgent/High/Medium/Low) — that is an issue field, not a project field, so it is written with the `setIssueFieldValue` GraphQL mutation, never `updateProjectV2Field`.

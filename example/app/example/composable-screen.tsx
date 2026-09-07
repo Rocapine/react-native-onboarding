@@ -702,13 +702,12 @@ export default function ComposableScreenExample() {
                   {
                     type: 'setVariable' as const,
                     name: 'weeklyPace',
-                    // Over the slider's 0..1 / step-0.1 grid: the lower half
-                    // sweeps 1 -> 2 -> 3 and the upper half saturates at 3
-                    // (1,1,1,2,2,3,3,3,3,3,3). The saturation is why `clamp` is
-                    // observable — raw 0 is below the floor, raw 4 and 5 above
-                    // the ceiling. An evenly spread expression would never
-                    // leave 1..3 and clamp would do nothing.
-                    value: 'clamp(round({{intensity}} * 5), 1, 3)',
+                    // Over the slider's 0..1 / step-0.1 grid the outputs are
+                    // 1,1,1,1,2,2,2,3,3,3,3 — a 4/3/4 split. The multiplier
+                    // overshoots the bounds a little (raw 0,0,1,1,2,2,2,3,3,4,4)
+                    // so `clamp` is observable at both ends; an expression whose
+                    // raw range sits inside 1..3 makes clamp do nothing.
+                    value: 'clamp(round({{intensity}} * 4), 1, 3)',
                     valueMode: 'expression' as const,
                   },
                 ],

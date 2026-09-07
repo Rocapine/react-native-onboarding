@@ -10,13 +10,21 @@
 // and then staged four files that didn't include it, so the edit was made and
 // silently dropped every time. A check is cheaper than remembering.
 //
-// In scope: the two published packages, the Claude Code plugin manifest, and the
-// top entry of each package CHANGELOG.
+// In scope: the two published packages, the Claude Code plugin manifest, the top
+// entry of each package CHANGELOG, and the lockfile's record of both workspace
+// versions. The lockfile is here because it is the mirror nothing pointed at: npm
+// writes each workspace's version into `package-lock.json`, the release skill
+// listed five files and staged five, and `npm ci` does NOT catch the omission —
+// it resolves a workspace by path, not by version, so a lock reading 1.74.1 for a
+// 1.75.0 package installs and builds and tests green. Verified with
+// `npm ci --dry-run` rather than assumed. A stale mirror that no check reads is
+// exactly the drift this script exists for.
 //
 // Out of scope, deliberately:
-//   - The root package.json version (1.1.1). The root is `private: true` and
-//     publishes nothing, so its version is inert. Left alone rather than dragged
-//     into a scheme it plays no part in.
+//   - The root package.json version (1.1.1), and with it the lockfile's own root
+//     entry (`packages[""]`), which mirrors that same inert number. The root is
+//     `private: true` and publishes nothing, so its version plays no part in the
+//     scheme. Only the two workspace entries are read.
 //   - The rocapine-marketplace entry. It lives in another repo, and a required
 //     check that reaches across a network boundary fails for reasons that have
 //     nothing to do with the pull request in front of it. This script prints the
@@ -29,6 +37,14 @@ import { fileURLToPath } from "node:url";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => readFileSync(join(ROOT, p), "utf8");
 const version = (p) => JSON.parse(read(p)).version;
+
+/**
+ * A workspace's version as npm records it in the lockfile. Read defensively: a
+ * missing entry must report `(none found)` and fail the identity check, never
+ * throw a stack trace at someone mid-release.
+ */
+const lockVersion = (workspace) =>
+  JSON.parse(read("package-lock.json")).packages?.[workspace]?.version ?? null;
 
 /** The newest released version in a keep-a-changelog file, skipping [Unreleased]. */
 function topChangelogVersion(path) {
@@ -45,6 +61,8 @@ const sources = [
   ["claude-plugin/.claude-plugin/plugin.json", version("claude-plugin/.claude-plugin/plugin.json")],
   ["packages/onboarding/CHANGELOG.md (top entry)", topChangelogVersion("packages/onboarding/CHANGELOG.md")],
   ["packages/onboarding-ui/CHANGELOG.md (top entry)", topChangelogVersion("packages/onboarding-ui/CHANGELOG.md")],
+  ["package-lock.json (packages/onboarding)", lockVersion("packages/onboarding")],
+  ["package-lock.json (packages/onboarding-ui)", lockVersion("packages/onboarding-ui")],
 ];
 
 const width = Math.max(...sources.map(([label]) => label.length));
@@ -58,8 +76,13 @@ if (distinct.length !== 1 || distinct[0] == null) {
   console.error("*** Version identities disagree.");
   console.error("");
   console.error("A release sets all of these to the same number. If you bumped the packages,");
-  console.error("the plugin manifest and both CHANGELOG top entries move with them — the");
-  console.error("`bump-version` skill does this, and stages all five files.");
+  console.error("the plugin manifest, both CHANGELOG top entries and the lockfile move with");
+  console.error("them — the `bump-version` skill does this, and stages all six files.");
+  console.error("");
+  console.error("If only the two package-lock.json rows disagree, you edited the versions but");
+  console.error("did not regenerate the lock:");
+  console.error("");
+  console.error("    npm install --package-lock-only --ignore-scripts");
   process.exit(1);
 }
 

@@ -47,6 +47,23 @@ export {
   generateWheelPickerRangeItems,
   resolveWheelPickerItems,
 } from "./steps/ComposableScreen/types";
+// The `Picker` PAGE's variants (distinct from the ComposableScreen
+// `WheelPicker`/`DatePicker` ELEMENTS above). The UI package imports these to
+// route `payload.pickerType` and to format the value it hands back, so the
+// schema's declared types and the renderer's dispatch cannot drift apart the way
+// they had before #210. Exported for hosts too: `PICKER_TYPES` is the honest
+// capability list to validate a payload against, since `pickerType` accepts any
+// string for forward compatibility.
+export {
+  PICKER_TYPES,
+  resolvePickerType,
+  formatUnsupportedPickerType,
+  GENDER_OPTIONS,
+  AGE_RANGE,
+  generateAgeOptions,
+  formatAgeValue,
+} from "./steps/Picker/pickerVariants";
+export type { PickerType, GenderValue } from "./steps/Picker/pickerVariants";
 // The SDK's front door: configuration (`init`) and user identity
 // (`setUserProperty`, `reset`), in the shape of the SDKs it sits alongside —
 // `Superwall.configure`, `Purchases.configure`, `amplitude.init`.

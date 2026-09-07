@@ -1,15 +1,10 @@
 import { z } from "zod";
 import { BaseStepTypeSchema } from "../common.types";
+import { PICKER_TYPES } from "./pickerVariants";
 
-export const PickerTypeEnum = z.enum([
-  "height",
-  "weight",
-  "age",
-  "date",
-  "gender",
-  "coach",
-  "name",
-]);
+// Derived, never hand-listed: `PICKER_TYPES` is the set the renderer dispatches
+// on, so the schema cannot declare a type nothing can draw (#210).
+export const PickerTypeEnum = z.enum(PICKER_TYPES);
 
 export const PickerStepPayloadSchema = z.object({
   title: z.string(),

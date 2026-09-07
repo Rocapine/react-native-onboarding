@@ -1,11 +1,21 @@
 import { OnboardingTemplate } from "../../Templates/OnboardingTemplate";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { PickerStepType, PickerStepTypeSchema, WeightUnit, HeightUnit } from "./types";
-import { View, Text, StyleSheet, TextInput, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from "react-native";
-import { useState } from "react";
+import { View, Text, StyleSheet, TextInput, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, ScrollView } from "react-native";
+import { useEffect, useState } from "react";
+import {
+  resolvePickerType,
+  formatUnsupportedPickerType,
+  formatAgeValue,
+  GENDER_OPTIONS,
+  AGE_RANGE,
+  generateAgeOptions,
+  type PickerType,
+} from "@rocapine/react-native-onboarding";
 import { Theme } from "../../Theme/types";
 import { defaultTheme } from "../../Theme/defaultTheme";
 import { getTextStyle } from "../../Theme/helpers";
+import { DefaultQuestionAnswerButton } from "../Question/components";
 
 // Lazy load Picker - only needed for picker screens
 let PickerComponent: any;

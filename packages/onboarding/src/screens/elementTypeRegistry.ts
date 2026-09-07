@@ -63,6 +63,40 @@ const buildElementRegistry = (schema: unknown): Map<string, ElementKeySets> => {
 };
 
 /**
+ * The same union reading, one level shallower: a `type`-discriminated union's
+ * variant name → the key set that variant declares.
+ *
+ * Serves the `ButtonAction` union (`unknownKeys.ts`, so a misspelled
+ * `purchase.onSucces` / `requestPermission.onDeneid` can be reported rather
+ * than silently stripped). It lives beside the element derivation because this
+ * file is the one place that knows how to read zod's internals — duplicating
+ * `zdef` would give us two things to fix the next time they move.
+ *
+ * EMPTY means "could not tell", and every caller must read it that way: this
+ * only ever feeds diagnostics, never a reject.
+ */
+export const deriveVariantKeySets = (schema: unknown): Map<string, ReadonlySet<string>> => {
+  const built = new Map<string, ReadonlySet<string>>();
+  try {
+    const lazyDef = zdef(schema);
+    const union = typeof lazyDef?.getter === "function" ? lazyDef.getter() : schema;
+    for (const option of zdef(union)?.options ?? []) {
+      const optionDef = zdef(option);
+      // A union member may itself be lazy (the recursive action variants are).
+      const resolved =
+        typeof optionDef?.getter === "function" ? optionDef.getter() : option;
+      const shape = zdef(resolved)?.shape;
+      if (!shape) continue;
+      const keys = new Set(Object.keys(shape));
+      for (const name of literalsOf(shape.type)) built.set(name, keys);
+    }
+  } catch {
+    // fall through to whatever was built before the failure
+  }
+  return built;
+};
+
+/**
  * Every element `type` a given element union declares. EMPTY means "could not
  * tell" — zod internals moved, or this is not an element union — and every
  * caller must read it as "learn nothing" rather than "reject everything", which

@@ -264,6 +264,16 @@ export async function runActions(
       // question rather than a second guess at it — complete the screen and
       // nothing else. If it was never a way forward (a "turn on notifications"
       // button beside its own Skip CTA), leaving the user put is correct.
+      //
+      // `onContinue()` with no outcome is deliberately the SAME call a bare
+      // `"continue"` makes, so each host reads it as it reads that action:
+      // advance (onboarding step, and a Paywall step — `shouldAdvanceOnComplete`
+      // admits an absent status), or resolve the presentation as
+      // `{status:"dismissed"}` (`PaywallHost.toPresentResult`). Substituting the
+      // author's own escape rather than inventing a new one is the point: on a
+      // Paywall step whose only authored `"continue"` sits in this ask, nothing
+      // else can ever advance it, so declining to act would trap the user on a
+      // paywall with no exit at all.
       const wasAWayForward =
         actionsCanComplete(act.onGranted) || actionsCanComplete(act.onDenied);
       if (wasAWayForward) {

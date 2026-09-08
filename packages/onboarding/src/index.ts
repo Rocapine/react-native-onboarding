@@ -128,7 +128,11 @@ export type { UnknownElementType } from "./screens/unknownElementTypes";
 // versions can differ.
 export { resolveRenderableStep } from "./screens/resolveRenderableStep";
 export type { RenderableStep } from "./screens/resolveRenderableStep";
-export { hasCompletingAction } from "./screens/completingActions";
+// `hasCompletingAction` answers it for a whole element tree (what the strip
+// needs); `actionsCanComplete` answers it for one action list, which is what the
+// UI runtime consults at press time before deciding whether a permission ask it
+// could not perform has left the user with no way off the screen.
+export { hasCompletingAction, actionsCanComplete } from "./screens/completingActions";
 export { deriveElementTypeNames } from "./screens/elementTypeRegistry";
 // Hooks and providers
 export * from "./infra";

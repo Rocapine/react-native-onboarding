@@ -75,23 +75,36 @@ const listCompletes = (value: unknown): boolean =>
  *
  * `runActions` has exactly three paths: a grant runs `onGranted`, a refusal
  * runs `onDenied`, and "this build cannot ask" runs `onUnavailable` when
- * declared and `onDenied` otherwise. All of them have to reach a `"continue"` /
- * `{dismiss}` for the ask to be a way OFF the screen — a CTA whose only
- * `"continue"` sits in `onGranted` strands everyone who refuses, and strands
- * EVERY user of a build that never installed the optional Expo module, which is
- * a packaging fact the person pressing the button cannot influence.
+ * declared. All of them have to reach a `"continue"` / `{dismiss}` for the ask
+ * to be a way OFF the screen — a CTA whose only `"continue"` sits in
+ * `onGranted` strands everyone who refuses.
+ *
+ * The third path is the one the runtime rescues by itself: with no
+ * `onUnavailable` declared it completes the screen rather than running
+ * `onDenied` (review round 1 of #196 — the old fallback recorded a refusal the
+ * user was never asked for, and rescued nobody when `onDenied` was absent too).
+ * So a declared-but-dead `onUnavailable` still reads as a trap here, while its
+ * ABSENCE no longer does.
  *
  * `purchase` / `restore` keep the generic OR reading on purpose: a cancelled
  * purchase leaves the user free to press again, whereas a standing OS denial is
  * final for the life of the install. Not symmetric, so not shared.
  *
- * Mirrors the runtime's own fallback shape (`runActions.ts` — `onUnavailable`
- * present but empty runs nothing, exactly as an empty array does here).
+ * Mirrors the runtime's own shape (`runActions.ts` — `onUnavailable` present but
+ * empty runs nothing, exactly as an empty array does here).
  */
 const permissionAskCompletes = (action: Record<string, unknown>): boolean => {
+  const onGranted = listCompletes(action.onGranted);
   const onDenied = listCompletes(action.onDenied);
-  const onUnavailable = action.onUnavailable ? listCompletes(action.onUnavailable) : onDenied;
-  return listCompletes(action.onGranted) && onDenied && onUnavailable;
+  // Absent `onUnavailable`: the runtime completes the screen itself iff the
+  // author put a completing action somewhere in the ask — the same
+  // `actionsCanComplete(onGranted) || actionsCanComplete(onDenied)` test
+  // `runActions` runs. Written out rather than folded into the conjunction
+  // below, so this stays readable as the runtime's three paths.
+  const onUnavailable = action.onUnavailable
+    ? listCompletes(action.onUnavailable)
+    : onGranted || onDenied;
+  return onGranted && onDenied && onUnavailable;
 };
 
 const isCompletingAction = (action: unknown): boolean => {
@@ -135,3 +148,20 @@ const nodeCanComplete = (node: unknown): boolean => {
  */
 export const hasCompletingAction = (elements: unknown): boolean =>
   Array.isArray(elements) && elements.some(nodeCanComplete);
+
+/**
+ * The same walk over ONE action list rather than a whole element tree.
+ *
+ * Exists for the runtime, which needs the question answered at press time and
+ * had been deciding it by hand: `runActions` reaches "the build cannot ask for
+ * this permission and the author declared no `onUnavailable`" and has to choose
+ * between logging and moving on, and stranding the user. Whether the press was
+ * the screen's only way forward is exactly what this module already knows, so
+ * the runtime consults it instead of re-deriving it (review round 1, finding 1).
+ *
+ * OR across the list — "did the author intend this press to move the user on" —
+ * not `permissionAskCompletes`' AND across one ask's outcomes, which answers the
+ * stricter "does EVERY outcome move them on". Total on junk for the same reason
+ * `hasCompletingAction` is.
+ */
+export const actionsCanComplete = (actions: unknown): boolean => listCompletes(actions);

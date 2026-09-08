@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { hasCompletingAction } from "../screens/completingActions";
+import { actionsCanComplete, hasCompletingAction } from "../screens/completingActions";
 
 /**
  * "Can the user still get off this screen?" (#209, review finding 1).
@@ -262,5 +262,53 @@ describe("hasCompletingAction — requestPermission outcome hooks", () => {
         ]),
       ])
     ).toBe(true);
+  });
+});
+
+/**
+ * `actionsCanComplete` — the same walk, exposed for ONE action list rather than
+ * a whole element tree, so the runtime can consult the SDK's own definition of
+ * "this was a way off the screen" instead of re-deriving it (review round 1,
+ * finding 1).
+ *
+ * `runActions` needs it at press time for exactly one decision: a
+ * `requestPermission` whose build cannot ask at all, with no `onUnavailable`
+ * declared. Whether that press was the screen's only way forward is the
+ * difference between "log and move on" and "the user is stuck", and it is the
+ * same question this module already answers statically.
+ *
+ * OR across the list, unlike `permissionAskCompletes`' AND across one ask's
+ * outcomes: the caller asks "did the author intend this press to move the user
+ * on", not "does every outcome move them on".
+ */
+describe("actionsCanComplete", () => {
+  it("is true for a list holding continue or dismiss", () => {
+    expect(actionsCanComplete(["continue"])).toBe(true);
+    expect(actionsCanComplete([{ type: "dismiss" }])).toBe(true);
+    expect(actionsCanComplete([{ type: "setVariable", name: "a", value: "b" }, "continue"])).toBe(
+      true
+    );
+  });
+
+  it("is false for a list that leaves the user on the screen", () => {
+    expect(actionsCanComplete([{ type: "setVariable", name: "a", value: "b" }])).toBe(false);
+    expect(actionsCanComplete([{ type: "custom", function: "doThing" }])).toBe(false);
+    expect(actionsCanComplete([{ type: "presentPaywall", placement: "hard" }])).toBe(false);
+  });
+
+  it("walks nested branch lists", () => {
+    expect(
+      actionsCanComplete([{ type: "purchase", product: "yearly", onSuccess: ["continue"] }])
+    ).toBe(true);
+  });
+
+  // Total on junk: it runs on a payload the runtime has already parsed, but the
+  // predicate is the one thing that must not throw while deciding whether a
+  // user is trapped.
+  it("is false for anything that is not an action list", () => {
+    expect(actionsCanComplete(undefined)).toBe(false);
+    expect(actionsCanComplete(null)).toBe(false);
+    expect(actionsCanComplete("continue")).toBe(false);
+    expect(actionsCanComplete([null, 3, { type: "continue" }])).toBe(false);
   });
 });

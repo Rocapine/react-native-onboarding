@@ -56,7 +56,7 @@ export type PermissionOutcome = "granted" | "denied" | "unavailable";
  * NOT add a seventh: `PermissionKindSchema` is a closed enum, so a payload
  * naming `"healthKit"` or `"screenTime"` fails `invalid_union` and takes the
  * whole screen to the error boundary before this is ever consulted. Those two
- * need the kind added to the headless schema first (follow-up on #196); an
+ * need the kind added to the headless schema first (#261); an
  * earlier version of this comment called this their "seam", which was true of
  * the resolver and false of the schema.
  *

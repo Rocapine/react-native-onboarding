@@ -132,7 +132,16 @@ export type { RenderableStep } from "./screens/resolveRenderableStep";
 // needs); `actionsCanComplete` answers it for one action list, which is what the
 // UI runtime consults at press time before deciding whether a permission ask it
 // could not perform has left the user with no way off the screen.
-export { hasCompletingAction, actionsCanComplete } from "./screens/completingActions";
+// `completingActionKind` answers WHICH of the two completing actions that list
+// reaches — the runtime has to stand in for the author's escape with the same
+// outcome the author authored, since `complete()` and `complete({status:
+// "dismissed"})` are not interchangeable at a paywall's hard gate.
+export {
+  hasCompletingAction,
+  actionsCanComplete,
+  completingActionKind,
+} from "./screens/completingActions";
+export type { EscapeAction } from "./screens/completingActions";
 export { deriveElementTypeNames } from "./screens/elementTypeRegistry";
 // Hooks and providers
 export * from "./infra";

@@ -29,8 +29,19 @@
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
-const listCompletes = (value: unknown): boolean =>
-  Array.isArray(value) && value.some(isCompletingAction);
+/** The two actions that reach `complete`, and the OUTCOME each reports. */
+export type EscapeAction = "continue" | "dismiss";
+
+const union = (...sets: ReadonlySet<EscapeAction>[]): Set<EscapeAction> => {
+  const out = new Set<EscapeAction>();
+  for (const s of sets) for (const v of s) out.add(v);
+  return out;
+};
+
+const listEscapes = (value: unknown): Set<EscapeAction> =>
+  Array.isArray(value)
+    ? union(...value.map(actionEscapes))
+    : new Set<EscapeAction>();
 
 /**
  * `requestPermission` is read with AND across its outcomes, not OR: its result
@@ -39,24 +50,41 @@ const listCompletes = (value: unknown): boolean =>
  * full reasoning — and note this is only reached for an ask NESTED inside
  * another action's hook, since `runActions` asks about the hook lists.
  */
-const permissionAskCompletes = (action: Record<string, unknown>): boolean => {
-  const onGranted = listCompletes(action.onGranted);
-  const onDenied = listCompletes(action.onDenied);
+const permissionAskEscapes = (action: Record<string, unknown>): Set<EscapeAction> => {
+  const onGranted = listEscapes(action.onGranted);
+  const onDenied = listEscapes(action.onDenied);
   const onUnavailable = action.onUnavailable
-    ? listCompletes(action.onUnavailable)
-    : onGranted || onDenied;
-  return onGranted && onDenied && onUnavailable;
+    ? listEscapes(action.onUnavailable)
+    : union(onGranted, onDenied);
+  if (!onGranted.size || !onDenied.size || !onUnavailable.size)
+    return new Set<EscapeAction>();
+  return union(onGranted, onDenied, onUnavailable);
 };
 
-function isCompletingAction(action: unknown): boolean {
+function actionEscapes(action: unknown): Set<EscapeAction> {
   // `"continue"` is the string literal; `{type:"continue"}` is not an action
   // this runtime runs, so it is not a way forward either.
-  if (action === "continue") return true;
-  if (!isRecord(action)) return false;
-  if (action.type === "dismiss") return true;
-  if (action.type === "requestPermission") return permissionAskCompletes(action);
-  return Object.values(action).some(listCompletes);
+  if (action === "continue") return new Set<EscapeAction>(["continue"]);
+  if (!isRecord(action)) return new Set<EscapeAction>();
+  if (action.type === "dismiss") return new Set<EscapeAction>(["dismiss"]);
+  if (action.type === "requestPermission") return permissionAskEscapes(action);
+  return union(...Object.values(action).map(listEscapes));
 }
 
 /** Total on junk — it decides whether a user is about to be trapped. */
-export const actionsCanComplete = (actions: unknown): boolean => listCompletes(actions);
+export const actionsCanComplete = (actions: unknown): boolean =>
+  listEscapes(actions).size > 0;
+
+/**
+ * WHICH completing action stands in for the list, `"dismiss"` winning when both
+ * are reachable. Mirror of the headless `completingActionKind`; the preference
+ * is the fix for review round 2, finding 1 — see the headless original for why
+ * substituting a bare advance for an authored `{dismiss}` let a module-less
+ * build walk a user through a hard paywall gate.
+ */
+export const completingActionKind = (actions: unknown): EscapeAction | undefined => {
+  const escapes = listEscapes(actions);
+  if (escapes.has("dismiss")) return "dismiss";
+  if (escapes.has("continue")) return "continue";
+  return undefined;
+};

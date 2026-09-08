@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { actionsCanComplete, hasCompletingAction } from "../screens/completingActions";
+import {
+  actionsCanComplete,
+  completingActionKind,
+  hasCompletingAction,
+} from "../screens/completingActions";
 
 /**
  * "Can the user still get off this screen?" (#209, review finding 1).
@@ -310,5 +314,84 @@ describe("actionsCanComplete", () => {
     expect(actionsCanComplete(null)).toBe(false);
     expect(actionsCanComplete("continue")).toBe(false);
     expect(actionsCanComplete([null, 3, { type: "continue" }])).toBe(false);
+  });
+});
+
+/**
+ * Review round 2, finding 1. `actionsCanComplete`'s yes/no was not enough: the
+ * runtime substitutes the author's escape for an ask it could not perform, and
+ * the two completing actions report DIFFERENT outcomes to the host.
+ * `complete()` (bare) is what `Pages/Paywall/Renderer`'s hard gate reads as
+ * "advance", so standing in for an authored `{dismiss}` with a bare advance
+ * handed out paid content. `"dismiss"` therefore wins whenever both are
+ * reachable — nobody was asked anything, so the SDK claims the LESS permissive
+ * of the two answers the author authored.
+ */
+describe("completingActionKind", () => {
+  it("names the completing action a list reaches", () => {
+    expect(completingActionKind(["continue"])).toBe("continue");
+    expect(completingActionKind([{ type: "dismiss" }])).toBe("dismiss");
+  });
+
+  it("prefers dismiss when both are reachable, in either order", () => {
+    expect(completingActionKind(["continue", { type: "dismiss" }])).toBe("dismiss");
+    expect(completingActionKind([{ type: "dismiss" }, "continue"])).toBe("dismiss");
+  });
+
+  it("walks nested branch lists like the predicate does", () => {
+    expect(
+      completingActionKind([
+        { type: "purchase", product: "yearly", onSuccess: [{ type: "dismiss" }] },
+      ])
+    ).toBe("dismiss");
+    expect(
+      completingActionKind([{ type: "restore", onSuccess: ["continue"] }])
+    ).toBe("continue");
+  });
+
+  // A nested ask keeps the AND-across-outcomes rule: it contributes an escape
+  // only when it is one on EVERY path.
+  it("respects the requestPermission AND rule when nested", () => {
+    expect(
+      completingActionKind([
+        { type: "requestPermission", kind: "notifications", onGranted: ["continue"] },
+      ])
+    ).toBeUndefined();
+    expect(
+      completingActionKind([
+        {
+          type: "requestPermission",
+          kind: "notifications",
+          onGranted: ["continue"],
+          onDenied: [{ type: "dismiss" }],
+        },
+      ])
+    ).toBe("dismiss");
+  });
+
+  it("is undefined for a list that leaves the user on the screen, and for junk", () => {
+    expect(completingActionKind([{ type: "setVariable", name: "a", value: "b" }])).toBeUndefined();
+    expect(completingActionKind([])).toBeUndefined();
+    expect(completingActionKind(undefined)).toBeUndefined();
+    expect(completingActionKind(null)).toBeUndefined();
+    expect(completingActionKind("continue")).toBeUndefined();
+    expect(completingActionKind([null, 3, { type: "continue" }])).toBeUndefined();
+  });
+
+  // The two must never disagree about WHETHER there is an escape — one walk
+  // answers both, and this is the assertion that keeps it that way.
+  it("agrees with actionsCanComplete on every shape", () => {
+    for (const actions of [
+      ["continue"],
+      [{ type: "dismiss" }],
+      [{ type: "setVariable", name: "a", value: "b" }],
+      [{ type: "purchase", product: "yearly", onSuccess: ["continue"] }],
+      [{ type: "requestPermission", kind: "camera", onGranted: ["continue"] }],
+      undefined,
+      null,
+      [],
+    ]) {
+      expect(completingActionKind(actions) !== undefined).toBe(actionsCanComplete(actions));
+    }
   });
 });

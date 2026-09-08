@@ -472,3 +472,99 @@ describe("runActions — a terminal nested action ends the whole press", () => {
     ).resolves.toBe(false);
   });
 });
+
+/**
+ * Review round 2, finding 2 — the OTHER half of the return contract.
+ *
+ * A `custom` handler that throws has always aborted the rest of ITS list: the
+ * host's code failed, so the actions the author sequenced after it are running
+ * on a state nobody can vouch for. Round 1's propagation fix accidentally
+ * widened that to the whole press, and the two are not the same thing. A
+ * throwing analytics call in `purchase.onSuccess` would then eat the trailing
+ * `"continue"` and strand a user who had ALREADY PAID on the paywall, with
+ * re-pressing re-running `purchase()`.
+ *
+ * So: a terminal action propagates outward (the screen really is gone), an
+ * abort does not (the screen is still there, and an outer escape is still the
+ * author's). `false` from the recursion says "not completed", which is the only
+ * thing the outer loop needs to know.
+ */
+describe("runActions — a throwing custom handler aborts its own list only", () => {
+  it("still runs a trailing continue after a nested handler throws", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const onContinue = vi.fn();
+    const ctx = makeCtx({
+      onContinue,
+      products: makeProducts(),
+      customActions: {
+        logPurchase: () => {
+          throw new Error("analytics not initialised");
+        },
+      },
+    } as any);
+    await runActions(
+      [
+        {
+          type: "purchase",
+          product: "yearly",
+          onSuccess: [{ type: "custom", function: "logPurchase" }],
+        },
+        "continue",
+      ] as never,
+      ctx
+    );
+    expect(onContinue).toHaveBeenCalledTimes(1);
+    expect(error).toHaveBeenCalled();
+    error.mockRestore();
+  });
+
+  it("keeps running the outer list after a nested handler throws", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const ctx = makeCtx({
+      products: makeProducts(),
+      customActions: {
+        logPurchase: () => {
+          throw new Error("boom");
+        },
+        trackPurchase: vi.fn(),
+      },
+    } as any);
+    await runActions(
+      [
+        {
+          type: "purchase",
+          product: "yearly",
+          onSuccess: [{ type: "custom", function: "logPurchase" }],
+        },
+        { type: "custom", function: "trackPurchase" },
+      ] as never,
+      ctx
+    );
+    expect(ctx.customActions.trackPurchase).toHaveBeenCalledTimes(1);
+    error.mockRestore();
+  });
+
+  // Unchanged, and the reason the abort exists at all: within one list, nothing
+  // after a thrown handler runs.
+  it("does not run the rest of its own list after throwing", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const ctx = makeCtx({
+      customActions: {
+        boom: () => {
+          throw new Error("boom");
+        },
+      },
+    });
+    await expect(
+      runActions(
+        [
+          { type: "custom", function: "boom" },
+          { type: "setVariable", name: "after", value: "written" },
+        ] as never,
+        ctx
+      )
+    ).resolves.toBe(false);
+    expect(ctx.getVariables().after).toBeUndefined();
+    error.mockRestore();
+  });
+});

@@ -2,7 +2,7 @@ import type {
   ComposableVariableEntry,
   ComposableVariableKind,
 } from "@rocapine/react-native-onboarding";
-import { actionsCanComplete } from "./completingActions";
+import { completingActionKind } from "./completingActions";
 import type { ButtonAction, PermissionKind } from "./actions";
 import type { RenderContext } from "./shared";
 import { interpolateIdentifier } from "./shared";
@@ -43,11 +43,16 @@ function decodeArrayValue(raw: string | undefined): string[] {
 //                      `resolvePermissionOutcome` below for the resolver order
 //                      and `./permissions.ts` for the module tried per kind.
 //
-// RETURNS whether the press is over: `true` when the screen was completed
-// (`"continue"` / `{dismiss}`, at any nesting depth) or a `custom` handler
-// threw. Every recursive call into a branch list (`purchase.onSuccess`,
+// RETURNS whether the SCREEN WAS COMPLETED — `"continue"` / `{dismiss}`, at any
+// nesting depth. Every recursive call into a branch list (`purchase.onSuccess`,
 // `requestPermission.onGranted`, …) propagates it, so a terminal action nested
 // one level down ends the OUTER list too.
+//
+// A `custom` handler that throws is NOT that: it aborts the rest of its own
+// list (nothing sequenced after failed host code should run) and returns
+// `false`, so an outer list carries on. Round 1 of #196 briefly returned `true`
+// there and broke a paid user out of `purchase.onSuccess` before the trailing
+// `"continue"` could advance them — the two meanings must stay separate.
 //
 // It has to, and this was wrong until review round 1 of #196: the recursion
 // returned and the outer `for` carried on, so
@@ -265,22 +270,34 @@ export async function runActions(
       // nothing else. If it was never a way forward (a "turn on notifications"
       // button beside its own Skip CTA), leaving the user put is correct.
       //
-      // `onContinue()` with no outcome is deliberately the SAME call a bare
-      // `"continue"` makes, so each host reads it as it reads that action:
-      // advance (onboarding step, and a Paywall step — `shouldAdvanceOnComplete`
-      // admits an absent status), or resolve the presentation as
-      // `{status:"dismissed"}` (`PaywallHost.toPresentResult`). Substituting the
-      // author's own escape rather than inventing a new one is the point: on a
-      // Paywall step whose only authored `"continue"` sits in this ask, nothing
-      // else can ever advance it, so declining to act would trap the user on a
-      // paywall with no exit at all.
-      const wasAWayForward =
-        actionsCanComplete(act.onGranted) || actionsCanComplete(act.onDenied);
-      if (wasAWayForward) {
+      // Substituting the author's own escape means its OUTCOME too, and round 1
+      // got that wrong (review round 2, finding 1): it called `onContinue()`
+      // with no outcome, which is the ONE call every host reads as "advance" —
+      // including `Pages/Paywall/Renderer`'s hard gate, since
+      // `shouldAdvanceOnComplete(undefined)` is `true`. An ask that authored
+      // `{dismiss}` on both outcomes — an author who wrote no way past the
+      // paywall at all — therefore handed a module-less build's users the gated
+      // content for free, signalled by one console.error.
+      //
+      // So the stand-in is the KIND the author authored, `{dismiss}` winning
+      // when the ask can reach both: nobody was asked anything, so the SDK must
+      // not claim the more permissive of the two answers. That costs nothing
+      // where the two coincide — an onboarding step ignores the outcome and
+      // still advances, a `present()`ed paywall resolves as dismissed
+      // (`PaywallHost.toPresentResult`) — and holds the gate where they do not.
+      // `undefined` means the press was never a way OFF the screen (a "turn on
+      // notifications" button beside its own Skip CTA), and then leaving the
+      // user put is correct.
+      const escape = completingActionKind([
+        ...(act.onGranted ?? []),
+        ...(act.onDenied ?? []),
+      ]);
+      if (escape) {
         console.error(
-          `[ComposableScreen] \`requestPermission\` ("${act.kind}") could not be requested on this build (module not installed, or unsupported platform) and no \`onUnavailable\` actions are declared — advancing the screen, because this press was its way forward. No \`onDenied\` side effect ran: the user never refused anything. Install the optional Expo module for this kind, or declare \`onUnavailable\` explicitly.`
+          `[ComposableScreen] \`requestPermission\` ("${act.kind}") could not be requested on this build (module not installed, or unsupported platform) and no \`onUnavailable\` actions are declared — completing the screen with this ask's own \`${escape}\`, because this press was its way forward. No \`onDenied\` side effect ran: the user never refused anything. Install the optional Expo module for this kind, or declare \`onUnavailable\` explicitly.`
         );
-        onContinue();
+        if (escape === "dismiss") onContinue({ status: "dismissed" });
+        else onContinue();
         return true;
       }
       console.error(
@@ -306,11 +323,16 @@ export async function runActions(
         `[ComposableScreen] customAction "${act.function}" threw:`,
         err
       );
-      // `true` = "the press is over", which is what a caller that recursed into
-      // this list needs to hear. The screen was not completed, but nothing after
-      // a thrown handler should run at any depth: the pre-existing abort now
-      // aborts the whole press rather than only the innermost list.
-      return true;
+      // Abort THIS list, and only this list — the pre-existing behaviour, kept
+      // deliberately (review round 2, finding 2). Round 1 returned `true` here
+      // so the abort propagated out of every recursion, which conflated the two
+      // meanings of the return value: `true` says "the screen is GONE", and a
+      // thrown handler leaves it very much present. A throwing analytics call in
+      // `purchase.onSuccess` then ate the trailing `"continue"` and stranded a
+      // user who had already paid on the paywall, with a second press
+      // re-running `purchase()`. `false` = "not completed", so an outer list
+      // carries on and the author's own escape still runs.
+      return false;
     }
   }
   // Ran to the end without completing the screen.

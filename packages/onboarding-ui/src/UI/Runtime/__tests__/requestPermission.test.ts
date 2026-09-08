@@ -9,13 +9,20 @@ import {
   ButtonActionSchema as HeadlessButtonActionSchema,
   PERMISSION_KINDS as HEADLESS_PERMISSION_KINDS,
 } from "../../../../../onboarding/src/steps/common.types";
-import { actionsCanComplete as uiActionsCanComplete } from "../elements/completingActions";
-import { actionsCanComplete as headlessActionsCanComplete } from "../../../../../onboarding/src/screens/completingActions";
+import {
+  actionsCanComplete as uiActionsCanComplete,
+  completingActionKind as uiCompletingActionKind,
+} from "../elements/completingActions";
+import {
+  actionsCanComplete as headlessActionsCanComplete,
+  completingActionKind as headlessCompletingActionKind,
+} from "../../../../../onboarding/src/screens/completingActions";
 import {
   normalizePermissionResponse,
   pickPermissionRequester,
   requestPermissionViaExpoModules,
 } from "../elements/permissions";
+import { shouldAdvanceOnComplete } from "../../Pages/Paywall/shouldAdvanceOnComplete";
 
 /**
  * The UI half of `requestPermission` (#196).
@@ -152,6 +159,34 @@ describe("actionsCanComplete — headless ↔ UI mirror parity", () => {
       expect(uiActionsCanComplete(actions), JSON.stringify(actions) ?? "undefined").toBe(
         headlessActionsCanComplete(actions)
       );
+    }
+  });
+
+  // The same table against the KIND, not just the boolean. `runActions` picks
+  // the outcome it reports to the host from this (review round 2, finding 1), so
+  // a divergence here is a paywall gate that opens on one package pairing and
+  // holds on another.
+  it("names the same completing action in both packages", () => {
+    for (const actions of [
+      ...table,
+      [{ type: "dismiss" }, "continue"],
+      ["continue", { type: "dismiss" }],
+      [{ type: "purchase", product: "yearly", onSuccess: [{ type: "dismiss" }] }],
+    ]) {
+      expect(uiCompletingActionKind(actions), JSON.stringify(actions) ?? "undefined").toBe(
+        headlessCompletingActionKind(actions)
+      );
+    }
+  });
+
+  // Both mirrors, one rule: reachable dismiss wins over reachable continue.
+  it("prefers dismiss over continue in both packages", () => {
+    for (const kind of [uiCompletingActionKind, headlessCompletingActionKind]) {
+      expect(kind(["continue"])).toBe("continue");
+      expect(kind([{ type: "dismiss" }])).toBe("dismiss");
+      expect(kind(["continue", { type: "dismiss" }])).toBe("dismiss");
+      expect(kind([{ type: "setVariable", name: "a", value: "b" }])).toBeUndefined();
+      expect(kind(undefined)).toBeUndefined();
     }
   });
 });
@@ -366,6 +401,84 @@ describe("runActions — requestPermission when the build cannot ask", () => {
     );
     expect(onContinue).not.toHaveBeenCalled();
     expect(error).toHaveBeenCalled();
+    error.mockRestore();
+  });
+
+  // Review round 2, finding 1. The escape substitutes the AUTHOR'S OWN escape,
+  // which means its OUTCOME too — not a bare `onContinue()`.
+  //
+  // `onContinue()` with no outcome is the one call every host reads as "advance",
+  // including `Pages/Paywall/Renderer`'s hard gate
+  // (`shouldAdvanceOnComplete(undefined) === true`). So on a `Paywall` step whose
+  // ask declared `{dismiss}` on BOTH outcomes — an author who never wrote a way
+  // past the paywall at all — a build missing the optional module used to walk
+  // the user straight through a paid gate, signalled by one console.error.
+  //
+  // The rule now: reuse the outcome the author put in the ask, and when the ask
+  // offers both shapes, take the NON-advancing one. Nobody was asked anything,
+  // so the SDK must not claim the more permissive of the two answers.
+  it("substitutes the authored dismiss rather than a bare advance", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const onContinue = vi.fn();
+    await runActions(
+      [
+        ask("appTrackingTransparency", {
+          onGranted: [{ type: "dismiss" }],
+          onDenied: [{ type: "dismiss" }],
+        }),
+      ],
+      makeCtx({ onContinue })
+    );
+    expect(onContinue).toHaveBeenCalledTimes(1);
+    expect(onContinue).toHaveBeenCalledWith({ status: "dismissed" });
+    error.mockRestore();
+  });
+
+  // The same assertion stated as the harm, through the real gate rather than a
+  // paraphrase of it.
+  it("leaves a hard paywall gate closed when the authored escape was a dismiss", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const onContinue = vi.fn();
+    await runActions(
+      [
+        ask("appTrackingTransparency", {
+          onGranted: [{ type: "dismiss" }],
+          onDenied: [{ type: "dismiss" }],
+        }),
+      ],
+      makeCtx({ onContinue })
+    );
+    expect(shouldAdvanceOnComplete(onContinue.mock.calls[0][0])).toBe(false);
+    error.mockRestore();
+  });
+
+  it("takes the non-advancing outcome when the ask authored both", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const onContinue = vi.fn();
+    await runActions(
+      [
+        ask("notifications", {
+          onGranted: ["continue"],
+          onDenied: [{ type: "dismiss" }],
+        }),
+      ],
+      makeCtx({ onContinue })
+    );
+    expect(onContinue).toHaveBeenCalledWith({ status: "dismissed" });
+    error.mockRestore();
+  });
+
+  // An ask whose only authored escape IS a bare `"continue"` still advances —
+  // that is the author's own declared way forward, and withholding it would put
+  // back the dead end finding 1 of round 1 closed.
+  it("still advances bare when the authored escape was a continue", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const onContinue = vi.fn();
+    await runActions(
+      [ask("notifications", { onGranted: ["continue"], onDenied: ["continue"] })],
+      makeCtx({ onContinue })
+    );
+    expect(onContinue).toHaveBeenCalledWith();
     error.mockRestore();
   });
 

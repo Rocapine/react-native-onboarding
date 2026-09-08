@@ -30,15 +30,25 @@ export interface OnboardingPageProps {
    * and the action asks through whichever optional Expo module this app
    * installed (`Runtime/elements/permissions.ts`).
    *
-   * Supply one for a permission the SDK cannot honestly request on its own —
-   * HealthKit, Screen Time / Family Controls — which need entitlements and a
-   * config plugin that belong to the app. Return `undefined` for any kind you
-   * do not handle and the bundled resolver runs instead, so a host only has to
-   * know about its own.
+   * Supply one when this app already owns a flow for one of the six declared
+   * kinds — its own notification opt-in, or a camera permission asked through
+   * its own native module. Return `undefined` for any kind you do not handle and
+   * the bundled resolver runs instead, so a host only has to know about its own.
+   *
+   * It cannot add a kind. HealthKit and Screen Time / Family Controls need
+   * entitlements and a config plugin belonging to the app, and are not members
+   * of `PermissionKindSchema` — such a payload fails `invalid_union` at parse
+   * and never reaches this resolver.
    *
    * MUST be referentially stable (`useCallback` / module scope): it lands in
    * `RenderContext`, and an unstable value re-renders every memoized element on
    * every variable write.
+   *
+   * Forwarded to BOTH host builders this component can reach — the
+   * `ComposableScreen` renderer and the `Paywall` step renderer — so the same
+   * authored action resolves the same way wherever it sits in the flow. A
+   * paywall presented through `present()` is a separate root and takes its own
+   * `<PaywallHost requestPermission={…} />`.
    */
   requestPermission?: PermissionResolver;
   customComponents?: {
@@ -71,7 +81,7 @@ export const OnboardingPage = ({ step, onContinue, isSandbox, keyboardVerticalOf
     // waterfall behind it picks which paywall renders. Hard-gated: only a
     // purchase advances. Requires an ancestor PaywallProvider.
     case 'Paywall':
-      return <PaywallStepRenderer step={step} onContinue={onContinue} keyboardVerticalOffset={keyboardVerticalOffset} />;
+      return <PaywallStepRenderer step={step} onContinue={onContinue} keyboardVerticalOffset={keyboardVerticalOffset} requestPermission={requestPermission} />;
     default:
       if (isSandbox) {
         // @ts-ignore

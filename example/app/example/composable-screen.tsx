@@ -1319,8 +1319,11 @@ export default function ComposableScreenExample() {
             // deliberately: it is the proof that they are optional to Metro
             // (review round 1 — a `require` outside a literal try block made
             // them mandatory and the whole app stopped bundling). So the outcome
-            // here is "unavailable", which runs `onUnavailable`; without that
-            // branch it would fall back to `onDenied` and warn. Install
+            // here is "unavailable", which runs `onUnavailable`. Drop that
+            // branch and the runtime does NOT borrow `onDenied` (nobody
+            // refused): it logs a `console.error` and, because none of these
+            // hooks holds a `"continue"`, leaves the screen alone — this button
+            // is not the way forward, the gated Continue below is. Install
             // `expo-notifications` to see a real system prompt.
             {
               id: 'btn-request-notifications',

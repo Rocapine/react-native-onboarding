@@ -112,8 +112,11 @@ export const PresentPaywallButtonActionSchema = z.object({
  * Every kind is reachable through an OPTIONAL Expo module the runtime
  * dynamic-`require`s at press time; see `./permissions.ts` for the module tried
  * per kind. HealthKit and Screen Time / Family Controls are deliberately absent
- * — they need app-owned entitlements and arrive through the host
- * `requestPermission` resolver on the ScreenHost.
+ * — they need app-owned entitlements a library cannot declare. Note that the
+ * host `requestPermission` resolver does NOT let them in through the back door:
+ * this enum is closed, so such a payload fails `invalid_union` before any
+ * resolver is consulted. Adding them starts with adding the kind here and in
+ * the headless original.
  */
 export const PERMISSION_KINDS = [
   "notifications",

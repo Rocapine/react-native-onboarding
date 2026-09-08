@@ -25,17 +25,17 @@ here.
     that screen asked for.
   - A missing module is **not a silent no-op**. Haptics can vanish unnoticed; a
     permission gate can be the only thing between the user and the next screen.
-    Absence resolves a distinct `"unavailable"` outcome, and `"unavailable"`
-    with no `onUnavailable` falls back to `onDenied` (with a warning) rather
-    than doing nothing — a CTA whose only `"continue"` sits in `onGranted`
-    would otherwise be a screen nobody can leave. Declaring neither logs a
-    `console.error`.
+    Absence resolves a distinct `"unavailable"` outcome.
 
-  New `ScreenHost.requestPermission` (threaded from `OnboardingPage`'s new
-  `requestPermission` prop) overrides the bundled resolver per kind; return
-  `undefined` for a kind you do not handle and the bundled one runs. That is the
-  seam HealthKit / Screen Time will use. The paywall hosts do NOT expose it yet
-  — a paywall's own elements get the bundled resolver only.
+  New `ScreenHost.requestPermission` overrides the bundled resolver per kind;
+  return `undefined` for a kind you do not handle and the bundled one runs. It
+  is reachable from every surface that renders authored elements — the new
+  `requestPermission` prop on `OnboardingPage` (which forwards it to a
+  `ComposableScreen` step AND to a `Paywall` step in flow position) and a
+  matching prop on `PaywallHost` for a paywall presented through `present()`.
+  It overrides the six kinds; it does not add a seventh, since
+  `PermissionKindSchema` is closed — HealthKit / Screen Time need the kind added
+  to the headless schema before any resolver can be reached for them.
 
   New exports: `PermissionResolver`, `PermissionOutcome`,
   `PermissionModuleCandidate`, `PermissionKind` — a host implementing the
@@ -56,13 +56,47 @@ here.
   (`Runtime/__tests__/permissionModules.test.ts`), because nothing observable at
   runtime distinguishes the two forms. Found in review round 1 of #196.
 
+  **`"unavailable"` no longer borrows `onDenied`, and no longer dead-ends.**
+  Review round 1, findings 1 and 2. The first version ran `onDenied` when
+  `onUnavailable` was absent, which failed in both directions at once: it
+  executed the refusal branch — `setVariable`s, analytics, whatever a
+  `renderWhen` or `resolveNextStepNumber` later reads — for a user who was never
+  asked, signalled only by a `console.warn`; and it rescued nobody when
+  `onDenied` was absent too, so an `onGranted`-only CTA on a build with none of
+  the optional modules logged one error and did nothing, for 100% of that
+  build's users, on a screen that may have no back chevron either. Now: a
+  declared `onUnavailable` always wins; otherwise the runtime writes nothing and
+  completes the screen when `actionsCanComplete` says the ask was the press's way
+  forward, and logs a `console.error` naming the missing module either way. The
+  `denied` outcome deliberately gets no such rescue — "stay here until you allow
+  it" is authored intent, expressed by omitting `onDenied`.
+
+  **A terminal action nested in a hook now ends the whole press.** Also review
+  round 1 (finding 4). `runActions` returns whether the press completed the
+  screen and every recursion propagates it, so
+  `[{requestPermission, onGranted:["continue"]}, "continue"]` — a defensive
+  trailing escape, which `hasCompletingAction` accepts either way — advances
+  once instead of twice. It called `onContinue` twice before: a duplicate
+  `router.push` in the example host, and a silently SKIPPED screen in a host
+  that advances by incrementing an index. Fixed centrally, so
+  `purchase.onSuccess` / `restore.onSuccess` (which had the same defect and no
+  test) are covered too.
+
+  `Runtime/elements/completingActions.ts` mirrors the headless
+  `actionsCanComplete` rather than importing it: the packages are joined by a
+  peer-dependency RANGE, so this package's runtime must not branch on the other
+  one's installed build, and the headless index cannot be imported from this
+  Node test suite at all. A parity table in
+  `Runtime/__tests__/requestPermission.test.ts` holds the two equal.
+
   **Not verified on a device.** There is no device test framework in this repo
   (#216 is open) and a system permission dialog cannot be driven headless or in
   a web preview. Covered: schema round-trip, dispatch against a stubbed
   resolver and against an injected module loader (including the two-candidate
-  fallbacks for `microphone` / `photoLibrary`), headless↔UI mirror parity, the
-  module-absent path, and the example app bundling on ios + android with none of
-  the seven installed. Every real grant/deny is unverified until someone runs it
+  fallbacks for `microphone` / `photoLibrary`), headless↔UI mirror parity for
+  both the action schema and `actionsCanComplete`, the module-absent path, the
+  resolver reaching all three host builders, and the example app bundling on ios
+  + android with none of the seven installed. Every real grant/deny is unverified until someone runs it
   on hardware.
 
 ---

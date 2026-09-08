@@ -48,10 +48,22 @@ import type { PermissionKind } from "./actions";
 export type PermissionOutcome = "granted" | "denied" | "unavailable";
 
 /**
- * A host-supplied override for the bundled resolver — the seam HealthKit and
- * Screen Time / Family Controls will use, since both need app-owned
- * entitlements the SDK cannot declare. Returning `undefined` means "not mine",
- * and the bundled Expo resolver runs instead.
+ * A host-supplied override for the bundled resolver, per kind. Returning
+ * `undefined` means "not mine", and the bundled Expo resolver runs instead.
+ *
+ * It overrides the SIX declared kinds — an app that already owns a notification
+ * opt-in flow, or asks for the camera through its own native module. It does
+ * NOT add a seventh: `PermissionKindSchema` is a closed enum, so a payload
+ * naming `"healthKit"` or `"screenTime"` fails `invalid_union` and takes the
+ * whole screen to the error boundary before this is ever consulted. Those two
+ * need the kind added to the headless schema first (follow-up on #196); an
+ * earlier version of this comment called this their "seam", which was true of
+ * the resolver and false of the schema.
+ *
+ * Set it on `OnboardingPage` (which forwards it to a ComposableScreen step and
+ * to a Paywall step) or on `PaywallHost` (for a `present()`ed paywall). Every
+ * `ScreenHost` builder threads it — see
+ * `Runtime/__tests__/hostResolverWiring.test.ts`.
  */
 export type PermissionResolver = (
   kind: PermissionKind

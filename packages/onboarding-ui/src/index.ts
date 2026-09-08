@@ -26,8 +26,11 @@ export * from "./UI/Pages";
 export { ScreenRenderer, noopScreenHost } from "./UI/Runtime";
 export type { ScreenRendererProps, ScreenHost, CompleteOutcome } from "./UI/Runtime";
 // The `requestPermission` action's host seam (#196). A host overriding the
-// bundled Expo resolver — the documented route for HealthKit and Screen Time,
-// which need app-owned entitlements — has to be able to name these types.
+// bundled Expo resolver has to be able to name these types. It overrides the
+// six declared kinds (an app with its own notification opt-in flow, say); it
+// does NOT add a seventh — `PermissionKindSchema` is closed, so HealthKit and
+// Screen Time need the kind added to the headless schema before any resolver
+// can be reached for them. Settable on `OnboardingPage` and on `PaywallHost`.
 export type {
   PermissionResolver,
   PermissionOutcome,

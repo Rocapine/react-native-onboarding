@@ -141,9 +141,12 @@ export const PermissionKindSchema = z.enum(PERMISSION_KINDS);
  * like `purchase.onSuccess`.
  *
  * `onUnavailable` is "this build cannot ask" — the optional Expo module is not
- * installed, or the platform has no such permission. Omitted, it falls back to
- * `onDenied` (with a warning), because a screen whose only `"continue"` sits in
- * `onGranted` would otherwise be a screen nobody can leave.
+ * installed, or the platform has no such permission. Omitted, it does NOT fall
+ * back to `onDenied` (nobody refused anything, and running that branch recorded
+ * a decision the user never made). `runActions` instead completes the screen
+ * with this ask's OWN completing action when it has one — `{dismiss}` before
+ * `"continue"`, since neither answer was actually given — and otherwise leaves
+ * the user where they are. Both paths log a `console.error`.
  */
 export type RequestPermissionButtonAction = {
   type: "requestPermission";
@@ -152,7 +155,11 @@ export type RequestPermissionButtonAction = {
   onGranted?: ButtonAction[];
   /** Runs when the OS reports it denied, restricted, or dismissed. */
   onDenied?: ButtonAction[];
-  /** Runs when this build cannot ask at all. Falls back to `onDenied`. */
+  /**
+   * Runs when this build cannot ask at all. Omitted, the runtime reuses this
+   * ask's own completing action (`{dismiss}` before `"continue"`) rather than
+   * running `onDenied`.
+   */
   onUnavailable?: ButtonAction[];
 };
 

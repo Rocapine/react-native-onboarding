@@ -34,12 +34,18 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   way to skip a screen because the permission was already granted.
 
   New exports: `PERMISSION_KINDS`, `PermissionKindSchema`, `PermissionKind`,
-  `RequestPermissionButtonAction`, `RequestPermissionButtonActionSchema`, and
+  `RequestPermissionButtonAction`, `RequestPermissionButtonActionSchema`,
   `actionsCanComplete` — the same "can the user still get off this screen?" walk
   as `hasCompletingAction`, over ONE action list rather than an element tree, so
   the UI runtime can consult this package's definition instead of re-deriving it
   when a permission it could not ask for would otherwise leave a screen with no
-  CTA.
+  CTA — and `completingActionKind` (+ the `EscapeAction` type), which answers
+  WHICH of the two completing actions that list reaches. The runtime needs the
+  kind, not the boolean: `complete()` and `complete({status:"dismissed"})` are
+  not interchangeable at a `Paywall` step's hard gate, so standing in for an
+  authored `{dismiss}` with a bare advance handed out gated content (review
+  round 2 of #196). One walk answers both questions, and a test asserts they
+  never disagree.
 
   **The escape-CTA guard reads this action with AND, not OR.**
   `hasCompletingAction` (the #209 "can the user still get off this screen?"
@@ -49,7 +55,8 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   needs one — a refusal, or a build that never installed the optional module,
   runs nothing and the user is stuck with no signal. It now counts the action
   only when a grant AND a non-grant both reach `"continue"` / `{dismiss}`,
-  mirroring the runtime's own `onUnavailable ?? onDenied` fallback.
+  mirroring the runtime's own three paths (a declared `onUnavailable` wins; an
+  absent one is rescued by the runtime itself, so its absence is not a trap).
   `purchase` / `restore` keep the OR reading deliberately: a cancelled purchase
   can be retried, a standing OS denial cannot. Found in review round 1 of #196.
 
@@ -70,7 +77,11 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   SDK predates this action fails `invalid_union` on it, and the whole
   ComposableScreen fails to parse — the element strip does not rescue an action
   variant. Publishing one is a capability-floor decision (#233 / studio #313),
-  not something this release makes safe on its own. No floor version is quoted
+  not something this release makes safe on its own — and a floor is only half
+  the answer, since it cannot help a build already in the field. Runtime
+  tolerance for an unknown ACTION type, the missing sibling of #209, is now
+  tracked as #262 (filed in review round 2 of #196, which found that nothing
+  tracked it). No floor version is quoted
   in the docs or the LLM skills on purpose: which release carries this is
   decided when it is cut, and understating a floor is the direction that costs
   an audience its screens. The check that cannot go stale is the app's own

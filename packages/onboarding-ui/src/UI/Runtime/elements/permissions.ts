@@ -16,8 +16,10 @@ import type { PermissionKind } from "./actions";
  *  - **A missing module is NOT a silent no-op.** Haptics can vanish and nobody
  *    notices; a permission gate can be the only thing standing between the user
  *    and the next screen. Absence resolves the distinct `"unavailable"` outcome,
- *    which `runActions` routes to `onUnavailable` (falling back to `onDenied`,
- *    and reporting an error when the author declared neither).
+ *    which `runActions` routes to `onUnavailable` — and, when that is not
+ *    declared, to this ask's own completing action rather than to `onDenied`,
+ *    reporting an error either way. See `runActions.ts` for why borrowing the
+ *    refusal branch was wrong in both directions.
  *
  * ## The `require` shape is load-bearing (review round 1)
  *

@@ -288,12 +288,17 @@ export const PermissionKindSchema = z.enum(PERMISSION_KINDS);
  * but it does re-run the matching hook.
  *
  * `onUnavailable` covers "this build cannot ask": the Expo module is not
- * installed, or the platform has no such permission. When it is omitted the
- * runtime falls back to `onDenied` (and warns), because a screen whose only
- * `"continue"` sits in `onGranted` would otherwise be a screen nobody can
- * leave. Declaring neither is an authoring error the runtime reports with
- * `console.error` rather than papering over by advancing a flow the author
- * chose to gate.
+ * installed, or the platform has no such permission. It does **not** fall back
+ * to `onDenied` — nobody refused anything, and running the refusal branch wrote
+ * `att = "denied"` and fired refusal analytics for a user who was never asked
+ * (review round 1 of #196). Omitted, the runtime instead REUSES THIS ASK'S OWN
+ * completing action: if `onGranted`/`onDenied` reach a `"continue"` or a
+ * `{dismiss}`, the screen is completed with that same action (`{dismiss}`
+ * winning when both are reachable, since the SDK must not claim the more
+ * permissive of two answers nobody gave), and no other authored side effect
+ * runs. If the ask was never a way off the screen — a "turn on notifications"
+ * button beside its own Skip CTA — nothing happens. Either way it is reported
+ * with `console.error`: declare `onUnavailable` if you care which.
  */
 export type RequestPermissionButtonAction = {
   type: "requestPermission";
@@ -304,7 +309,13 @@ export type RequestPermissionButtonAction = {
   onDenied?: ButtonAction[];
   /**
    * Runs when this build cannot ask at all — module absent, or platform has no
-   * such permission. Falls back to `onDenied` when omitted.
+   * such permission.
+   *
+   * Omitted, the runtime does NOT run `onDenied` (the user refused nothing). It
+   * completes the screen with whichever completing action this ask already
+   * declares, preferring `{dismiss}` over `"continue"`, and runs no other side
+   * effect; an ask that was never a way off the screen does nothing. Both cases
+   * log a `console.error`. Declare this hook to decide it yourself.
    */
   onUnavailable?: ButtonAction[];
 };

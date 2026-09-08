@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { readdirSync, readFileSync } from "node:fs";
+import { join, relative } from "node:path";
 
 /**
  * Every `ScreenHost` builder must thread `requestPermission` (#196, review
@@ -36,7 +36,38 @@ const HOST_BUILDERS = [
   "UI/Paywall/PaywallHost.tsx",
 ] as const;
 
-const read = (relative: string) => readFileSync(join(SRC, relative), "utf8");
+const read = (rel: string) => readFileSync(join(SRC, rel), "utf8");
+
+/**
+ * Every non-test source file under `src/UI` that renders `<ScreenRenderer>`,
+ * found by WALKING THE TREE.
+ *
+ * Review round 2, finding 3: this used to be `HOST_BUILDERS.filter(f =>
+ * read(f).includes("<ScreenRenderer"))`, which filters the hardcoded list by a
+ * property every member of it already has — so it asserted that the three known
+ * files still contain the tag and could never see a fourth. Verified by adding
+ * a `UI/Pages/ZZFake/Renderer.tsx` with an unwired host: all four tests in this
+ * file passed. They do not now.
+ *
+ * `__tests__` is excluded because this file's own source contains the literal.
+ */
+const findScreenRendererCallers = (): string[] => {
+  const out: string[] = [];
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name !== "__tests__") walk(full);
+        continue;
+      }
+      if (!/\.tsx?$/.test(entry.name)) continue;
+      if (readFileSync(full, "utf8").includes("<ScreenRenderer"))
+        out.push(relative(SRC, full));
+    }
+  };
+  walk(join(SRC, "UI"));
+  return out.sort();
+};
 
 /** The object literal passed to `useMemo` for `const host: ScreenHost = …`. */
 const hostLiteral = (source: string): string => {
@@ -51,9 +82,9 @@ const hostLiteral = (source: string): string => {
 describe("ScreenHost builders — requestPermission wiring", () => {
   it("covers every host builder in the package", () => {
     // A fourth `ScreenRenderer` caller must be added to HOST_BUILDERS above, or
-    // it silently opts out of the resolver.
-    const found = HOST_BUILDERS.filter((file) => read(file).includes("<ScreenRenderer"));
-    expect(found).toEqual([...HOST_BUILDERS]);
+    // it silently opts out of the resolver. This is the whole point of the file:
+    // the list below is not the source of truth, the tree is.
+    expect(findScreenRendererCallers()).toEqual([...HOST_BUILDERS].sort());
   });
 
   it("sets requestPermission on the host it builds", () => {

@@ -2,6 +2,7 @@ import type {
   ComposableVariableEntry,
   ComposableVariableKind,
 } from "@rocapine/react-native-onboarding";
+import { actionsCanComplete } from "./completingActions";
 import type { ButtonAction, PermissionKind } from "./actions";
 import type { RenderContext } from "./shared";
 import { interpolateIdentifier } from "./shared";
@@ -41,10 +42,25 @@ function decodeArrayValue(raw: string | undefined): string[] {
 //                      function, so one press can diverge on the answer. See
 //                      `resolvePermissionOutcome` below for the resolver order
 //                      and `./permissions.ts` for the module tried per kind.
+//
+// RETURNS whether the press is over: `true` when the screen was completed
+// (`"continue"` / `{dismiss}`, at any nesting depth) or a `custom` handler
+// threw. Every recursive call into a branch list (`purchase.onSuccess`,
+// `requestPermission.onGranted`, …) propagates it, so a terminal action nested
+// one level down ends the OUTER list too.
+//
+// It has to, and this was wrong until review round 1 of #196: the recursion
+// returned and the outer `for` carried on, so
+// `[{requestPermission, onGranted:["continue"]}, "continue"]` — a defensive
+// trailing escape an author may well write, and one `hasCompletingAction`
+// accepts either way — called `onContinue` TWICE. A duplicate `router.push` in
+// the example host; in a host that advances by incrementing an index, a silently
+// skipped screen. Both callers (`ButtonElement`, `renderElement`) ignore the
+// value; it exists for the recursion.
 export async function runActions(
   actions: ButtonAction[],
   ctx: RenderContext
-): Promise<void> {
+): Promise<boolean> {
   const { onContinue, setVariable, customActions, getVariables } = ctx;
   // Read live variables at press time (NOT a render-time snapshot) so actions
   // always act on the current values.
@@ -53,11 +69,11 @@ export async function runActions(
   for (const act of actions) {
     if (act === "continue") {
       onContinue();
-      return;
+      return true;
     }
     if (act.type === "dismiss") {
       onContinue({ status: "dismissed" });
-      return;
+      return true;
     }
     if (act.type === "presentPaywall") {
       if (!ctx.presentPaywall) {
@@ -139,11 +155,14 @@ export async function runActions(
         continue;
       }
       const result = await runtime.purchase(key);
-      if (result.status === "purchased" && act.onSuccess) await runActions(act.onSuccess, ctx);
-      else if (result.status === "cancelled" && act.onCancel) await runActions(act.onCancel, ctx);
-      else if (result.status === "error") {
-        if (act.onError) await runActions(act.onError, ctx);
-        else
+      if (result.status === "purchased" && act.onSuccess) {
+        if (await runActions(act.onSuccess, ctx)) return true;
+      } else if (result.status === "cancelled" && act.onCancel) {
+        if (await runActions(act.onCancel, ctx)) return true;
+      } else if (result.status === "error") {
+        if (act.onError) {
+          if (await runActions(act.onError, ctx)) return true;
+        } else
           console.warn(
             "[ComposableScreen] `purchase` failed with no `onError` actions declared:",
             result.error
@@ -153,8 +172,9 @@ export async function runActions(
         // rather than falling through to `onSuccess`, which would let a paywall
         // grant access for a purchase that may never complete. On the Stripe
         // path this is the ONLY outcome `purchase()` ever returns.
-        if (act.onPending) await runActions(act.onPending, ctx);
-        else
+        if (act.onPending) {
+          if (await runActions(act.onPending, ctx)) return true;
+        } else
           console.warn(
             "[ComposableScreen] `purchase` returned pending (a Stripe Payment Link always does; Ask-to-Buy and deferred store transactions also) with no `onPending` actions declared — nothing ran, so the screen is unchanged. Declare `onPending`, or handle it in the host."
           );
@@ -171,12 +191,14 @@ export async function runActions(
         continue;
       }
       const result = await runtime.restore();
-      if (result.status === "restored" && act.onSuccess) await runActions(act.onSuccess, ctx);
-      else if (result.status === "nothing_to_restore" && act.onNothingToRestore)
-        await runActions(act.onNothingToRestore, ctx);
-      else if (result.status === "error") {
-        if (act.onError) await runActions(act.onError, ctx);
-        else
+      if (result.status === "restored" && act.onSuccess) {
+        if (await runActions(act.onSuccess, ctx)) return true;
+      } else if (result.status === "nothing_to_restore" && act.onNothingToRestore) {
+        if (await runActions(act.onNothingToRestore, ctx)) return true;
+      } else if (result.status === "error") {
+        if (act.onError) {
+          if (await runActions(act.onError, ctx)) return true;
+        } else
           console.warn(
             "[ComposableScreen] `restore` failed with no `onError` actions declared:",
             result.error
@@ -189,8 +211,9 @@ export async function runActions(
       const outcome = await resolvePermissionOutcome(act.kind, ctx);
 
       if (outcome === "granted") {
-        if (act.onGranted) await runActions(act.onGranted, ctx);
-        else
+        if (act.onGranted) {
+          if (await runActions(act.onGranted, ctx)) return true;
+        } else
           console.warn(
             `[ComposableScreen] \`requestPermission\` ("${act.kind}") was GRANTED with no \`onGranted\` actions declared — nothing ran, so the screen is unchanged.`
           );
@@ -198,8 +221,14 @@ export async function runActions(
       }
 
       if (outcome === "denied") {
-        if (act.onDenied) await runActions(act.onDenied, ctx);
-        else
+        // No escape hatch here on purpose, unlike "unavailable" below. "Keep
+        // the user on this screen until they allow it" is a real authored
+        // intent — the hard permission gate — and it is expressed by leaving
+        // `onDenied` off. Advancing anyway would silently defeat it. Only the
+        // ask NOBODY can influence gets rescued.
+        if (act.onDenied) {
+          if (await runActions(act.onDenied, ctx)) return true;
+        } else
           console.warn(
             `[ComposableScreen] \`requestPermission\` ("${act.kind}") was DENIED with no \`onDenied\` actions declared — nothing ran, so the screen is unchanged. A permission screen should still let the user move on after a refusal.`
           );
@@ -207,25 +236,45 @@ export async function runActions(
       }
 
       // "unavailable" — the optional Expo module is not installed, or the
-      // platform has no such permission. NOT treated as the repo's usual silent
-      // no-op for an absent press-time dep (haptics): a CTA whose only
-      // "continue" sits in `onGranted` would leave the user on a screen with no
-      // way forward. Fall back to `onDenied` — "we did not get it" — so an
-      // author who declared both real outcomes is safe by construction, and say
-      // out loud that the substitution happened.
+      // platform has no such permission. A packaging fact, not a user decision,
+      // and one no authored payload can predict.
+      //
+      // A declared `onUnavailable` is authored intent and always wins.
       if (act.onUnavailable) {
-        await runActions(act.onUnavailable, ctx);
+        if (await runActions(act.onUnavailable, ctx)) return true;
         continue;
       }
-      if (act.onDenied) {
-        console.warn(
-          `[ComposableScreen] \`requestPermission\` ("${act.kind}") could not be requested on this build (module not installed, or unsupported platform) and no \`onUnavailable\` actions are declared — running \`onDenied\` instead. Install the optional Expo module for this kind, or declare \`onUnavailable\` explicitly.`
+
+      // Review round 1, findings 1 and 2. The first version fell back to
+      // `onDenied`, which failed in both directions at once:
+      //
+      //  - It ran the whole refusal branch, so a screen authored the way both
+      //    LLM skills recommend wrote `att = "denied"` for a user who was never
+      //    asked. Analytics, `renderWhen` gates and `resolveNextStepNumber`
+      //    branching then read a decision nobody made — signalled by one
+      //    console.warn, in an app where nothing watches the JS console.
+      //  - It rescued nobody when `onDenied` was absent too. An
+      //    `onGranted`-only CTA on a build with no permission module logged an
+      //    error and did nothing, for 100% of that build's users: no CTA, and no
+      //    back chevron on a `displayProgressHeader: false` step.
+      //
+      // So: no fabricated refusal, and no dead end either. If the author put a
+      // completing action anywhere in this ask — i.e. the press was meant to be
+      // a way OFF the screen, which is the SDK's own `actionsCanComplete`
+      // question rather than a second guess at it — complete the screen and
+      // nothing else. If it was never a way forward (a "turn on notifications"
+      // button beside its own Skip CTA), leaving the user put is correct.
+      const wasAWayForward =
+        actionsCanComplete(act.onGranted) || actionsCanComplete(act.onDenied);
+      if (wasAWayForward) {
+        console.error(
+          `[ComposableScreen] \`requestPermission\` ("${act.kind}") could not be requested on this build (module not installed, or unsupported platform) and no \`onUnavailable\` actions are declared — advancing the screen, because this press was its way forward. No \`onDenied\` side effect ran: the user never refused anything. Install the optional Expo module for this kind, or declare \`onUnavailable\` explicitly.`
         );
-        await runActions(act.onDenied, ctx);
-        continue;
+        onContinue();
+        return true;
       }
       console.error(
-        `[ComposableScreen] \`requestPermission\` ("${act.kind}") could not be requested on this build and neither \`onUnavailable\` nor \`onDenied\` is declared — nothing ran. If this action is the screen's only way forward, the user is now stuck. Declare \`onUnavailable\`.`
+        `[ComposableScreen] \`requestPermission\` ("${act.kind}") could not be requested on this build (module not installed, or unsupported platform) and no \`onUnavailable\` actions are declared — nothing ran. Install the optional Expo module for this kind, or declare \`onUnavailable\` explicitly.`
       );
       continue;
     }
@@ -247,9 +296,15 @@ export async function runActions(
         `[ComposableScreen] customAction "${act.function}" threw:`,
         err
       );
-      return;
+      // `true` = "the press is over", which is what a caller that recursed into
+      // this list needs to hear. The screen was not completed, but nothing after
+      // a thrown handler should run at any depth: the pre-existing abort now
+      // aborts the whole press rather than only the innermost list.
+      return true;
     }
   }
+  // Ran to the end without completing the screen.
+  return false;
 }
 
 /**

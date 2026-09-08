@@ -9,6 +9,8 @@ import {
   ButtonActionSchema as HeadlessButtonActionSchema,
   PERMISSION_KINDS as HEADLESS_PERMISSION_KINDS,
 } from "../../../../../onboarding/src/steps/common.types";
+import { actionsCanComplete as uiActionsCanComplete } from "../elements/completingActions";
+import { actionsCanComplete as headlessActionsCanComplete } from "../../../../../onboarding/src/screens/completingActions";
 import {
   normalizePermissionResponse,
   pickPermissionRequester,
@@ -91,6 +93,69 @@ describe("requestPermission — headless ↔ UI mirror parity", () => {
   });
 });
 
+/**
+ * `actionsCanComplete` is declared in BOTH packages — the headless one is the
+ * canonical definition (the #209 strip consults it through
+ * `hasCompletingAction`), the UI one is what `runActions` consults at press time
+ * before deciding whether a permission it could not ask for has left the user
+ * with no way off the screen.
+ *
+ * A mirror, deliberately: the packages are joined by a peer-dependency range, so
+ * this package's runtime must not branch on the other package's installed
+ * implementation (`unknownElementTypes.test.ts` (2)) — and the headless index is
+ * not importable from this Node suite at all. Held equal here, over one table,
+ * because a divergence between them is invisible in both directions: the strip
+ * would bolt an escape CTA onto a screen the runtime already rescues, or,
+ * worse, decline to rescue a screen the strip called a trap.
+ */
+describe("actionsCanComplete — headless ↔ UI mirror parity", () => {
+  const table: unknown[] = [
+    ["continue"],
+    [{ type: "dismiss" }],
+    [{ type: "setVariable", name: "a", value: "b" }],
+    [{ type: "setVariable", name: "a", value: "b" }, "continue"],
+    [{ type: "custom", function: "doThing" }],
+    [{ type: "presentPaywall", placement: "hard" }],
+    [{ type: "purchase", product: "yearly", onSuccess: ["continue"] }],
+    [{ type: "purchase", product: "yearly" }],
+    [{ type: "restore", onNothingToRestore: [{ type: "dismiss" }] }],
+    // A nested ask is where the AND-across-outcomes rule shows up.
+    [{ type: "requestPermission", kind: "notifications", onGranted: ["continue"] }],
+    [
+      {
+        type: "requestPermission",
+        kind: "notifications",
+        onGranted: ["continue"],
+        onDenied: ["continue"],
+      },
+    ],
+    [
+      {
+        type: "requestPermission",
+        kind: "notifications",
+        onGranted: ["continue"],
+        onDenied: ["continue"],
+        onUnavailable: [{ type: "setVariable", name: "a", value: "b" }],
+      },
+    ],
+    [{ type: "requestPermission", kind: "notifications", onDeneid: ["continue"] }],
+    // Junk: both must answer, neither may throw.
+    undefined,
+    null,
+    "continue",
+    [],
+    [null, 3, { type: "continue" }],
+  ];
+
+  it("answers identically for every shape", () => {
+    for (const actions of table) {
+      expect(uiActionsCanComplete(actions), JSON.stringify(actions) ?? "undefined").toBe(
+        headlessActionsCanComplete(actions)
+      );
+    }
+  });
+});
+
 describe("runActions — requestPermission dispatch", () => {
   it("runs onGranted when the resolver grants", async () => {
     const requestPermission = vi.fn().mockResolvedValue("granted");
@@ -123,14 +188,14 @@ describe("runActions — requestPermission dispatch", () => {
     expect(onContinue).toHaveBeenCalledWith({ status: "dismissed" });
   });
 
-  // CHARACTERIZATION, not an endorsement. A terminal action nested in an outcome
-  // hook does NOT stop the OUTER list: `runActions` recurses, the recursive call
-  // returns, and the outer `for` moves on. That is pre-existing behaviour shared
-  // with `purchase.onSuccess` / `restore.onSuccess` (nothing in the suite pinned
-  // it before), and `requestPermission` inherits it rather than diverging. Pinned
-  // here so a later fix is a deliberate, cross-action decision — see the
-  // follow-up on #196.
-  it("does NOT stop the outer loop when a nested outcome hook is terminal", async () => {
+  // Review round 1, finding 4. A terminal action nested in an outcome hook now
+  // STOPS the outer list, exactly as a top-level `"continue"` does. The first
+  // version let the outer `for` carry on after the recursion returned, so a
+  // defensive trailing `"continue"` — a shape `hasCompletingAction` accepts —
+  // called `onContinue` TWICE: a duplicate `router.push` in the example host,
+  // and a silently skipped screen in a host that advances by incrementing an
+  // index.
+  it("stops the outer loop when a nested outcome hook is terminal", async () => {
     const onContinue = vi.fn();
     const ctx = makeCtx({
       onContinue,
@@ -144,7 +209,21 @@ describe("runActions — requestPermission dispatch", () => {
       ctx
     );
     expect(onContinue).toHaveBeenCalledTimes(1);
-    expect(ctx.getVariables().after.value).toBe("written");
+    expect(ctx.getVariables().after).toBeUndefined();
+  });
+
+  // The exact shape from the finding: an author who adds a trailing `"continue"`
+  // as a belt-and-braces escape must not get two advances.
+  it("advances once for an ask whose hooks continue, followed by a trailing continue", async () => {
+    const onContinue = vi.fn();
+    await runActions(
+      [
+        ask("notifications", { onGranted: ["continue"], onDenied: ["continue"] }),
+        "continue",
+      ] as never,
+      makeCtx({ onContinue, requestPermission: vi.fn().mockResolvedValue("granted") })
+    );
+    expect(onContinue).toHaveBeenCalledTimes(1);
   });
 
   it("continues the outer loop when the outcome hook is not terminal", async () => {
@@ -193,12 +272,14 @@ describe("runActions — requestPermission dispatch", () => {
     const ctx = makeCtx({
       requestPermission: vi.fn().mockRejectedValue(new Error("boom")),
     });
+    // Resolves rather than rejecting. `false` = "the press ran to the end
+    // without completing the screen" (see `runActions`' return contract).
     await expect(
       runActions(
         [ask("camera", { onUnavailable: [{ type: "setVariable", name: "cam", value: "n/a" }] })],
         ctx
       )
-    ).resolves.toBeUndefined();
+    ).resolves.toBe(false);
     expect(ctx.getVariables().cam.value).toBe("n/a");
     expect(error).toHaveBeenCalled();
     error.mockRestore();
@@ -225,28 +306,85 @@ describe("runActions — requestPermission when the build cannot ask", () => {
     expect(ctx.getVariables().why.value).toBe("module-missing");
   });
 
-  // The decision this PR makes explicit: the repo's silent-no-op convention for
-  // an optional press-time dep (haptics) would strand a user on a screen whose
-  // only "continue" lives in onGranted. Falling back to onDenied means an author
-  // who declared both real outcomes is safe by default.
-  it("falls back to onDenied when onUnavailable is absent, and says so", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  // Review round 1, finding 2. The first version ran `onDenied` when
+  // `onUnavailable` was absent. That advanced the user — but it also ran
+  // everything ELSE in the refusal branch, so a screen authored the way both
+  // LLM skills recommend recorded `att = "denied"` for a user who was never
+  // asked. Analytics, `renderWhen` gates and `resolveNextStepNumber` branching
+  // all then read a decision nobody made, signalled only by a console.warn in
+  // an app where nothing watches the JS console.
+  //
+  // The substitution is now a bare advance: no authored side effect from a
+  // branch whose precondition did not happen.
+  it("does not run onDenied's side effects when the build could not ask", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const onContinue = vi.fn();
+    const ctx = makeCtx({ onContinue });
     await runActions(
-      [ask("notifications", { onGranted: [{ type: "setVariable", name: "push", value: "on" }], onDenied: ["continue"] })],
-      makeCtx({ onContinue })
+      [
+        ask("appTrackingTransparency", {
+          onGranted: [{ type: "setVariable", name: "att", value: "granted" }, "continue"],
+          onDenied: [{ type: "setVariable", name: "att", value: "denied" }, "continue"],
+        }),
+      ],
+      ctx
     );
+    expect(ctx.getVariables().att).toBeUndefined();
     expect(onContinue).toHaveBeenCalledTimes(1);
-    expect(warn.mock.calls.some((c) => String(c[0]).includes("onUnavailable"))).toBe(true);
-    warn.mockRestore();
+    expect(error.mock.calls.some((c) => String(c[0]).includes("onUnavailable"))).toBe(true);
+    error.mockRestore();
   });
 
-  it("reports an error when neither onUnavailable nor onDenied is declared", async () => {
+  // Review round 1, finding 1. THE dead end: an `onGranted`-only CTA on a build
+  // that installed no permission module. Every user pressed it, the resolver
+  // answered "unavailable", no hook matched, one console.error was emitted, and
+  // nothing ran — no CTA, no back chevron on a `displayProgressHeader: false`
+  // step, for 100% of that build's users.
+  //
+  // A press the author authored as a way OFF the screen now leaves the screen,
+  // whatever the module situation is.
+  it("still leaves the screen when the ask was its only way forward", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    await runActions([ask("notifications", { onGranted: ["continue"] })], makeCtx());
+    const onContinue = vi.fn();
+    await runActions([ask("notifications", { onGranted: ["continue"] })], makeCtx({ onContinue }));
+    expect(onContinue).toHaveBeenCalledTimes(1);
     expect(error).toHaveBeenCalled();
     expect(String(error.mock.calls[0][0])).toContain("onUnavailable");
     error.mockRestore();
+  });
+
+  // The asymmetry that keeps the escape honest: it fires only when the AUTHOR
+  // put a completing action somewhere in the ask. An ask that was never a way
+  // forward (a "turn on notifications" button beside its own Skip CTA) must not
+  // start advancing the flow because a module is missing.
+  it("does not invent an advance for an ask that was never a way forward", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const onContinue = vi.fn();
+    await runActions(
+      [ask("notifications", { onGranted: [{ type: "setVariable", name: "push", value: "on" }] })],
+      makeCtx({ onContinue })
+    );
+    expect(onContinue).not.toHaveBeenCalled();
+    expect(error).toHaveBeenCalled();
+    error.mockRestore();
+  });
+
+  // A declared `onUnavailable` is authored intent and always wins — including an
+  // empty one, which is how an author says "do nothing here".
+  it("prefers a declared onUnavailable over the escape", async () => {
+    const onContinue = vi.fn();
+    const ctx = makeCtx({ onContinue });
+    await runActions(
+      [
+        ask("notifications", {
+          onGranted: ["continue"],
+          onUnavailable: [{ type: "setVariable", name: "why", value: "module-missing" }],
+        }),
+      ],
+      ctx
+    );
+    expect(ctx.getVariables().why.value).toBe("module-missing");
+    expect(onContinue).not.toHaveBeenCalled();
   });
 
   it("prefers the host resolver over the bundled Expo one", async () => {

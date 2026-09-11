@@ -21,6 +21,7 @@ UI package depends on headless package as peer dependency.
 ### Root (Monorepo)
 
 ```bash
+npm run check              # The whole CI gate, in CI's order — every step of .github/workflows/build.yml
 npm run build              # Build both packages (trailing "Missing script: build" for `example` workspace is expected — both packages still build)
 npm run build:headless     # packages/onboarding only
 npm run build:ui           # packages/onboarding-ui only (also copies src/assets → dist/assets)
@@ -30,6 +31,21 @@ npm run clean              # Remove all dist/ and node_modules/
 npm run publish:all        # Build + publish both packages to npm
 npm test --workspace=packages/onboarding  # vitest (evaluateCondition, resolveNextStepNumber)
 ```
+
+**Reviewing a PR? `bash scripts/pr-context.sh <n>` — one invocation, one round
+trip.** Body, checks, file list, every `Refs #N` ticket and the diff, instead of
+the `gh pr view` / `gh pr diff` / `gh run list` / `git show pr<n>:<file>` volley
+(63 of those in one board run). `--repo owner/name` when the ticket lives in
+`rocapine/onboarding-studio`; `--no-diff` when you only want the metadata.
+`npm run check:pr-context` asserts the call COUNT, because a version that makes
+five calls per PR prints exactly the same thing.
+
+**Run `npm run check` rather than the steps one at a time.** It is the same
+commands `.github/workflows/build.yml` runs, in the same order, so "green
+locally" and "green in CI" are one claim instead of two — and one invocation
+instead of the forty separate `type:check` / `build` / `test --workspace=…` calls
+a batch run used to make. The count is not the invariant, the equality is: add a
+step to the workflow and it belongs here too, and vice versa.
 
 After modifying `packages/`, run `npm run build` (or relevant workspace build) before reloading the example app — it references local packages via `file:../packages/*`.
 
@@ -164,7 +180,7 @@ When adding/changing a `UIElement` type in either ComposableScreen `types.ts`, *
 1. **Update `packages/onboarding/src/onboarding-example.ts`** — add/update example step exercising the new/changed element type so default onboarding stays in sync with schema.
 2. **Update `example/app/example/composable-screen.tsx`** — add/update element in rendered example payload.
 3. **Watch for schema duplication in UI renderers.** Several UI element renderers re-declare their Zod schemas + `*Props` type in lockstep with the headless source (known mirrors: `Runtime/elements/ButtonElement.tsx`, `IconElement.tsx` — grep for `IconElementPropsSchema`-style re-exports to find others). When changing headless `elements/*.ts`, update the UI mirror's field set too — TS won't catch the drift because the UI re-declares its own type. **Drift runs both ways**: a variant added only to the UI mirror (e.g. `setVariable` `ButtonAction`) still fails parsing — the headless schema validates the payload, so a UI-only variant throws `invalid_union` even though the renderer handles it.
-4. **Mirror schema docs in-repo** — run `npm run docs:element-props` (regenerates the prop inventory the plugin reads) then `npm run check:element-docs`, which is CI-gated and tells you exactly which hand-written docs are now short: the element table, and every container enumeration if the element has `children`. Then update the prose the check can't write — `claude-plugin/skills/{compose-screen-builder,validate-step-json,customize-onboarding-components}/SKILL.md` + `create-step-json/references/composable-archetypes.md`, and `website/docs/page-types.mdx` (Button/element prop tables). The list of files in this rule was incomplete for months; prefer the check's output over this sentence, and treat `website/` as the part still on trust.
+4. **Mirror schema docs in-repo** — run `npm run docs:element-props` (regenerates the prop inventory the plugin reads) then `npm run check:element-docs`, which is CI-gated and tells you exactly which hand-written docs are now short: the element table, and every container enumeration if the element has `children`. Then update the prose the check can't write — `claude-plugin/skills/{compose-screen-builder,validate-step-json,customize-onboarding-components}/SKILL.md` + `create-step-json/references/composable-archetypes.md`, and `website/docs/page-types.mdx` (Button/element prop tables). The list of files in this rule was incomplete for months, which is why it no longer lives only here: `SURFACES` in `scripts/check-element-docs.mjs` declares the six authoring surfaces, fails if one is renamed away, and asserts two things across them that used to be on trust — every `ButtonAction` field wherever a surface *declares* an action's shape or speaks for the whole union, and every runtime-projected variable namespace (`product.<slot>.*`, `products.*`) wherever a surface states the "a gate must reference a captured variable" rule. Prefer the check's output over this sentence. Still on trust: `website/docs/page-types.mdx`, and the prose itself — membership and naming are what a script can assert.
 6. **Know what an older app does with your new element type.** `UIElementSchema` is a `z.discriminatedUnion("type", …)` (`screens/types.ts`) over the types *that* build knows, so an app pinned to an older SDK misses every branch on a newer element. Since [#209](https://github.com/Rocapine/react-native-onboarding/issues/209) the ComposableScreen boundary **omits** it instead of failing: `resolveRenderableStep(step, getRenderableElementTypes())` runs in front of the `.parse` in `onboarding-ui/src/UI/Pages/ComposableScreen/Renderer.tsx`, the element and its subtree disappear, the rest of the screen renders, and a `console.warn` names the type. Everything else still parses strictly, so a real data bug (`variant` outside its enum, missing `id`) keeps failing loudly.
 
    Consequences when you add an element type: an older app renders the screen **without** it. If the strip takes the screen's only way forward — the CTA is authored *inside* the element tree, so an unknown root container takes everything with it — the renderer supplies `OnboardingTemplate`'s own Continue button and logs a `console.error`, rather than leaving a blank screen nobody can leave. Don't rely on that: it is an escape hatch, not a layout. `KNOWN_ELEMENT_TYPES` (exported from the headless package, derived from the schema) is the capability list to check a payload against. The paywall boundaries stay strict on purpose — a paywall that cannot parse never opens, which is safer than a full-screen Modal missing its purchase or dismiss control (`resolvePaywallModalDecision`).

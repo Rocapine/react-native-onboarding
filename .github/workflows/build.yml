@@ -34,6 +34,14 @@ jobs:
       - name: Version identities agree
         run: npm run check:versions
 
+      # Also before install, and for the same reason: node builtins, bash and jq
+      # only. It asserts how many `gh` calls scripts/pr-context.sh makes, not what
+      # it prints — an edit that quietly makes five calls per PR produces
+      # byte-identical output and hands the whole saving back, and such an edit
+      # arrives through here.
+      - name: PR context stays one round trip
+        run: npm run check:pr-context
+
       - name: Install dependencies
         # --ignore-scripts skips native postinstalls (e.g. @shopify/react-native-skia
         # downloads a prebuilt binary from a CDN that intermittently 504s). The build

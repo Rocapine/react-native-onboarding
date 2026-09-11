@@ -108,24 +108,44 @@ describe("CustomButtonAction schema — bounded retry", () => {
   });
 });
 
-describe("hasCompletingAction sees a continue nested in a custom hook (#209 guard)", () => {
-  // A screen whose ONLY way forward is `onResolve: ["continue"]` must not be
-  // treated as a dead end by the unknown-element strip's escape check —
-  // otherwise it gets a redundant template CTA stapled on.
-  it("counts a continue inside onResolve", () => {
+describe("hasCompletingAction and a custom action's hooks (#209 guard)", () => {
+  // Round 1 asserted the opposite of this — that `onResolve: ["continue"]` alone
+  // makes the screen completable — and review round 1, finding 6 refuted it.
+  // The resolve path is not the user's to reach: when the handler throws,
+  // `runActions` runs `onError` and ABORTS the list, so a `"continue"` in
+  // `onResolve` alone leaves a user with a dead backend on the screen with no
+  // way off. Read with AND across the outcomes, exactly like `requestPermission`
+  // (`completingActions.ts` — `customActionEscapes`).
+  const cta = (actions: unknown[]) => [
+    { type: "Button", id: "cta", props: { label: "Generate", actions } },
+  ];
+
+  it("does not count a continue reachable only on the resolve path", () => {
     expect(
-      hasCompletingAction([
-        {
-          type: "Button",
-          id: "cta",
-          props: {
-            label: "Generate",
-            actions: [
-              { type: "custom", function: "generatePlan", onResolve: ["continue"] },
-            ],
+      hasCompletingAction(
+        cta([{ type: "custom", function: "generatePlan", onResolve: ["continue"] }])
+      )
+    ).toBe(false);
+  });
+
+  it("counts it when the error path also reaches a way off the screen", () => {
+    expect(
+      hasCompletingAction(
+        cta([
+          {
+            type: "custom",
+            function: "generatePlan",
+            onResolve: ["continue"],
+            onError: ["continue"],
           },
-        },
-      ])
+        ])
+      )
+    ).toBe(true);
+  });
+
+  it("counts a sibling continue after the custom action", () => {
+    expect(
+      hasCompletingAction(cta([{ type: "custom", function: "generatePlan" }, "continue"]))
     ).toBe(true);
   });
 });

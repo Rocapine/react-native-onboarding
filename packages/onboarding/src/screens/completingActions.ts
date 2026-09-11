@@ -19,11 +19,13 @@
  *
  * WHAT COUNTS. `runActions` calls `onContinue` for exactly two actions —
  * `"continue"` and `{type:"dismiss"}` — so those two, wherever a press can
- * reach them, are the whole definition. One exception to "wherever":
- * `requestPermission` is read with AND across its outcome hooks rather than OR
- * (see `permissionAskCompletes`), because a grant is not the user's to give. Everything else (`setVariable`,
- * `presentPaywall`, `custom`) leaves the user on the screen as far as this SDK
- * can tell, and is not counted.
+ * reach them, are the whole definition. Two exceptions to "wherever":
+ * `requestPermission` and `custom` are read with AND across their outcome hooks
+ * rather than OR (see `permissionAskCompletes` and `customActionEscapes`),
+ * because neither a grant nor a backend's answer is the user's to give — a
+ * `"continue"` sitting only in `onGranted`/`onResolve` strands everyone on the
+ * other branch. Everything else (`setVariable`, `presentPaywall`) leaves the
+ * user on the screen as far as this SDK can tell, and is not counted.
  *
  * The walk deliberately errs toward "no": an unrecognised action shape, or a
  * `continue` somewhere the runtime would not actually run it, reads as no way
@@ -136,6 +138,33 @@ const permissionAskEscapes = (
 const permissionAskCompletes = (action: Record<string, unknown>): boolean =>
   permissionAskEscapes(action).size > 0;
 
+/**
+ * `custom` is the second AND-read action, for the same reason (#191, review
+ * round 1, finding 6): its outcome is the service's, not the user's.
+ *
+ * `runActions` has three paths. The handler resolves and `onResolve` runs; it
+ * throws with every retry spent and `onError` runs AND THE LIST ABORTS; or no
+ * handler is registered, which logs, runs `onError`, and falls through to the
+ * rest of the list. Only the first path can be reached by choosing to press
+ * again, so a `"continue"` sitting in `onResolve` alone is not a way OFF the
+ * screen for a user whose backend is down — which is exactly the async gate the
+ * SDK now documents, and exactly the trap the generic OR read as a CTA.
+ *
+ * Absent `onError` is not a rescue: a throw aborts the enclosing list with or
+ * without the hook (`common.types.ts` documents that divergence from
+ * `purchase`/`restore`), so nothing after the action runs either. A sibling
+ * action in the same list still counts on its own, through `listEscapes` —
+ * the resolve path and the unregistered-handler path both fall through to it.
+ */
+const customActionEscapes = (
+  action: Record<string, unknown>
+): Set<EscapeAction> => {
+  const onResolve = listEscapes(action.onResolve);
+  const onError = listEscapes(action.onError);
+  if (!onResolve.size || !onError.size) return new Set<EscapeAction>();
+  return union(onResolve, onError);
+};
+
 const actionEscapes = (action: unknown): Set<EscapeAction> => {
   // `ButtonActionSchema` declares continue as the string literal, not an
   // object: `{type:"continue"}` is not an action the runtime runs.
@@ -143,6 +172,7 @@ const actionEscapes = (action: unknown): Set<EscapeAction> => {
   if (!isRecord(action)) return new Set<EscapeAction>();
   if (action.type === "dismiss") return new Set<EscapeAction>(["dismiss"]);
   if (action.type === "requestPermission") return permissionAskEscapes(action);
+  if (action.type === "custom") return customActionEscapes(action);
   return union(...Object.values(action).map(listEscapes));
 };
 

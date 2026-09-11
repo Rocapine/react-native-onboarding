@@ -395,3 +395,65 @@ describe("completingActionKind", () => {
     }
   });
 });
+
+/**
+ * `custom` is read with AND across its outcomes, like `requestPermission` and
+ * unlike everything else (#191, review round 1, finding 6).
+ *
+ * The async gate this SDK now documents puts the screen's only `"continue"`
+ * inside `onResolve`. That is the exact shape `permissionAskCompletes` was
+ * carved out to refuse: when the handler throws, `runActions` runs `onError` and
+ * ABORTS the list, so a `"continue"` reachable only on the resolve path is not a
+ * way off the screen for a user whose backend is down. The generic OR read it as
+ * one, which is what let the walk report "this screen has a CTA" for a screen
+ * nobody could leave.
+ *
+ * Absent `onError` is not a rescue either: a throw aborts the enclosing list
+ * with or without the hook, so nothing after the `custom` action runs.
+ */
+describe("completingActions — custom is AND across its outcome hooks", () => {
+  const gate = (extra: Record<string, unknown>) => [
+    { type: "custom", function: "generatePlan", ...extra },
+  ];
+
+  it("does not count a continue reachable only when the handler resolves", () => {
+    expect(actionsCanComplete(gate({ onResolve: ["continue"] }))).toBe(false);
+    expect(
+      actionsCanComplete(
+        gate({
+          onResolve: ["continue"],
+          onError: [{ type: "setVariable", name: "planError", value: "true" }],
+        })
+      )
+    ).toBe(false);
+  });
+
+  it("counts it when BOTH outcomes reach a way off the screen", () => {
+    expect(
+      actionsCanComplete(gate({ onResolve: ["continue"], onError: ["continue"] }))
+    ).toBe(true);
+    expect(
+      completingActionKind(gate({ onResolve: ["continue"], onError: [{ type: "dismiss" }] }))
+    ).toBe("dismiss");
+  });
+
+  it("does not count a bare custom action, nor one whose `variables` are named like actions", () => {
+    expect(actionsCanComplete(gate({}))).toBe(false);
+    // `variables: ["continue"]` used to satisfy the generic OR walk.
+    expect(actionsCanComplete(gate({ variables: ["continue"] }))).toBe(false);
+  });
+
+  it("still counts a sibling action in the same list", () => {
+    // A throw aborts before it, but a resolve — and an unregistered handler —
+    // both fall through to it, which is why this stays a way forward.
+    expect(actionsCanComplete([...gate({}), "continue"])).toBe(true);
+  });
+
+  it("reads a whole element tree the same way", () => {
+    const screen = [button("cta", gate({ onResolve: ["continue"] }))];
+    expect(hasCompletingAction(screen)).toBe(false);
+    expect(
+      hasCompletingAction([button("cta", gate({ onResolve: ["continue"], onError: ["continue"] }))])
+    ).toBe(true);
+  });
+});

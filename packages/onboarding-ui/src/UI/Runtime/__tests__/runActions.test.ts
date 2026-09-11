@@ -844,9 +844,11 @@ describe("runGuardedActions — one press at a time per element (#191)", () => {
     expect(handler).toHaveBeenCalledTimes(2);
   });
 
-  // A handler that rejects must not leave the button permanently dead. The
-  // release lives in a `finally` for exactly this.
-  it("releases the slot when the action list throws", async () => {
+  // A handler that rejects must not leave the button permanently dead.
+  // `runActions` swallows a handler throw itself, so this one proves the RETRY
+  // path releases, not the `finally` — the test below is the one that lands on
+  // the `finally`.
+  it("releases the slot when a custom handler rejects", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const handler = vi.fn(async () => {
       throw new Error("boom");
@@ -858,6 +860,35 @@ describe("runGuardedActions — one press at a time per element (#191)", () => {
     await runGuardedActions("cta", actions, ctx);
     expect(handler).toHaveBeenCalledTimes(2);
     error.mockRestore();
+  });
+
+  // The `finally` itself: an exception that ESCAPES `runActions` (review round 1,
+  // finding 5 — the handler-throw test above never reaches here, because
+  // `runActions` catches a throwing handler and resolves normally). A host whose
+  // `setVariable` throws is the real shape of it. Replace the try/finally with a
+  // sequential `const r = await runActions(...); ctx.endActions(id); return r;`
+  // and the SECOND press below never runs: the slot is still held.
+  it("releases the slot when the action list itself throws", async () => {
+    const setVariable = vi.fn(() => {
+      throw new Error("host setVariable exploded");
+    });
+    const ctx = makeCtx({
+      setVariable,
+      beginActions: undefined,
+      endActions: undefined,
+    } as Partial<RenderContext>);
+    const registry = createInFlightRegistry(() => {});
+    ctx.beginActions = registry.claim;
+    ctx.endActions = registry.release;
+    const actions = [{ type: "setVariable" as const, name: "x", value: "1" }];
+
+    await expect(runGuardedActions("cta", actions, ctx)).rejects.toThrow(
+      "host setVariable exploded"
+    );
+    await expect(runGuardedActions("cta", actions, ctx)).rejects.toThrow(
+      "host setVariable exploded"
+    );
+    expect(setVariable).toHaveBeenCalledTimes(2);
   });
 
   it("does not block a different element's press", async () => {
@@ -877,5 +908,61 @@ describe("runGuardedActions — one press at a time per element (#191)", () => {
 
     release();
     await first;
+  });
+});
+
+/**
+ * A `function` name the host never registered (review round 1, findings 1 and
+ * 7). It is a payload/build mismatch — a typo, or a payload published ahead of
+ * the app build that registers the handler — and the runtime used to answer it
+ * by skipping the whole action, hooks included. That turned the documented async
+ * gate (`onResolve: ["continue"]`) into a permanently dead CTA signalled by one
+ * console line.
+ *
+ * The rule now: the requested work did not happen, so the ERROR path runs; and
+ * the enclosing list still carries on, which is the pre-#191 behaviour a
+ * `[{custom}, "continue"]` payload depends on to stay navigable.
+ */
+describe("runActions — custom action with no registered handler", () => {
+  const missing = (extra: Record<string, unknown> = {}) => [
+    { type: "custom" as const, function: "generatePlan", ...extra },
+  ];
+
+  it("runs onError so the payload can show its failure state", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const ctx = makeCtx({ customActions: {} });
+    await runActions(
+      missing({ onError: [{ type: "setVariable", name: "planError", value: "true" }] }),
+      ctx
+    );
+    expect(ctx.getVariables().planError?.value).toBe("true");
+    expect(error).toHaveBeenCalled();
+    error.mockRestore();
+  });
+
+  it("does not run onResolve — nothing resolved", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const onContinue = vi.fn();
+    await runActions(missing({ onResolve: ["continue"] }), makeCtx({ onContinue }));
+    expect(onContinue).not.toHaveBeenCalled();
+    error.mockRestore();
+  });
+
+  it("lets the rest of the list run, so a trailing continue still advances", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const onContinue = vi.fn();
+    await runActions(
+      [...missing({ onError: [{ type: "setVariable", name: "planError", value: "true" }] }), "continue"],
+      makeCtx({ onContinue })
+    );
+    expect(onContinue).toHaveBeenCalledTimes(1);
+    error.mockRestore();
+  });
+
+  it("names the handler and the screen in the log", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    await runActions(missing(), makeCtx());
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("generatePlan"));
+    error.mockRestore();
   });
 });

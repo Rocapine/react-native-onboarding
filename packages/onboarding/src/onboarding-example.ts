@@ -1225,16 +1225,6 @@ export const onboardingExample = {
                 props: { content: "One moment…", fontSize: 14, color: "#6B7280" },
               },
               {
-                id: "hero-button-error",
-                type: "Text",
-                renderWhen: { variable: "ctaError", operator: "eq", value: "true" },
-                props: {
-                  content: "Something went wrong. Tap again to retry.",
-                  fontSize: 14,
-                  color: "#E76F51",
-                },
-              },
-              {
                 id: "hero-button",
                 type: "Button",
                 props: {
@@ -1242,21 +1232,20 @@ export const onboardingExample = {
                   variant: "filled",
                   marginVertical: 8,
                   haptic: "medium",
-                  // The gate's "continue" belongs in `onResolve`, not after the
-                  // custom action in the same list — there it would advance even
-                  // when the handler threw. `onError` keeps the user here with
-                  // something to read, which is what a bare throw could not do.
+                  // Deliberately NOT the `onResolve: ["continue"]` async-gate
+                  // shape (review round 1, findings 1 and 7). This payload is
+                  // the exported `fallbackOnboarding`, rendered by apps that
+                  // pass no `customActions` at all — `trackCta` is registered
+                  // nowhere in the SDK — and a gate puts the screen's only way
+                  // forward behind a handler that host may not have. The
+                  // trailing `"continue"` runs on every path the handler does
+                  // not complete itself. The async gate is demonstrated where
+                  // its handler is guaranteed: `example/app/example/
+                  // composable-screen.tsx` (`async-gate`), which is not that
+                  // screen's only CTA either.
                   actions: [
-                    {
-                      type: "custom",
-                      function: "trackCta",
-                      variables: ["name", "plan", "goals"],
-                      retry: { maxAttempts: 2, delayMs: 300 },
-                      onResolve: ["continue"],
-                      onError: [
-                        { type: "setVariable", name: "ctaError", value: "true" },
-                      ],
-                    },
+                    { type: "custom", function: "trackCta", variables: ["name", "plan", "goals"] },
+                    "continue",
                   ],
                 },
               },

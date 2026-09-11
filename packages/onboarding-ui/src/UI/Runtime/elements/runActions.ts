@@ -310,9 +310,26 @@ export async function runActions(
 
     const handler = customActions[act.function];
     if (!handler) {
-      console.warn(
-        `[ComposableScreen] No customAction registered for "${act.function}"`
+      // A name the host never registered — a typo, or a payload published ahead
+      // of the app build that wires the handler. Round 1 of this PR skipped the
+      // action whole, hooks included, which turned the documented async gate
+      // (`onResolve: ["continue"]`) into a permanently dead CTA signalled by one
+      // console line (review round 1, findings 1 and 7).
+      //
+      // The requested work did not happen, so this is the ERROR outcome and
+      // `onError` runs — but UNLIKE a throw it does NOT abort the list. The
+      // pre-#191 behaviour here was "log and move on", and a
+      // `[{custom}, "continue"]` payload relies on it to stay navigable on a
+      // host with `customActions: {}`. Keeping the list running is the strictly
+      // more escapable of the two, and the only one that cannot strand a user.
+      console.error(
+        `[ComposableScreen] No customAction registered for "${act.function}" — the action did nothing.${
+          act.onResolve ? " `onResolve` did NOT run: nothing resolved." : ""
+        }${
+          act.onError ? " Running `onError`." : ""
+        } Register it on OnboardingProvider.customActions, or fix the \`function\` name.`
       );
+      if (act.onError && (await runActions(act.onError, ctx))) return true;
       continue;
     }
     const requested = act.variables ?? [];

@@ -494,7 +494,7 @@ Simpler fallback (no laurel assets): keep the title + ONE quote card — never t
 ]
 ```
 
-Fallback: if the wait must track *real* backend work (not a fixed duration), emit `actions: [{ "type": "custom", "function": "delayedContinue", "variables": [] }]` and let the host wire the timer.
+Fallback: if the wait must track *real* backend work (not a fixed duration), emit `actions: [{ "type": "custom", "function": "delayedContinue", "variables": [] }, "continue"]` and let the host wire the timer. The trailing `"continue"` is what advances the screen — the handler's return value is discarded, and it runs whether the handler resolved or failed, so the screen stays leaveable when the backend is down. Without it the press has no way forward on any path: the timer resolves and the user sits there. Move the `"continue"` into `onResolve` only if a failure must hold the user here, and then give `onError` its own exit.
 
 ---
 

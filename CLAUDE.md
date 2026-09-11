@@ -32,6 +32,14 @@ npm run publish:all        # Build + publish both packages to npm
 npm test --workspace=packages/onboarding  # vitest (evaluateCondition, resolveNextStepNumber)
 ```
 
+**Reviewing a PR? `bash scripts/pr-context.sh <n>` — one invocation, one round
+trip.** Body, checks, file list, every `Refs #N` ticket and the diff, instead of
+the `gh pr view` / `gh pr diff` / `gh run list` / `git show pr<n>:<file>` volley
+(63 of those in one board run). `--repo owner/name` when the ticket lives in
+`rocapine/onboarding-studio`; `--no-diff` when you only want the metadata.
+`npm run check:pr-context` asserts the call COUNT, because a version that makes
+five calls per PR prints exactly the same thing.
+
 **Run `npm run check` rather than the seven steps one at a time.** It is the same
 seven commands `.github/workflows/build.yml` runs, in the same order, so "green
 locally" and "green in CI" are one claim instead of two — and one invocation

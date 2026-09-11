@@ -143,9 +143,17 @@ describe("hasCompletingAction and a custom action's hooks (#209 guard)", () => {
     ).toBe(true);
   });
 
-  it("counts a sibling continue after the custom action", () => {
+  it("does NOT count a sibling continue after the custom action", () => {
+    // The throw path `return false`s out of `runActions`, so the trailing
+    // `"continue"` is unreachable exactly when the user needs it (review round
+    // 2, finding 1). Declare `onError: ["continue"]` and it counts again.
     expect(
       hasCompletingAction(cta([{ type: "custom", function: "generatePlan" }, "continue"]))
+    ).toBe(false);
+    expect(
+      hasCompletingAction(
+        cta([{ type: "custom", function: "generatePlan", onError: ["continue"] }, "continue"])
+      )
     ).toBe(true);
   });
 });

@@ -1238,13 +1238,23 @@ export const onboardingExample = {
                   // pass no `customActions` at all — `trackCta` is registered
                   // nowhere in the SDK — and a gate puts the screen's only way
                   // forward behind a handler that host may not have. The
-                  // trailing `"continue"` runs on every path the handler does
-                  // not complete itself. The async gate is demonstrated where
+                  // trailing `"continue"` runs on the resolve path, and
+                  // `onError` covers the other two. The async gate is where
                   // its handler is guaranteed: `example/app/example/
                   // composable-screen.tsx` (`async-gate`), which is not that
                   // screen's only CTA either.
                   actions: [
-                    { type: "custom", function: "trackCta", variables: ["name", "plan", "goals"] },
+                    {
+                      type: "custom",
+                      function: "trackCta",
+                      variables: ["name", "plan", "goals"],
+                      // `onError: ["continue"]` is what makes the trailing
+                      // `"continue"` a promise rather than a hope (review round
+                      // 2, finding 1): a handler that THROWS aborts the rest of
+                      // the list, so without this hook an analytics call
+                      // failing offline would strand the user on the screen.
+                      onError: ["continue"],
+                    },
                     "continue",
                   ],
                 },

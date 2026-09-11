@@ -86,10 +86,23 @@ const union = (...sets: ReadonlySet<EscapeAction>[]): Set<EscapeAction> => {
  * Branch lists are found by shape rather than by name, so a branch added to
  * `purchase`/`restore` later is covered without a change here.
  */
-const listEscapes = (value: unknown): Set<EscapeAction> =>
-  Array.isArray(value)
-    ? union(...value.map(actionEscapes))
-    : new Set<EscapeAction>();
+const listEscapes = (value: unknown): Set<EscapeAction> => {
+  if (!Array.isArray(value)) return new Set<EscapeAction>();
+  const before = new Set<EscapeAction>();
+  for (let i = 0; i < value.length; i++) {
+    const action = value[i];
+    // `custom` is a BARRIER, not just another item: the throw path returns
+    // false from `runActions`, so nothing after it in the SAME list runs
+    // (review round 2, finding 1). Everything BEFORE it does run, and a
+    // completing action there returns before the handler is ever called, so
+    // those keep the plain OR reading.
+    if (isRecord(action) && action.type === "custom") {
+      return union(before, customActionEscapes(action, value.slice(i + 1)));
+    }
+    for (const escape of actionEscapes(action)) before.add(escape);
+  }
+  return before;
+};
 
 const listCompletes = (value: unknown): boolean => listEscapes(value).size > 0;
 
@@ -142,24 +155,31 @@ const permissionAskCompletes = (action: Record<string, unknown>): boolean =>
  * `custom` is the second AND-read action, for the same reason (#191, review
  * round 1, finding 6): its outcome is the service's, not the user's.
  *
- * `runActions` has three paths. The handler resolves and `onResolve` runs; it
- * throws with every retry spent and `onError` runs AND THE LIST ABORTS; or no
- * handler is registered, which logs, runs `onError`, and falls through to the
- * rest of the list. Only the first path can be reached by choosing to press
- * again, so a `"continue"` sitting in `onResolve` alone is not a way OFF the
- * screen for a user whose backend is down — which is exactly the async gate the
- * SDK now documents, and exactly the trap the generic OR read as a CTA.
+ * `runActions` has three paths, and `rest` — whatever follows the action in the
+ * same list — is reachable from only two of them:
  *
- * Absent `onError` is not a rescue: a throw aborts the enclosing list with or
- * without the hook (`common.types.ts` documents that divergence from
- * `purchase`/`restore`), so nothing after the action runs either. A sibling
- * action in the same list still counts on its own, through `listEscapes` —
- * the resolve path and the unregistered-handler path both fall through to it.
+ *  - the handler RESOLVES: `onResolve` runs, then `rest`;
+ *  - NO HANDLER is registered: it logs, runs `onError`, then `rest`;
+ *  - the handler THROWS with every retry spent: `onError` runs and the list
+ *    ABORTS (`return false`), so `rest` never runs.
+ *
+ * So the escape set is `onResolve ∪ rest` AND `onError` — both must be
+ * non-empty, and the unregistered path (`onError ∪ rest`) is then non-empty by
+ * construction. A `"continue"` sitting in `onResolve` alone is not a way OFF
+ * the screen for a user whose backend is down; neither is one trailing the
+ * action (review round 2, finding 1 — `[{custom}, "continue"]` is precisely
+ * what an author writes today, since Studio cannot yet spell `onResolve`).
+ *
+ * Absent `onError` is therefore never a rescue: a throw aborts the enclosing
+ * list with or without the hook (`common.types.ts` documents that divergence
+ * from `purchase`/`restore`).
  */
 const customActionEscapes = (
-  action: Record<string, unknown>
+  action: Record<string, unknown>,
+  rest: readonly unknown[] = []
 ): Set<EscapeAction> => {
-  const onResolve = listEscapes(action.onResolve);
+  const afterwards = listEscapes(rest);
+  const onResolve = union(listEscapes(action.onResolve), afterwards);
   const onError = listEscapes(action.onError);
   if (!onResolve.size || !onError.size) return new Set<EscapeAction>();
   return union(onResolve, onError);
@@ -176,9 +196,6 @@ const actionEscapes = (action: unknown): Set<EscapeAction> => {
   return union(...Object.values(action).map(listEscapes));
 };
 
-const isCompletingAction = (action: unknown): boolean =>
-  actionEscapes(action).size > 0;
-
 const nodeCanComplete = (node: unknown): boolean => {
   if (!isRecord(node)) return false;
   const props = isRecord(node.props) ? node.props : undefined;
@@ -186,14 +203,18 @@ const nodeCanComplete = (node: unknown): boolean => {
     if (props.actions != null) {
       // `Button` reads `actions ?? (action === "continue" ? …)`, so a present
       // `actions` shadows the deprecated shorthand — even when it is empty.
-      if (Array.isArray(props.actions) && props.actions.some(isCompletingAction)) return true;
+      //
+      // Read as ONE list, not action-by-action: order matters, because a
+      // `custom` action aborts the list on its throw path and nothing after it
+      // runs (review round 2, finding 1). `.some(isCompletingAction)` lost that
+      // and counted a trailing `"continue"` the runtime would never reach.
+      if (listCompletes(props.actions)) return true;
     } else if (props.action === "continue") {
       return true;
     }
     if (
-      Array.isArray(props.onPress) &&
       !PRESS_HANDLED_TYPES.has(String(node.type)) &&
-      props.onPress.some(isCompletingAction)
+      listCompletes(props.onPress)
     ) {
       return true;
     }

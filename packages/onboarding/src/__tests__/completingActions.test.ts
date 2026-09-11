@@ -443,10 +443,36 @@ describe("completingActions — custom is AND across its outcome hooks", () => {
     expect(actionsCanComplete(gate({ variables: ["continue"] }))).toBe(false);
   });
 
-  it("still counts a sibling action in the same list", () => {
-    // A throw aborts before it, but a resolve — and an unregistered handler —
-    // both fall through to it, which is why this stays a way forward.
-    expect(actionsCanComplete([...gate({}), "continue"])).toBe(true);
+  it("does not count a sibling AFTER the custom action (review round 2, finding 1)", () => {
+    // `runActions` returns false from the throw path, so nothing later in the
+    // SAME list runs. Round 1 counted the trailing `"continue"` on its own, so
+    // `[{custom}, "continue"]` — the shape an author writes when Studio cannot
+    // spell `onResolve` — read as a way off the screen while the throw path
+    // stranded the user on it.
+    expect(actionsCanComplete([...gate({}), "continue"])).toBe(false);
+    expect(
+      actionsCanComplete([
+        ...gate({ onError: [{ type: "setVariable", name: "planError", value: "true" }] }),
+        "continue",
+      ])
+    ).toBe(false);
+  });
+
+  it("counts a sibling after it once the error path also escapes", () => {
+    // `onError` covers the throw path; the trailing `"continue"` covers resolve
+    // and the unregistered-handler path, which both fall through to it.
+    expect(actionsCanComplete([...gate({ onError: ["continue"] }), "continue"])).toBe(true);
+  });
+
+  it("counts a sibling BEFORE it, which runs whatever the handler does", () => {
+    // `runActions` returns at the first completing action, so the custom never
+    // runs and the escape is unconditional.
+    expect(actionsCanComplete(["continue", ...gate({})])).toBe(true);
+    expect(completingActionKind([{ type: "dismiss" }, ...gate({})])).toBe("dismiss");
+  });
+
+  it("strands the same way inside an element tree", () => {
+    expect(hasCompletingAction([button("cta", [...gate({}), "continue"])])).toBe(false);
   });
 
   it("reads a whole element tree the same way", () => {

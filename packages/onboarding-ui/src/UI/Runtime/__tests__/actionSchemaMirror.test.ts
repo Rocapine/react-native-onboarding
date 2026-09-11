@@ -72,6 +72,36 @@ const actionSchemaNames = (file: string): string[] => {
     .sort();
 };
 
+/**
+ * The same body, comments and layout removed but every VALIDATOR kept.
+ *
+ * `schemaKeys` compares field NAMES only, which is weaker than this file's
+ * header claims (review round 2, finding 8): drop `.max(10)` from one copy of
+ * `maxAttempts` and the guard passed, while a `retry: { maxAttempts: 50 }`
+ * payload parsed against the headless schema and threw `invalid_union` against
+ * the mirror — which is what `Pages/ComposableScreen/Renderer` parses with, so
+ * the whole element left the screen.
+ *
+ * Normalisation is deliberately shallow: comments, whitespace and trailing
+ * commas only. Anything else — a bound, a `.optional()`, a `z.enum` member — is
+ * a difference, because at parse time it is one.
+ */
+export const normalizeSchemaSource = (body: string): string =>
+  body
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/[^\n]*/g, "")
+    .replace(/,(\s*[}\])])/g, "$1")
+    .replace(/\s+/g, "")
+    .replace(/,$/, "")
+    .trim();
+
+const schemaSource = (file: string, schemaName: string): string => {
+  const src = readFileSync(file, "utf8");
+  const at = src.indexOf(`export const ${schemaName}`);
+  expect(at, `${schemaName} not found in ${file}`).toBeGreaterThan(-1);
+  return normalizeSchemaSource(objectBody(src, at));
+};
+
 /** The string members of an `as const` array literal, e.g. PERMISSION_KINDS. */
 const constArrayMembers = (file: string, name: string): string[] => {
   const src = readFileSync(file, "utf8");
@@ -94,11 +124,50 @@ describe("ButtonAction schemas: headless and UI mirror agree", () => {
     it(`${schema} declares the same fields in both packages`, () => {
       expect(schemaKeys(MIRROR, schema)).toEqual(schemaKeys(HEADLESS, schema));
     });
+
+    // Same fields is not the same schema: a CONSTRAINT that drifts fails at
+    // parse, not at type-check (review round 2, finding 8).
+    it(`${schema} declares the same validators in both packages`, () => {
+      expect(schemaSource(MIRROR, schema)).toBe(schemaSource(HEADLESS, schema));
+    });
   }
+
+  // The normaliser is the whole guard, so it is itself pinned: it must see
+  // through presentation and NOT through validation.
+  describe("normalizeSchemaSource", () => {
+    it("ignores comments, whitespace and trailing commas", () => {
+      expect(
+        normalizeSchemaSource(`
+          // why this exists
+          maxAttempts: z.number().int().min(1).max(10),
+          /* block */ delayMs: z.number().min(0).optional(),
+        `)
+      ).toBe(
+        normalizeSchemaSource(
+          "maxAttempts: z.number().int().min(1).max(10), delayMs: z.number().min(0).optional()"
+        )
+      );
+    });
+
+    it("does NOT ignore a bound, an optionality or an enum member", () => {
+      const a = normalizeSchemaSource("maxAttempts: z.number().max(10)");
+      expect(a).not.toBe(normalizeSchemaSource("maxAttempts: z.number().max(5)"));
+      expect(a).not.toBe(normalizeSchemaSource("maxAttempts: z.number().max(10).optional()"));
+      expect(normalizeSchemaSource('kind: z.enum(["a","b"])')).not.toBe(
+        normalizeSchemaSource('kind: z.enum(["a"])')
+      );
+    });
+  });
 
   it("CustomActionRetrySchema declares the same fields in both packages", () => {
     expect(schemaKeys(MIRROR, "CustomActionRetrySchema")).toEqual(
       schemaKeys(HEADLESS, "CustomActionRetrySchema")
+    );
+  });
+
+  it("CustomActionRetrySchema declares the same validators in both packages", () => {
+    expect(schemaSource(MIRROR, "CustomActionRetrySchema")).toBe(
+      schemaSource(HEADLESS, "CustomActionRetrySchema")
     );
   });
 

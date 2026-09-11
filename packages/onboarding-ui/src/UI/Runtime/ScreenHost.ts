@@ -3,6 +3,7 @@ import type {
   CustomActions,
   ProductRuntime,
 } from "@rocapine/react-native-onboarding";
+import type { PermissionResolver } from "./elements/permissions";
 
 /**
  * Outcome passed to `complete`. The `dismiss` ButtonAction passes
@@ -48,6 +49,30 @@ export type ScreenHost = {
    * no-ops, mirroring `products`/`purchase`/`restore`.
    */
   presentPaywall?: (placement: string) => void;
+  /**
+   * Override the `requestPermission` ButtonAction's resolver. Undefined on a
+   * host that has nothing special to add — the action then asks through
+   * whichever optional Expo module is installed (`Runtime/elements/permissions.ts`).
+   *
+   * Supply one when the app already owns a flow for one of the six declared
+   * kinds — its own notification opt-in, or a camera permission asked through
+   * its own native module. Return `undefined` for a kind you do not handle and
+   * the bundled resolver runs instead, so a host only has to know about its own.
+   *
+   * It cannot add a kind: `PermissionKindSchema` is closed, so HealthKit and
+   * Screen Time / Family Controls — which need entitlements and a config plugin
+   * belonging to the app — fail `invalid_union` at parse and never reach this.
+   * Adding them means adding the kind to the headless schema first.
+   *
+   * EVERY host builder must forward it. Set on one only, the identical authored
+   * action resolved differently per surface (review round 1 of #196):
+   * `Runtime/__tests__/hostResolverWiring.test.ts` pins all three.
+   *
+   * MUST be referentially stable — it lands in RenderContext, and an unstable
+   * value re-renders every memoized element on every variable write (same
+   * contract as `products`).
+   */
+  requestPermission?: PermissionResolver;
   /** Offset for keyboard avoidance — the measured progress header, or 0. */
   keyboardVerticalOffset: number;
   /**

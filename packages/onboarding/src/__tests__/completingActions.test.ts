@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { hasCompletingAction } from "../screens/completingActions";
+import {
+  actionsCanComplete,
+  completingActionKind,
+  hasCompletingAction,
+} from "../screens/completingActions";
 
 /**
  * "Can the user still get off this screen?" (#209, review finding 1).
@@ -135,5 +139,259 @@ describe("hasCompletingAction", () => {
     // An object is not it, so the runtime would never advance on it; reading it
     // as a way forward would leave the user stuck with no escape.
     expect(hasCompletingAction([button("cta", [{ type: "continue" }])])).toBe(false);
+  });
+});
+
+/**
+ * `requestPermission` (#196) is the one action whose branch lists must NOT be
+ * read with the generic "any nested list completes it" rule, and review round 1
+ * caught the first version doing exactly that.
+ *
+ * The question this predicate answers is "can the user still get off this
+ * screen?", and for a permission ask the honest answer is "only on the outcomes
+ * the author covered". The runtime has three: a grant runs `onGranted`, a
+ * refusal runs `onDenied`, and "this build cannot ask" runs
+ * `onUnavailable ?? onDenied`. A CTA holding its only `"continue"` in
+ * `onGranted` traps every user who refuses — and traps EVERY user on a build
+ * that never installed the optional Expo module, which is a packaging fact the
+ * person pressing the button cannot do anything about.
+ *
+ * So the rule is AND across the outcomes, not OR: the action counts as a way
+ * forward only when a grant AND a non-grant both reach `"continue"` /
+ * `{dismiss}`. That is the file's stated bias ("errs toward no") applied to the
+ * one action whose result the user does not fully control. `purchase` and
+ * `restore` keep the OR reading deliberately — a cancelled purchase leaves the
+ * user free to press again, whereas a standing OS denial cannot be retried.
+ */
+describe("hasCompletingAction — requestPermission outcome hooks", () => {
+  const ask = (hooks: Record<string, unknown[]>) => [
+    button("cta", [{ type: "requestPermission", kind: "notifications", ...hooks }]),
+  ];
+
+  it("counts an ask that advances on a grant AND on a refusal", () => {
+    expect(hasCompletingAction(ask({ onGranted: ["continue"], onDenied: ["continue"] }))).toBe(true);
+  });
+
+  it("counts a grant path that continues and a refusal path that dismisses", () => {
+    expect(
+      hasCompletingAction(ask({ onGranted: ["continue"], onDenied: [{ type: "dismiss" }] }))
+    ).toBe(true);
+  });
+
+  // The trap. `onGranted` alone reads as NO way forward, so the #209 strip
+  // supplies its own escape CTA.
+  it("reports no way forward when only the grant path advances", () => {
+    expect(hasCompletingAction(ask({ onGranted: ["continue"] }))).toBe(false);
+  });
+
+  it("reports no way forward when only the refusal path advances", () => {
+    expect(hasCompletingAction(ask({ onDenied: ["continue"] }))).toBe(false);
+  });
+
+  // `onUnavailable` covers the module-absent outcome only; a denial still needs
+  // `onDenied`, so this shape strands the user who taps "Don't Allow".
+  it("reports no way forward when onDenied is missing but onUnavailable advances", () => {
+    expect(
+      hasCompletingAction(ask({ onGranted: ["continue"], onUnavailable: ["continue"] }))
+    ).toBe(false);
+  });
+
+  // All three declared: every runtime path advances.
+  it("counts an ask that covers all three outcomes", () => {
+    expect(
+      hasCompletingAction(
+        ask({ onGranted: ["continue"], onDenied: ["continue"], onUnavailable: ["continue"] })
+      )
+    ).toBe(true);
+  });
+
+  // `onUnavailable` present but dead, while `onDenied` advances: the
+  // module-absent build runs onUnavailable and stays put, so this is a trap the
+  // OR reading would have missed too.
+  it("reports no way forward when a declared onUnavailable does not advance", () => {
+    expect(
+      hasCompletingAction(
+        ask({
+          onGranted: ["continue"],
+          onDenied: ["continue"],
+          onUnavailable: [{ type: "setVariable", name: "push", value: "n/a" }],
+        })
+      )
+    ).toBe(false);
+  });
+
+  // A typo'd hook name is stripped by the (deliberately non-strict) schema, so
+  // the payload validates clean and the denial path is dead. The AND rule is
+  // what turns that into a visible escape CTA rather than a silent trap.
+  it("reports no way forward when the refusal hook is misspelled", () => {
+    expect(
+      hasCompletingAction(ask({ onGranted: ["continue"], onDeneid: ["continue"] }))
+    ).toBe(false);
+  });
+
+  it("reports no way forward for a permission ask with no terminal hook", () => {
+    expect(
+      hasCompletingAction(ask({ onGranted: [{ type: "setVariable", name: "push", value: "on" }] }))
+    ).toBe(false);
+  });
+
+  // A separate CTA elsewhere on the screen is still a way forward — the rule
+  // narrows what the ASK itself counts for, nothing else.
+  it("still finds a sibling skip button", () => {
+    expect(
+      hasCompletingAction([
+        button("cta", [{ type: "requestPermission", kind: "notifications", onGranted: ["continue"] }]),
+        button("skip", ["continue"]),
+      ])
+    ).toBe(true);
+  });
+
+  // Nesting: an ask inside another action's branch list is walked the same way.
+  it("counts a fully covered ask nested inside purchase.onSuccess", () => {
+    expect(
+      hasCompletingAction([
+        button("cta", [
+          {
+            type: "purchase",
+            product: "yearly",
+            onSuccess: [
+              {
+                type: "requestPermission",
+                kind: "notifications",
+                onGranted: ["continue"],
+                onDenied: ["continue"],
+              },
+            ],
+          },
+        ]),
+      ])
+    ).toBe(true);
+  });
+});
+
+/**
+ * `actionsCanComplete` — the same walk, exposed for ONE action list rather than
+ * a whole element tree, so the runtime can consult the SDK's own definition of
+ * "this was a way off the screen" instead of re-deriving it (review round 1,
+ * finding 1).
+ *
+ * `runActions` needs it at press time for exactly one decision: a
+ * `requestPermission` whose build cannot ask at all, with no `onUnavailable`
+ * declared. Whether that press was the screen's only way forward is the
+ * difference between "log and move on" and "the user is stuck", and it is the
+ * same question this module already answers statically.
+ *
+ * OR across the list, unlike `permissionAskCompletes`' AND across one ask's
+ * outcomes: the caller asks "did the author intend this press to move the user
+ * on", not "does every outcome move them on".
+ */
+describe("actionsCanComplete", () => {
+  it("is true for a list holding continue or dismiss", () => {
+    expect(actionsCanComplete(["continue"])).toBe(true);
+    expect(actionsCanComplete([{ type: "dismiss" }])).toBe(true);
+    expect(actionsCanComplete([{ type: "setVariable", name: "a", value: "b" }, "continue"])).toBe(
+      true
+    );
+  });
+
+  it("is false for a list that leaves the user on the screen", () => {
+    expect(actionsCanComplete([{ type: "setVariable", name: "a", value: "b" }])).toBe(false);
+    expect(actionsCanComplete([{ type: "custom", function: "doThing" }])).toBe(false);
+    expect(actionsCanComplete([{ type: "presentPaywall", placement: "hard" }])).toBe(false);
+  });
+
+  it("walks nested branch lists", () => {
+    expect(
+      actionsCanComplete([{ type: "purchase", product: "yearly", onSuccess: ["continue"] }])
+    ).toBe(true);
+  });
+
+  // Total on junk: it runs on a payload the runtime has already parsed, but the
+  // predicate is the one thing that must not throw while deciding whether a
+  // user is trapped.
+  it("is false for anything that is not an action list", () => {
+    expect(actionsCanComplete(undefined)).toBe(false);
+    expect(actionsCanComplete(null)).toBe(false);
+    expect(actionsCanComplete("continue")).toBe(false);
+    expect(actionsCanComplete([null, 3, { type: "continue" }])).toBe(false);
+  });
+});
+
+/**
+ * Review round 2, finding 1. `actionsCanComplete`'s yes/no was not enough: the
+ * runtime substitutes the author's escape for an ask it could not perform, and
+ * the two completing actions report DIFFERENT outcomes to the host.
+ * `complete()` (bare) is what `Pages/Paywall/Renderer`'s hard gate reads as
+ * "advance", so standing in for an authored `{dismiss}` with a bare advance
+ * handed out paid content. `"dismiss"` therefore wins whenever both are
+ * reachable — nobody was asked anything, so the SDK claims the LESS permissive
+ * of the two answers the author authored.
+ */
+describe("completingActionKind", () => {
+  it("names the completing action a list reaches", () => {
+    expect(completingActionKind(["continue"])).toBe("continue");
+    expect(completingActionKind([{ type: "dismiss" }])).toBe("dismiss");
+  });
+
+  it("prefers dismiss when both are reachable, in either order", () => {
+    expect(completingActionKind(["continue", { type: "dismiss" }])).toBe("dismiss");
+    expect(completingActionKind([{ type: "dismiss" }, "continue"])).toBe("dismiss");
+  });
+
+  it("walks nested branch lists like the predicate does", () => {
+    expect(
+      completingActionKind([
+        { type: "purchase", product: "yearly", onSuccess: [{ type: "dismiss" }] },
+      ])
+    ).toBe("dismiss");
+    expect(
+      completingActionKind([{ type: "restore", onSuccess: ["continue"] }])
+    ).toBe("continue");
+  });
+
+  // A nested ask keeps the AND-across-outcomes rule: it contributes an escape
+  // only when it is one on EVERY path.
+  it("respects the requestPermission AND rule when nested", () => {
+    expect(
+      completingActionKind([
+        { type: "requestPermission", kind: "notifications", onGranted: ["continue"] },
+      ])
+    ).toBeUndefined();
+    expect(
+      completingActionKind([
+        {
+          type: "requestPermission",
+          kind: "notifications",
+          onGranted: ["continue"],
+          onDenied: [{ type: "dismiss" }],
+        },
+      ])
+    ).toBe("dismiss");
+  });
+
+  it("is undefined for a list that leaves the user on the screen, and for junk", () => {
+    expect(completingActionKind([{ type: "setVariable", name: "a", value: "b" }])).toBeUndefined();
+    expect(completingActionKind([])).toBeUndefined();
+    expect(completingActionKind(undefined)).toBeUndefined();
+    expect(completingActionKind(null)).toBeUndefined();
+    expect(completingActionKind("continue")).toBeUndefined();
+    expect(completingActionKind([null, 3, { type: "continue" }])).toBeUndefined();
+  });
+
+  // The two must never disagree about WHETHER there is an escape — one walk
+  // answers both, and this is the assertion that keeps it that way.
+  it("agrees with actionsCanComplete on every shape", () => {
+    for (const actions of [
+      ["continue"],
+      [{ type: "dismiss" }],
+      [{ type: "setVariable", name: "a", value: "b" }],
+      [{ type: "purchase", product: "yearly", onSuccess: ["continue"] }],
+      [{ type: "requestPermission", kind: "camera", onGranted: ["continue"] }],
+      undefined,
+      null,
+      [],
+    ]) {
+      expect(completingActionKind(actions) !== undefined).toBe(actionsCanComplete(actions));
+    }
   });
 });

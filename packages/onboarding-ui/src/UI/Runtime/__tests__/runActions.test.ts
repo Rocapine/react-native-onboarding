@@ -2,6 +2,12 @@ import { describe, it, expect, vi } from "vitest";
 import { runActions } from "../elements/runActions";
 import type { RenderContext } from "../elements/shared";
 
+/**
+ * `runActions` resolves `true` when the press completed the screen and `false`
+ * when it ran to the end without doing so, so the three "does not throw"
+ * assertions below read `.resolves.toBe(false)` rather than `toBeUndefined()`.
+ * The value exists for the recursion — see the bottom of this file.
+ */
 const makeCtx = (overrides: Partial<RenderContext> = {}): RenderContext => {
   const variables: Record<string, { value: string; label?: string }> = {};
   return {
@@ -75,7 +81,7 @@ describe("runActions — presentPaywall", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     await expect(
       runActions([{ type: "presentPaywall", placement: "hard_paywall" }], makeCtx())
-    ).resolves.toBeUndefined();
+    ).resolves.toBe(false);
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
   });
@@ -199,7 +205,7 @@ describe("runActions — purchase", () => {
         [{ type: "purchase", product: "yearly", onSuccess: [{ type: "setVariable", name: "bought", value: "yes" }] }],
         ctx
       )
-    ).resolves.toBeUndefined();
+    ).resolves.toBe(false);
     expect(ctx.getVariables().bought).toBeUndefined();
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
@@ -237,7 +243,7 @@ describe("runActions — purchase", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     await expect(
       runActions([{ type: "purchase", product: "yearly" }], makeCtx())
-    ).resolves.toBeUndefined();
+    ).resolves.toBe(false);
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
   });
@@ -383,5 +389,182 @@ describe("runActions — a failing expression must not kill the action list", ()
     expect(onContinue).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledTimes(1);
     warn.mockRestore();
+  });
+});
+
+/**
+ * Terminal propagation out of a nested branch list (review round 1, finding 4).
+ *
+ * `runActions` recurses for every branch hook — `purchase.onSuccess`,
+ * `restore.onNothingToRestore`, `requestPermission.onGranted` — and the first
+ * version let the OUTER `for` carry on after the recursion returned. A trailing
+ * `"continue"` after any of them therefore called `onContinue` twice: a
+ * duplicate `router.push` in the example host, and a silently skipped screen in
+ * a host that advances by incrementing an index.
+ *
+ * Fixed once, centrally, for every branching action rather than only for the
+ * one the review found it through — the defect is in the recursion, not in
+ * `requestPermission`.
+ */
+describe("runActions — a terminal nested action ends the whole press", () => {
+  it("advances once for purchase.onSuccess followed by a trailing continue", async () => {
+    const onContinue = vi.fn();
+    const ctx = makeCtx({ onContinue, products: makeProducts() } as any);
+    await runActions(
+      [
+        { type: "purchase", product: "yearly", onSuccess: ["continue"] },
+        "continue",
+      ] as never,
+      ctx
+    );
+    expect(onContinue).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops the outer list after a nested dismiss", async () => {
+    const onContinue = vi.fn();
+    const ctx = makeCtx({ onContinue, products: makeProducts() } as any);
+    await runActions(
+      [
+        { type: "purchase", product: "yearly", onSuccess: [{ type: "dismiss" }] },
+        { type: "setVariable", name: "after", value: "written" },
+      ] as never,
+      ctx
+    );
+    expect(onContinue).toHaveBeenCalledTimes(1);
+    expect(onContinue).toHaveBeenCalledWith({ status: "dismissed" });
+    expect(ctx.getVariables().after).toBeUndefined();
+  });
+
+  it("advances once for restore.onSuccess followed by a trailing continue", async () => {
+    const onContinue = vi.fn();
+    const ctx = makeCtx({ onContinue, products: makeProducts() } as any);
+    await runActions(
+      [{ type: "restore", onSuccess: ["continue"] }, "continue"] as never,
+      ctx
+    );
+    expect(onContinue).toHaveBeenCalledTimes(1);
+  });
+
+  // A non-terminal hook must still leave the rest of the list running — the
+  // stop is about `continue`/`dismiss`, not about "a hook ran".
+  it("keeps running the outer list when the nested hook is not terminal", async () => {
+    const ctx = makeCtx({ products: makeProducts() } as any);
+    await runActions(
+      [
+        {
+          type: "purchase",
+          product: "yearly",
+          onSuccess: [{ type: "setVariable", name: "bought", value: "yes" }],
+        },
+        { type: "setVariable", name: "after", value: "written" },
+      ] as never,
+      ctx
+    );
+    expect(ctx.getVariables().bought.value).toBe("yes");
+    expect(ctx.getVariables().after.value).toBe("written");
+  });
+
+  it("reports whether the press completed the screen", async () => {
+    await expect(runActions(["continue"], makeCtx())).resolves.toBe(true);
+    await expect(runActions([{ type: "dismiss" }], makeCtx())).resolves.toBe(true);
+    await expect(
+      runActions([{ type: "setVariable", name: "a", value: "b" }], makeCtx())
+    ).resolves.toBe(false);
+  });
+});
+
+/**
+ * Review round 2, finding 2 — the OTHER half of the return contract.
+ *
+ * A `custom` handler that throws has always aborted the rest of ITS list: the
+ * host's code failed, so the actions the author sequenced after it are running
+ * on a state nobody can vouch for. Round 1's propagation fix accidentally
+ * widened that to the whole press, and the two are not the same thing. A
+ * throwing analytics call in `purchase.onSuccess` would then eat the trailing
+ * `"continue"` and strand a user who had ALREADY PAID on the paywall, with
+ * re-pressing re-running `purchase()`.
+ *
+ * So: a terminal action propagates outward (the screen really is gone), an
+ * abort does not (the screen is still there, and an outer escape is still the
+ * author's). `false` from the recursion says "not completed", which is the only
+ * thing the outer loop needs to know.
+ */
+describe("runActions — a throwing custom handler aborts its own list only", () => {
+  it("still runs a trailing continue after a nested handler throws", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const onContinue = vi.fn();
+    const ctx = makeCtx({
+      onContinue,
+      products: makeProducts(),
+      customActions: {
+        logPurchase: () => {
+          throw new Error("analytics not initialised");
+        },
+      },
+    } as any);
+    await runActions(
+      [
+        {
+          type: "purchase",
+          product: "yearly",
+          onSuccess: [{ type: "custom", function: "logPurchase" }],
+        },
+        "continue",
+      ] as never,
+      ctx
+    );
+    expect(onContinue).toHaveBeenCalledTimes(1);
+    expect(error).toHaveBeenCalled();
+    error.mockRestore();
+  });
+
+  it("keeps running the outer list after a nested handler throws", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const ctx = makeCtx({
+      products: makeProducts(),
+      customActions: {
+        logPurchase: () => {
+          throw new Error("boom");
+        },
+        trackPurchase: vi.fn(),
+      },
+    } as any);
+    await runActions(
+      [
+        {
+          type: "purchase",
+          product: "yearly",
+          onSuccess: [{ type: "custom", function: "logPurchase" }],
+        },
+        { type: "custom", function: "trackPurchase" },
+      ] as never,
+      ctx
+    );
+    expect(ctx.customActions.trackPurchase).toHaveBeenCalledTimes(1);
+    error.mockRestore();
+  });
+
+  // Unchanged, and the reason the abort exists at all: within one list, nothing
+  // after a thrown handler runs.
+  it("does not run the rest of its own list after throwing", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const ctx = makeCtx({
+      customActions: {
+        boom: () => {
+          throw new Error("boom");
+        },
+      },
+    });
+    await expect(
+      runActions(
+        [
+          { type: "custom", function: "boom" },
+          { type: "setVariable", name: "after", value: "written" },
+        ] as never,
+        ctx
+      )
+    ).resolves.toBe(false);
+    expect(ctx.getVariables().after).toBeUndefined();
+    error.mockRestore();
   });
 });

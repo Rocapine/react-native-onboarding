@@ -6,6 +6,88 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- **`requestPermission` ButtonAction** — ask the OS for a permission and branch
+  on the answer within the SAME press (#196). An eighth `ButtonAction` member:
+  `{ type: "requestPermission", kind, onGranted?, onDenied?, onUnavailable? }`,
+  with all three hooks ordinary nested `ButtonAction[]` recursed through
+  `runActions` exactly like `purchase.onSuccess`.
+
+  What was missing was the divergence, not the asking:
+  `[{ type: "custom" }, "continue"]` already ran host code and advanced, but the
+  custom handler's return value is discarded and there is no conditional action,
+  so a grant and a refusal could only lead somewhere different on a LATER
+  screen, through a variable the handler happened to write.
+
+  `kind` is closed and deliberately narrow — `notifications`,
+  `appTrackingTransparency`, `locationWhenInUse`, `camera`, `microphone`,
+  `photoLibrary`. Each is asked through an *optional* Expo peer dep the app
+  installs itself; nothing native is bundled. HealthKit and Screen Time /
+  Family Controls are NOT members: both need app-owned entitlements and a config
+  plugin a library cannot ship, rather than pretending to work. The host
+  `requestPermission` resolver does not admit them either — `kind` is closed, so
+  such a payload fails `invalid_union` before any resolver runs; adding them
+  starts with adding the kind here. The resolver overrides the six that exist.
+
+  Reading a permission's current status is NOT part of this — there is still no
+  way to skip a screen because the permission was already granted.
+
+  New exports: `PERMISSION_KINDS`, `PermissionKindSchema`, `PermissionKind`,
+  `RequestPermissionButtonAction`, `RequestPermissionButtonActionSchema`,
+  `actionsCanComplete` — the same "can the user still get off this screen?" walk
+  as `hasCompletingAction`, over ONE action list rather than an element tree, so
+  the UI runtime can consult this package's definition instead of re-deriving it
+  when a permission it could not ask for would otherwise leave a screen with no
+  CTA — and `completingActionKind` (+ the `EscapeAction` type), which answers
+  WHICH of the two completing actions that list reaches. The runtime needs the
+  kind, not the boolean: `complete()` and `complete({status:"dismissed"})` are
+  not interchangeable at a `Paywall` step's hard gate, so standing in for an
+  authored `{dismiss}` with a bare advance handed out gated content (review
+  round 2 of #196). One walk answers both questions, and a test asserts they
+  never disagree.
+
+  **The escape-CTA guard reads this action with AND, not OR.**
+  `hasCompletingAction` (the #209 "can the user still get off this screen?"
+  predicate) finds branch lists by shape, which for `requestPermission` was
+  wrong: a CTA holding its only `"continue"` in `onGranted` read as a way
+  forward, so the strip withheld its escape button from exactly the screen that
+  needs one — a refusal, or a build that never installed the optional module,
+  runs nothing and the user is stuck with no signal. It now counts the action
+  only when a grant AND a non-grant both reach `"continue"` / `{dismiss}`,
+  mirroring the runtime's own three paths (a declared `onUnavailable` wins; an
+  absent one is rescued by the runtime itself, so its absence is not a trap).
+  `purchase` / `restore` keep the OR reading deliberately: a cancelled purchase
+  can be retried, a standing OS denial cannot. Found in review round 1 of #196.
+
+  **A misspelled outcome hook is now reported.** `collectUnknownElementKeys`
+  walks `props.actions` and `props.onPress` as well as element nodes, deriving
+  each action's key set from `ButtonActionSchema` itself, and reports unknown
+  keys with `scope: "action"` and the action's `type`. The schema stays
+  non-strict for the reason it always was (rejecting unknown keys would take
+  down published payloads to report a no-op), but
+  `{ type: "requestPermission", onGranted: [...], onDeneid: [...] }` previously
+  validated clean with a dead denial branch — on a permission screen, a CTA the
+  refusing user cannot get past. It surfaces through the `__DEV__` check
+  `OnboardingProvider` already runs on every fetched payload, and covers
+  `purchase.onSucces` and any hook added later for free.
+
+  **Forward compatibility:** `ButtonActionSchema` is a plain `z.union`, and
+  #209's strip is keyed to unknown *element* types only. An app whose installed
+  SDK predates this action fails `invalid_union` on it, and the whole
+  ComposableScreen fails to parse — the element strip does not rescue an action
+  variant. Publishing one is a capability-floor decision (#233 / studio #313),
+  not something this release makes safe on its own — and a floor is only half
+  the answer, since it cannot help a build already in the field. Runtime
+  tolerance for an unknown ACTION type, the missing sibling of #209, is now
+  tracked as #262 (filed in review round 2 of #196, which found that nothing
+  tracked it). No floor version is quoted
+  in the docs or the LLM skills on purpose: which release carries this is
+  decided when it is cut, and understating a floor is the direction that costs
+  an audience its screens. The check that cannot go stale is the app's own
+  package — `grep -o requestPermission
+  node_modules/@rocapine/react-native-onboarding/dist/steps/common.types.js`.
+
 ### Fixed
 
 - **`expoIapProductProvider` could not complete a purchase against expo-iap

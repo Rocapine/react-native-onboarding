@@ -229,6 +229,97 @@ export const PresentPaywallButtonActionSchema = z.object({
   placement: z.string().min(1, "placement must not be empty"),
 });
 
+/**
+ * The permissions a `requestPermission` action can ask for.
+ *
+ * Deliberately narrow, and closed. Every member here is reachable through an
+ * **optionally installed** Expo module that the UI package dynamic-`require`s
+ * at press time (the `expo-haptics` precedent), so an app that does not need a
+ * permission does not carry its native code:
+ *
+ * | kind | module(s) tried, in order |
+ * |---|---|
+ * | `notifications` | `expo-notifications` |
+ * | `appTrackingTransparency` | `expo-tracking-transparency` (iOS 14+; other platforms report `granted`) |
+ * | `locationWhenInUse` | `expo-location` (foreground only — background location needs its own review justification) |
+ * | `camera` | `expo-camera` |
+ * | `microphone` | `expo-audio`, then `expo-camera` |
+ * | `photoLibrary` | `expo-image-picker`, then `expo-media-library` |
+ *
+ * NOT members, on purpose: **HealthKit** and **Screen Time / Family Controls**.
+ * Both need app-owned entitlements and a config plugin neither package ships,
+ * so neither can be honestly requested from inside the SDK. They arrive through
+ * the host `requestPermission` resolver on the `ScreenHost` (the same seam as
+ * `products` / `presentPaywall`) once a `kind` for them is added — a
+ * deliberately separate decision, not a silent no-op today.
+ *
+ * READING a permission's current status is not here either: this is a press
+ * action, and "skip the screen when already granted" is a variable-bag
+ * capability with nowhere to live in this shape. Tracked separately.
+ */
+export const PERMISSION_KINDS = [
+  "notifications",
+  "appTrackingTransparency",
+  "locationWhenInUse",
+  "camera",
+  "microphone",
+  "photoLibrary",
+] as const;
+
+export type PermissionKind = (typeof PERMISSION_KINDS)[number];
+
+export const PermissionKindSchema = z.enum(PERMISSION_KINDS);
+
+/**
+ * Ask the OS for a permission, then branch on the answer **within the same
+ * press**.
+ *
+ * This is what `[{type:"custom", …}, "continue"]` could not do: a custom
+ * handler's return value is discarded, so a host asking for notifications could
+ * only influence a LATER screen, through a variable it wrote. Here `onGranted`
+ * and `onDenied` are ordinary nested `ButtonAction[]` lists — the exact shape
+ * `purchase.onSuccess` / `restore.onNothingToRestore` already use, recursed
+ * through the same `runActions` — so one CTA can advance on a grant and, say,
+ * set a variable and still advance on a refusal.
+ *
+ * Asking is **idempotent from the OS's point of view, not the SDK's**: iOS shows
+ * its system prompt only the first time, and every later request resolves
+ * immediately with the standing answer. So a second press does not re-prompt —
+ * but it does re-run the matching hook.
+ *
+ * `onUnavailable` covers "this build cannot ask": the Expo module is not
+ * installed, or the platform has no such permission. It does **not** fall back
+ * to `onDenied` — nobody refused anything, and running the refusal branch wrote
+ * `att = "denied"` and fired refusal analytics for a user who was never asked
+ * (review round 1 of #196). Omitted, the runtime instead REUSES THIS ASK'S OWN
+ * completing action: if `onGranted`/`onDenied` reach a `"continue"` or a
+ * `{dismiss}`, the screen is completed with that same action (`{dismiss}`
+ * winning when both are reachable, since the SDK must not claim the more
+ * permissive of two answers nobody gave), and no other authored side effect
+ * runs. If the ask was never a way off the screen — a "turn on notifications"
+ * button beside its own Skip CTA — nothing happens. Either way it is reported
+ * with `console.error`: declare `onUnavailable` if you care which.
+ */
+export type RequestPermissionButtonAction = {
+  type: "requestPermission";
+  kind: PermissionKind;
+  /** Runs when the OS reports the permission granted. */
+  onGranted?: ButtonAction[];
+  /** Runs when the OS reports it denied, restricted, or dismissed. */
+  onDenied?: ButtonAction[];
+  /**
+   * Runs when this build cannot ask at all — module absent, or platform has no
+   * such permission.
+   *
+   * Omitted, the runtime does NOT run `onDenied` (the user refused nothing). It
+   * completes the screen with whichever completing action this ask already
+   * declares, preferring `{dismiss}` over `"continue"`, and runs no other side
+   * effect; an ask that was never a way off the screen does nothing. Both cases
+   * log a `console.error`. Declare this hook to decide it yourself.
+   */
+  onUnavailable?: ButtonAction[];
+};
+
 export type ButtonAction =
   | "continue"
   | CustomButtonAction
@@ -236,7 +327,8 @@ export type ButtonAction =
   | PurchaseButtonAction
   | RestoreButtonAction
   | DismissButtonAction
-  | PresentPaywallButtonAction;
+  | PresentPaywallButtonAction
+  | RequestPermissionButtonAction;
 
 export const PurchaseButtonActionSchema: z.ZodType<PurchaseButtonAction> = z.lazy(() =>
   z.object({
@@ -258,6 +350,17 @@ export const RestoreButtonActionSchema: z.ZodType<RestoreButtonAction> = z.lazy(
   })
 );
 
+export const RequestPermissionButtonActionSchema: z.ZodType<RequestPermissionButtonAction> =
+  z.lazy(() =>
+    z.object({
+      type: z.literal("requestPermission"),
+      kind: PermissionKindSchema,
+      onGranted: z.array(ButtonActionSchema).optional(),
+      onDenied: z.array(ButtonActionSchema).optional(),
+      onUnavailable: z.array(ButtonActionSchema).optional(),
+    })
+  );
+
 export const ButtonActionSchema: z.ZodType<ButtonAction> = z.lazy(() =>
   z.union([
     z.literal("continue"),
@@ -267,6 +370,7 @@ export const ButtonActionSchema: z.ZodType<ButtonAction> = z.lazy(() =>
     RestoreButtonActionSchema,
     DismissButtonActionSchema,
     PresentPaywallButtonActionSchema,
+    RequestPermissionButtonActionSchema,
   ])
 );
 

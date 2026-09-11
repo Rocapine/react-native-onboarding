@@ -2,10 +2,13 @@ import type {
   ComposableVariableEntry,
   ComposableVariableKind,
 } from "@rocapine/react-native-onboarding";
-import type { ButtonAction } from "./actions";
+import { completingActionKind } from "./completingActions";
+import type { ButtonAction, PermissionKind } from "./actions";
 import type { RenderContext } from "./shared";
 import { interpolateIdentifier } from "./shared";
 import { evaluateSetVariableExpression } from "./expression";
+import { requestPermissionViaExpoModules } from "./permissions";
+import type { PermissionOutcome } from "./permissions";
 
 // Decode a multi-select variable's stored value (JSON-encoded string[], as
 // written by CheckboxGroup) into a string array. Tolerates undefined / non-array
@@ -34,10 +37,35 @@ function decodeArrayValue(raw: string | undefined): string[] {
 //   - {presentPaywall} → ask the host to present a paywall by placement; warns
 //                      and no-ops (continues the loop) when the host has no
 //                      `presentPaywall` capability.
+//   - {requestPermission} → ask the OS, then run onGranted/onDenied/onUnavailable
+//                      — nested ButtonAction[] recursed through this same
+//                      function, so one press can diverge on the answer. See
+//                      `resolvePermissionOutcome` below for the resolver order
+//                      and `./permissions.ts` for the module tried per kind.
+//
+// RETURNS whether the SCREEN WAS COMPLETED — `"continue"` / `{dismiss}`, at any
+// nesting depth. Every recursive call into a branch list (`purchase.onSuccess`,
+// `requestPermission.onGranted`, …) propagates it, so a terminal action nested
+// one level down ends the OUTER list too.
+//
+// A `custom` handler that throws is NOT that: it aborts the rest of its own
+// list (nothing sequenced after failed host code should run) and returns
+// `false`, so an outer list carries on. Round 1 of #196 briefly returned `true`
+// there and broke a paid user out of `purchase.onSuccess` before the trailing
+// `"continue"` could advance them — the two meanings must stay separate.
+//
+// It has to, and this was wrong until review round 1 of #196: the recursion
+// returned and the outer `for` carried on, so
+// `[{requestPermission, onGranted:["continue"]}, "continue"]` — a defensive
+// trailing escape an author may well write, and one `hasCompletingAction`
+// accepts either way — called `onContinue` TWICE. A duplicate `router.push` in
+// the example host; in a host that advances by incrementing an index, a silently
+// skipped screen. Both callers (`ButtonElement`, `renderElement`) ignore the
+// value; it exists for the recursion.
 export async function runActions(
   actions: ButtonAction[],
   ctx: RenderContext
-): Promise<void> {
+): Promise<boolean> {
   const { onContinue, setVariable, customActions, getVariables } = ctx;
   // Read live variables at press time (NOT a render-time snapshot) so actions
   // always act on the current values.
@@ -46,11 +74,11 @@ export async function runActions(
   for (const act of actions) {
     if (act === "continue") {
       onContinue();
-      return;
+      return true;
     }
     if (act.type === "dismiss") {
       onContinue({ status: "dismissed" });
-      return;
+      return true;
     }
     if (act.type === "presentPaywall") {
       if (!ctx.presentPaywall) {
@@ -132,11 +160,14 @@ export async function runActions(
         continue;
       }
       const result = await runtime.purchase(key);
-      if (result.status === "purchased" && act.onSuccess) await runActions(act.onSuccess, ctx);
-      else if (result.status === "cancelled" && act.onCancel) await runActions(act.onCancel, ctx);
-      else if (result.status === "error") {
-        if (act.onError) await runActions(act.onError, ctx);
-        else
+      if (result.status === "purchased" && act.onSuccess) {
+        if (await runActions(act.onSuccess, ctx)) return true;
+      } else if (result.status === "cancelled" && act.onCancel) {
+        if (await runActions(act.onCancel, ctx)) return true;
+      } else if (result.status === "error") {
+        if (act.onError) {
+          if (await runActions(act.onError, ctx)) return true;
+        } else
           console.warn(
             "[ComposableScreen] `purchase` failed with no `onError` actions declared:",
             result.error
@@ -146,8 +177,9 @@ export async function runActions(
         // rather than falling through to `onSuccess`, which would let a paywall
         // grant access for a purchase that may never complete. On the Stripe
         // path this is the ONLY outcome `purchase()` ever returns.
-        if (act.onPending) await runActions(act.onPending, ctx);
-        else
+        if (act.onPending) {
+          if (await runActions(act.onPending, ctx)) return true;
+        } else
           console.warn(
             "[ComposableScreen] `purchase` returned pending (a Stripe Payment Link always does; Ask-to-Buy and deferred store transactions also) with no `onPending` actions declared — nothing ran, so the screen is unchanged. Declare `onPending`, or handle it in the host."
           );
@@ -164,17 +196,113 @@ export async function runActions(
         continue;
       }
       const result = await runtime.restore();
-      if (result.status === "restored" && act.onSuccess) await runActions(act.onSuccess, ctx);
-      else if (result.status === "nothing_to_restore" && act.onNothingToRestore)
-        await runActions(act.onNothingToRestore, ctx);
-      else if (result.status === "error") {
-        if (act.onError) await runActions(act.onError, ctx);
-        else
+      if (result.status === "restored" && act.onSuccess) {
+        if (await runActions(act.onSuccess, ctx)) return true;
+      } else if (result.status === "nothing_to_restore" && act.onNothingToRestore) {
+        if (await runActions(act.onNothingToRestore, ctx)) return true;
+      } else if (result.status === "error") {
+        if (act.onError) {
+          if (await runActions(act.onError, ctx)) return true;
+        } else
           console.warn(
             "[ComposableScreen] `restore` failed with no `onError` actions declared:",
             result.error
           );
       }
+      continue;
+    }
+
+    if (act.type === "requestPermission") {
+      const outcome = await resolvePermissionOutcome(act.kind, ctx);
+
+      if (outcome === "granted") {
+        if (act.onGranted) {
+          if (await runActions(act.onGranted, ctx)) return true;
+        } else
+          console.warn(
+            `[ComposableScreen] \`requestPermission\` ("${act.kind}") was GRANTED with no \`onGranted\` actions declared — nothing ran, so the screen is unchanged.`
+          );
+        continue;
+      }
+
+      if (outcome === "denied") {
+        // No escape hatch here on purpose, unlike "unavailable" below. "Keep
+        // the user on this screen until they allow it" is a real authored
+        // intent — the hard permission gate — and it is expressed by leaving
+        // `onDenied` off. Advancing anyway would silently defeat it. Only the
+        // ask NOBODY can influence gets rescued.
+        if (act.onDenied) {
+          if (await runActions(act.onDenied, ctx)) return true;
+        } else
+          console.warn(
+            `[ComposableScreen] \`requestPermission\` ("${act.kind}") was DENIED with no \`onDenied\` actions declared — nothing ran, so the screen is unchanged. A permission screen should still let the user move on after a refusal.`
+          );
+        continue;
+      }
+
+      // "unavailable" — the optional Expo module is not installed, or the
+      // platform has no such permission. A packaging fact, not a user decision,
+      // and one no authored payload can predict.
+      //
+      // A declared `onUnavailable` is authored intent and always wins.
+      if (act.onUnavailable) {
+        if (await runActions(act.onUnavailable, ctx)) return true;
+        continue;
+      }
+
+      // Review round 1, findings 1 and 2. The first version fell back to
+      // `onDenied`, which failed in both directions at once:
+      //
+      //  - It ran the whole refusal branch, so a screen authored the way both
+      //    LLM skills recommend wrote `att = "denied"` for a user who was never
+      //    asked. Analytics, `renderWhen` gates and `resolveNextStepNumber`
+      //    branching then read a decision nobody made — signalled by one
+      //    console.warn, in an app where nothing watches the JS console.
+      //  - It rescued nobody when `onDenied` was absent too. An
+      //    `onGranted`-only CTA on a build with no permission module logged an
+      //    error and did nothing, for 100% of that build's users: no CTA, and no
+      //    back chevron on a `displayProgressHeader: false` step.
+      //
+      // So: no fabricated refusal, and no dead end either. If the author put a
+      // completing action anywhere in this ask — i.e. the press was meant to be
+      // a way OFF the screen, which is the SDK's own `actionsCanComplete`
+      // question rather than a second guess at it — complete the screen and
+      // nothing else. If it was never a way forward (a "turn on notifications"
+      // button beside its own Skip CTA), leaving the user put is correct.
+      //
+      // Substituting the author's own escape means its OUTCOME too, and round 1
+      // got that wrong (review round 2, finding 1): it called `onContinue()`
+      // with no outcome, which is the ONE call every host reads as "advance" —
+      // including `Pages/Paywall/Renderer`'s hard gate, since
+      // `shouldAdvanceOnComplete(undefined)` is `true`. An ask that authored
+      // `{dismiss}` on both outcomes — an author who wrote no way past the
+      // paywall at all — therefore handed a module-less build's users the gated
+      // content for free, signalled by one console.error.
+      //
+      // So the stand-in is the KIND the author authored, `{dismiss}` winning
+      // when the ask can reach both: nobody was asked anything, so the SDK must
+      // not claim the more permissive of the two answers. That costs nothing
+      // where the two coincide — an onboarding step ignores the outcome and
+      // still advances, a `present()`ed paywall resolves as dismissed
+      // (`PaywallHost.toPresentResult`) — and holds the gate where they do not.
+      // `undefined` means the press was never a way OFF the screen (a "turn on
+      // notifications" button beside its own Skip CTA), and then leaving the
+      // user put is correct.
+      const escape = completingActionKind([
+        ...(act.onGranted ?? []),
+        ...(act.onDenied ?? []),
+      ]);
+      if (escape) {
+        console.error(
+          `[ComposableScreen] \`requestPermission\` ("${act.kind}") could not be requested on this build (module not installed, or unsupported platform) and no \`onUnavailable\` actions are declared — completing the screen with this ask's own \`${escape}\`, because this press was its way forward. No \`onDenied\` side effect ran: the user never refused anything. Install the optional Expo module for this kind, or declare \`onUnavailable\` explicitly.`
+        );
+        if (escape === "dismiss") onContinue({ status: "dismissed" });
+        else onContinue();
+        return true;
+      }
+      console.error(
+        `[ComposableScreen] \`requestPermission\` ("${act.kind}") could not be requested on this build (module not installed, or unsupported platform) and no \`onUnavailable\` actions are declared — nothing ran. Install the optional Expo module for this kind, or declare \`onUnavailable\` explicitly.`
+      );
       continue;
     }
 
@@ -195,7 +323,48 @@ export async function runActions(
         `[ComposableScreen] customAction "${act.function}" threw:`,
         err
       );
-      return;
+      // Abort THIS list, and only this list — the pre-existing behaviour, kept
+      // deliberately (review round 2, finding 2). Round 1 returned `true` here
+      // so the abort propagated out of every recursion, which conflated the two
+      // meanings of the return value: `true` says "the screen is GONE", and a
+      // thrown handler leaves it very much present. A throwing analytics call in
+      // `purchase.onSuccess` then ate the trailing `"continue"` and stranded a
+      // user who had already paid on the paywall, with a second press
+      // re-running `purchase()`. `false` = "not completed", so an outer list
+      // carries on and the author's own escape still runs.
+      return false;
     }
   }
+  // Ran to the end without completing the screen.
+  return false;
+}
+
+/**
+ * Resolver order for one `requestPermission` press: the host's own resolver
+ * first (the entitlement seam — HealthKit, Screen Time), falling back to the
+ * bundled optional-Expo-module resolver when the host has none or returns
+ * `undefined` for a kind it does not handle.
+ *
+ * Never throws. A host resolver that rejects reports `"unavailable"` rather
+ * than aborting the press, because the alternative — the `custom` action's
+ * abort-the-loop behaviour — would strand the user on a screen whose CTA just
+ * silently did nothing.
+ */
+async function resolvePermissionOutcome(
+  kind: PermissionKind,
+  ctx: RenderContext
+): Promise<PermissionOutcome> {
+  if (ctx.requestPermission) {
+    try {
+      const hostOutcome = await ctx.requestPermission(kind);
+      if (hostOutcome) return hostOutcome;
+    } catch (err) {
+      console.error(
+        `[ComposableScreen] host \`requestPermission\` resolver threw for "${kind}":`,
+        err
+      );
+      return "unavailable";
+    }
+  }
+  return requestPermissionViaExpoModules(kind);
 }

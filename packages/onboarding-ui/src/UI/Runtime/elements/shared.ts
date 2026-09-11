@@ -5,6 +5,7 @@ import { Theme } from "../../Theme/types";
 import type { ComposableVariableEntry } from "@rocapine/react-native-onboarding";
 import type { BaseBoxProps } from "./BaseBoxProps";
 import type { CompleteOutcome } from "../ScreenHost";
+import type { PermissionResolver } from "./permissions";
 
 /**
  * The container an element is being laid out by. Declared here — the leaf
@@ -32,6 +33,18 @@ export type RenderContext = {
   products?: ProductRuntime;
   /** Host capability for the `presentPaywall` action. Undefined without one. */
   presentPaywall?: (placement: string) => void;
+  /**
+   * Host override for the `requestPermission` action's resolver. Unset unless a
+   * consumer passed one — the action then uses the bundled
+   * optional-Expo-module resolver (`./permissions.ts`). A host that returns
+   * `undefined` for a kind it does not handle falls back to the bundled one.
+   *
+   * It overrides the six declared kinds; it cannot add a seventh, since
+   * `PermissionKindSchema` is closed (HealthKit / Screen Time therefore still
+   * need a schema change, not just a resolver). All three `ScreenHost` builders
+   * forward it — see `Runtime/__tests__/hostResolverWiring.test.ts`.
+   */
+  requestPermission?: PermissionResolver;
   /**
    * Render child elements. `ctxOverride` renders them against a DERIVED context
    * instead of the screen's root one — `Repeat` uses it to give each

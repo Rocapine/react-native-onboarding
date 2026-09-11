@@ -1,8 +1,9 @@
-import { getElementRegistry } from "./elementTypeRegistry";
+import { deriveVariantKeySets, getElementRegistry } from "./elementTypeRegistry";
+import { ButtonActionSchema } from "../steps/common.types";
 
 /**
- * Detection for keys placed at an element's TOP LEVEL that the schema doesn't
- * know about.
+ * Detection for keys the schema doesn't know about — at an element's TOP LEVEL,
+ * and on any `ButtonAction` inside `props.actions` / `props.onPress`.
  *
  * Zod strips unrecognized keys instead of rejecting them, which makes a
  * misplaced prop completely silent: the element still parses, still renders, and
@@ -16,8 +17,14 @@ import { getElementRegistry } from "./elementTypeRegistry";
  * key into a hard parse failure, taking down whole screens to report a no-op —
  * strictly worse than the bug. So this reports; it never rejects.
  *
- * The allowed key sets are derived from `UIElementSchema` itself at runtime
- * rather than hardcoded, so they cannot drift as elements gain props.
+ * The allowed key sets are derived from `UIElementSchema` / `ButtonActionSchema`
+ * themselves at runtime rather than hardcoded, so they cannot drift as elements
+ * gain props or actions gain outcome hooks.
+ *
+ * The ACTION case (#196) has the same silence and a sharper edge: a misspelled
+ * `requestPermission.onDeneid` or `purchase.onSucces` parses clean and leaves an
+ * outcome hook that never runs — on a permission screen, a CTA the refusing user
+ * cannot get past. Same treatment: report, never reject.
  */
 export type UnknownElementKey = {
   /** Location in the tree, e.g. `elements[0].children[2]`. */
@@ -49,6 +56,21 @@ export type UnknownElementKey = {
    * disagree are a trap, and only the disagreement is worth alarming about.
    */
   conflicts?: boolean;
+  /**
+   * Where the key was found. `"element"` (the default) is a key on the element
+   * node itself; `"action"` is a key on a `ButtonAction` inside `props.actions`
+   * or `props.onPress`, whose `path` points at that action.
+   *
+   * Actions get their own scope because the two mistakes need different advice:
+   * a stray key on an element is usually a prop written one level too high,
+   * while a stray key on an action is a misspelled OUTCOME HOOK — a branch of
+   * the flow that will never run. `requestPermission.onDeneid` (#196) is the
+   * costly one: the payload validates, and the user who refuses the permission
+   * has no way off the screen.
+   */
+  scope?: "element" | "action";
+  /** `scope: "action"` only — the action's `type`, e.g. `"requestPermission"`. */
+  actionType?: string;
 };
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
@@ -65,6 +87,64 @@ const valuesDiffer = (a: unknown, b: unknown): boolean => {
   } catch {
     return true;
   }
+};
+
+/**
+ * Variant name → declared key set for the `ButtonAction` union, read off
+ * `ButtonActionSchema` itself so a hook added to an action later is covered
+ * without touching this file. Built once; EMPTY means "could not tell" and
+ * reports nothing, the same degradation the element registry makes.
+ */
+let actionRegistry: Map<string, ReadonlySet<string>> | null = null;
+const getActionRegistry = (): Map<string, ReadonlySet<string>> => {
+  if (!actionRegistry) actionRegistry = deriveVariantKeySets(ButtonActionSchema);
+  return actionRegistry;
+};
+
+/**
+ * Report unrecognized keys on every action in one list, recursing into the
+ * nested `ButtonAction[]` an outcome hook holds (`purchase.onSuccess`,
+ * `requestPermission.onGranted`, …) so a typo two levels down is still found.
+ *
+ * `"continue"` is a bare string, not an object, and an action whose `type` this
+ * build does not know is skipped — guessing its key set would be noise, exactly
+ * as for an unknown element type.
+ */
+const visitActions = (
+  actions: unknown,
+  path: string,
+  element: Record<string, unknown>,
+  found: UnknownElementKey[]
+): void => {
+  if (!Array.isArray(actions)) return;
+  const known = getActionRegistry();
+  if (known.size === 0) return;
+
+  actions.forEach((action, index) => {
+    if (!isRecord(action)) return;
+    const actionPath = `${path}[${index}]`;
+    const allowed = typeof action.type === "string" ? known.get(action.type) : undefined;
+    if (allowed) {
+      for (const key of Object.keys(action)) {
+        if (allowed.has(key)) continue;
+        found.push({
+          path: actionPath,
+          elementId: typeof element.id === "string" ? element.id : "(no id)",
+          elementType: typeof element.type === "string" ? element.type : "(no type)",
+          key,
+          kind: "unknown",
+          scope: "action",
+          actionType: action.type as string,
+        });
+      }
+    }
+    // Recurse into every nested action list, found by SHAPE rather than by hook
+    // name — the same choice `completingActions.ts` makes, so a branch added to
+    // an action later needs no change here.
+    for (const [key, value] of Object.entries(action)) {
+      if (Array.isArray(value)) visitActions(value, `${actionPath}.${key}`, element, found);
+    }
+  });
 };
 
 /**
@@ -111,6 +191,17 @@ export const collectUnknownElementKeys = (
       }
     }
 
+    // Action lists, on both the `Button`-specific `actions` and the generic
+    // `onPress` every element accepts. Walked even on an element type this build
+    // does not know: the ACTION union is this package's own, so its key sets are
+    // trustworthy regardless of what the element around them is.
+    const propsRecord = isRecord(node.props) ? node.props : undefined;
+    if (propsRecord) {
+      for (const listName of ["actions", "onPress"] as const) {
+        visitActions(propsRecord[listName], `${path}.props.${listName}`, node, found);
+      }
+    }
+
     // Recurse regardless of whether this node was recognized, so a stray key
     // nested under an unknown-typed parent is still found.
     if (Array.isArray(node.children)) {
@@ -154,14 +245,29 @@ export const formatUnknownElementKeys = (found: UnknownElementKey[]): string => 
         : `  • ${where}: "${f.key}" is ignored — ${f.suggestion} is already set to the ` +
           `same value and is the one taking effect. Delete this top-level copy.`;
     }
+    if (f.scope === "action") {
+      // No "did you mean" — the useful fact is that this names a BRANCH of the
+      // flow that the parse dropped, so it can never run.
+      return (
+        `  • ${f.path} (${f.actionType} action on ${f.elementType} "${f.elementId}"): ` +
+        `unrecognized key "${f.key}" — dropped when the payload is parsed, so if ` +
+        `this was meant to be an outcome hook, that branch never runs.`
+      );
+    }
     if (f.kind === "misplaced") {
       return `  • ${where}: "${f.key}" is not a top-level key — did you mean ${f.suggestion}?`;
     }
     return `  • ${where}: unrecognized top-level key "${f.key}"`;
   });
+  const scopeLabel =
+    found.every((f) => f.scope === "action")
+      ? "on button actions"
+      : found.some((f) => f.scope === "action")
+        ? "on elements and their actions"
+        : "on elements";
   return (
-    `[onboarding] ${found.length} unrecognized top-level ` +
-    `${found.length === 1 ? "key" : "keys"} on elements. These are silently ` +
+    `[onboarding] ${found.length} unrecognized ` +
+    `${found.length === 1 ? "key" : "keys"} ${scopeLabel}. These are silently ` +
     `dropped when the payload is parsed, so they have no effect:\n` +
     lines.join("\n")
   );

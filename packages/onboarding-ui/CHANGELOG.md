@@ -5,6 +5,159 @@ here.
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- **`requestPermission` ButtonAction dispatch** (#196) — the renderer half of
+  the new headless action. `elements/permissions.ts` asks through whichever
+  optional Expo module is installed (`expo-notifications`,
+  `expo-tracking-transparency`, `expo-location`, `expo-camera`, `expo-audio`,
+  `expo-image-picker`, `expo-media-library` — all newly declared as OPTIONAL
+  peer deps), and `runActions` routes the answer to `onGranted` / `onDenied` /
+  `onUnavailable`.
+
+  Two decisions worth knowing, because both depart from a nearby precedent:
+
+  - The `require` is **lazy**, not module-level like `haptics.ts`. Requiring
+    seven native modules on any screen that merely renders a Button would pull
+    in import-time side effects (notification handlers, listeners) nothing on
+    that screen asked for.
+  - A missing module is **not a silent no-op**. Haptics can vanish unnoticed; a
+    permission gate can be the only thing between the user and the next screen.
+    Absence resolves a distinct `"unavailable"` outcome.
+
+  New `ScreenHost.requestPermission` overrides the bundled resolver per kind;
+  return `undefined` for a kind you do not handle and the bundled one runs. It
+  is reachable from every surface that renders authored elements — the new
+  `requestPermission` prop on `OnboardingPage` (which forwards it to a
+  `ComposableScreen` step AND to a `Paywall` step in flow position) and a
+  matching prop on `PaywallHost` for a paywall presented through `present()`.
+  It overrides the six kinds; it does not add a seventh, since
+  `PermissionKindSchema` is closed — HealthKit / Screen Time need the kind added
+  to the headless schema before any resolver can be reached for them.
+
+  New exports: `PermissionResolver`, `PermissionOutcome`,
+  `PermissionModuleCandidate`, `PermissionKind` — a host implementing the
+  documented HealthKit / Screen Time escape hatch has to be able to name the
+  resolver's own types.
+
+  **Optional means optional to Metro, and that is a syntax requirement.** Each
+  module is `require`d directly inside a literal `try` block, from a name-keyed
+  table of loaders (`permissionModuleLoaders`). Metro marks a dependency
+  optional only when the first `BlockStatement` within three statements above
+  the call is a `TryStatement`'s own block
+  (`isOptionalDependency`, `@expo/metro-config`), so the first version of this
+  file — which put the same `require`s inside arrows that a try/catch helper
+  invoked — made all seven MANDATORY: the example app failed to bundle on ios,
+  android and web with `Unable to resolve module expo-notifications`, and any
+  consumer app that had not installed all seven would have done the same. The
+  shape is now asserted at source level
+  (`Runtime/__tests__/permissionModules.test.ts`), because nothing observable at
+  runtime distinguishes the two forms. Found in review round 1 of #196.
+
+  **`"unavailable"` no longer borrows `onDenied`, and no longer dead-ends.**
+  Review round 1, findings 1 and 2. The first version ran `onDenied` when
+  `onUnavailable` was absent, which failed in both directions at once: it
+  executed the refusal branch — `setVariable`s, analytics, whatever a
+  `renderWhen` or `resolveNextStepNumber` later reads — for a user who was never
+  asked, signalled only by a `console.warn`; and it rescued nobody when
+  `onDenied` was absent too, so an `onGranted`-only CTA on a build with none of
+  the optional modules logged one error and did nothing, for 100% of that
+  build's users, on a screen that may have no back chevron either. Now: a
+  declared `onUnavailable` always wins; otherwise the runtime writes nothing and
+  completes the screen when `completingActionKind` says the ask was the press's
+  way forward, **using that same completing action** — the ask's own
+  `{dismiss}` in preference to its `"continue"` — and logs a `console.error`
+  naming the missing module either way. The `denied` outcome deliberately gets
+  no such rescue: "stay here until you allow it" is authored intent, expressed
+  by omitting `onDenied`.
+
+  The *outcome* of that substitution is load-bearing, and round 1 got it wrong
+  (review round 2, finding 1). It called `onContinue()` with no outcome, which
+  is the one call every host reads as "advance" — including
+  `Pages/Paywall/Renderer`'s hard gate, since `shouldAdvanceOnComplete(undefined)`
+  is `true`. An ask authored `{dismiss}` on both branches, on a `Paywall` step
+  whose author wrote no way past the paywall at all, therefore handed the gated
+  content to every user of a build that had not installed the optional module,
+  signalled by a single `console.error`. Nobody was asked anything, so the
+  substitute is now the LESS permissive of the outcomes the author authored:
+  free on the surfaces where the two coincide (an onboarding step ignores the
+  outcome and still advances; a `present()`ed paywall resolves as dismissed),
+  and the gate holds on the one where they do not.
+
+  **A terminal action nested in a hook now ends the whole press.** Also review
+  round 1 (finding 4), and see `### Changed` below — this alters
+  `purchase`/`restore` for payloads already published. `runActions` returns
+  whether the press completed the screen and every recursion propagates it, so
+  `[{requestPermission, onGranted:["continue"]}, "continue"]` — a defensive
+  trailing escape, which `hasCompletingAction` accepts either way — advances
+  once instead of twice. It called `onContinue` twice before: a duplicate
+  `router.push` in the example host, and a silently SKIPPED screen in a host
+  that advances by incrementing an index. Fixed centrally, so
+  `purchase.onSuccess` / `restore.onSuccess` (which had the same defect and no
+  test) are covered too.
+
+  `Runtime/elements/completingActions.ts` mirrors the headless
+  `actionsCanComplete` and `completingActionKind` rather than importing them:
+  the packages are joined by a peer-dependency RANGE, so this package's runtime
+  must not branch on the other one's installed build, and the headless index
+  cannot be imported from this Node test suite at all. A parity table in
+  `Runtime/__tests__/requestPermission.test.ts` holds the two equal — for the
+  boolean AND for the kind, since a divergence in the kind is a paywall gate
+  that opens on one package pairing and holds on another.
+
+  `Runtime/__tests__/hostResolverWiring.test.ts` WALKS THE SOURCE TREE for
+  `<ScreenRenderer` callers rather than filtering its own hardcoded list of
+  three, which is what it did in round 1 and which could never have seen a
+  fourth (review round 2, finding 3 — verified by adding a fourth unwired host
+  builder: every test in the file passed, and now they do not).
+
+  **Not verified on a device.** There is no device test framework in this repo
+  (#216 is open) and a system permission dialog cannot be driven headless or in
+  a web preview. Covered: schema round-trip, dispatch against a stubbed
+  resolver and against an injected module loader (including the two-candidate
+  fallbacks for `microphone` / `photoLibrary`), headless↔UI mirror parity for
+  both the action schema and `actionsCanComplete`, the module-absent path, the
+  resolver reaching all three host builders, and the example app bundling on ios
+  + android with none of the seven installed. Every real grant/deny is unverified until someone runs it
+  on hardware.
+
+### Changed
+
+- **A `"continue"` / `{dismiss}` nested in a `purchase` or `restore` hook now
+  ends the whole press** (#196, review round 1 finding 4 / round 2 finding 7).
+  This changes what an ALREADY-PUBLISHED payload does, so it is called out here
+  rather than only under `### Added` for the new action that exposed it.
+
+  `runActions` recursed into `onSuccess` / `onCancel` / `onError` / `onPending` /
+  `onNothingToRestore` and discarded the result, so the outer list carried on
+  after a nested terminal action. Two consequences, both real:
+
+  - `[{purchase, onSuccess:["continue"]}, "continue"]` called `onContinue`
+    TWICE — a duplicate `router.push`, or a silently skipped screen in a host
+    that advances by incrementing an index. This is the defect.
+  - `[{purchase, onSuccess:["continue"]}, {custom:"trackPurchase"}]` ran
+    `trackPurchase` after the screen was already gone, and no longer does. If
+    you rely on that ordering, move the action INTO the hook, before the
+    `"continue"`, where it always ran and still runs.
+
+  The narrower reading — "a terminal action ends only the list it is in" — was
+  rejected because a nested `"continue"` genuinely completes the screen, and
+  nothing after that point has a screen to act on.
+
+- **A throwing `custom` handler aborts its own action list, not the whole
+  press** (review round 2, finding 2). Unchanged from before #196, and stated
+  because round 1 briefly changed it: the abort returned `true`, which
+  propagated out of every recursion. A throwing analytics call in
+  `purchase.onSuccess` then ate the trailing `"continue"` and left a user who
+  had ALREADY PAID sitting on the paywall, where pressing again re-ran
+  `purchase()`. The return value means "the screen was completed"; a thrown
+  handler leaves it very much present, so it returns `false` and an outer
+  list — including the author's own escape — still runs.
+
+---
+
 ## [1.75.0] - 2026-09-07
 
 ### Added

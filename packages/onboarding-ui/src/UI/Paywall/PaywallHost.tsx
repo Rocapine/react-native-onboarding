@@ -10,6 +10,7 @@ import type { ComposableVariableEntry, PresentResult } from "@rocapine/react-nat
 import { ScreenElementsSchema, type UIElement } from "../Runtime/types";
 import { ScreenRenderer } from "../Runtime/ScreenRenderer";
 import type { ScreenHost, CompleteOutcome } from "../Runtime/ScreenHost";
+import type { PermissionResolver } from "../Runtime/elements/permissions";
 import { withErrorBoundary } from "../ErrorBoundary";
 import { useTheme } from "../Theme/useTheme";
 import {
@@ -57,6 +58,7 @@ type PaywallContentProps = {
   elements: UIElement[];
   complete: ScreenHost["complete"];
   customActions: ScreenHost["customActions"];
+  requestPermission: ScreenHost["requestPermission"];
 };
 
 /**
@@ -66,7 +68,12 @@ type PaywallContentProps = {
  * to keep in sync and no progress header/CTA template to wrap it in — the
  * paywall's own elements ARE the whole screen.
  */
-const PaywallContentBase = ({ elements, complete, customActions }: PaywallContentProps) => {
+const PaywallContentBase = ({
+  elements,
+  complete,
+  customActions,
+  requestPermission,
+}: PaywallContentProps) => {
   const { theme } = useTheme();
   const { present } = usePaywall();
   const productRuntime = useProductRuntime();
@@ -110,9 +117,18 @@ const PaywallContentBase = ({ elements, complete, customActions }: PaywallConten
       customActions,
       products: productRuntime ?? undefined,
       presentPaywall,
+      requestPermission,
       keyboardVerticalOffset: 0,
     }),
-    [variables, setVariable, complete, customActions, productRuntime, presentPaywall]
+    [
+      variables,
+      setVariable,
+      complete,
+      customActions,
+      productRuntime,
+      presentPaywall,
+      requestPermission,
+    ]
   );
 
   return (
@@ -220,9 +236,26 @@ export type PaywallHostProps = {
    * re-derives that decision every render.
    */
   customScreens?: CustomPaywallScreens;
+  /**
+   * Override the `requestPermission` ButtonAction's resolver for paywalls
+   * presented through `present()`, the same way `OnboardingPage` does for the
+   * flow. Leave it unset and the action asks through whichever optional Expo
+   * module this app installed (`Runtime/elements/permissions.ts`).
+   *
+   * A paywall is a separate ROOT, not a step, so there is no `OnboardingPage`
+   * above it to inherit from — hence the second registration point. Review
+   * round 1 of #196: without it, the identical authored action resolved
+   * differently depending on which surface rendered it, and on a build without
+   * the module the user was recorded as refusing a permission nobody asked for.
+   *
+   * MUST be referentially stable (`useCallback` / module scope) — it lands in
+   * `RenderContext`, and an unstable value re-renders every memoized element on
+   * every variable write (same contract as `customActions`).
+   */
+  requestPermission?: PermissionResolver;
 };
 
-export const PaywallHost = ({ customScreens }: PaywallHostProps = {}) => {
+export const PaywallHost = ({ customScreens, requestPermission }: PaywallHostProps = {}) => {
   const {
     activePaywall,
     complete: resolvePresent,
@@ -352,6 +385,7 @@ export const PaywallHost = ({ customScreens }: PaywallHostProps = {}) => {
             elements={decision.elements}
             complete={complete}
             customActions={customActions}
+            requestPermission={requestPermission}
             onError={handleRenderError}
           />
         )}

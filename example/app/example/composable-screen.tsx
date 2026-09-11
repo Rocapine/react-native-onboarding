@@ -1308,6 +1308,63 @@ export default function ComposableScreenExample() {
                 },
               },
             },
+            // requestPermission (#196) — asks the OS and branches on the answer in
+            // the SAME press: a grant and a refusal write different variables and
+            // both still advance. Deliberately NOT added to the shipped
+            // `onboardingExample` (that is the documented `fallbackOnboarding`, so
+            // a network failure would pop an unexpected system dialog for a real
+            // user); this example app is where you can actually press it.
+            //
+            // This app installs NONE of the optional Expo permission modules,
+            // deliberately: it is the proof that they are optional to Metro
+            // (review round 1 — a `require` outside a literal try block made
+            // them mandatory and the whole app stopped bundling). So the outcome
+            // here is "unavailable", which runs `onUnavailable`. Drop that
+            // branch and the runtime does NOT borrow `onDenied` (nobody
+            // refused): it logs a `console.error` and, because none of these
+            // hooks holds a `"continue"`, leaves the screen alone — this button
+            // is not the way forward, the gated Continue below is. Install
+            // `expo-notifications` to see a real system prompt.
+            {
+              id: 'btn-request-notifications',
+              type: 'Button' as const,
+              props: {
+                label: 'Enable notifications',
+                variant: 'filled' as const,
+                marginVertical: 4,
+                actions: [
+                  {
+                    type: 'requestPermission' as const,
+                    kind: 'notifications' as const,
+                    onGranted: [
+                      { type: 'setVariable' as const, name: 'push_optin', value: 'granted', label: 'Allowed' },
+                    ],
+                    onDenied: [
+                      { type: 'setVariable' as const, name: 'push_optin', value: 'denied', label: 'Not now' },
+                    ],
+                    onUnavailable: [
+                      { type: 'setVariable' as const, name: 'push_optin', value: 'unavailable', label: 'expo-notifications not installed' },
+                    ],
+                  },
+                ],
+              },
+            },
+            {
+              id: 'txt-push-optin',
+              type: 'Text' as const,
+              props: {
+                // `mode: 'expression'` is REQUIRED for `{{var}}` to resolve in
+                // Text — without it the content is rendered verbatim, which is
+                // how the first version of this demo shipped: it read
+                // "Permission answer: {{push_optin}}" forever, so the one
+                // manual check of the action showed nothing.
+                content: 'Permission answer: {{push_optin}}',
+                mode: 'expression' as const,
+                fontSize: 13,
+                color: '#6b7280',
+                marginVertical: 8,
+              },
+            },
             // Disable-on-condition demo: gated continue + a setVariable companion.
             {
               id: 'consent-toggle',

@@ -18,6 +18,11 @@ export {
   CustomButtonActionSchema,
   type SetVariableButtonAction,
   SetVariableButtonActionSchema,
+  type RequestPermissionButtonAction,
+  RequestPermissionButtonActionSchema,
+  type PermissionKind,
+  PermissionKindSchema,
+  PERMISSION_KINDS,
 } from "../../steps/common.types";
 export type { ButtonAction };
 export { ButtonActionSchema };

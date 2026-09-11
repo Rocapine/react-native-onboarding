@@ -18,11 +18,16 @@ Handlers may be async — the chain awaits each `Promise` before proceeding.
 
 ## Schema
 
+An **excerpt** — only the two variants this page is about. The full eight-member
+union (`purchase`, `restore`, `dismiss`, `presentPaywall`, `requestPermission`)
+is documented under [Button actions](../page-types.mdx#button-actions).
+
 ```typescript
 type ButtonAction =
   | "continue"
   | { type: "custom"; function: string; variables?: string[] }
   | { type: "setVariable"; name: string; value: string; label?: string };
+  // … plus purchase / restore / dismiss / presentPaywall / requestPermission
 ```
 
 ```jsonc

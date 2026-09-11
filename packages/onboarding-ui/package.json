@@ -67,7 +67,14 @@
     "react-native": "*",
     "react-native-reanimated-carousel": "^4.0.0",
     "react-native-safe-area-context": "*",
-    "rive-react-native": "*"
+    "rive-react-native": "*",
+    "expo-notifications": "*",
+    "expo-tracking-transparency": "*",
+    "expo-location": "*",
+    "expo-camera": "*",
+    "expo-audio": "*",
+    "expo-image-picker": "*",
+    "expo-media-library": "*"
   },
   "peerDependenciesMeta": {
     "@react-native-community/datetimepicker": {
@@ -107,6 +114,27 @@
       "optional": true
     },
     "expo-video": {
+      "optional": true
+    },
+    "expo-notifications": {
+      "optional": true
+    },
+    "expo-tracking-transparency": {
+      "optional": true
+    },
+    "expo-location": {
+      "optional": true
+    },
+    "expo-camera": {
+      "optional": true
+    },
+    "expo-audio": {
+      "optional": true
+    },
+    "expo-image-picker": {
+      "optional": true
+    },
+    "expo-media-library": {
       "optional": true
     }
   },

@@ -18,12 +18,26 @@ import {
 import { useTheme } from "../../Theme/useTheme";
 import { ScreenRenderer } from "../../Runtime/ScreenRenderer";
 import type { ScreenHost, CompleteOutcome } from "../../Runtime/ScreenHost";
+import type { PermissionResolver } from "../../Runtime/elements/permissions";
 import { ScreenElementsSchema } from "../../Runtime/types";
 
 type ContentProps = {
   step: PaywallStepType;
   onContinue: () => void;
   keyboardVerticalOffset?: number;
+  /**
+   * See `OnboardingPageProps` — host override for the `requestPermission`
+   * action's resolver, forwarded from there because a paywall's own elements can
+   * carry that action just as an onboarding step's can.
+   *
+   * Threading it is not tidiness. Review round 1 of #196: with the field unset
+   * here, a consumer who passed a resolver to `OnboardingPage` got it for a
+   * `ComposableScreen` step and NOT for a byte-identical action inside a
+   * `Paywall` step in the same flow — the bundled resolver answered
+   * `"unavailable"` and the user was recorded as refusing a permission nobody
+   * asked them for. Same payload, two answers, no error anywhere.
+   */
+  requestPermission?: PermissionResolver;
 };
 
 /** The fields this renderer reads off a resolved catalog entry. */
@@ -54,7 +68,12 @@ type ResolvedPaywall = {
  * no `PaywallProvider`, a moment absent from a settled catalog, and a paywall
  * that cannot render (bad elements, or an unregistered custom screen).
  */
-const PaywallStepRendererBase = ({ step, onContinue, keyboardVerticalOffset }: ContentProps) => {
+const PaywallStepRendererBase = ({
+  step,
+  onContinue,
+  keyboardVerticalOffset,
+  requestPermission,
+}: ContentProps) => {
   const { theme } = useTheme();
   const { headerHeight } = useOnboardingHeaderHeight();
   const validated = useMemo(() => PaywallStepTypeSchema.parse(step), [step]);
@@ -184,6 +203,7 @@ const PaywallStepRendererBase = ({ step, onContinue, keyboardVerticalOffset }: C
       // engine requires the field, so this is an explicit no-op rather than an
       // accidental one.
       presentPaywall: () => {},
+      requestPermission,
       keyboardVerticalOffset: keyboardVerticalOffset ?? headerHeight,
     }),
     [
@@ -192,6 +212,7 @@ const PaywallStepRendererBase = ({ step, onContinue, keyboardVerticalOffset }: C
       complete,
       customActions,
       products,
+      requestPermission,
       keyboardVerticalOffset,
       headerHeight,
     ],

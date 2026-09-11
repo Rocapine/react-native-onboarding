@@ -21,6 +21,7 @@ UI package depends on headless package as peer dependency.
 ### Root (Monorepo)
 
 ```bash
+npm run check              # The whole CI gate, in CI's order — the seven steps of .github/workflows/build.yml
 npm run build              # Build both packages (trailing "Missing script: build" for `example` workspace is expected — both packages still build)
 npm run build:headless     # packages/onboarding only
 npm run build:ui           # packages/onboarding-ui only (also copies src/assets → dist/assets)
@@ -30,6 +31,12 @@ npm run clean              # Remove all dist/ and node_modules/
 npm run publish:all        # Build + publish both packages to npm
 npm test --workspace=packages/onboarding  # vitest (evaluateCondition, resolveNextStepNumber)
 ```
+
+**Run `npm run check` rather than the seven steps one at a time.** It is the same
+seven commands `.github/workflows/build.yml` runs, in the same order, so "green
+locally" and "green in CI" are one claim instead of two — and one invocation
+instead of the forty separate `type:check` / `build` / `test --workspace=…` calls
+a batch run used to make. Add a step to the workflow and it belongs here too.
 
 After modifying `packages/`, run `npm run build` (or relevant workspace build) before reloading the example app — it references local packages via `file:../packages/*`.
 

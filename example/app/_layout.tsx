@@ -52,6 +52,9 @@ export default function RootLayout() {
   );
 }
 
+// Attempt counter for the `generatePlan` demo handler below.
+let generatePlanAttempts = 0;
+
 function OnboardingProviderWithLocale() {
   const { locale } = useLocale();
   const router = useRouter();
@@ -69,6 +72,19 @@ function OnboardingProviderWithLocale() {
         },
         celebrate: async ({ variables }) => {
           console.log("[customAction] celebrate", variables);
+        },
+        // RNO#191 demo. Slow on purpose (the pending state needs something to
+        // show) and fails the FIRST attempt of every press, so a payload with
+        // `retry: { maxAttempts: 3 }` visibly recovers while one without it
+        // lands in `onError`.
+        generatePlan: async ({ variables, setVariable }) => {
+          await new Promise((resolve) => setTimeout(resolve, 1200));
+          generatePlanAttempts += 1;
+          if (generatePlanAttempts % 2 === 1) {
+            throw new Error("[customAction] generatePlan: simulated backend failure");
+          }
+          const goal = variables.goal?.label ?? variables.goal?.value ?? "you";
+          setVariable("plan", { value: `12-week plan for ${goal}`, kind: "string" });
         },
         // Writes back into the ComposableScreen variable context. The screen can
         // then react via {{interpolation}} / renderWhen, and a following

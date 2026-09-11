@@ -31,6 +31,87 @@ export default function ComposableScreenExample() {
           type: 'YStack',
           props: { gap: 24, padding: 24 },
           children: [
+            // RNO#191 — declarative async gate. Everything here is payload: the
+            // pending copy, the disabled CTA, the error branch and the bounded
+            // retry. No host code beyond the `generatePlan` handler itself.
+            {
+              id: 'async-gate',
+              type: 'YStack',
+              props: {
+                gap: 8,
+                padding: 16,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: '#E5E7EB',
+              },
+              children: [
+                {
+                  id: 'async-gate-title',
+                  type: 'Text',
+                  props: { content: 'Async gate', fontSize: 16, fontWeight: '700' },
+                },
+                // `actions.pending.<elementId>` is published by the runtime for
+                // as long as that element's action list is awaiting — including
+                // across retries.
+                {
+                  id: 'async-gate-pending',
+                  type: 'Text',
+                  renderWhen: {
+                    variable: 'actions.pending.async-gate-cta',
+                    operator: 'eq' as const,
+                    value: 'true',
+                  },
+                  props: { content: 'Generating your plan…', color: '#6B7280' },
+                },
+                {
+                  id: 'async-gate-result',
+                  type: 'Text',
+                  renderWhen: { variable: 'plan', operator: 'is_not_empty' as const },
+                  props: { content: '{{plan}}', color: '#2A9D8F' },
+                },
+                {
+                  id: 'async-gate-error',
+                  type: 'Text',
+                  renderWhen: {
+                    variable: 'planError',
+                    operator: 'eq' as const,
+                    value: 'true',
+                  },
+                  props: {
+                    content: 'Could not reach the service. Tap to try again.',
+                    color: '#E76F51',
+                  },
+                },
+                {
+                  id: 'async-gate-cta',
+                  type: 'Button',
+                  props: {
+                    label: 'Generate plan',
+                    variant: 'filled',
+                    // The re-entrancy guard is unconditional in the runtime; this
+                    // only makes it VISIBLE. Without it a second tap is silently
+                    // dropped, which looks like a broken button.
+                    disabledWhen: {
+                      variable: 'actions.pending.async-gate-cta',
+                      operator: 'eq' as const,
+                      value: 'true',
+                    },
+                    actions: [
+                      { type: 'setVariable', name: 'planError', value: 'false' },
+                      {
+                        type: 'custom',
+                        function: 'generatePlan',
+                        variables: ['goal'],
+                        retry: { maxAttempts: 3, delayMs: 400 },
+                        onError: [
+                          { type: 'setVariable', name: 'planError', value: 'true' },
+                        ],
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
             // Lottie animation
             {
               id: 'hero-lottie',

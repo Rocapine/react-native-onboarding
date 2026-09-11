@@ -11,7 +11,7 @@ Wire developer-defined functions to `ComposableScreen` `Button` presses. Run ana
 Each `Button` element in a `ComposableScreen` carries an ordered `actions` array. The runtime walks the array on press, executing each entry sequentially:
 
 - `"continue"` — advances the onboarding (terminal — anything after is ignored).
-- `{ type: "custom", function: "<name>", variables?: ["<key>", ...] }` — invokes a handler you registered on `OnboardingProvider.customActions`. Listed variables are read from the live ComposableScreen variable map and forwarded to the handler.
+- `{ type: "custom", function: "<name>", variables?: ["<key>", ...], onResolve?: ButtonAction[], onError?: ButtonAction[], retry?: { maxAttempts: number, delayMs?: number } }` — invokes a handler you registered on `OnboardingProvider.customActions`. Listed variables are read from the live ComposableScreen variable map and forwarded to the handler. See [Async gates](#async-gates-onresolve-onerror-retry-and-the-pending-state) for the outcome hooks.
 - `{ type: "setVariable", name: "<key>", value: "<value>", label?: "<label>", valueMode?, kind?, arrayOp? }` — writes directly to the variable map (`{ value, label }` shape, matching `Input` / `RadioGroup` / `CheckboxGroup` / `DatePicker`). Useful to capture which branch a user chose before a following `"continue"` triggers `resolveNextStepNumber`.
   - `valueMode: "expression"` (default `"literal"`) evaluates `value` as an expression over `{{var}}` references — arithmetic plus a small stdlib (`min max abs round clamp addDays format list join count plural`) — instead of storing it verbatim.
   - `kind: "int" | "float" | "string"` types the stored value; it decides how a later numeric comparison reads it.
@@ -28,7 +28,14 @@ is documented under [Button actions](../page-types.mdx#button-actions).
 ```typescript
 type ButtonAction =
   | "continue"
-  | { type: "custom"; function: string; variables?: string[] }
+  | {
+      type: "custom";
+      function: string;
+      variables?: string[];
+      onResolve?: ButtonAction[];
+      onError?: ButtonAction[];
+      retry?: { maxAttempts: number; delayMs?: number };
+    }
   | {
       type: "setVariable";
       name: string;
@@ -126,7 +133,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 | **Order** | Sequential — each action awaits the prior. |
 | **Async** | Returned `Promise` is awaited. |
 | **`"continue"`** | Terminal — chain stops. Place `"continue"` last. |
-| **Thrown error** | `console.error` and chain aborts (subsequent actions, including `"continue"`, do not run). |
+| **Thrown error** | `console.error` and chain aborts (subsequent actions, including `"continue"`, do not run) — with or without an `onError` hook. |
+| **Retry** | None by default. `retry: { maxAttempts }` re-invokes the same handler with the same press-time variables, up to `maxAttempts` total attempts. |
+| **Re-entrancy** | A second press on the same element while its list is still running is dropped. |
 | **Unknown handler name** | `console.warn` and chain skips to the next action. |
 | **Empty array / no `actions` / no legacy `action`** | Press is a no-op. |
 
@@ -179,6 +188,70 @@ customActions={{
   },
 }}
 ```
+
+## Async gates: `onResolve`, `onError`, `retry` and the pending state
+
+A screen that waits on a backend or an LLM needs four things, and all four are
+payload — no host code beyond the handler itself.
+
+```jsonc
+{
+  "id": "generate-cta",
+  "type": "Button",
+  "props": {
+    "label": "Generate plan",
+    // 3. The CTA disables itself while its own action list runs.
+    "disabledWhen": { "variable": "actions.pending.generate-cta", "operator": "eq", "value": "true" },
+    "actions": [
+      { "type": "setVariable", "name": "planError", "value": "false" },
+      {
+        "type": "custom",
+        "function": "generatePlan",
+        "variables": ["goal"],
+        // 1. Bounded retry. `maxAttempts` counts the FIRST attempt, so this is
+        //    one call plus two retries, 500ms apart.
+        "retry": { "maxAttempts": 3, "delayMs": 500 },
+        // 2. Outcome hooks, the same nested shape `purchase` and `restore` use.
+        "onResolve": ["continue"],
+        "onError": [{ "type": "setVariable", "name": "planError", "value": "true" }]
+      }
+    ]
+  }
+}
+```
+
+```jsonc
+// 4. Pending and error UI, gated on variables nobody had to write by hand.
+{ "id": "spinner-copy", "type": "Text",
+  "renderWhen": { "variable": "actions.pending.generate-cta", "operator": "eq", "value": "true" },
+  "props": { "content": "Generating your plan…" } },
+{ "id": "error-copy", "type": "Text",
+  "renderWhen": { "variable": "planError", "operator": "eq", "value": "true" },
+  "props": { "content": "Could not reach the service. Tap to try again." } }
+```
+
+**Put `"continue"` in `onResolve`, not after the action.** A `"continue"` that
+follows the `custom` action in the same list is what an async gate looks like
+until the service fails — an error aborts the list, so it silently does not run,
+and the two spellings only differ once you add a hook. Inside `onResolve` the
+intent is explicit and survives a reader.
+
+**`onError` is terminal; `purchase`'s is not.** A declared `onError` replaces the
+silence, not the abort: the rest of the enclosing list is still skipped, because
+continuing past a failed generation sends the user to a screen reading variables
+the handler never wrote. The throw is `console.error`ed either way — a hook is
+error UI, not a reason to lose the stack trace.
+
+**The pending state is owned by the runtime.** For as long as an element's action
+list is awaiting — across retries included — the variable map carries
+`actions.pending` (`"true"` while ANY element on the screen is busy) and
+`actions.pending.<elementId>` (`"true"` for that one). They are runtime facts and
+win over an author variable of the same name, exactly like resolved product
+variables. A per-element key is absent rather than `"false"` when idle, which
+reads as not-pending under both `eq "true"` and `neq "true"`.
+
+There is no spinner element; gate a `Lottie`, a `ProgressIndicator` or a `Text`
+with `renderWhen` instead.
 
 ### Fan-out side effects, then continue
 

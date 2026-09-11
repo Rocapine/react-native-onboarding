@@ -1211,6 +1211,29 @@ export const onboardingExample = {
                   },
                 ],
               },
+              // #191 — the runtime publishes `actions.pending.<elementId>` while
+              // that element's action list is awaiting, so a pending state needs
+              // no host code and no new element type.
+              {
+                id: "hero-button-pending",
+                type: "Text",
+                renderWhen: {
+                  variable: "actions.pending.hero-button",
+                  operator: "eq",
+                  value: "true",
+                },
+                props: { content: "One moment…", fontSize: 14, color: "#6B7280" },
+              },
+              {
+                id: "hero-button-error",
+                type: "Text",
+                renderWhen: { variable: "ctaError", operator: "eq", value: "true" },
+                props: {
+                  content: "Something went wrong. Tap again to retry.",
+                  fontSize: 14,
+                  color: "#E76F51",
+                },
+              },
               {
                 id: "hero-button",
                 type: "Button",
@@ -1219,9 +1242,21 @@ export const onboardingExample = {
                   variant: "filled",
                   marginVertical: 8,
                   haptic: "medium",
+                  // The gate's "continue" belongs in `onResolve`, not after the
+                  // custom action in the same list — there it would advance even
+                  // when the handler threw. `onError` keeps the user here with
+                  // something to read, which is what a bare throw could not do.
                   actions: [
-                    { type: "custom", function: "trackCta", variables: ["name", "plan", "goals"] },
-                    "continue",
+                    {
+                      type: "custom",
+                      function: "trackCta",
+                      variables: ["name", "plan", "goals"],
+                      retry: { maxAttempts: 2, delayMs: 300 },
+                      onResolve: ["continue"],
+                      onError: [
+                        { type: "setVariable", name: "ctaError", value: "true" },
+                      ],
+                    },
                   ],
                 },
               },

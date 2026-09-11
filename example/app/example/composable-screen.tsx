@@ -31,6 +31,17 @@ export default function ComposableScreenExample() {
           type: 'YStack',
           props: { gap: 24, padding: 24 },
           children: [
+            // Lottie animation
+            {
+              id: 'hero-lottie',
+              type: 'Lottie',
+              props: {
+                source: 'https://raw.githubusercontent.com/airbnb/lottie-web/master/demo/adrock/data.json',
+                height: 180,
+                autoPlay: true,
+                loop: true,
+              },
+            },
             // RNO#191 — declarative async gate. Everything here is payload: the
             // pending copy, the disabled CTA, the error branch and the bounded
             // retry. No host code beyond the `generatePlan` handler itself.
@@ -63,11 +74,21 @@ export default function ComposableScreenExample() {
                   },
                   props: { content: 'Generating your plan…', color: '#6B7280' },
                 },
+                // Gated on a variable `onResolve` writes, NOT on `plan`
+                // itself: `is_not_empty` reads an ABSENT variable as non-empty
+                // (`evaluateCondition` stringifies), so gating on the payload
+                // variable would show this line before anything ran.
+                // `mode: 'expression'` is what interpolates `{{plan}}` — a
+                // plain Text renders the braces verbatim.
                 {
                   id: 'async-gate-result',
                   type: 'Text',
-                  renderWhen: { variable: 'plan', operator: 'is_not_empty' as const },
-                  props: { content: '{{plan}}', color: '#2A9D8F' },
+                  renderWhen: {
+                    variable: 'planReady',
+                    operator: 'eq' as const,
+                    value: 'true',
+                  },
+                  props: { content: '{{plan}}', mode: 'expression' as const, color: '#2A9D8F' },
                 },
                 {
                   id: 'async-gate-error',
@@ -98,11 +119,15 @@ export default function ComposableScreenExample() {
                     },
                     actions: [
                       { type: 'setVariable', name: 'planError', value: 'false' },
+                      { type: 'setVariable', name: 'planReady', value: 'false' },
                       {
                         type: 'custom',
                         function: 'generatePlan',
                         variables: ['goal'],
                         retry: { maxAttempts: 3, delayMs: 400 },
+                        onResolve: [
+                          { type: 'setVariable', name: 'planReady', value: 'true' },
+                        ],
                         onError: [
                           { type: 'setVariable', name: 'planError', value: 'true' },
                         ],
@@ -111,17 +136,6 @@ export default function ComposableScreenExample() {
                   },
                 },
               ],
-            },
-            // Lottie animation
-            {
-              id: 'hero-lottie',
-              type: 'Lottie',
-              props: {
-                source: 'https://raw.githubusercontent.com/airbnb/lottie-web/master/demo/adrock/data.json',
-                height: 180,
-                autoPlay: true,
-                loop: true,
-              },
             },
             // Rive animation — width:100% + aspectRatio scales to artboard
             {

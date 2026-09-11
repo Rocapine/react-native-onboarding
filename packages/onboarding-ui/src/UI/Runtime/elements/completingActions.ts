@@ -38,10 +38,21 @@ const union = (...sets: ReadonlySet<EscapeAction>[]): Set<EscapeAction> => {
   return out;
 };
 
-const listEscapes = (value: unknown): Set<EscapeAction> =>
-  Array.isArray(value)
-    ? union(...value.map(actionEscapes))
-    : new Set<EscapeAction>();
+const listEscapes = (value: unknown): Set<EscapeAction> => {
+  if (!Array.isArray(value)) return new Set<EscapeAction>();
+  const before = new Set<EscapeAction>();
+  for (let i = 0; i < value.length; i++) {
+    const action = value[i];
+    // A `custom` action is a barrier: `runActions` returns false from its throw
+    // path, so nothing after it in the same list runs. Mirror of the headless
+    // walk — see the original for the full reasoning.
+    if (isRecord(action) && action.type === "custom") {
+      return union(before, customActionEscapes(action, value.slice(i + 1)));
+    }
+    for (const escape of actionEscapes(action)) before.add(escape);
+  }
+  return before;
+};
 
 /**
  * `requestPermission` is read with AND across its outcomes, not OR: its result
@@ -61,6 +72,29 @@ const permissionAskEscapes = (action: Record<string, unknown>): Set<EscapeAction
   return union(onGranted, onDenied, onUnavailable);
 };
 
+/**
+ * `custom` is read with AND across its outcomes too, and its throw path ABORTS
+ * the enclosing list (#191, review round 1 finding 6 / round 2 finding 5).
+ *
+ * `onResolve ∪ rest` covers the resolve path and `onError` covers the throw
+ * path; both must be non-empty, which makes the unregistered-handler path
+ * (`onError ∪ rest`) non-empty as well. Mirror of the headless
+ * `customActionEscapes` — round 1 landed the rule in the headless package only,
+ * so the two disagreed about whether this PR's own async-gate shape was a way
+ * off the screen, and `runActions` advanced past a screen the strip called a
+ * trap.
+ */
+const customActionEscapes = (
+  action: Record<string, unknown>,
+  rest: readonly unknown[] = []
+): Set<EscapeAction> => {
+  const afterwards = listEscapes(rest);
+  const onResolve = union(listEscapes(action.onResolve), afterwards);
+  const onError = listEscapes(action.onError);
+  if (!onResolve.size || !onError.size) return new Set<EscapeAction>();
+  return union(onResolve, onError);
+};
+
 function actionEscapes(action: unknown): Set<EscapeAction> {
   // `"continue"` is the string literal; `{type:"continue"}` is not an action
   // this runtime runs, so it is not a way forward either.
@@ -68,6 +102,7 @@ function actionEscapes(action: unknown): Set<EscapeAction> {
   if (!isRecord(action)) return new Set<EscapeAction>();
   if (action.type === "dismiss") return new Set<EscapeAction>(["dismiss"]);
   if (action.type === "requestPermission") return permissionAskEscapes(action);
+  if (action.type === "custom") return customActionEscapes(action);
   return union(...Object.values(action).map(listEscapes));
 }
 

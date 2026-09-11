@@ -58,6 +58,20 @@ export type HapticStyle = z.infer<typeof HapticStyleSchema>;
  * an onboarding gate that keeps hammering a dead service just holds the user on
  * a screen that never resolves, so there is deliberately no "retry until it
  * works" spelling.
+ *
+ * **The handler must be safe to re-run.** A retry re-invokes the SAME host
+ * function with the SAME press-time variables, so a handler that writes is
+ * asked to write again: `maxAttempts: 3` over a `/create-plan` or a charge is
+ * three records or three charges for one press, and neither the schema, the
+ * runtime nor the console can tell a safe handler from an unsafe one — this
+ * field is the only place the hazard is stated. `timeoutMs` widens it rather
+ * than bounding it: a timed-out attempt is an ordinary failed attempt, so a
+ * request that reached the server and lost only the ANSWER to the clock is sent
+ * again. Retry a read, a validation, or a write carrying an idempotency key;
+ * for anything else leave `retry` absent and put the recovery in `onError`.
+ * (Same class as the `purchase` double-fire that `disabledWhen` on
+ * `products.purchasing` exists to prevent — one press, several writes, nothing
+ * reporting it.)
  */
 export type CustomActionRetry = {
   /**

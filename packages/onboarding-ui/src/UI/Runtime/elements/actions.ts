@@ -10,6 +10,13 @@ import { z } from "zod";
  * Bounded retry for a `custom` action (#191). The cap is REQUIRED and small —
  * see the headless `common.types.ts` doc comment for why there is no
  * "retry until it works" spelling.
+ *
+ * **The handler must be safe to re-run**: every attempt re-invokes the same
+ * host function with the same press-time variables, and a timed-out attempt is
+ * an ordinary failed attempt — so a request that already reached the server and
+ * lost only the answer to the clock is sent again. A `retry` on a
+ * non-idempotent endpoint is N writes for one press. Headless doc comment for
+ * the full reasoning.
  */
 export type CustomActionRetry = {
   /** TOTAL attempts, counting the first. 1..10. */

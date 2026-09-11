@@ -135,7 +135,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 | **`"continue"`** | Terminal — chain stops. Place `"continue"` last. |
 | **Thrown error** | `console.error`, `onError` runs if declared, and the chain carries on to the next action — the same as `purchase`/`restore`. |
 | **Handler never settles** | Only bounded if `retry.timeoutMs` is declared. A timed-out attempt is a failed attempt: it retries if the budget allows, else `console.error` + `onError`. Without it the press waits forever and the CTA stays disabled. |
-| **Retry** | None by default. `retry: { maxAttempts }` re-invokes the same handler with the same press-time variables, up to `maxAttempts` total attempts; `delayMs` pauses between them, `timeoutMs` bounds each one. |
+| **Retry** | None by default. `retry: { maxAttempts }` re-invokes the same handler with the same press-time variables, up to `maxAttempts` total attempts; `delayMs` pauses between them, `timeoutMs` bounds each one. Only set it on a handler that is safe to run twice — see [Retry only what is safe to run twice](#async-gates-onresolve-onerror-retry-and-the-pending-state). |
 | **Re-entrancy** | A second press on the same element while its list is still running is dropped. |
 | **Unknown handler name** | `console.error`, `onError` runs if declared (`onResolve` does not — nothing resolved), and the chain carries on to the next action. |
 | **Every failure is one rule** | A throw, a timeout and an unregistered name do the same thing: log, run `onError`, keep going. What must only run on success goes in `onResolve`. |
@@ -269,6 +269,19 @@ ever runs, and on a `displayProgressHeader: false` step there is no back chevron
 either. It is 1000..300000 ms, with no default, because a legitimate LLM call
 can take 60s+ and a silent cut-off would be the worse bug. A timeout without
 retries is `{ "maxAttempts": 1, "timeoutMs": 20000 }`.
+
+**Retry only what is safe to run twice.** `retry` re-invokes the **same
+handler** with the **same press-time variables**, so the `validateProfile` gate
+above with `retry: { "maxAttempts": 3 }` sends three `POST /validate` requests
+on a 500 — or on a `res.json()` that throws *after* the write landed. On a
+non-idempotent endpoint (`/create-plan`, a charge) that is three records or
+three charges for one press, and nothing in the payload, the schema or the
+console says so. `timeoutMs` widens this rather than bounding it: a timed-out
+attempt is an ordinary failed attempt, so a request that reached the server and
+lost only the *answer* to the clock is sent again. Retry reads, validations, and
+writes carrying an idempotency key; for anything else leave `retry` off and put
+the recovery in `onError`. (`purchase` has the same hazard one layer down, which
+is why its CTA carries `disabledWhen` on `products.purchasing`.)
 
 **The pending state is owned by the runtime.** For as long as an element's action
 list is awaiting — across retries included — the variable map carries

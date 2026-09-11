@@ -11,6 +11,7 @@ import { OnboardingProgressProvider } from "@rocapine/react-native-onboarding-ui
 import { Dimensions } from "react-native";
 import { configureReanimatedLogger, ReanimatedLogLevel } from "react-native-reanimated";
 import { LocaleProvider, useLocale } from "../contexts/locale-context";
+import { shouldGeneratePlanFail } from "../components/asyncGateDemo";
 import { REFS as PRODUCT_REFS, provider as productProvider } from "./example/composable-screen-products";
 
 configureReanimatedLogger({ level: ReanimatedLogLevel.warn, strict: false });
@@ -74,13 +75,16 @@ function OnboardingProviderWithLocale() {
           console.log("[customAction] celebrate", variables);
         },
         // RNO#191 demo. Slow on purpose (the pending state needs something to
-        // show) and fails the FIRST attempt of every press, so a payload with
-        // `retry: { maxAttempts: 3 }` visibly recovers while one without it
-        // lands in `onError`.
+        // show), and its failure schedule lives in `shouldGeneratePlanFail` so
+        // the arithmetic can be pinned against the payload's `retry.maxAttempts`
+        // — round 1 threw on every ODD attempt with a cap of 3, which made every
+        // press fail-then-succeed and left the `onError` branch of the demo
+        // unreachable (review round 2, finding 3). Now a press spends its whole
+        // retry budget and lands in `onError`, and the next one resolves.
         generatePlan: async ({ variables, setVariable }) => {
           await new Promise((resolve) => setTimeout(resolve, 1200));
           generatePlanAttempts += 1;
-          if (generatePlanAttempts % 2 === 1) {
+          if (shouldGeneratePlanFail(generatePlanAttempts)) {
             throw new Error("[customAction] generatePlan: simulated backend failure");
           }
           const goal = variables.goal?.label ?? variables.goal?.value ?? "you";

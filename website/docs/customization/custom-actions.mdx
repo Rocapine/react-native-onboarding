@@ -136,7 +136,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 | **Thrown error** | `console.error` and chain aborts (subsequent actions, including `"continue"`, do not run) — with or without an `onError` hook. |
 | **Retry** | None by default. `retry: { maxAttempts }` re-invokes the same handler with the same press-time variables, up to `maxAttempts` total attempts. |
 | **Re-entrancy** | A second press on the same element while its list is still running is dropped. |
-| **Unknown handler name** | `console.warn` and chain skips to the next action. |
+| **Unknown handler name** | `console.error`, `onError` runs if declared (`onResolve` does not — nothing resolved), and the chain carries on to the next action. |
 | **Empty array / no `actions` / no legacy `action`** | Press is a no-op. |
 
 ## Variable shape by element
@@ -242,6 +242,15 @@ continuing past a failed generation sends the user to a screen reading variables
 the handler never wrote. The throw is `console.error`ed either way — a hook is
 error UI, not a reason to lose the stack trace.
 
+**A screen must stay leaveable when the gate fails.** `onResolve: ["continue"]`
+is the resolve path only: a throw runs `onError` and aborts, and a `function`
+name this build never registered runs `onError` and skips the action. If that
+`"continue"` is the screen's ONLY way forward, a user whose backend is down is
+stuck on it. Give `onError` an exit too — a `"continue"`, a `{"type":"dismiss"}`,
+or a visible retry beside a skip. The SDK reads it that way as well: a `custom`
+action counts as a way off the screen only when BOTH `onResolve` and `onError`
+reach one (`completingActions.ts`), the same AND rule `requestPermission` uses.
+
 **The pending state is owned by the runtime.** For as long as an element's action
 list is awaiting — across retries included — the variable map carries
 `actions.pending` (`"true"` while ANY element on the screen is busy) and
@@ -249,6 +258,16 @@ list is awaiting — across retries included — the variable map carries
 win over an author variable of the same name, exactly like resolved product
 variables. A per-element key is absent rather than `"false"` when idle, which
 reads as not-pending under both `eq "true"` and `neq "true"`.
+
+It applies to every element that can dispatch an action list, not just `Button`:
+the generic `onPress` available on any element goes through the same guard, so a
+pressable card is single-flight and publishes its own pending key too.
+
+Inside a `Repeat`, write the pending key with the id **as it appears in the
+template** — `actions.pending.row-cta`. Each row scopes it to its own
+materialized element (the runtime's real key is suffixed, `row-cta__yearly`), so
+one row's pending state never lights up its siblings'. The screen-wide
+`actions.pending` is still screen-wide.
 
 There is no spinner element; gate a `Lottie`, a `ProgressIndicator` or a `Text`
 with `renderWhen` instead.

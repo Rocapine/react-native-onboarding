@@ -311,8 +311,24 @@ never `runActions` directly: it holds a single-flight claim on
 two taps in one tick would both win) and publishes `actions.pending` /
 `actions.pending.<elementId>` into the variable bag while the list runs, so a
 payload renders its own pending UI through `renderWhen`/`disabledWhen` with no
-host code. Only `Button` is wired; the generic `onPress` in `renderElement` is
-still `void runActions(...)` and is NOT guarded.
+host code. BOTH press seams are wired: `ButtonElement` and the generic `onPress`
+in `renderElement` (round 1 wired only the button, and the docs promised both —
+review round 1, findings 3 and 8). `pressDispatchWiring.test.ts` fails if any
+renderer calls `runActions` directly again. Inside a `Repeat`, the row scope
+aliases its own `actions.pending.<id>__<rowKey>` back to the TEMPLATE id
+(`repeatScope.withRowPendingAliases`), because `suffixIds` has already renamed
+the element and `evaluateCondition` looks its left-hand side up verbatim.
+
+A `function` name the host never registered is the THIRD outcome, and it is an
+error one: `console.error`, `onError` if declared, and then the enclosing list
+CARRIES ON — that last part is pre-#191 behaviour a `[{custom}, "continue"]`
+payload depends on to stay navigable with `customActions: {}` (review round 1,
+findings 1 and 7). Because neither the throw nor the missing handler can be
+talked out of by pressing again, `completingActions.ts` reads `custom` with AND
+across `onResolve`/`onError` exactly as it reads `requestPermission` — a
+`"continue"` in `onResolve` alone is NOT a way off the screen. Do not put the
+only escape of the exported `onboardingExample` behind a handler: it is the
+documented `fallbackOnboarding` and the default host is `customActions: {}`.
 
 `dismiss` and `presentPaywall` (paywall phase 5) are both terminal-ish but behave differently: `dismiss` is terminal like `"continue"` (calls `onContinue({status:"dismissed"})` and stops the loop); `presentPaywall` is NOT terminal (it fires `ctx.presentPaywall(placement)` and the loop continues to the next action). Neither throws when unsupported — `presentPaywall` warns and no-ops when `ctx.presentPaywall` is absent (a host that doesn't wire the field, e.g. an app with no `PaywallProvider` mounted). See the "Paywalls" section below for what supplies `presentPaywall` and why it works from both an onboarding step and a paywall's own content.
 

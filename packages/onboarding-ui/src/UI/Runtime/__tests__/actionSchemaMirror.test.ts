@@ -50,14 +50,47 @@ const schemaKeys = (file: string, schemaName: string): string[] => {
   return keys.sort();
 };
 
+/**
+ * Every `*ButtonActionSchema` the headless package declares, DISCOVERED rather
+ * than listed (review round 1, finding 11).
+ *
+ * The round-1 version of this guard hardcoded five names and its header claimed
+ * to cover "every ButtonAction" — it silently omitted
+ * `RequestPermissionButtonActionSchema` (landed days earlier in #260, and the
+ * one variant with three nested hook lists) and `DismissButtonActionSchema`. A
+ * later `onTimeout` added to the headless ask and missed in the mirror would
+ * have been stripped at parse — the mirror is what `Pages/ComposableScreen/
+ * Renderer` parses with — and this file would still have passed.
+ *
+ * `ButtonActionSchema` itself is excluded: it is the union, not an object.
+ */
+const actionSchemaNames = (file: string): string[] => {
+  const src = readFileSync(file, "utf8");
+  return [...src.matchAll(/export const (\w+ButtonActionSchema)\b/g)]
+    .map((m) => m[1])
+    .filter((name) => name !== "ButtonActionSchema")
+    .sort();
+};
+
+/** The string members of an `as const` array literal, e.g. PERMISSION_KINDS. */
+const constArrayMembers = (file: string, name: string): string[] => {
+  const src = readFileSync(file, "utf8");
+  const at = src.indexOf(`export const ${name}`);
+  expect(at, `${name} not found in ${file}`).toBeGreaterThan(-1);
+  const open = src.indexOf("[", at);
+  const close = src.indexOf("]", open);
+  return [...src.slice(open, close).matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+};
+
 describe("ButtonAction schemas: headless and UI mirror agree", () => {
-  for (const schema of [
-    "CustomButtonActionSchema",
-    "SetVariableButtonActionSchema",
-    "PurchaseButtonActionSchema",
-    "RestoreButtonActionSchema",
-    "PresentPaywallButtonActionSchema",
-  ]) {
+  const headlessSchemas = actionSchemaNames(HEADLESS);
+
+  it("the mirror declares every action schema the headless package does", () => {
+    expect(headlessSchemas.length).toBeGreaterThanOrEqual(7);
+    expect(actionSchemaNames(MIRROR)).toEqual(headlessSchemas);
+  });
+
+  for (const schema of headlessSchemas) {
     it(`${schema} declares the same fields in both packages`, () => {
       expect(schemaKeys(MIRROR, schema)).toEqual(schemaKeys(HEADLESS, schema));
     });
@@ -69,8 +102,14 @@ describe("ButtonAction schemas: headless and UI mirror agree", () => {
     );
   });
 
-  // Pins the #191 fields specifically, so a future "tidy-up" that drops them
-  // from both sides at once fails here rather than passing an equality check.
+  // Both packages re-declare the kind list; a kind in one only fails
+  // `invalid_union` against the other.
+  it("PERMISSION_KINDS is the same list in both packages", () => {
+    expect(constArrayMembers(MIRROR, "PERMISSION_KINDS")).toEqual(
+      constArrayMembers(HEADLESS, "PERMISSION_KINDS")
+    );
+  });
+
   it("custom carries its outcome hooks and retry cap", () => {
     expect(schemaKeys(HEADLESS, "CustomButtonActionSchema")).toEqual([
       "function",

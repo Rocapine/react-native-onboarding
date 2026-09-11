@@ -3,7 +3,13 @@ import { z } from "zod";
 import type { UIElement } from "../types";
 import type { RenderContext, ParentType } from "./shared";
 import { VariablesContext, useVariables } from "./VariablesContext";
-import { buildRowEntries, buildRowFlat, buildRowKeys, suffixIds } from "./repeatScope";
+import {
+  buildRowEntries,
+  buildRowFlat,
+  buildRowKeys,
+  suffixIds,
+  withRowPendingAliases,
+} from "./repeatScope";
 
 // Mirror of the headless RepeatElement schema. Kept in lockstep with
 // packages/onboarding/src/screens/elements/RepeatElement.ts — TS won't catch
@@ -73,12 +79,23 @@ export function RepeatElementComponent({ element, ctx, parentType }: Props): Rea
   const scopedVariables = useMemo(
     () =>
       rows.map((row, i) => {
+        // `withRowPendingAliases` republishes THIS row's
+        // `actions.pending.<id>__<rowKey>` under the template id the author
+        // actually wrote (#191, review round 1, finding 9) — without it a
+        // per-row `renderWhen`/`disabledWhen` on the pending key can never be
+        // true, because `suffixIds` has already renamed the element.
         return {
-          variables: { ...variables, ...buildRowEntries(row, i, scope) },
-          flatVariables: { ...flatVariables, ...buildRowFlat(row, i, scope) },
+          variables: withRowPendingAliases(
+            { ...variables, ...buildRowEntries(row, i, scope) },
+            rowKeys[i]
+          ),
+          flatVariables: withRowPendingAliases(
+            { ...flatVariables, ...buildRowFlat(row, i, scope) },
+            rowKeys[i]
+          ),
         };
       }),
-    [rows, scope, variables, flatVariables]
+    [rows, scope, variables, flatVariables, rowKeys]
   );
 
   // Press-time scope (runActions reads ctx.getVariables(), not context).
@@ -89,7 +106,11 @@ export function RepeatElementComponent({ element, ctx, parentType }: Props): Rea
 
         const rowCtx: RenderContext = {
           ...ctx,
-          getVariables: () => ({ ...ctx.getVariables(), ...extra }),
+          // Press-time reads go through the same alias, so a `setVariable`
+          // expression or a nested action list inside the row sees the pending
+          // key under the template id too.
+          getVariables: () =>
+            withRowPendingAliases({ ...ctx.getVariables(), ...extra }, rowKeys[i]),
           // Self-referential on purpose: a nested container calls the
           // renderChildren of the ctx it was handed, so this keeps descendants
           // on the row's scope rather than falling back to the root ctx.
@@ -97,7 +118,7 @@ export function RepeatElementComponent({ element, ctx, parentType }: Props): Rea
         };
         return rowCtx;
       }),
-    [rows, scope, ctx]
+    [rows, scope, ctx, rowKeys]
   );
 
   return (

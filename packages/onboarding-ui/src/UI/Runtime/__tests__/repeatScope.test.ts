@@ -1,10 +1,14 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   buildRowEntries,
   buildRowFlat,
   buildRowKeys,
   suffixIds,
+  withRowPendingAliases,
 } from "../elements/repeatScope";
+import { IN_FLIGHT_ANY_KEY, inFlightVariableKey } from "../inFlight";
 import type { UIElement } from "../types";
 
 const template = [
@@ -79,5 +83,92 @@ describe("buildRowEntries / buildRowFlat", () => {
     expect(buildRowFlat({ n: 3 }, 0, "item")["item.n"]).toBe(3);
     expect(buildRowFlat({ ok: true }, 0, "item")["item.ok"]).toBe(true);
     expect(buildRowFlat({}, 7, "item")["item.index"]).toBe(7);
+  });
+});
+
+/**
+ * The per-element pending key inside a `Repeat` (#191, review round 1,
+ * finding 9).
+ *
+ * `suffixIds` rewrites every template id to `${id}__${rowKey}`, so the runtime
+ * publishes `actions.pending.row-cta__yearly` while the author can only write
+ * the template id — `evaluateCondition` looks the left-hand side up VERBATIM
+ * (only the right-hand side interpolates), and the row scope exposes `item.*`
+ * and nothing else. So `disabledWhen: actions.pending.row-cta` was unreachable
+ * by any payload spelling: the row CTA never disabled and the row's pending copy
+ * never rendered, while the screen-wide key fired for all rows at once.
+ *
+ * The row scope therefore aliases its OWN suffixed pending keys back to the
+ * template id, which is the same thing `buildRowEntries` does for row fields.
+ */
+describe("withRowPendingAliases", () => {
+  const pending = (id: string) => inFlightVariableKey(id);
+
+  it("exposes this row's pending key under the template id", () => {
+    const vars = { [pending("row-cta__yearly")]: { value: "true" } };
+    expect(withRowPendingAliases(vars, "yearly")[pending("row-cta")]).toEqual({
+      value: "true",
+    });
+  });
+
+  it("does not expose another row's pending key", () => {
+    const vars = { [pending("row-cta__yearly")]: { value: "true" } };
+    expect(withRowPendingAliases(vars, "monthly")[pending("row-cta")]).toBeUndefined();
+  });
+
+  it("keeps the suffixed key and everything else untouched", () => {
+    const vars = {
+      [pending("row-cta__yearly")]: { value: "true" },
+      [IN_FLIGHT_ANY_KEY]: { value: "true" },
+      plan: { value: "yearly" },
+    };
+    const out = withRowPendingAliases(vars, "yearly");
+    expect(out[pending("row-cta__yearly")]).toEqual({ value: "true" });
+    expect(out[IN_FLIGHT_ANY_KEY]).toEqual({ value: "true" });
+    expect(out.plan).toEqual({ value: "yearly" });
+  });
+
+  it("works on the flat map too, where values are primitives", () => {
+    const flat = { [pending("row-cta__0")]: "true", "item.index": 0 };
+    expect(withRowPendingAliases(flat, "0")[pending("row-cta")]).toBe("true");
+  });
+
+  it("aliases a nested element id, and never the screen-wide key itself", () => {
+    const vars = {
+      [pending("row-inner__a")]: { value: "true" },
+      [`${IN_FLIGHT_ANY_KEY}__a`]: { value: "true" },
+    };
+    const out = withRowPendingAliases(vars, "a");
+    expect(out[pending("row-inner")]).toEqual({ value: "true" });
+    // `actions.pending__a` is not a per-element key; stripping its suffix would
+    // overwrite the screen-wide flag with a row's state.
+    expect(out[IN_FLIGHT_ANY_KEY]).toBeUndefined();
+  });
+
+  it("returns the bag unchanged when nothing in it is pending", () => {
+    const vars = { plan: { value: "yearly" } };
+    expect(withRowPendingAliases(vars, "yearly")).toEqual(vars);
+  });
+});
+
+/**
+ * The helper above is worthless unwired, and nothing else in this node-only
+ * suite renders `RepeatElement` (review round 1, finding 2 — the same class of
+ * hole that let a one-line revert of the press guard pass 382 tests).
+ * Source-level, like `hostResolverWiring.test.ts`.
+ */
+describe("RepeatElement applies the row pending alias", () => {
+  const src = readFileSync(
+    join(__dirname, "../elements/RepeatElement.tsx"),
+    "utf8"
+  ).replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+
+  it("aliases the reactive variables and the flat gate map", () => {
+    expect(src).toMatch(/variables:\s*withRowPendingAliases\(/);
+    expect(src).toMatch(/flatVariables:\s*withRowPendingAliases\(/);
+  });
+
+  it("aliases the press-time getVariables of the row context", () => {
+    expect(src).toMatch(/getVariables:[\s\S]{0,120}?withRowPendingAliases\(/);
   });
 });

@@ -400,23 +400,27 @@ describe("completingActionKind", () => {
  * `custom` is read with AND across its outcomes, like `requestPermission` and
  * unlike everything else (#191, review round 1, finding 6).
  *
- * The async gate this SDK now documents puts the screen's only `"continue"`
- * inside `onResolve`. That is the exact shape `permissionAskCompletes` was
- * carved out to refuse: when the handler throws, `runActions` runs `onError` and
- * ABORTS the list, so a `"continue"` reachable only on the resolve path is not a
- * way off the screen for a user whose backend is down. The generic OR read it as
- * one, which is what let the walk report "this screen has a CTA" for a screen
- * nobody could leave.
+ * The async gate this SDK documents puts the screen's only `"continue"` inside
+ * `onResolve`. That is the exact shape `permissionAskCompletes` was carved out
+ * to refuse: `onResolve` runs on the resolve path and NOWHERE else, so a
+ * `"continue"` reachable only there is not a way off the screen for a user
+ * whose backend is down — nor for one running a host with `customActions: {}`,
+ * which is `ScreenHost`'s own default. The generic OR read it as one, which is
+ * what let the walk report "this screen has a CTA" for a screen nobody could
+ * leave.
  *
- * The AND is over the two paths that leave the list RUNNING — handler resolved,
- * and no handler registered — not over the throw path. A throw with every retry
- * spent aborts the list, but the CTA is still on screen and the next press
- * starts a fresh `retry.maxAttempts`, which is the same reason `purchase` /
- * `restore` are read with OR. So whatever follows the action in the list counts
- * for both surviving paths, and `[{custom}, "continue"]` IS a way off the
- * screen. Round 2 of this PR required `onError` on its own and therefore read
- * that shape — the only `custom` shape Studio can author today — as a trap; see
- * `onboarding-ui/src/UI/Runtime/__tests__/mergeBaseEscapeParity.test.ts`.
+ * The AND is over the action's TWO paths — the handler resolved, and the
+ * handler failed (a throw with the budget spent, an attempt past
+ * `retry.timeoutMs`, or a name the host never registered: one rule since the
+ * semantics decision of 2026-09-11, #191 / #266). Both leave the enclosing list
+ * running, so whatever follows the action counts for both terms, and
+ * `[{custom}, "continue"]` IS a way off the screen — on every path, not on two
+ * of three as it was while a throw aborted. Round 2 of this PR required
+ * `onError` on its own and therefore read that shape — the only `custom` shape
+ * Studio can author today — as a trap; see
+ * `onboarding-ui/src/UI/Runtime/__tests__/mergeBaseEscapeParity.test.ts`, and
+ * `customActionEscapeCoherence.test.ts` beside it for the check that this walk
+ * and `runActions` agree.
  */
 describe("completingActions — custom is AND across its outcome hooks", () => {
   const gate = (extra: Record<string, unknown>) => [
@@ -454,9 +458,9 @@ describe("completingActions — custom is AND across its outcome hooks", () => {
     // `[{custom}, "continue"]` is the shape an author writes when Studio cannot
     // spell `onResolve` — which is every `custom` payload in the field until
     // `rocapine/onboarding-studio#288` lands. The trailing `"continue"` runs on
-    // BOTH paths that leave the list running (handler resolved; no handler
-    // registered), so it is a way off the screen, and reading it as a trap
-    // bolted a duplicate CTA onto stripped screens that already had one.
+    // BOTH of the action's paths — the handler resolved, or it failed — so it
+    // is a way off the screen, and reading it as a trap bolted a duplicate CTA
+    // onto stripped screens that already had one.
     expect(actionsCanComplete([...gate({}), "continue"])).toBe(true);
     expect(
       actionsCanComplete([
@@ -470,16 +474,21 @@ describe("completingActions — custom is AND across its outcome hooks", () => {
   });
 
   it("still refuses a custom whose ONLY escape is on the resolve path", () => {
-    // The sibling rule above must not launder round 1's finding 6 back in. With
-    // nothing trailing the action, a host running `customActions: {}` — the
-    // `ScreenHost` default — reaches neither `onResolve` nor anything after it.
+    // The sibling rule above must not launder round 1's finding 6 back in, and
+    // neither does removing the abort: with nothing trailing the action, a host
+    // running `customActions: {}` — the `ScreenHost` default — reaches neither
+    // `onResolve` nor anything after it. (#266 costed this decision as
+    // "reverts to the generic OR walk". OR would credit this `onResolve` and
+    // re-open finding 6; what the decision removes is a third term the code
+    // never had.)
     expect(actionsCanComplete(gate({ onResolve: ["continue"] }))).toBe(false);
     expect(actionsCanComplete([...gate({ onResolve: ["continue"] })])).toBe(false);
   });
 
   it("counts a sibling BEFORE it, which runs whatever the handler does", () => {
     // `runActions` returns at the first completing action, so the custom never
-    // runs and the escape is unconditional.
+    // runs and the escape is unconditional — which is why everything before the
+    // barrier keeps the plain OR reading.
     expect(actionsCanComplete(["continue", ...gate({})])).toBe(true);
     expect(completingActionKind([{ type: "dismiss" }, ...gate({})])).toBe("dismiss");
   });

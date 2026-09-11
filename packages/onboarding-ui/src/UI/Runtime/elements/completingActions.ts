@@ -43,11 +43,10 @@ const listEscapes = (value: unknown): Set<EscapeAction> => {
   const before = new Set<EscapeAction>();
   for (let i = 0; i < value.length; i++) {
     const action = value[i];
-    // A `custom` action is a barrier: `runActions` returns false from its throw
-    // path, so what follows it in the same list is reachable on only two of the
-    // action's three paths and is handed on as `rest` to be weighed against
-    // them. Mirror of the headless walk — see the original for the full
-    // reasoning.
+    // A `custom` action is a barrier: its own escape is read with AND, and
+    // what follows it in the same list is reachable on each of its paths, so it
+    // is handed on as `rest` and counts toward both terms. Mirror of the
+    // headless walk — see the original for the full derivation.
     if (isRecord(action) && action.type === "custom") {
       return union(before, customActionEscapes(action, value.slice(i + 1)));
     }
@@ -75,22 +74,24 @@ const permissionAskEscapes = (action: Record<string, unknown>): Set<EscapeAction
 };
 
 /**
- * `custom` is read with AND across its outcomes too, and its throw path ABORTS
- * the enclosing list (#191, review round 1 finding 6 / round 2 findings 1 and
- * 5).
+ * `custom` is read with AND across its outcomes too (#191, review round 1
+ * finding 6 / round 2 findings 1 and 5).
  *
- * The conjunction is over the two paths that leave the list RUNNING —
- * `onResolve ∪ rest` (handler resolved) and `onError ∪ rest` (no handler
- * registered) — and NOT over the throw path, which the user can retry by
- * pressing again. See the headless `customActionEscapes` for why that
- * asymmetry, and for what requiring `onError` alone did to the classic
- * `[{custom}, "continue"]` payload.
+ * Since the semantics decision of 2026-09-11 (#191, #266) a failing handler no
+ * longer aborts the enclosing list, so there are exactly TWO paths and the
+ * conjunction covers both: `onResolve ∪ rest` (the handler resolved) and
+ * `onError ∪ rest` (it failed — a throw, a timed-out attempt, or a name the
+ * host never registered, all one rule). See the headless
+ * `customActionEscapes` for the full derivation and for what requiring
+ * `onError` alone did to the classic `[{custom}, "continue"]` payload.
  *
  * Mirror of the headless walk in both directions, and both have been wrong
  * once: round 1 landed the AND rule in the headless package only, so the two
  * disagreed about this PR's own async-gate shape and `runActions` advanced past
  * a screen the strip called a trap; round 2 then over-tightened both. The table
- * in `__tests__/requestPermission.test.ts` is what holds them equal.
+ * in `__tests__/requestPermission.test.ts` is what holds the two copies equal,
+ * and `__tests__/customActionEscapeCoherence.test.ts` is what holds this walk
+ * equal to what `runActions` actually does.
  */
 const customActionEscapes = (
   action: Record<string, unknown>,
@@ -98,9 +99,9 @@ const customActionEscapes = (
 ): Set<EscapeAction> => {
   const afterwards = listEscapes(rest);
   const resolved = union(listEscapes(action.onResolve), afterwards);
-  const unregistered = union(listEscapes(action.onError), afterwards);
-  if (!resolved.size || !unregistered.size) return new Set<EscapeAction>();
-  return union(resolved, unregistered);
+  const failed = union(listEscapes(action.onError), afterwards);
+  if (!resolved.size || !failed.size) return new Set<EscapeAction>();
+  return union(resolved, failed);
 };
 
 function actionEscapes(action: unknown): Set<EscapeAction> {

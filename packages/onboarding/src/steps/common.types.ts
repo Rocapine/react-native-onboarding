@@ -67,6 +67,25 @@ export type CustomActionRetry = {
   maxAttempts: number;
   /** Fixed pause between attempts, ms (0..10000). Defaults to 0. */
   delayMs?: number;
+  /**
+   * How long ONE attempt may take before it counts as failed, ms
+   * (1000..300000). Absent means UNBOUNDED — the behaviour before this field
+   * existed, and the right default: a legitimate LLM call can take 60s+, and
+   * cutting one off by default would be a worse bug than the hang (#264).
+   *
+   * The hang it prevents is a dead screen, not a slow one. The handler is
+   * awaited while the runtime holds this element's single-flight claim, so a
+   * promise that never settles leaves `actions.pending.<elementId>` reading
+   * `"true"` for the life of the screen — and the payload these docs recommend
+   * disables the CTA on exactly that, with no back chevron on a
+   * `displayProgressHeader: false` step.
+   *
+   * A timed-out attempt is an ordinary failed attempt: it retries if the budget
+   * allows, and otherwise runs `onError` like any other failure. Declaring a
+   * timeout without retries is `{ maxAttempts: 1, timeoutMs: … }` — the object
+   * is the attempt policy, and one attempt is a policy.
+   */
+  timeoutMs?: number;
 };
 
 export const CustomActionRetrySchema = z.object({
@@ -76,6 +95,11 @@ export const CustomActionRetrySchema = z.object({
     .min(1, "maxAttempts must be at least 1")
     .max(10, "maxAttempts must be at most 10"),
   delayMs: z.number().min(0).max(10000).optional(),
+  timeoutMs: z
+    .number()
+    .min(1000, "timeoutMs must be at least 1000 (no real handler answers faster)")
+    .max(300000, "timeoutMs must be at most 300000 (five minutes)")
+    .optional(),
 });
 
 export type CustomButtonAction = {
@@ -85,21 +109,34 @@ export type CustomButtonAction = {
   /**
    * Actions to run once the host handler's promise RESOLVES. Non-terminal: the
    * enclosing action list carries on afterwards, exactly as it does for a
-   * handler with no hooks. This is where the `"continue"` of an async gate
-   * belongs — putting it after the `custom` action in the same list advances
-   * whether or not the handler failed.
+   * handler with no hooks.
+   *
+   * This is where anything that must only happen ON SUCCESS belongs — writing
+   * the result into a variable a later screen reads, and the `"continue"` of a
+   * gate that must not advance on failure. A `"continue"` placed AFTER the
+   * `custom` action instead advances on every outcome, which is the right
+   * shape for "fire and move on" and the wrong one for a gate.
    */
   onResolve?: ButtonAction[];
   /**
-   * Actions to run when the handler throws and every attempt is spent.
+   * Actions to run when the handler FAILS — it threw with every attempt spent,
+   * an attempt exceeded `retry.timeoutMs`, or the `function` name is not
+   * registered on the host at all. One rule for all three.
    *
-   * TERMINAL for the enclosing list, with or without this hook: the pre-#191
-   * behaviour of an unhandled throw was "log and abort", and continuing past a
-   * failed generation into a trailing `"continue"` would send the user to a
-   * screen reading variables the handler never wrote. This is the one place
-   * `custom` deliberately diverges from `purchase`/`restore`, whose `onError`
-   * lets the list continue. The throw is still `console.error`ed either way —
-   * a declared hook is error UI, not a reason to lose the stack trace.
+   * NOT terminal, with or without this hook: the enclosing list carries on,
+   * exactly as `purchase`/`restore` do on their own `onError`. `custom` used to
+   * diverge here — a throw aborted the list — and that divergence is gone
+   * (semantics decisions 1 and 2, recorded on #191 on 2026-09-11; ticket #266).
+   * It cost more than it bought: two spellings of "on error" inside one action
+   * union behaving differently with nothing in the payload, the schema or the
+   * console to tell them apart, and the two `custom` failure modes disagreeing
+   * with each other. What the abort was protecting — a trailing `"continue"`
+   * walking the user onto a screen that reads variables the handler never wrote
+   * — is `onResolve`'s job, where the author says it rather than the runtime
+   * guessing it.
+   *
+   * The failure is still `console.error`ed whether or not this hook is declared
+   * — a declared hook is error UI, not a reason to lose the stack trace.
    */
   onError?: ButtonAction[];
   /** Bounded retry of the handler. Absent means one attempt, no retry. */

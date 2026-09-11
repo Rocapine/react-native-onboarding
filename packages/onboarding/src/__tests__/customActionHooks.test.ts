@@ -108,6 +108,61 @@ describe("CustomButtonAction schema — bounded retry", () => {
   });
 });
 
+// RNO#264 — `maxAttempts` bounds the NUMBER of attempts; nothing bounded ONE
+// attempt's duration, so a handler whose promise never settles held the
+// single-flight claim for the life of the screen and the documented
+// `disabledWhen: actions.pending.<id>` payload greyed the CTA out permanently.
+describe("CustomActionRetry schema — per-attempt timeoutMs (#264)", () => {
+  const retry = (retry: Record<string, unknown>) =>
+    CustomButtonActionSchema.safeParse({
+      type: "custom",
+      function: "generatePlan",
+      retry,
+    });
+
+  it("accepts a per-attempt timeout and keeps it", () => {
+    const parsed = retry({ maxAttempts: 3, delayMs: 400, timeoutMs: 15000 });
+    expect(parsed.success).toBe(true);
+    expect((parsed as any).data.retry).toEqual({
+      maxAttempts: 3,
+      delayMs: 400,
+      timeoutMs: 15000,
+    });
+  });
+
+  // A timeout without retries is the #264 repro itself — one attempt that never
+  // answers — so it must be authorable without pretending to want retries.
+  it("accepts a timeout on a single-attempt policy", () => {
+    const parsed = retry({ maxAttempts: 1, timeoutMs: 30000 });
+    expect(parsed.success).toBe(true);
+    expect((parsed as any).data.retry.timeoutMs).toBe(30000);
+  });
+
+  it("is optional — an absent timeout means unbounded, as before", () => {
+    const parsed = retry({ maxAttempts: 2 });
+    expect(parsed.success).toBe(true);
+    expect((parsed as any).data.retry.timeoutMs).toBeUndefined();
+  });
+
+  // A sub-second timeout cannot be met by any real network call, so it is a
+  // typo (milliseconds meant as seconds), not a policy.
+  it("rejects a timeout too short for any real handler", () => {
+    expect(retry({ maxAttempts: 1, timeoutMs: 0 }).success).toBe(false);
+    expect(retry({ maxAttempts: 1, timeoutMs: 250 }).success).toBe(false);
+  });
+
+  // Generous on purpose: a legitimate LLM call can take 60s+, and cutting one
+  // off would be a worse bug than the hang. Five minutes is the ceiling.
+  it("accepts a generous timeout and rejects one past the ceiling", () => {
+    expect(retry({ maxAttempts: 1, timeoutMs: 300000 }).success).toBe(true);
+    expect(retry({ maxAttempts: 1, timeoutMs: 300001 }).success).toBe(false);
+  });
+
+  it("rejects a non-numeric timeout", () => {
+    expect(retry({ maxAttempts: 1, timeoutMs: "5000" }).success).toBe(false);
+  });
+});
+
 describe("hasCompletingAction and a custom action's hooks (#209 guard)", () => {
   // Round 1 asserted the opposite of this — that `onResolve: ["continue"]` alone
   // makes the screen completable — and review round 1, finding 6 refuted it.
@@ -115,9 +170,8 @@ describe("hasCompletingAction and a custom action's hooks (#209 guard)", () => {
   // `customActions: {}`, and an unregistered name runs `onError` and whatever
   // follows the action, never `onResolve`. So a `"continue"` in `onResolve`
   // alone is not a way off the screen. Read with AND across the outcomes, like
-  // `requestPermission` (`completingActions.ts` — `customActionEscapes`) — but
-  // AND over the two paths that leave the list running, not over the throw path
-  // as well; the case below is where that distinction is load-bearing.
+  // `requestPermission` (`completingActions.ts` — `customActionEscapes`), over
+  // the action's two paths: the handler resolved, and the handler failed.
   const cta = (actions: unknown[]) => [
     { type: "Button", id: "cta", props: { label: "Generate", actions } },
   ];
@@ -146,10 +200,12 @@ describe("hasCompletingAction and a custom action's hooks (#209 guard)", () => {
   });
 
   it("counts a sibling continue after the custom action", () => {
-    // The trailing `"continue"` runs on both paths that leave the list running
-    // — handler resolved, and no handler registered — so it IS the screen's way
-    // forward. Only the throw path skips it, and a throw is the one outcome the
-    // user can retry by pressing again (the `purchase`/`restore` reading).
+    // The trailing `"continue"` runs on both of the action's paths — handler
+    // resolved, and handler failed however it failed — so it IS the screen's
+    // way forward. It used to be reachable on only two of three paths, the
+    // throw path having aborted the list; the semantics decision of 2026-09-11
+    // removed that path, so this row no longer rests on a retryability
+    // argument.
     //
     // Round 2 of this PR required `onError` here, which read every
     // `[{custom}, "continue"]` payload in the field as a trap: Studio's action

@@ -47,7 +47,8 @@ export type ButtonElementProps = BaseBoxProps & {
   label: string;
   /**
    * Ordered list of actions to run on press. Sequential, await async handlers,
-   * abort on error, `"continue"` is terminal.
+   * `"continue"` is terminal. A failing action runs its own `onError` hook and
+   * the list carries on.
    */
   actions?: ButtonAction[];
   /**

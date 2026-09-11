@@ -130,7 +130,8 @@ describe("actionsCanComplete — headless ↔ UI mirror parity", () => {
     [{ type: "custom", function: "gen", onError: ["continue"] }],
     [{ type: "custom", function: "gen", onResolve: ["continue"], onError: ["continue"] }],
     [{ type: "custom", function: "gen", onResolve: [{ type: "dismiss" }], onError: ["continue"] }],
-    // The sibling-after-a-custom trap: the throw path aborts before it.
+    // A sibling AFTER a custom action: it runs on both of the action's paths,
+    // so it counts for both terms of the conjunction.
     [{ type: "custom", function: "gen" }, "continue"],
     [{ type: "custom", function: "gen", onError: ["continue"] }, "continue"],
     ["continue", { type: "custom", function: "gen" }],

@@ -16,6 +16,12 @@ export type CustomActionRetry = {
   maxAttempts: number;
   /** Fixed pause between attempts, ms (0..10000). Defaults to 0. */
   delayMs?: number;
+  /**
+   * How long ONE attempt may take before it counts as failed, ms
+   * (1000..300000). Absent means unbounded — see the headless doc comment for
+   * why that is the right default and what the bounded case prevents (#264).
+   */
+  timeoutMs?: number;
 };
 
 export const CustomActionRetrySchema = z.object({
@@ -25,6 +31,11 @@ export const CustomActionRetrySchema = z.object({
     .min(1, "maxAttempts must be at least 1")
     .max(10, "maxAttempts must be at most 10"),
   delayMs: z.number().min(0).max(10000).optional(),
+  timeoutMs: z
+    .number()
+    .min(1000, "timeoutMs must be at least 1000 (no real handler answers faster)")
+    .max(300000, "timeoutMs must be at most 300000 (five minutes)")
+    .optional(),
 });
 
 export type CustomButtonAction = {
@@ -33,14 +44,15 @@ export type CustomButtonAction = {
   variables?: string[];
   /**
    * Runs once the host handler's promise RESOLVES. Non-terminal — the
-   * enclosing list carries on. An async gate's `"continue"` belongs here, not
-   * after the `custom` action, where it would advance on failure too.
+   * enclosing list carries on. A gate's `"continue"` belongs here, not after
+   * the `custom` action, where it would advance on failure too.
    */
   onResolve?: ButtonAction[];
   /**
-   * Runs when the handler throws and every attempt is spent. TERMINAL for the
-   * enclosing list with or without this hook — `custom` diverges from
-   * `purchase`/`restore` here, deliberately; see the headless doc comment.
+   * Runs when the handler FAILS: a throw with every attempt spent, an attempt
+   * past `retry.timeoutMs`, or an unregistered `function` name. Not terminal —
+   * the enclosing list carries on, as it does for `purchase`/`restore`. See the
+   * headless doc comment for why the abort went (#191 / #266).
    */
   onError?: ButtonAction[];
   /** Bounded retry of the handler. Absent means one attempt, no retry. */

@@ -29,12 +29,24 @@ import { resolveRenderableStep } from "../../../../../onboarding/src/screens/res
  * advice ("declare `onError`") is not yet available to anybody whose payload is
  * already in the field.
  *
- * Deliberate divergences from the base live elsewhere on purpose — see
- * `packages/onboarding/src/__tests__/customActionHooks.test.ts`, where
- * `{custom, onResolve: ["continue"]}` alone is asserted NOT to be a way off the
- * screen (that one IS #191's headline, and it is a change from the base). This
- * file holds only what must not have moved, so it stays runnable against
- * `cb4a7d5` verbatim.
+ * Deliberate divergences from the base live elsewhere on purpose. There are
+ * two, and both are asserted where they belong rather than here:
+ *
+ *  - `{custom, onResolve: ["continue"]}` alone is NOT a way off the screen
+ *    (`packages/onboarding/src/__tests__/customActionHooks.test.ts`) — #191's
+ *    headline.
+ *  - A THROWN handler no longer aborts its list (semantics decision 1, recorded
+ *    on #191 on 2026-09-11; `runActions.test.ts` and
+ *    `customActionEscapeCoherence.test.ts`). Measured on
+ *    `[{custom throws}, "continue"]`: **0** `onContinue` calls at `cb4a7d5`,
+ *    **1** now. Nothing in THIS file moved with it, because no row here runs a
+ *    throwing handler — the two rescue rows use the default `customActions: {}`
+ *    (the unregistered path, which already continued at the base and still
+ *    does), and the three #209 rows are static walks. Re-measured by copying
+ *    this file into a detached `cb4a7d5` worktree: 5 passed, unchanged.
+ *
+ * So this file still holds only what must not have moved, and still runs
+ * against `cb4a7d5` verbatim.
  */
 
 const makeCtx = (overrides: Partial<RenderContext> = {}): RenderContext => {

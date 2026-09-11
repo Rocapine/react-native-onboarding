@@ -477,20 +477,19 @@ describe("runActions — a terminal nested action ends the whole press", () => {
 /**
  * Review round 2, finding 2 — the OTHER half of the return contract.
  *
- * A `custom` handler that throws has always aborted the rest of ITS list: the
- * host's code failed, so the actions the author sequenced after it are running
- * on a state nobody can vouch for. Round 1's propagation fix accidentally
- * widened that to the whole press, and the two are not the same thing. A
- * throwing analytics call in `purchase.onSuccess` would then eat the trailing
- * `"continue"` and strand a user who had ALREADY PAID on the paywall, with
- * re-pressing re-running `purchase()`.
+ * `true` from the recursion means THE SCREEN IS GONE, and a failed handler
+ * leaves it very much present. Round 1's propagation fix briefly conflated the
+ * two: a throwing analytics call in `purchase.onSuccess` returned `true` and
+ * ate the trailing `"continue"`, stranding a user who had ALREADY PAID on the
+ * paywall, with re-pressing re-running `purchase()`.
  *
- * So: a terminal action propagates outward (the screen really is gone), an
- * abort does not (the screen is still there, and an outer escape is still the
- * author's). `false` from the recursion says "not completed", which is the only
- * thing the outer loop needs to know.
+ * So a terminal action propagates outward and a failure does not — `false` says
+ * "not completed", which is the only thing the outer loop needs to know. Since
+ * the semantics decision on #191 a failure does not stop the enclosing list
+ * either (see the `custom onError` block below); this block is about the return
+ * VALUE, which is unchanged.
  */
-describe("runActions — a throwing custom handler aborts its own list only", () => {
+describe("runActions — a failed custom handler never reports the screen complete", () => {
   it("still runs a trailing continue after a nested handler throws", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const onContinue = vi.fn();
@@ -545,9 +544,11 @@ describe("runActions — a throwing custom handler aborts its own list only", ()
     error.mockRestore();
   });
 
-  // Unchanged, and the reason the abort exists at all: within one list, nothing
-  // after a thrown handler runs.
-  it("does not run the rest of its own list after throwing", async () => {
+  // Semantics decision 1 (#191, 2026-09-11) INVERTED this one: the rest of the
+  // list used to be dropped, and now runs. The return value is what did not
+  // move — `false`, because nothing completed the screen — which is the whole
+  // point of keeping the two apart.
+  it("runs the rest of its own list after throwing, still reporting false", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const ctx = makeCtx({
       customActions: {
@@ -565,7 +566,7 @@ describe("runActions — a throwing custom handler aborts its own list only", ()
         ctx
       )
     ).resolves.toBe(false);
-    expect(ctx.getVariables().after).toBeUndefined();
+    expect(ctx.getVariables().after?.value).toBe("written");
     error.mockRestore();
   });
 });
@@ -573,12 +574,12 @@ describe("runActions — a throwing custom handler aborts its own list only", ()
 // ── RNO#191 — declarative async gate ────────────────────────────────────────
 //
 // `custom` gets the nested-`ButtonAction[]` outcome hooks `purchase`/`restore`
-// already carry, plus a bounded retry. The one deliberate divergence from
-// `purchase` is documented on each test below: an error is TERMINAL for the
-// outer list whether or not `onError` is declared, because "log and abort" is
-// the behaviour the absent-hook case has to keep and quietly falling through
-// into a trailing `"continue"` after a failed generation is worse than
-// stopping.
+// already carry, plus a bounded retry. There is NO divergence from `purchase`
+// left: a failure runs `onError` and the enclosing list carries on, whether the
+// handler threw, never settled, or was never registered (semantics decisions 1
+// and 2, recorded on #191 on 2026-09-11; #266 is the ticket). What must only
+// run on success goes in `onResolve` — that, not an abort, is how an author
+// keeps a trailing `"continue"` off the failure path.
 
 describe("runActions — custom onResolve", () => {
   it("runs onResolve after the handler resolves", async () => {
@@ -662,10 +663,12 @@ describe("runActions — custom onError", () => {
     error.mockRestore();
   });
 
-  // The divergence from `purchase`: a declared onError replaces the silence,
-  // not the abort. A trailing "continue" after a failed generation would send
-  // the user to a screen that reads a variable the handler never wrote.
-  it("aborts the rest of the outer list after onError", async () => {
+  // Decision 1, and the assertion that used to read `not.toHaveBeenCalled()`.
+  // A declared `onError` replaces the silence; it stops nothing. The reason the
+  // abort went: `custom` was the only action in the union where a declared
+  // error hook dropped the rest of the list, so two spellings of "on error"
+  // behaved differently with no signal anywhere (#266).
+  it("keeps running the outer list after onError", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const onContinue = vi.fn();
     const ctx = makeCtx({
@@ -688,12 +691,40 @@ describe("runActions — custom onError", () => {
       ctx
     );
     expect(ctx.getVariables().planError?.value).toBe("true");
-    expect(onContinue).not.toHaveBeenCalled();
+    expect(onContinue).toHaveBeenCalledTimes(1);
     error.mockRestore();
   });
 
-  // Pre-#191 behaviour, pinned: no hook means log and abort.
-  it("still logs and aborts when no onError is declared", async () => {
+  // An escaping `onError` beside a trailing `"continue"` is the double-fire
+  // shape #266 named as the hazard this decision imports from `purchase`. It
+  // does not fire twice, because the recursion propagates: `onError`'s
+  // `"continue"` returns `true` and the outer loop stops there.
+  it("does not complete twice when onError escapes and a continue trails it", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const onContinue = vi.fn();
+    await runActions(
+      [
+        { type: "custom", function: "generatePlan", onError: ["continue"] },
+        "continue",
+      ],
+      makeCtx({
+        onContinue,
+        customActions: {
+          generatePlan: vi.fn(async () => {
+            throw new Error("boom");
+          }),
+        },
+      })
+    );
+    expect(onContinue).toHaveBeenCalledTimes(1);
+    error.mockRestore();
+  });
+
+  // Pre-#191 behaviour, restored by decision 1: no hook means log and move on,
+  // so `[{custom}, "continue"]` — the only `custom` shape Studio can author
+  // until `rocapine/onboarding-studio#288` lands — stays navigable whatever the
+  // handler does.
+  it("still logs, and lets a trailing continue advance, with no onError declared", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const onContinue = vi.fn();
     const ctx = makeCtx({
@@ -708,7 +739,7 @@ describe("runActions — custom onError", () => {
       [{ type: "custom", function: "generatePlan" }, "continue"],
       ctx
     );
-    expect(onContinue).not.toHaveBeenCalled();
+    expect(onContinue).toHaveBeenCalledTimes(1);
     expect(error).toHaveBeenCalled();
     error.mockRestore();
   });
@@ -800,6 +831,177 @@ describe("runActions — custom bounded retry", () => {
     expect(handler).toHaveBeenCalledTimes(3);
     error.mockRestore();
     warn.mockRestore();
+  });
+});
+
+/**
+ * RNO#264 — `retry.timeoutMs` bounds ONE attempt's duration.
+ *
+ * The bug it closes is a DEAD screen, not a slow one: a handler whose promise
+ * never settles is awaited while `runGuardedActions` holds the single-flight
+ * claim, so `actions.pending.<elementId>` reads `"true"` for the life of the
+ * screen — and the payload the docs recommend disables the CTA on exactly that,
+ * with no back chevron on a `displayProgressHeader: false` step. Neither
+ * `onResolve` nor `onError` ever ran.
+ *
+ * The timeouts below are milliseconds where the schema's floor is 1000ms:
+ * `runActions` does not re-validate its input (nothing in this file is parsed),
+ * and a suite that waited a real second per case would be paid for on every CI
+ * run. The floor is asserted where it lives, in
+ * `packages/onboarding/src/__tests__/customActionHooks.test.ts`.
+ */
+describe("runActions — custom per-attempt timeout (#264)", () => {
+  /** The shape of the bug: a promise nobody will ever settle. */
+  const hangs = () => new Promise<void>(() => {});
+
+  it("treats an attempt that never settles as a failure and runs onError", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const ctx = makeCtx({ customActions: { generatePlan: vi.fn(hangs) } });
+    await runActions(
+      [
+        {
+          type: "custom",
+          function: "generatePlan",
+          retry: { maxAttempts: 1, timeoutMs: 20 },
+          onError: [{ type: "setVariable", name: "planError", value: "true" }],
+        },
+      ] as never,
+      ctx
+    );
+    expect(ctx.getVariables().planError?.value).toBe("true");
+    expect(error).toHaveBeenCalled();
+    error.mockRestore();
+  });
+
+  // The log has to say WHICH failure it was: "threw" sends a host developer
+  // looking for an exception that does not exist.
+  it("says the handler did not settle, not that it threw", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    await runActions(
+      [
+        {
+          type: "custom",
+          function: "generatePlan",
+          retry: { maxAttempts: 1, timeoutMs: 20 },
+        },
+      ] as never,
+      makeCtx({ customActions: { generatePlan: vi.fn(hangs) } })
+    );
+    expect(error).toHaveBeenCalledWith(
+      expect.stringContaining("did not settle in time"),
+      expect.anything()
+    );
+    error.mockRestore();
+  });
+
+  it("does not run onResolve — nothing resolved", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const onContinue = vi.fn();
+    await runActions(
+      [
+        {
+          type: "custom",
+          function: "generatePlan",
+          retry: { maxAttempts: 1, timeoutMs: 20 },
+          onResolve: ["continue"],
+        },
+      ] as never,
+      makeCtx({ onContinue, customActions: { generatePlan: vi.fn(hangs) } })
+    );
+    expect(onContinue).not.toHaveBeenCalled();
+    error.mockRestore();
+  });
+
+  // A timed-out attempt is a FAILED attempt, so the retry budget covers it —
+  // otherwise a single hang would spend the whole press.
+  it("counts a timed-out attempt against the retry budget and can recover", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    let attempts = 0;
+    const handler = vi.fn(() => {
+      attempts += 1;
+      return attempts === 1 ? hangs() : Promise.resolve();
+    });
+    const ctx = makeCtx({ customActions: { generatePlan: handler } });
+    await runActions(
+      [
+        {
+          type: "custom",
+          function: "generatePlan",
+          retry: { maxAttempts: 2, timeoutMs: 20 },
+          onResolve: [{ type: "setVariable", name: "planReady", value: "true" }],
+        },
+      ] as never,
+      ctx
+    );
+    expect(handler).toHaveBeenCalledTimes(2);
+    expect(ctx.getVariables().planReady?.value).toBe("true");
+    warn.mockRestore();
+  });
+
+  // Absent `timeoutMs` must stay unbounded: an LLM call can legitimately take
+  // 60s+, and a default cut-off would be a worse bug than the hang.
+  it("does not bound an attempt when no timeout is declared", async () => {
+    const handler = vi.fn(async () => {
+      await new Promise<void>((r) => setTimeout(r, 40));
+    });
+    const ctx = makeCtx({ customActions: { generatePlan: handler } });
+    await runActions(
+      [
+        {
+          type: "custom",
+          function: "generatePlan",
+          retry: { maxAttempts: 1 },
+          onResolve: [{ type: "setVariable", name: "planReady", value: "true" }],
+        },
+      ] as never,
+      ctx
+    );
+    expect(ctx.getVariables().planReady?.value).toBe("true");
+  });
+
+  // A handler that settles well inside its timeout must not be delayed by it,
+  // and must not leave a pending timer holding the event loop open.
+  it("resolves immediately when the handler beats the timeout", async () => {
+    const started = Date.now();
+    const ctx = makeCtx({ customActions: { generatePlan: vi.fn(async () => {}) } });
+    await runActions(
+      [
+        {
+          type: "custom",
+          function: "generatePlan",
+          retry: { maxAttempts: 1, timeoutMs: 5000 },
+          onResolve: [{ type: "setVariable", name: "planReady", value: "true" }],
+        },
+      ] as never,
+      ctx
+    );
+    expect(ctx.getVariables().planReady?.value).toBe("true");
+    expect(Date.now() - started).toBeLessThan(1000);
+  });
+
+  // The point of the whole field: the claim is released, so the CTA comes back.
+  // Before it, this second press was dropped forever.
+  it("releases the in-flight claim, so the CTA works again", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const registry = createInFlightRegistry(() => {});
+    const handler = vi.fn(hangs);
+    const ctx = makeCtx({
+      customActions: { generatePlan: handler },
+      beginActions: registry.claim,
+      endActions: registry.release,
+    } as Partial<RenderContext>);
+    const actions = [
+      {
+        type: "custom",
+        function: "generatePlan",
+        retry: { maxAttempts: 1, timeoutMs: 20 },
+      },
+    ] as never;
+
+    await runGuardedActions("cta", actions, ctx);
+    await runGuardedActions("cta", actions, ctx);
+    expect(handler).toHaveBeenCalledTimes(2);
+    error.mockRestore();
   });
 });
 

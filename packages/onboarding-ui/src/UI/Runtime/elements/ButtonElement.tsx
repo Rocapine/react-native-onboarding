@@ -20,7 +20,7 @@ import {
   type ButtonAction,
   ButtonActionSchema,
 } from "./actions";
-import { runActions } from "./runActions";
+import { runGuardedActions } from "./runActions";
 
 // `ButtonAction` and its variants live in `./actions` (shared with the generic
 // `onPress` on BaseBoxProps). Re-exported for back-compat.
@@ -123,7 +123,10 @@ export const ButtonElementComponent = ({ element, ctx }: Props): React.ReactElem
     const { actions, action } = element.props;
     const effective: ButtonAction[] =
       actions ?? (action === "continue" ? ["continue"] : []);
-    await runActions(effective, ctx);
+    // Single-flight per button id (#191): a second tap during a slow `custom`
+    // handler used to run it again. Also publishes `actions.pending.<id>` while
+    // it runs, so a payload can render its own pending state.
+    await runGuardedActions(element.id, effective, ctx);
   };
 
   // State overrides are merged over base props. disabledStyle wins over the

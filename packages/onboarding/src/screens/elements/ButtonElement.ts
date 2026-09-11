@@ -16,6 +16,8 @@ import {
 export {
   type CustomButtonAction,
   CustomButtonActionSchema,
+  type CustomActionRetry,
+  CustomActionRetrySchema,
   type SetVariableButtonAction,
   SetVariableButtonActionSchema,
   type RequestPermissionButtonAction,

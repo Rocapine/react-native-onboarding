@@ -6,17 +6,57 @@ import { z } from "zod";
 // on it without an import cycle. Shared by `Button.actions` and the generic
 // `onPress` on every UIElement.
 
+/**
+ * Bounded retry for a `custom` action (#191). The cap is REQUIRED and small —
+ * see the headless `common.types.ts` doc comment for why there is no
+ * "retry until it works" spelling.
+ */
+export type CustomActionRetry = {
+  /** TOTAL attempts, counting the first. 1..10. */
+  maxAttempts: number;
+  /** Fixed pause between attempts, ms (0..10000). Defaults to 0. */
+  delayMs?: number;
+};
+
+export const CustomActionRetrySchema = z.object({
+  maxAttempts: z
+    .number()
+    .int("maxAttempts must be a whole number of attempts")
+    .min(1, "maxAttempts must be at least 1")
+    .max(10, "maxAttempts must be at most 10"),
+  delayMs: z.number().min(0).max(10000).optional(),
+});
+
 export type CustomButtonAction = {
   type: "custom";
   function: string;
   variables?: string[];
+  /**
+   * Runs once the host handler's promise RESOLVES. Non-terminal — the
+   * enclosing list carries on. An async gate's `"continue"` belongs here, not
+   * after the `custom` action, where it would advance on failure too.
+   */
+  onResolve?: ButtonAction[];
+  /**
+   * Runs when the handler throws and every attempt is spent. TERMINAL for the
+   * enclosing list with or without this hook — `custom` diverges from
+   * `purchase`/`restore` here, deliberately; see the headless doc comment.
+   */
+  onError?: ButtonAction[];
+  /** Bounded retry of the handler. Absent means one attempt, no retry. */
+  retry?: CustomActionRetry;
 };
 
-export const CustomButtonActionSchema = z.object({
-  type: z.literal("custom"),
-  function: z.string().min(1, "function must not be empty"),
-  variables: z.array(z.string()).optional(),
-});
+export const CustomButtonActionSchema: z.ZodType<CustomButtonAction> = z.lazy(() =>
+  z.object({
+    type: z.literal("custom"),
+    function: z.string().min(1, "function must not be empty"),
+    variables: z.array(z.string()).optional(),
+    onResolve: z.array(ButtonActionSchema).optional(),
+    onError: z.array(ButtonActionSchema).optional(),
+    retry: CustomActionRetrySchema.optional(),
+  })
+);
 
 export type SetVariableButtonAction = {
   type: "setVariable";

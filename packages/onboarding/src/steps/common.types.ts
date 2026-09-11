@@ -53,17 +53,69 @@ export type HapticStyle = z.infer<typeof HapticStyleSchema>;
 // `{type:"presentPaywall"}` (asks the host to present a paywall by placement —
 // works from an onboarding step or a paywall alike).
 
+/**
+ * Bounded retry for a `custom` action (#191). The cap is REQUIRED and small:
+ * an onboarding gate that keeps hammering a dead service just holds the user on
+ * a screen that never resolves, so there is deliberately no "retry until it
+ * works" spelling.
+ */
+export type CustomActionRetry = {
+  /**
+   * TOTAL attempts, counting the first — `2` means "try once, retry once".
+   * 1..10. Absent `retry` is the default and means exactly one attempt.
+   */
+  maxAttempts: number;
+  /** Fixed pause between attempts, ms (0..10000). Defaults to 0. */
+  delayMs?: number;
+};
+
+export const CustomActionRetrySchema = z.object({
+  maxAttempts: z
+    .number()
+    .int("maxAttempts must be a whole number of attempts")
+    .min(1, "maxAttempts must be at least 1")
+    .max(10, "maxAttempts must be at most 10"),
+  delayMs: z.number().min(0).max(10000).optional(),
+});
+
 export type CustomButtonAction = {
   type: "custom";
   function: string;
   variables?: string[];
+  /**
+   * Actions to run once the host handler's promise RESOLVES. Non-terminal: the
+   * enclosing action list carries on afterwards, exactly as it does for a
+   * handler with no hooks. This is where the `"continue"` of an async gate
+   * belongs — putting it after the `custom` action in the same list advances
+   * whether or not the handler failed.
+   */
+  onResolve?: ButtonAction[];
+  /**
+   * Actions to run when the handler throws and every attempt is spent.
+   *
+   * TERMINAL for the enclosing list, with or without this hook: the pre-#191
+   * behaviour of an unhandled throw was "log and abort", and continuing past a
+   * failed generation into a trailing `"continue"` would send the user to a
+   * screen reading variables the handler never wrote. This is the one place
+   * `custom` deliberately diverges from `purchase`/`restore`, whose `onError`
+   * lets the list continue. The throw is still `console.error`ed either way —
+   * a declared hook is error UI, not a reason to lose the stack trace.
+   */
+  onError?: ButtonAction[];
+  /** Bounded retry of the handler. Absent means one attempt, no retry. */
+  retry?: CustomActionRetry;
 };
 
-export const CustomButtonActionSchema = z.object({
-  type: z.literal("custom"),
-  function: z.string().min(1, "function must not be empty"),
-  variables: z.array(z.string()).optional(),
-});
+export const CustomButtonActionSchema: z.ZodType<CustomButtonAction> = z.lazy(() =>
+  z.object({
+    type: z.literal("custom"),
+    function: z.string().min(1, "function must not be empty"),
+    variables: z.array(z.string()).optional(),
+    onResolve: z.array(ButtonActionSchema).optional(),
+    onError: z.array(ButtonActionSchema).optional(),
+    retry: CustomActionRetrySchema.optional(),
+  })
+);
 
 export type SetVariableButtonAction = {
   type: "setVariable";

@@ -30,8 +30,10 @@ function decodeArrayValue(raw: string | undefined): string[] {
 //   - {setVariable}  → write a variable (expression-evaluated when valueMode === "expression").
 //   - {custom}       → invoke the host-registered customAction with the requested
 //                      variables plus a `setVariable` setter (so the handler can
-//                      write back into the context); warns if unregistered, aborts
-//                      the loop on throw.
+//                      write back into the context); warns if unregistered.
+//                      Retried up to `retry.maxAttempts` times; then `onResolve`
+//                      (non-terminal) or `onError` (terminal — a throw always
+//                      aborts the rest of the list, hook or no hook).
 //   - {dismiss}      → finish the screen with a `{status:"dismissed"}` outcome;
 //                      terminal (stops the loop), same as "continue".
 //   - {presentPaywall} → ask the host to present a paywall by placement; warns
@@ -316,24 +318,78 @@ export async function runActions(
     const requested = act.variables ?? [];
     const vars: Record<string, ComposableVariableEntry | undefined> = {};
     for (const name of requested) vars[name] = variables[name];
-    try {
-      await handler({ variables: vars, setVariable });
-    } catch (err) {
-      console.error(
-        `[ComposableScreen] customAction "${act.function}" threw:`,
-        err
-      );
-      // Abort THIS list, and only this list — the pre-existing behaviour, kept
-      // deliberately (review round 2, finding 2). Round 1 returned `true` here
-      // so the abort propagated out of every recursion, which conflated the two
-      // meanings of the return value: `true` says "the screen is GONE", and a
-      // thrown handler leaves it very much present. A throwing analytics call in
-      // `purchase.onSuccess` then ate the trailing `"continue"` and stranded a
-      // user who had already paid on the paywall, with a second press
-      // re-running `purchase()`. `false` = "not completed", so an outer list
-      // carries on and the author's own escape still runs.
-      return false;
+
+    // The variables handed to the handler are the PRESS-TIME snapshot, and a
+    // retry reuses it rather than re-reading: an attempt is a repeat of the
+    // same request, not a new one. `setVariable` still writes through live.
+    const maxAttempts = act.retry?.maxAttempts ?? 1;
+    const delayMs = act.retry?.delayMs ?? 0;
+    let resolved = false;
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        await handler({ variables: vars, setVariable });
+        resolved = true;
+        break;
+      } catch (err) {
+        lastError = err;
+        if (attempt < maxAttempts) {
+          console.warn(
+            `[ComposableScreen] customAction "${act.function}" threw on attempt ${attempt}/${maxAttempts}; retrying`,
+            err
+          );
+          if (delayMs > 0) await sleep(delayMs);
+        }
+      }
     }
+
+    if (resolved) {
+      if (act.onResolve) await runActions(act.onResolve, ctx);
+      continue;
+    }
+
+    // Logged even when `onError` is declared: a thrown handler is an exception,
+    // and a declared hook is error UI, not a reason to lose the stack trace.
+    console.error(
+      `[ComposableScreen] customAction "${act.function}" threw${
+        maxAttempts > 1 ? ` on all ${maxAttempts} attempts` : ""
+      }:`,
+      lastError
+    );
+    if (act.onError) await runActions(act.onError, ctx);
+    // Terminal either way — see `CustomButtonAction.onError` in ./actions.ts.
+    return;
+  }
+}
+
+const sleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * `runActions` for a pressable element, with the runtime's single-flight guard
+ * (#191). A second press while the first list is still awaiting is DROPPED —
+ * before it, a tap during a slow `custom` handler ran the handler again.
+ *
+ * While the claim is held, `actions.pending` and `actions.pending.<elementId>`
+ * read `"true"` in the variable bag, so a payload can gate a spinner or disable
+ * the CTA through `renderWhen`/`disabledWhen` with no host code (see
+ * `Runtime/inFlight.ts`).
+ *
+ * The release is in a `finally`: a handler that rejects must not leave the
+ * button permanently dead. `runActions` swallows a handler throw itself, but a
+ * bug anywhere else in the list would escape, and a dead CTA is worse than a
+ * crash the host's ErrorBoundary can see.
+ */
+export async function runGuardedActions(
+  elementId: string,
+  actions: ButtonAction[],
+  ctx: RenderContext
+): Promise<void> {
+  if (!ctx.beginActions(elementId)) return;
+  try {
+    await runActions(actions, ctx);
+  } finally {
+    ctx.endActions(elementId);
   }
   // Ran to the end without completing the screen.
   return false;

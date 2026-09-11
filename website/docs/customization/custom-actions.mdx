@@ -11,7 +11,7 @@ Wire developer-defined functions to `ComposableScreen` `Button` presses. Run ana
 Each `Button` element in a `ComposableScreen` carries an ordered `actions` array. The runtime walks the array on press, executing each entry sequentially:
 
 - `"continue"` — advances the onboarding (terminal — anything after is ignored).
-- `{ type: "custom", function: "<name>", variables?: ["<key>", ...], onResolve?: ButtonAction[], onError?: ButtonAction[], retry?: { maxAttempts: number, delayMs?: number } }` — invokes a handler you registered on `OnboardingProvider.customActions`. Listed variables are read from the live ComposableScreen variable map and forwarded to the handler. See [Async gates](#async-gates-onresolve-onerror-retry-and-the-pending-state) for the outcome hooks.
+- `{ type: "custom", function: "<name>", variables?: ["<key>", ...], onResolve?: ButtonAction[], onError?: ButtonAction[], retry?: { maxAttempts: number, delayMs?: number, timeoutMs?: number } }` — invokes a handler you registered on `OnboardingProvider.customActions`. Listed variables are read from the live ComposableScreen variable map and forwarded to the handler. See [Async gates](#async-gates-onresolve-onerror-retry-and-the-pending-state) for the outcome hooks.
 - `{ type: "setVariable", name: "<key>", value: "<value>", label?: "<label>", valueMode?, kind?, arrayOp? }` — writes directly to the variable map (`{ value, label }` shape, matching `Input` / `RadioGroup` / `CheckboxGroup` / `DatePicker`). Useful to capture which branch a user chose before a following `"continue"` triggers `resolveNextStepNumber`.
   - `valueMode: "expression"` (default `"literal"`) evaluates `value` as an expression over `{{var}}` references — arithmetic plus a small stdlib (`min max abs round clamp addDays format list join count plural`) — instead of storing it verbatim.
   - `kind: "int" | "float" | "string"` types the stored value; it decides how a later numeric comparison reads it.
@@ -34,7 +34,7 @@ type ButtonAction =
       variables?: string[];
       onResolve?: ButtonAction[];
       onError?: ButtonAction[];
-      retry?: { maxAttempts: number; delayMs?: number };
+      retry?: { maxAttempts: number; delayMs?: number; timeoutMs?: number };
     }
   | {
       type: "setVariable";
@@ -133,10 +133,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 | **Order** | Sequential — each action awaits the prior. |
 | **Async** | Returned `Promise` is awaited. |
 | **`"continue"`** | Terminal — chain stops. Place `"continue"` last. |
-| **Thrown error** | `console.error` and chain aborts (subsequent actions, including `"continue"`, do not run) — with or without an `onError` hook. |
-| **Retry** | None by default. `retry: { maxAttempts }` re-invokes the same handler with the same press-time variables, up to `maxAttempts` total attempts. |
+| **Thrown error** | `console.error`, `onError` runs if declared, and the chain carries on to the next action — the same as `purchase`/`restore`. |
+| **Handler never settles** | Only bounded if `retry.timeoutMs` is declared. A timed-out attempt is a failed attempt: it retries if the budget allows, else `console.error` + `onError`. Without it the press waits forever and the CTA stays disabled. |
+| **Retry** | None by default. `retry: { maxAttempts }` re-invokes the same handler with the same press-time variables, up to `maxAttempts` total attempts; `delayMs` pauses between them, `timeoutMs` bounds each one. |
 | **Re-entrancy** | A second press on the same element while its list is still running is dropped. |
 | **Unknown handler name** | `console.error`, `onError` runs if declared (`onResolve` does not — nothing resolved), and the chain carries on to the next action. |
+| **Every failure is one rule** | A throw, a timeout and an unregistered name do the same thing: log, run `onError`, keep going. What must only run on success goes in `onResolve`. |
 | **Empty array / no `actions` / no legacy `action`** | Press is a no-op. |
 
 ## Variable shape by element
@@ -184,7 +186,7 @@ customActions={{
       name: variables.name?.value,
       email: variables.email?.value,
     });
-    if (!res.ok) throw new Error("validation failed"); // aborts chain → "continue" skipped
+    if (!res.ok) throw new Error("validation failed"); // runs onError; the chain carries on
   },
 }}
 ```
@@ -209,8 +211,9 @@ payload — no host code beyond the handler itself.
         "function": "generatePlan",
         "variables": ["goal"],
         // 1. Bounded retry. `maxAttempts` counts the FIRST attempt, so this is
-        //    one call plus two retries, 500ms apart.
-        "retry": { "maxAttempts": 3, "delayMs": 500 },
+        //    one call plus two retries, 500ms apart, and no single attempt may
+        //    run longer than 20s.
+        "retry": { "maxAttempts": 3, "delayMs": 500, "timeoutMs": 20000 },
         // 2. Outcome hooks, the same nested shape `purchase` and `restore` use.
         "onResolve": ["continue"],
         "onError": [{ "type": "setVariable", "name": "planError", "value": "true" }]
@@ -230,32 +233,42 @@ payload — no host code beyond the handler itself.
   "props": { "content": "Could not reach the service. Tap to try again." } }
 ```
 
-**Put `"continue"` in `onResolve`, not after the action.** A `"continue"` that
-follows the `custom` action in the same list is what an async gate looks like
-until the service fails — an error aborts the list, so it silently does not run,
-and the two spellings only differ once you add a hook. Inside `onResolve` the
-intent is explicit and survives a reader.
+**Put `"continue"` in `onResolve` when it must NOT run on failure.** Every
+failure — a throw, a timed-out attempt, an unregistered handler name — runs
+`onError` and then lets the enclosing list carry on, so a `"continue"` placed
+after the `custom` action advances on every outcome. That is the right shape for
+"fire a side effect and move on" and the wrong one for a gate whose next screen
+reads what the handler produced. The two spellings are different intents, not a
+style choice:
 
-**`onError` is terminal; `purchase`'s is not.** A declared `onError` replaces the
-silence, not the abort: the rest of the enclosing list is still skipped, because
-continuing past a failed generation sends the user to a screen reading variables
-the handler never wrote. The throw is `console.error`ed either way — a hook is
-error UI, not a reason to lose the stack trace.
+- `"onResolve": ["continue"]` — advance only when it worked.
+- `[{custom}, "continue"]` — advance whatever happened.
+
+**`onError` is not terminal, and neither is `purchase`'s.** A declared `onError`
+replaces the silence, and stops nothing. A thrown `custom` handler used to drop the rest of
+its list while every other action in the union carried on — one spelling of "on error", two behaviours, with nothing in the
+payload or the console to tell them apart. The failure is still `console.error`ed
+whether or not a hook is declared: a hook is error UI, not a reason to lose the
+stack trace.
 
 **A screen must stay leaveable when the gate fails.** `onResolve: ["continue"]`
-is the resolve path only: a throw runs `onError` and aborts, and a `function`
-name this build never registered runs `onError` and skips the action. If that
-`"continue"` is the screen's ONLY way forward, a user whose backend is down is
-stuck on it. Give `onError` an exit too — a `"continue"`, a `{"type":"dismiss"}`,
-or a visible retry beside a skip. The SDK reads it that way as well: a `custom`
-action counts as a way off the screen only when the resolve path AND the
-unregistered-handler path each reach one (`completingActions.ts`), the same AND
-rule `requestPermission` uses. A `"continue"` TRAILING the action satisfies both
-of those, so `[{custom}, "continue"]` does read as a way forward — the throw path
-is the only one that skips it, and a throw with the retries spent is something
-the user can retry by pressing again. `onError: ["continue"]` next to the
-trailing one covers that last path too, and is worth writing for a handler that
-can fail offline.
+is the resolve path only — nothing in it runs when the handler fails or when the
+host never registered it. If that `"continue"` is the screen's ONLY way forward,
+a user whose backend is down is stuck. Give the failure path an exit: an
+`onError` that reaches a `"continue"` or a `{"type":"dismiss"}`, a visible retry
+beside a skip, or a `"continue"` trailing the action. The SDK reads the payload
+the same way — a `custom` action counts as a way off the screen only when BOTH
+the resolve path and the failure path reach one (`completingActions.ts`), the
+same AND rule `requestPermission` uses — and supplies its own CTA on a screen
+that has been degraded and fails that test.
+
+**Bound the attempt, or the CTA can die.** With no `retry.timeoutMs`, a handler
+whose promise never settles is awaited forever: `actions.pending.<elementId>`
+stays `"true"`, the `disabledWhen` above keeps the CTA greyed out, neither hook
+ever runs, and on a `displayProgressHeader: false` step there is no back chevron
+either. It is 1000..300000 ms, with no default, because a legitimate LLM call
+can take 60s+ and a silent cut-off would be the worse bug. A timeout without
+retries is `{ "maxAttempts": 1, "timeoutMs": 20000 }`.
 
 **The pending state is owned by the runtime.** For as long as an element's action
 list is awaiting — across retries included — the variable map carries
@@ -293,9 +306,11 @@ with `renderWhen` instead.
 }
 ```
 
-Side effects, not a gate — so every one of them needs an `onError` exit if the
-trailing `"continue"` is the screen's only way forward. Analytics that fails
-offline must not be able to hold the user on the screen.
+Side effects, not a gate: the trailing `"continue"` runs whether or not either
+handler succeeded, so analytics that fails offline cannot hold the user on the
+screen. The `onError` hooks here are where failure UI or a fallback would go —
+they are no longer needed to guarantee the exit, as they were while a throw
+aborted the list.
 
 ### Branch on a button-chosen value
 

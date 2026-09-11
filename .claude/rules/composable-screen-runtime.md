@@ -299,13 +299,19 @@ Page Renderer is intentionally a plain `View flex:1` inside `KeyboardAvoidingVie
 
 **`custom` is the async gate (#191).** The handler is awaited, retried up to
 `retry.maxAttempts` (total attempts, 1..10; absent = one attempt, `delayMs`
-between them), then `onResolve` (non-terminal) or `onError` (terminal) run
-through `runActions` recursively — the same nested `ButtonAction[]` shape
-`purchase`/`restore` use. The one divergence is deliberate and documented on the
-type: a throw aborts the enclosing list **with or without** `onError`, because
-"log and abort" is the pre-#191 behaviour the absent-hook case has to keep, and
-falling through into a trailing `"continue"` after a failed generation is worse
-than stopping. A press goes through `runGuardedActions(elementId, actions, ctx)`,
+between them, each attempt bounded by `retry.timeoutMs` when declared — absent
+means unbounded, #264), then `onResolve` or `onError` run through `runActions`
+recursively — the same nested `ButtonAction[]` shape `purchase`/`restore` use.
+**Neither hook is terminal, and `custom` no longer diverges from
+`purchase`/`restore` at all** (semantics decisions 1 and 2, recorded on #191 on
+2026-09-11; ticket #266). A throw with the budget spent, an attempt past
+`timeoutMs` and a `function` name the host never registered are ONE rule: log,
+run `onError` if declared, carry on. The abort that used to sit on the throw
+path is gone — it made one action in the union behave unlike every other on a
+hook spelled identically, and what it protected (a trailing `"continue"`
+advancing past a failed generation) is `onResolve`'s job, said by the author
+rather than guessed by the runtime. A press goes through
+`runGuardedActions(elementId, actions, ctx)`,
 never `runActions` directly: it holds a single-flight claim on
 `Runtime/inFlight.ts` (synchronous and ref-backed — a `setState` is batched, so
 two taps in one tick would both win) and publishes `actions.pending` /
@@ -319,27 +325,26 @@ aliases its own `actions.pending.<id>__<rowKey>` back to the TEMPLATE id
 (`repeatScope.withRowPendingAliases`), because `suffixIds` has already renamed
 the element and `evaluateCondition` looks its left-hand side up verbatim.
 
-A `function` name the host never registered is the THIRD outcome, and it is an
-error one: `console.error`, `onError` if declared, and then the enclosing list
-CARRIES ON — that last part is pre-#191 behaviour a `[{custom}, "continue"]`
-payload depends on to stay navigable with `customActions: {}` (review round 1,
-findings 1 and 7). `completingActions.ts` reads `custom` with AND, like
-`requestPermission` — but across the two paths that leave the LIST RUNNING
-(`onResolve ∪ rest` and `onError ∪ rest`), **not** across all three. A
-`"continue"` in `onResolve` alone is NOT a way off the screen, because a host
-running the default `customActions: {}` never reaches it. A `"continue"`
-trailing the action IS one, because both surviving paths fall through to it —
-only the throw path skips it, and a throw with the retries spent is the one
-outcome the user can talk out of by pressing again, which is exactly why
-`purchase`/`restore` are read with OR. Adding the throw path as a third term
-looks stricter and is not: it reads `[{custom}, "continue"]` — the only `custom`
-shape Studio can author until `rocapine/onboarding-studio#288` lands — as a
-trap, so every such payload in the field gets a duplicate escape CTA bolted onto
-any screen that was also stripped. `onboarding-ui/src/UI/Runtime/__tests__/
-mergeBaseEscapeParity.test.ts` runs verbatim against #191's merge base and is
-what pins that. Do not put the only escape of the exported `onboardingExample`
-behind a handler either: it is the documented `fallbackOnboarding` and the
-default host is `customActions: {}`.
+`completingActions.ts` reads `custom` with AND, like `requestPermission`, and
+the conjunction is over the action's TWO paths — `onResolve ∪ rest` (resolved)
+and `onError ∪ rest` (failed, however it failed). A `"continue"` in `onResolve`
+alone is NOT a way off the screen, because a host running the default
+`customActions: {}` never reaches it. A `"continue"` trailing the action IS one,
+because both paths fall through to it. That second reading used to be a
+judgement call — there was a third path (throw → abort) deliberately left out of
+the conjunction, on the argument that a throw is retryable by pressing again —
+and the decision above removed the path, so the conjunction is now complete and
+nothing is being excluded. Round 2 of !263 briefly required `onError` on its own
+and so read `[{custom}, "continue"]` — the only `custom` shape Studio can author
+until `rocapine/onboarding-studio#288` lands — as a trap, bolting a duplicate
+escape CTA onto every such payload on a screen that was also stripped. Two
+tests pin it: `onboarding-ui/src/UI/Runtime/__tests__/mergeBaseEscapeParity.test.ts`
+runs verbatim against #191's merge base, and `customActionEscapeCoherence.test.ts`
+runs the walk and `runActions` over the same payloads under all three host
+outcomes and fails if they disagree — which is the check that was missing while
+they did. Do not put the only escape of the exported `onboardingExample` behind
+a handler either: it is the documented `fallbackOnboarding` and the default host
+is `customActions: {}`.
 
 `dismiss` and `presentPaywall` (paywall phase 5) are both terminal-ish but behave differently: `dismiss` is terminal like `"continue"` (calls `onContinue({status:"dismissed"})` and stops the loop); `presentPaywall` is NOT terminal (it fires `ctx.presentPaywall(placement)` and the loop continues to the next action). Neither throws when unsupported — `presentPaywall` warns and no-ops when `ctx.presentPaywall` is absent (a host that doesn't wire the field, e.g. an app with no `PaywallProvider` mounted). See the "Paywalls" section below for what supplies `presentPaywall` and why it works from both an onboarding step and a paywall's own content.
 

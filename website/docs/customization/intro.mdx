@@ -78,7 +78,7 @@ import { ThemeProvider } from "@rocapine/react-native-onboarding-ui";
 - Targets the `ComposableScreen` Button `actions` array
 - Inject named handlers via `OnboardingProvider.customActions`
 - Forward selected variables (e.g. `Input`/`RadioGroup` values) to your handler
-- Async-aware — chain awaits `Promise` returns; throw to abort navigation
+- Async-aware — chain awaits `Promise` returns; a throw runs the action's `onError` and the chain carries on, so gate navigation with `onResolve` rather than by throwing
 
 **Best for:**
 - Analytics on CTA presses

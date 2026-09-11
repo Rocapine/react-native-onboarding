@@ -135,7 +135,7 @@ Wire the implementation in the host via `customActions` on `OnboardingProvider`:
 />
 ```
 
-Each handler is called with `{ variables, setVariable }`: `variables` is the filtered read-only subset named in the action's `variables` array, and `setVariable(name, { value, label?, kind? })` writes back into the variable context (updates render + branching stores — the imperative counterpart to the `setVariable` action). Actions run sequentially; throwing aborts the chain; the literal string `"continue"` is terminal and advances the flow.
+Each handler is called with `{ variables, setVariable }`: `variables` is the filtered read-only subset named in the action's `variables` array, and `setVariable(name, { value, label?, kind? })` writes back into the variable context (updates render + branching stores — the imperative counterpart to the `setVariable` action). Actions run sequentially; the literal string `"continue"` is terminal and advances the flow. Throwing does NOT stop the chain — it logs, runs the action's `onError` if the payload declares one, and moves to the next action — so put anything that must only happen on success in `onResolve`.
 
 ## Tier 3 — Replace a UIElement renderer (deep customization)
 

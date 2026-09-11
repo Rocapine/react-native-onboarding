@@ -44,8 +44,10 @@ const listEscapes = (value: unknown): Set<EscapeAction> => {
   for (let i = 0; i < value.length; i++) {
     const action = value[i];
     // A `custom` action is a barrier: `runActions` returns false from its throw
-    // path, so nothing after it in the same list runs. Mirror of the headless
-    // walk — see the original for the full reasoning.
+    // path, so what follows it in the same list is reachable on only two of the
+    // action's three paths and is handed on as `rest` to be weighed against
+    // them. Mirror of the headless walk — see the original for the full
+    // reasoning.
     if (isRecord(action) && action.type === "custom") {
       return union(before, customActionEscapes(action, value.slice(i + 1)));
     }
@@ -74,25 +76,31 @@ const permissionAskEscapes = (action: Record<string, unknown>): Set<EscapeAction
 
 /**
  * `custom` is read with AND across its outcomes too, and its throw path ABORTS
- * the enclosing list (#191, review round 1 finding 6 / round 2 finding 5).
+ * the enclosing list (#191, review round 1 finding 6 / round 2 findings 1 and
+ * 5).
  *
- * `onResolve ∪ rest` covers the resolve path and `onError` covers the throw
- * path; both must be non-empty, which makes the unregistered-handler path
- * (`onError ∪ rest`) non-empty as well. Mirror of the headless
- * `customActionEscapes` — round 1 landed the rule in the headless package only,
- * so the two disagreed about whether this PR's own async-gate shape was a way
- * off the screen, and `runActions` advanced past a screen the strip called a
- * trap.
+ * The conjunction is over the two paths that leave the list RUNNING —
+ * `onResolve ∪ rest` (handler resolved) and `onError ∪ rest` (no handler
+ * registered) — and NOT over the throw path, which the user can retry by
+ * pressing again. See the headless `customActionEscapes` for why that
+ * asymmetry, and for what requiring `onError` alone did to the classic
+ * `[{custom}, "continue"]` payload.
+ *
+ * Mirror of the headless walk in both directions, and both have been wrong
+ * once: round 1 landed the AND rule in the headless package only, so the two
+ * disagreed about this PR's own async-gate shape and `runActions` advanced past
+ * a screen the strip called a trap; round 2 then over-tightened both. The table
+ * in `__tests__/requestPermission.test.ts` is what holds them equal.
  */
 const customActionEscapes = (
   action: Record<string, unknown>,
   rest: readonly unknown[] = []
 ): Set<EscapeAction> => {
   const afterwards = listEscapes(rest);
-  const onResolve = union(listEscapes(action.onResolve), afterwards);
-  const onError = listEscapes(action.onError);
-  if (!onResolve.size || !onError.size) return new Set<EscapeAction>();
-  return union(onResolve, onError);
+  const resolved = union(listEscapes(action.onResolve), afterwards);
+  const unregistered = union(listEscapes(action.onError), afterwards);
+  if (!resolved.size || !unregistered.size) return new Set<EscapeAction>();
+  return union(resolved, unregistered);
 };
 
 function actionEscapes(action: unknown): Set<EscapeAction> {

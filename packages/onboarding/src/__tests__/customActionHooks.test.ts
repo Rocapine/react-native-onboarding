@@ -111,11 +111,13 @@ describe("CustomButtonAction schema — bounded retry", () => {
 describe("hasCompletingAction and a custom action's hooks (#209 guard)", () => {
   // Round 1 asserted the opposite of this — that `onResolve: ["continue"]` alone
   // makes the screen completable — and review round 1, finding 6 refuted it.
-  // The resolve path is not the user's to reach: when the handler throws,
-  // `runActions` runs `onError` and ABORTS the list, so a `"continue"` in
-  // `onResolve` alone leaves a user with a dead backend on the screen with no
-  // way off. Read with AND across the outcomes, exactly like `requestPermission`
-  // (`completingActions.ts` — `customActionEscapes`).
+  // The resolve path is not the user's to reach: `ScreenHost`'s default is
+  // `customActions: {}`, and an unregistered name runs `onError` and whatever
+  // follows the action, never `onResolve`. So a `"continue"` in `onResolve`
+  // alone is not a way off the screen. Read with AND across the outcomes, like
+  // `requestPermission` (`completingActions.ts` — `customActionEscapes`) — but
+  // AND over the two paths that leave the list running, not over the throw path
+  // as well; the case below is where that distinction is load-bearing.
   const cta = (actions: unknown[]) => [
     { type: "Button", id: "cta", props: { label: "Generate", actions } },
   ];
@@ -143,13 +145,20 @@ describe("hasCompletingAction and a custom action's hooks (#209 guard)", () => {
     ).toBe(true);
   });
 
-  it("does NOT count a sibling continue after the custom action", () => {
-    // The throw path `return false`s out of `runActions`, so the trailing
-    // `"continue"` is unreachable exactly when the user needs it (review round
-    // 2, finding 1). Declare `onError: ["continue"]` and it counts again.
+  it("counts a sibling continue after the custom action", () => {
+    // The trailing `"continue"` runs on both paths that leave the list running
+    // — handler resolved, and no handler registered — so it IS the screen's way
+    // forward. Only the throw path skips it, and a throw is the one outcome the
+    // user can retry by pressing again (the `purchase`/`restore` reading).
+    //
+    // Round 2 of this PR required `onError` here, which read every
+    // `[{custom}, "continue"]` payload in the field as a trap: Studio's action
+    // editor cannot author `onResolve`/`onError` until
+    // `rocapine/onboarding-studio#288` lands, so the prescribed fix was not
+    // available to anyone the verdict applied to.
     expect(
       hasCompletingAction(cta([{ type: "custom", function: "generatePlan" }, "continue"]))
-    ).toBe(false);
+    ).toBe(true);
     expect(
       hasCompletingAction(
         cta([{ type: "custom", function: "generatePlan", onError: ["continue"] }, "continue"])

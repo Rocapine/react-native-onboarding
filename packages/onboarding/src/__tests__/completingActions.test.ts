@@ -408,8 +408,15 @@ describe("completingActionKind", () => {
  * one, which is what let the walk report "this screen has a CTA" for a screen
  * nobody could leave.
  *
- * Absent `onError` is not a rescue either: a throw aborts the enclosing list
- * with or without the hook, so nothing after the `custom` action runs.
+ * The AND is over the two paths that leave the list RUNNING — handler resolved,
+ * and no handler registered — not over the throw path. A throw with every retry
+ * spent aborts the list, but the CTA is still on screen and the next press
+ * starts a fresh `retry.maxAttempts`, which is the same reason `purchase` /
+ * `restore` are read with OR. So whatever follows the action in the list counts
+ * for both surviving paths, and `[{custom}, "continue"]` IS a way off the
+ * screen. Round 2 of this PR required `onError` on its own and therefore read
+ * that shape — the only `custom` shape Studio can author today — as a trap; see
+ * `onboarding-ui/src/UI/Runtime/__tests__/mergeBaseEscapeParity.test.ts`.
  */
 describe("completingActions — custom is AND across its outcome hooks", () => {
   const gate = (extra: Record<string, unknown>) => [
@@ -443,25 +450,31 @@ describe("completingActions — custom is AND across its outcome hooks", () => {
     expect(actionsCanComplete(gate({ variables: ["continue"] }))).toBe(false);
   });
 
-  it("does not count a sibling AFTER the custom action (review round 2, finding 1)", () => {
-    // `runActions` returns false from the throw path, so nothing later in the
-    // SAME list runs. Round 1 counted the trailing `"continue"` on its own, so
-    // `[{custom}, "continue"]` — the shape an author writes when Studio cannot
-    // spell `onResolve` — read as a way off the screen while the throw path
-    // stranded the user on it.
-    expect(actionsCanComplete([...gate({}), "continue"])).toBe(false);
+  it("counts a sibling AFTER the custom action (retro round 2, finding 2)", () => {
+    // `[{custom}, "continue"]` is the shape an author writes when Studio cannot
+    // spell `onResolve` — which is every `custom` payload in the field until
+    // `rocapine/onboarding-studio#288` lands. The trailing `"continue"` runs on
+    // BOTH paths that leave the list running (handler resolved; no handler
+    // registered), so it is a way off the screen, and reading it as a trap
+    // bolted a duplicate CTA onto stripped screens that already had one.
+    expect(actionsCanComplete([...gate({}), "continue"])).toBe(true);
     expect(
       actionsCanComplete([
         ...gate({ onError: [{ type: "setVariable", name: "planError", value: "true" }] }),
         "continue",
       ])
-    ).toBe(false);
+    ).toBe(true);
+    // An `onError` that escapes is a way off the screen on its own terms, so it
+    // does not need the sibling — but the sibling does not disqualify it either.
+    expect(actionsCanComplete([...gate({ onError: ["continue"] }), "continue"])).toBe(true);
   });
 
-  it("counts a sibling after it once the error path also escapes", () => {
-    // `onError` covers the throw path; the trailing `"continue"` covers resolve
-    // and the unregistered-handler path, which both fall through to it.
-    expect(actionsCanComplete([...gate({ onError: ["continue"] }), "continue"])).toBe(true);
+  it("still refuses a custom whose ONLY escape is on the resolve path", () => {
+    // The sibling rule above must not launder round 1's finding 6 back in. With
+    // nothing trailing the action, a host running `customActions: {}` — the
+    // `ScreenHost` default — reaches neither `onResolve` nor anything after it.
+    expect(actionsCanComplete(gate({ onResolve: ["continue"] }))).toBe(false);
+    expect(actionsCanComplete([...gate({ onResolve: ["continue"] })])).toBe(false);
   });
 
   it("counts a sibling BEFORE it, which runs whatever the handler does", () => {
@@ -471,8 +484,10 @@ describe("completingActions — custom is AND across its outcome hooks", () => {
     expect(completingActionKind([{ type: "dismiss" }, ...gate({})])).toBe("dismiss");
   });
 
-  it("strands the same way inside an element tree", () => {
-    expect(hasCompletingAction([button("cta", [...gate({}), "continue"])])).toBe(false);
+  it("reads the classic shape the same way inside an element tree", () => {
+    expect(hasCompletingAction([button("cta", [...gate({}), "continue"])])).toBe(true);
+    // And still strands when the only escape is behind the handler.
+    expect(hasCompletingAction([button("cta", gate({ onResolve: ["continue"] }))])).toBe(false);
   });
 
   it("reads a whole element tree the same way", () => {

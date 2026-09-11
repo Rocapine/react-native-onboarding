@@ -248,13 +248,14 @@ name this build never registered runs `onError` and skips the action. If that
 `"continue"` is the screen's ONLY way forward, a user whose backend is down is
 stuck on it. Give `onError` an exit too — a `"continue"`, a `{"type":"dismiss"}`,
 or a visible retry beside a skip. The SDK reads it that way as well: a `custom`
-action counts as a way off the screen only when the resolve path AND the error
-path each reach one (`completingActions.ts`), the same AND rule
-`requestPermission` uses. A `"continue"` TRAILING the action counts toward the
-resolve path only — the throw path has already aborted the list by then — so
-`[{custom}, "continue"]` reads as no way forward and the unknown-element strip
-(#209) bolts an escape CTA onto the screen. `onError: ["continue"]` next to the
-trailing one covers both.
+action counts as a way off the screen only when the resolve path AND the
+unregistered-handler path each reach one (`completingActions.ts`), the same AND
+rule `requestPermission` uses. A `"continue"` TRAILING the action satisfies both
+of those, so `[{custom}, "continue"]` does read as a way forward — the throw path
+is the only one that skips it, and a throw with the retries spent is something
+the user can retry by pressing again. `onError: ["continue"]` next to the
+trailing one covers that last path too, and is worth writing for a handler that
+can fail offline.
 
 **The pending state is owned by the runtime.** For as long as an element's action
 list is awaiting — across retries included — the variable map carries

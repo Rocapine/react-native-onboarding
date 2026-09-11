@@ -323,12 +323,23 @@ A `function` name the host never registered is the THIRD outcome, and it is an
 error one: `console.error`, `onError` if declared, and then the enclosing list
 CARRIES ON — that last part is pre-#191 behaviour a `[{custom}, "continue"]`
 payload depends on to stay navigable with `customActions: {}` (review round 1,
-findings 1 and 7). Because neither the throw nor the missing handler can be
-talked out of by pressing again, `completingActions.ts` reads `custom` with AND
-across `onResolve`/`onError` exactly as it reads `requestPermission` — a
-`"continue"` in `onResolve` alone is NOT a way off the screen. Do not put the
-only escape of the exported `onboardingExample` behind a handler: it is the
-documented `fallbackOnboarding` and the default host is `customActions: {}`.
+findings 1 and 7). `completingActions.ts` reads `custom` with AND, like
+`requestPermission` — but across the two paths that leave the LIST RUNNING
+(`onResolve ∪ rest` and `onError ∪ rest`), **not** across all three. A
+`"continue"` in `onResolve` alone is NOT a way off the screen, because a host
+running the default `customActions: {}` never reaches it. A `"continue"`
+trailing the action IS one, because both surviving paths fall through to it —
+only the throw path skips it, and a throw with the retries spent is the one
+outcome the user can talk out of by pressing again, which is exactly why
+`purchase`/`restore` are read with OR. Adding the throw path as a third term
+looks stricter and is not: it reads `[{custom}, "continue"]` — the only `custom`
+shape Studio can author until `rocapine/onboarding-studio#288` lands — as a
+trap, so every such payload in the field gets a duplicate escape CTA bolted onto
+any screen that was also stripped. `onboarding-ui/src/UI/Runtime/__tests__/
+mergeBaseEscapeParity.test.ts` runs verbatim against #191's merge base and is
+what pins that. Do not put the only escape of the exported `onboardingExample`
+behind a handler either: it is the documented `fallbackOnboarding` and the
+default host is `customActions: {}`.
 
 `dismiss` and `presentPaywall` (paywall phase 5) are both terminal-ish but behave differently: `dismiss` is terminal like `"continue"` (calls `onContinue({status:"dismissed"})` and stops the loop); `presentPaywall` is NOT terminal (it fires `ctx.presentPaywall(placement)` and the loop continues to the next action). Neither throws when unsupported — `presentPaywall` warns and no-ops when `ctx.presentPaywall` is absent (a host that doesn't wire the field, e.g. an app with no `PaywallProvider` mounted). See the "Paywalls" section below for what supplies `presentPaywall` and why it works from both an onboarding step and a paywall's own content.
 

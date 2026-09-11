@@ -33,6 +33,14 @@ export type RenderContext = {
   products?: ProductRuntime;
   /** Host capability for the `presentPaywall` action. Undefined without one. */
   presentPaywall?: (placement: string) => void;
+  // Single-flight claim for one element's action list (#191). Required, not
+  // optional: ScreenRenderer is the only place a root context is built, and an
+  // optional field would let a future host silently lose the re-entrancy guard.
+  // Both are referentially stable (ref-backed in the Renderer), so they do not
+  // churn `ctx` — see `Runtime/inFlight.ts`. Prefer `runGuardedActions` over
+  // calling these by hand.
+  beginActions: (elementId: string) => boolean;
+  endActions: (elementId: string) => void;
   /**
    * Host override for the `requestPermission` action's resolver. Unset unless a
    * consumer passed one — the action then uses the bundled

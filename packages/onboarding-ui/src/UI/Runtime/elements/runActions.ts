@@ -30,8 +30,11 @@ function decodeArrayValue(raw: string | undefined): string[] {
 //   - {setVariable}  → write a variable (expression-evaluated when valueMode === "expression").
 //   - {custom}       → invoke the host-registered customAction with the requested
 //                      variables plus a `setVariable` setter (so the handler can
-//                      write back into the context); warns if unregistered, aborts
-//                      the loop on throw.
+//                      write back into the context). Retried up to
+//                      `retry.maxAttempts` times, each attempt bounded by
+//                      `retry.timeoutMs` when declared; then `onResolve` or
+//                      `onError`, NEITHER of which is terminal — like
+//                      `purchase`/`restore`, the enclosing list carries on.
 //   - {dismiss}      → finish the screen with a `{status:"dismissed"}` outcome;
 //                      terminal (stops the loop), same as "continue".
 //   - {presentPaywall} → ask the host to present a paywall by placement; warns
@@ -48,11 +51,12 @@ function decodeArrayValue(raw: string | undefined): string[] {
 // `requestPermission.onGranted`, …) propagates it, so a terminal action nested
 // one level down ends the OUTER list too.
 //
-// A `custom` handler that throws is NOT that: it aborts the rest of its own
-// list (nothing sequenced after failed host code should run) and returns
-// `false`, so an outer list carries on. Round 1 of #196 briefly returned `true`
-// there and broke a paid user out of `purchase.onSuccess` before the trailing
-// `"continue"` could advance them — the two meanings must stay separate.
+// A `custom` handler that FAILS is NOT that: it runs `onError`, the enclosing
+// list carries on, and the call reports `false` unless the hook itself
+// completed the screen. Round 1 of #196 briefly returned `true` there and broke
+// a paid user out of `purchase.onSuccess` before the trailing `"continue"`
+// could advance them — "the handler failed" and "the screen is gone" must stay
+// separate answers.
 //
 // It has to, and this was wrong until review round 1 of #196: the recursion
 // returned and the outer `for` carried on, so
@@ -306,37 +310,204 @@ export async function runActions(
       continue;
     }
 
+    // ONE failure rule, every way a `custom` action can fail (semantics
+    // decisions 1 and 2, #191 — recorded on the issue, 2026-09-11). An
+    // unregistered name, a thrown handler and an attempt that never settles
+    // all do the same thing: log, run `onError`, then LET THE LIST CARRY ON,
+    // exactly as `purchase`/`restore` already do.
+    //
+    // The single tail below is the point, not a tidy-up. Before it, a throw
+    // returned `false` here and aborted the list while an unregistered name
+    // continued it — two failure modes of one action disagreeing with each
+    // other, with nothing in the payload, the schema or the console telling
+    // them apart (#266). The rationale for the abort was that a trailing
+    // `"continue"` would walk the user onto a screen reading variables the
+    // handler never wrote; the answer to that is `onResolve`, which is where
+    // an author puts what must only run on success.
+    //
+    // `resolved` is therefore the ONLY branch, and it is computed before the
+    // tail rather than returned from inside each failure case.
     const handler = customActions[act.function];
+    const maxAttempts = act.retry?.maxAttempts ?? 1;
+    const delayMs = act.retry?.delayMs ?? 0;
+    const timeoutMs = act.retry?.timeoutMs;
+    let resolved = false;
+
     if (!handler) {
-      console.warn(
-        `[ComposableScreen] No customAction registered for "${act.function}"`
+      // A name the host never registered — a typo, or a payload published ahead
+      // of the app build that wires the handler. Round 1 of this PR skipped the
+      // action whole, hooks included, which turned the documented async gate
+      // (`onResolve: ["continue"]`) into a permanently dead CTA signalled by one
+      // console line (review round 1, findings 1 and 7). The requested work did
+      // not happen, so this is the ERROR outcome: `onResolve` must NOT run.
+      console.error(
+        `[ComposableScreen] No customAction registered for "${act.function}" — the action did nothing.${
+          act.onResolve ? " `onResolve` did NOT run: nothing resolved." : ""
+        }${
+          act.onError ? " Running `onError`." : ""
+        } Register it on OnboardingProvider.customActions, or fix the \`function\` name.`
       );
+    } else {
+      const requested = act.variables ?? [];
+      const vars: Record<string, ComposableVariableEntry | undefined> = {};
+      for (const name of requested) vars[name] = variables[name];
+      // The variables handed to the handler are the PRESS-TIME snapshot, and a
+      // retry reuses it rather than re-reading: an attempt is a repeat of the
+      // same request, not a new one. `setVariable` still writes through live.
+      let lastError: unknown;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          await withTimeout(
+            Promise.resolve(handler({ variables: vars, setVariable })),
+            timeoutMs,
+            act.function
+          );
+          resolved = true;
+          break;
+        } catch (err) {
+          lastError = err;
+          if (attempt < maxAttempts) {
+            console.warn(
+              `[ComposableScreen] customAction "${act.function}" ${describeFailure(err)} on attempt ${attempt}/${maxAttempts}; retrying`,
+              err
+            );
+            if (delayMs > 0) await sleep(delayMs);
+          }
+        }
+      }
+
+      if (!resolved) {
+        // Logged even when `onError` is declared: a failed handler is an
+        // exception, and a declared hook is error UI, not a reason to lose the
+        // stack trace.
+        console.error(
+          `[ComposableScreen] customAction "${act.function}" ${describeFailure(lastError)}${
+            maxAttempts > 1 ? ` on all ${maxAttempts} attempts` : ""
+          }:`,
+          lastError
+        );
+      }
+    }
+
+    if (resolved) {
+      // Non-terminal on its own, but a `"continue"` INSIDE it completes the
+      // screen — so it propagates, exactly like every other branch list here.
+      if (act.onResolve && (await runActions(act.onResolve, ctx))) return true;
       continue;
     }
-    const requested = act.variables ?? [];
-    const vars: Record<string, ComposableVariableEntry | undefined> = {};
-    for (const name of requested) vars[name] = variables[name];
-    try {
-      await handler({ variables: vars, setVariable });
-    } catch (err) {
-      console.error(
-        `[ComposableScreen] customAction "${act.function}" threw:`,
-        err
-      );
-      // Abort THIS list, and only this list — the pre-existing behaviour, kept
-      // deliberately (review round 2, finding 2). Round 1 returned `true` here
-      // so the abort propagated out of every recursion, which conflated the two
-      // meanings of the return value: `true` says "the screen is GONE", and a
-      // thrown handler leaves it very much present. A throwing analytics call in
-      // `purchase.onSuccess` then ate the trailing `"continue"` and stranded a
-      // user who had already paid on the paywall, with a second press
-      // re-running `purchase()`. `false` = "not completed", so an outer list
-      // carries on and the author's own escape still runs.
-      return false;
-    }
+    // The failure tail. `return true` only when the hook itself completed the
+    // screen — `true` means "the screen is GONE", and a failed handler leaves
+    // it very much present.
+    if (act.onError && (await runActions(act.onError, ctx))) return true;
+    continue;
   }
   // Ran to the end without completing the screen.
   return false;
+}
+
+const sleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * A `custom` attempt that never settled (#264). Its own class so the console
+ * can say WHICH failure happened — "threw" and "did not settle" send a host
+ * developer to different code — while the action layer keeps treating the two
+ * identically.
+ */
+class CustomActionTimeoutError extends Error {
+  constructor(fn: string, timeoutMs: number) {
+    super(
+      `customAction "${fn}" did not settle within ${timeoutMs}ms (retry.timeoutMs)`
+    );
+    this.name = "CustomActionTimeoutError";
+  }
+}
+
+const describeFailure = (err: unknown): string =>
+  err instanceof CustomActionTimeoutError ? "did not settle in time" : "threw";
+
+/**
+ * Bound ONE attempt's duration (#264). Absent `timeoutMs` is unbounded — the
+ * behaviour before this existed, and the right default: a legitimate LLM call
+ * can take 60s+, and cutting one off by default would be a worse bug than the
+ * hang it prevents.
+ *
+ * The hang it prevents is not a slow screen, it is a DEAD one. `handler` is
+ * awaited while `runGuardedActions` holds the single-flight claim, so a promise
+ * that never settles leaves `actions.pending.<elementId>` reading `"true"`
+ * forever — and the payload the docs recommend disables the CTA on exactly
+ * that, with no back chevron on a `displayProgressHeader: false` step.
+ *
+ * The abandoned `work` promise keeps whatever handler `Promise.race` attached,
+ * so a late rejection is already handled and cannot surface as an unhandled
+ * one. The timer is cleared in a `finally` so a handler that resolves first
+ * does not hold the event loop open for the rest of the timeout.
+ */
+const withTimeout = async (
+  work: Promise<void>,
+  timeoutMs: number | undefined,
+  fn: string
+): Promise<void> => {
+  if (timeoutMs == null) return work;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      work,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(
+          () => reject(new CustomActionTimeoutError(fn, timeoutMs)),
+          timeoutMs
+        );
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+};
+
+/**
+ * `runActions` for a pressable element, with the runtime's single-flight guard
+ * (#191). A second press while the first list is still awaiting is DROPPED —
+ * before it, a tap during a slow `custom` handler ran the handler again.
+ *
+ * While the claim is held, `actions.pending` and `actions.pending.<elementId>`
+ * read `"true"` in the variable bag, so a payload can gate a spinner or disable
+ * the CTA through `renderWhen`/`disabledWhen` with no host code (see
+ * `Runtime/inFlight.ts`).
+ *
+ * The release is in a `finally`: a handler that rejects must not leave the
+ * button permanently dead. `runActions` swallows a handler throw itself, but a
+ * bug anywhere else in the list would escape, and a dead CTA is worse than a
+ * crash the host's ErrorBoundary can see.
+ *
+ * A handler that never settles is the case a `finally` cannot reach, because
+ * nothing returns: that one needs `retry.timeoutMs` on the action (#264).
+ *
+ * A BLANK id is not guarded at all. The claim is keyed on the authored id and
+ * the schema declares `id: z.string()` with no `.min(1)`, so two unrelated
+ * elements can both arrive as `""` and would block each other's presses with no
+ * console output and no visual change — a silently dead control, worse than the
+ * double-fire the guard exists to stop (review round 2, finding 4). An id that
+ * identifies nothing also has no spellable `actions.pending.<elementId>`, so
+ * there is nothing to gate a pending UI on either. Duplicate NON-blank ids do
+ * still share a claim: there the authored id is the identity the whole runtime
+ * already uses (the pending key, React keys, `Repeat`'s `suffixIds`), and the
+ * fix is payload-level id uniqueness rather than a second identity here.
+ */
+export async function runGuardedActions(
+  elementId: string,
+  actions: ButtonAction[],
+  ctx: RenderContext
+): Promise<boolean> {
+  if (elementId.trim() === "") return runActions(actions, ctx);
+  // A dropped press completed nothing, so it reports `false` exactly like a
+  // list that ran to the end — same meaning as `runActions`'s return value.
+  if (!ctx.beginActions(elementId)) return false;
+  try {
+    return await runActions(actions, ctx);
+  } finally {
+    ctx.endActions(elementId);
+  }
 }
 
 /**
@@ -346,9 +517,10 @@ export async function runActions(
  * `undefined` for a kind it does not handle.
  *
  * Never throws. A host resolver that rejects reports `"unavailable"` rather
- * than aborting the press, because the alternative — the `custom` action's
- * abort-the-loop behaviour — would strand the user on a screen whose CTA just
- * silently did nothing.
+ * than letting the exception escape the press: an unhandled rejection out of
+ * here would take the whole list with it, stranding the user on a screen whose
+ * CTA silently did nothing. `"unavailable"` routes into the ask's own hooks,
+ * which is where an author can answer it.
  */
 async function resolvePermissionOutcome(
   kind: PermissionKind,

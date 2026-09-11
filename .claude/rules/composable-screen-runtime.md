@@ -297,6 +297,55 @@ Page Renderer is intentionally a plain `View flex:1` inside `KeyboardAvoidingVie
 
 `elements/runActions.ts` runs a `ButtonAction[]` (continue / setVariable / custom / purchase / restore / dismiss / presentPaywall / requestPermission) — shared by `Button.actions` and the generic `onPress`. It lives in its **own** module, NOT `shared.ts`: `shared.ts` ↔ `expression.ts` already form a cycle (`expression` imports `interpolate` from `shared`) and `runActions` needs both. `ButtonAction` types/schemas are the leaf `elements/actions.ts` (UI mirror of headless `common.types.ts`) so `BaseBoxProps.ts` + `runActions.ts` import them cycle-free. `setVariable` `arrayOp` (`append`/`remove`/`toggle`) operates on the JSON-`string[]` CheckboxGroup encoding — value = `JSON.stringify(values)`, label = comma-joined members.
 
+**`custom` is the async gate (#191).** The handler is awaited, retried up to
+`retry.maxAttempts` (total attempts, 1..10; absent = one attempt, `delayMs`
+between them, each attempt bounded by `retry.timeoutMs` when declared — absent
+means unbounded, #264), then `onResolve` or `onError` run through `runActions`
+recursively — the same nested `ButtonAction[]` shape `purchase`/`restore` use.
+**Neither hook is terminal, and `custom` no longer diverges from
+`purchase`/`restore` at all** (semantics decisions 1 and 2, recorded on #191 on
+2026-09-11; ticket #266). A throw with the budget spent, an attempt past
+`timeoutMs` and a `function` name the host never registered are ONE rule: log,
+run `onError` if declared, carry on. The abort that used to sit on the throw
+path is gone — it made one action in the union behave unlike every other on a
+hook spelled identically, and what it protected (a trailing `"continue"`
+advancing past a failed generation) is `onResolve`'s job, said by the author
+rather than guessed by the runtime. A press goes through
+`runGuardedActions(elementId, actions, ctx)`,
+never `runActions` directly: it holds a single-flight claim on
+`Runtime/inFlight.ts` (synchronous and ref-backed — a `setState` is batched, so
+two taps in one tick would both win) and publishes `actions.pending` /
+`actions.pending.<elementId>` into the variable bag while the list runs, so a
+payload renders its own pending UI through `renderWhen`/`disabledWhen` with no
+host code. BOTH press seams are wired: `ButtonElement` and the generic `onPress`
+in `renderElement` (round 1 wired only the button, and the docs promised both —
+review round 1, findings 3 and 8). `pressDispatchWiring.test.ts` fails if any
+renderer calls `runActions` directly again. Inside a `Repeat`, the row scope
+aliases its own `actions.pending.<id>__<rowKey>` back to the TEMPLATE id
+(`repeatScope.withRowPendingAliases`), because `suffixIds` has already renamed
+the element and `evaluateCondition` looks its left-hand side up verbatim.
+
+`completingActions.ts` reads `custom` with AND, like `requestPermission`, and
+the conjunction is over the action's TWO paths — `onResolve ∪ rest` (resolved)
+and `onError ∪ rest` (failed, however it failed). A `"continue"` in `onResolve`
+alone is NOT a way off the screen, because a host running the default
+`customActions: {}` never reaches it. A `"continue"` trailing the action IS one,
+because both paths fall through to it. That second reading used to be a
+judgement call — there was a third path (throw → abort) deliberately left out of
+the conjunction, on the argument that a throw is retryable by pressing again —
+and the decision above removed the path, so the conjunction is now complete and
+nothing is being excluded. Round 2 of !263 briefly required `onError` on its own
+and so read `[{custom}, "continue"]` — the only `custom` shape Studio can author
+until `rocapine/onboarding-studio#288` lands — as a trap, bolting a duplicate
+escape CTA onto every such payload on a screen that was also stripped. Two
+tests pin it: `onboarding-ui/src/UI/Runtime/__tests__/mergeBaseEscapeParity.test.ts`
+runs verbatim against #191's merge base, and `customActionEscapeCoherence.test.ts`
+runs the walk and `runActions` over the same payloads under all three host
+outcomes and fails if they disagree — which is the check that was missing while
+they did. Do not put the only escape of the exported `onboardingExample` behind
+a handler either: it is the documented `fallbackOnboarding` and the default host
+is `customActions: {}`.
+
 `dismiss` and `presentPaywall` (paywall phase 5) are both terminal-ish but behave differently: `dismiss` is terminal like `"continue"` (calls `onContinue({status:"dismissed"})` and stops the loop); `presentPaywall` is NOT terminal (it fires `ctx.presentPaywall(placement)` and the loop continues to the next action). Neither throws when unsupported — `presentPaywall` warns and no-ops when `ctx.presentPaywall` is absent (a host that doesn't wire the field, e.g. an app with no `PaywallProvider` mounted). See the "Paywalls" section below for what supplies `presentPaywall` and why it works from both an onboarding step and a paywall's own content.
 
 `requestPermission` (#196) is neither: it awaits an outcome and then recurses into `onGranted` / `onDenied` / `onUnavailable`, on the `purchase` pattern. Two things about it are deliberate and easy to undo by accident. (1) The permission modules are `require`d **lazily**, inside `elements/permissions.ts`, not at module load like `haptics.ts` — several of them register handlers as an import side effect, and a Button-only screen must not pay for that. Two constraints on the SHAPE of those requires, both of which broke the example app's bundle once: the specifier must be a string LITERAL (Metro resolves the graph statically, so `require(candidate.module)` is unresolvable), and the call must sit DIRECTLY inside a literal `try` block. Metro marks a dependency optional only when the first `BlockStatement` within three statements above the call is a `TryStatement`'s own block (`isOptionalDependency`, `@expo/metro-config/.../collect-dependencies.js`) — a `require` in an arrow that a try/catch helper invokes is MANDATORY, and every consumer that has not installed all seven modules then fails to bundle entirely. Hence `permissionModuleLoaders`, a name-keyed table of hard-coded try/require loaders, with a source-level test (`__tests__/permissionModules.test.ts`) asserting the shape: nothing observable at runtime tells the two forms apart. (2) A missing module resolves the distinct `"unavailable"` outcome instead of the repo's usual silent no-op for an absent press-time dep. With no `onUnavailable` declared it does NOT fall back to `onDenied` (review round 1 — that ran the refusal branch's `setVariable`s and analytics for a user who was never asked, and still stranded anyone whose ask declared `onGranted` only): it completes the screen when `actionsCanComplete` says the ask was the press's way forward, and otherwise logs and does nothing. WHICH completing action it substitutes is load-bearing, not cosmetic (review round 2): `completingActionKind` picks the ask's own `{dismiss}` over its `"continue"`, because a bare `onContinue()` is the one call `shouldAdvanceOnComplete` admits, so substituting it for an authored `{dismiss}` walked a module-less build's users through a `Paywall` step's hard gate for free. The `denied` outcome deliberately gets NO such rescue — "stay here until you allow it" is authorable intent expressed by omitting `onDenied`, whereas a module the app never installed is not something any payload can express. `ScreenHost.requestPermission` overrides the bundled resolver per kind, returning `undefined` to defer to it. It is threaded from **all three** host builders — `OnboardingPage` (→ ComposableScreen step AND Paywall step) and `PaywallHost`'s own prop for a `present()`ed paywall — because with it set on only one, the identical authored action resolved differently per surface and a build without the module recorded a refusal nobody made (`__tests__/hostResolverWiring.test.ts` pins every builder). It overrides the six kinds; it does not add a seventh — `PermissionKindSchema` is closed, so HealthKit / Screen Time still fail `invalid_union` and need the kind added to the schema first. (3) `hasCompletingAction` (headless `screens/completingActions.ts`, the #209 escape-CTA guard) reads this action's hooks with **AND**, not the generic "any nested list completes it" rule: a grant AND a non-grant must both reach `"continue"`/`dismiss`. `purchase`/`restore` keep OR — a cancelled purchase can be retried, a standing OS denial cannot. Its per-list sibling `actionsCanComplete` is exported for the runtime, and mirrored in `Runtime/elements/completingActions.ts` (peer-range rule: this package must not branch on the other package's installed build, and the headless index is not importable from the Node test suite) with a parity table in `__tests__/requestPermission.test.ts`. (5) `runActions` returns whether the press is over, and every recursion into a hook propagates it — without that, `[{requestPermission, onGranted:["continue"]}, "continue"]` called `onContinue` twice (double `router.push`, or a skipped screen in an index-advancing host). Same fix covers `purchase`/`restore` hooks. (4) A misspelled hook (`onDeneid`) is stripped by the non-strict schema, so `collectUnknownElementKeys` now walks `props.actions` / `props.onPress` and reports unknown ACTION keys too (`scope: "action"`), derived from `ButtonActionSchema` — the same report-never-reject contract as a misplaced `animation`.

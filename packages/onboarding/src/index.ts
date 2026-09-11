@@ -11,6 +11,7 @@ export {
 export type {
   ButtonAction,
   CustomButtonAction,
+  CustomActionRetry,
   SetVariableButtonAction,
   RequestPermissionButtonAction,
   PermissionKind,
@@ -44,6 +45,7 @@ export type {
 export {
   ButtonActionSchema,
   CustomButtonActionSchema,
+  CustomActionRetrySchema,
   SetVariableButtonActionSchema,
   RequestPermissionButtonActionSchema,
   PermissionKindSchema,

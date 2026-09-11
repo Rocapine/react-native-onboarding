@@ -11,6 +11,7 @@ import { OnboardingProgressProvider } from "@rocapine/react-native-onboarding-ui
 import { Dimensions } from "react-native";
 import { configureReanimatedLogger, ReanimatedLogLevel } from "react-native-reanimated";
 import { LocaleProvider, useLocale } from "../contexts/locale-context";
+import { shouldGeneratePlanFail } from "../components/asyncGateDemo";
 import { REFS as PRODUCT_REFS, provider as productProvider } from "./example/composable-screen-products";
 
 configureReanimatedLogger({ level: ReanimatedLogLevel.warn, strict: false });
@@ -52,6 +53,9 @@ export default function RootLayout() {
   );
 }
 
+// Attempt counter for the `generatePlan` demo handler below.
+let generatePlanAttempts = 0;
+
 function OnboardingProviderWithLocale() {
   const { locale } = useLocale();
   const router = useRouter();
@@ -69,6 +73,22 @@ function OnboardingProviderWithLocale() {
         },
         celebrate: async ({ variables }) => {
           console.log("[customAction] celebrate", variables);
+        },
+        // RNO#191 demo. Slow on purpose (the pending state needs something to
+        // show), and its failure schedule lives in `shouldGeneratePlanFail` so
+        // the arithmetic can be pinned against the payload's `retry.maxAttempts`
+        // — round 1 threw on every ODD attempt with a cap of 3, which made every
+        // press fail-then-succeed and left the `onError` branch of the demo
+        // unreachable (review round 2, finding 3). Now a press spends its whole
+        // retry budget and lands in `onError`, and the next one resolves.
+        generatePlan: async ({ variables, setVariable }) => {
+          await new Promise((resolve) => setTimeout(resolve, 1200));
+          generatePlanAttempts += 1;
+          if (shouldGeneratePlanFail(generatePlanAttempts)) {
+            throw new Error("[customAction] generatePlan: simulated backend failure");
+          }
+          const goal = variables.goal?.label ?? variables.goal?.value ?? "you";
+          setVariable("plan", { value: `12-week plan for ${goal}`, kind: "string" });
         },
         // Writes back into the ComposableScreen variable context. The screen can
         // then react via {{interpolation}} / renderWhen, and a following

@@ -122,6 +122,29 @@ describe("actionsCanComplete — headless ↔ UI mirror parity", () => {
     [{ type: "setVariable", name: "a", value: "b" }],
     [{ type: "setVariable", name: "a", value: "b" }, "continue"],
     [{ type: "custom", function: "doThing" }],
+    // `custom` is the SECOND action read with AND across its outcomes (#191).
+    // Round 1 of that change landed the rule in the headless walk only, so the
+    // two packages disagreed about the PR's own headline shape (review round 2,
+    // finding 5) — these five rows are what a name-only mirror could not catch.
+    [{ type: "custom", function: "gen", onResolve: ["continue"] }],
+    [{ type: "custom", function: "gen", onError: ["continue"] }],
+    [{ type: "custom", function: "gen", onResolve: ["continue"], onError: ["continue"] }],
+    [{ type: "custom", function: "gen", onResolve: [{ type: "dismiss" }], onError: ["continue"] }],
+    // A sibling AFTER a custom action: it runs on both of the action's paths,
+    // so it counts for both terms of the conjunction.
+    [{ type: "custom", function: "gen" }, "continue"],
+    [{ type: "custom", function: "gen", onError: ["continue"] }, "continue"],
+    ["continue", { type: "custom", function: "gen" }],
+    [{ type: "custom", function: "gen", variables: ["continue"] }],
+    // A `custom` gate nested inside an ask's hook — both mirrors recurse.
+    [
+      {
+        type: "requestPermission",
+        kind: "notifications",
+        onGranted: [{ type: "custom", function: "syncPush", onResolve: ["continue"] }],
+        onDenied: [{ type: "setVariable", name: "push", value: "off" }],
+      },
+    ],
     [{ type: "presentPaywall", placement: "hard" }],
     [{ type: "purchase", product: "yearly", onSuccess: ["continue"] }],
     [{ type: "purchase", product: "yearly" }],

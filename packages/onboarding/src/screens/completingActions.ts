@@ -19,11 +19,13 @@
  *
  * WHAT COUNTS. `runActions` calls `onContinue` for exactly two actions —
  * `"continue"` and `{type:"dismiss"}` — so those two, wherever a press can
- * reach them, are the whole definition. One exception to "wherever":
- * `requestPermission` is read with AND across its outcome hooks rather than OR
- * (see `permissionAskCompletes`), because a grant is not the user's to give. Everything else (`setVariable`,
- * `presentPaywall`, `custom`) leaves the user on the screen as far as this SDK
- * can tell, and is not counted.
+ * reach them, are the whole definition. Two exceptions to "wherever":
+ * `requestPermission` and `custom` are read with AND across their outcome hooks
+ * rather than OR (see `permissionAskCompletes` and `customActionEscapes`),
+ * because neither a grant nor a backend's answer is the user's to give — a
+ * `"continue"` sitting only in `onGranted`/`onResolve` strands everyone on the
+ * other branch. Everything else (`setVariable`, `presentPaywall`) leaves the
+ * user on the screen as far as this SDK can tell, and is not counted.
  *
  * The walk deliberately errs toward "no": an unrecognised action shape, or a
  * `continue` somewhere the runtime would not actually run it, reads as no way
@@ -84,10 +86,27 @@ const union = (...sets: ReadonlySet<EscapeAction>[]): Set<EscapeAction> => {
  * Branch lists are found by shape rather than by name, so a branch added to
  * `purchase`/`restore` later is covered without a change here.
  */
-const listEscapes = (value: unknown): Set<EscapeAction> =>
-  Array.isArray(value)
-    ? union(...value.map(actionEscapes))
-    : new Set<EscapeAction>();
+const listEscapes = (value: unknown): Set<EscapeAction> => {
+  if (!Array.isArray(value)) return new Set<EscapeAction>();
+  const before = new Set<EscapeAction>();
+  for (let i = 0; i < value.length; i++) {
+    const action = value[i];
+    // `custom` is a BARRIER, not just another item: it is the one action whose
+    // OWN escape has to be read with AND (see `customActionEscapes`), and the
+    // actions after it are reachable on each of its paths, so they belong to
+    // both terms of that conjunction rather than being counted on their own.
+    // They are handed on as `rest`.
+    //
+    // Everything BEFORE the barrier keeps the plain OR reading, for a different
+    // reason: a completing action there returns from `runActions` before the
+    // handler is ever called, so it does not depend on the handler's outcome.
+    if (isRecord(action) && action.type === "custom") {
+      return union(before, customActionEscapes(action, value.slice(i + 1)));
+    }
+    for (const escape of actionEscapes(action)) before.add(escape);
+  }
+  return before;
+};
 
 const listCompletes = (value: unknown): boolean => listEscapes(value).size > 0;
 
@@ -136,6 +155,70 @@ const permissionAskEscapes = (
 const permissionAskCompletes = (action: Record<string, unknown>): boolean =>
   permissionAskEscapes(action).size > 0;
 
+/**
+ * `custom` is the second AND-read action, for the same reason (#191, review
+ * round 1, finding 6): its outcome is the service's, not the user's.
+ *
+ * RE-DERIVED from the semantics decision of 2026-09-11 (recorded on #191, and
+ * the subject of #266), which removed the abort a thrown handler used to
+ * perform. `runActions` now has exactly TWO paths, and `rest` — whatever
+ * follows the action in the same list — is reachable from both:
+ *
+ *  - the handler RESOLVES: `onResolve` runs, then `rest`;
+ *  - the handler FAILS: `onError` runs, then `rest`. One rule for every way of
+ *    failing — a throw with every retry spent, an attempt that never settled
+ *    (`retry.timeoutMs`), and a `function` name the host never registered.
+ *
+ * So the escape set is `onResolve ∪ rest` AND `onError ∪ rest`, both non-empty.
+ *
+ * THE CONJUNCTION IS NOW COMPLETE, and that is the whole change here. The same
+ * two terms used to be a JUDGEMENT: there was a third path (throw → `onError`
+ * → abort, `rest` unreachable) that was deliberately left out of the
+ * conjunction, on the argument that a throw is the one outcome a user can talk
+ * out of by pressing again — the reading `purchase`/`restore` get. That
+ * argument was load-bearing and is now moot: the third path does not exist, so
+ * nothing is being excluded and no retryability argument is needed to justify
+ * the answer.
+ *
+ * WHAT THAT RESCUES. `[{custom}, "continue"]` — the shape an author writes when
+ * the CTA fires a handler and then moves on, and the ONLY `custom` shape Studio
+ * can author until `rocapine/onboarding-studio#288` lands — is a way off the
+ * screen on EVERY path, not on two of three. Round 2 of this PR required
+ * `onError` there and so read every such payload in the field as a trap,
+ * bolting a duplicate escape CTA onto any screen that had also been stripped
+ * (#209) plus a `console.error` naming a trap that was not one. Pinned by
+ * `onboarding-ui/src/UI/Runtime/__tests__/mergeBaseEscapeParity.test.ts`, which
+ * runs verbatim against this PR's merge base, and by
+ * `onboarding-ui/src/UI/Runtime/__tests__/customActionEscapeCoherence.test.ts`,
+ * which runs this walk and `runActions` against the same payloads and requires
+ * them to agree — the check that was missing while the two disagreed.
+ *
+ * What round 1, finding 6 established SURVIVES, and the decision does not touch
+ * it: a `"continue"` in `onResolve` alone is still not a way off the screen,
+ * because the failure path is then empty — and `customActions: {}` is
+ * `ScreenHost`'s own default, so that is not a hypothetical host. (#266 costed
+ * this decision as "reverts to the generic OR walk"; it does not. OR would
+ * credit that `onResolve` and re-open finding 6. What the decision removes is
+ * the third term, which was never in the code.)
+ *
+ * WHY `rest` STILL GOES THROUGH BOTH TERMS rather than being OR-ed on its own:
+ * the two readings agree on the boolean, but not on WHICH escape is reachable,
+ * and `completingActionKind` spends that answer. With `onResolve: [{dismiss}]`,
+ * no `onError` and a trailing `"continue"`, OR-ing `rest` separately loses the
+ * reachable `{dismiss}` and the runtime would substitute the more permissive
+ * advance — the review-round-2 finding-1 bug, one level down.
+ */
+const customActionEscapes = (
+  action: Record<string, unknown>,
+  rest: readonly unknown[] = []
+): Set<EscapeAction> => {
+  const afterwards = listEscapes(rest);
+  const resolved = union(listEscapes(action.onResolve), afterwards);
+  const failed = union(listEscapes(action.onError), afterwards);
+  if (!resolved.size || !failed.size) return new Set<EscapeAction>();
+  return union(resolved, failed);
+};
+
 const actionEscapes = (action: unknown): Set<EscapeAction> => {
   // `ButtonActionSchema` declares continue as the string literal, not an
   // object: `{type:"continue"}` is not an action the runtime runs.
@@ -143,11 +226,9 @@ const actionEscapes = (action: unknown): Set<EscapeAction> => {
   if (!isRecord(action)) return new Set<EscapeAction>();
   if (action.type === "dismiss") return new Set<EscapeAction>(["dismiss"]);
   if (action.type === "requestPermission") return permissionAskEscapes(action);
+  if (action.type === "custom") return customActionEscapes(action);
   return union(...Object.values(action).map(listEscapes));
 };
-
-const isCompletingAction = (action: unknown): boolean =>
-  actionEscapes(action).size > 0;
 
 const nodeCanComplete = (node: unknown): boolean => {
   if (!isRecord(node)) return false;
@@ -156,14 +237,20 @@ const nodeCanComplete = (node: unknown): boolean => {
     if (props.actions != null) {
       // `Button` reads `actions ?? (action === "continue" ? …)`, so a present
       // `actions` shadows the deprecated shorthand — even when it is empty.
-      if (Array.isArray(props.actions) && props.actions.some(isCompletingAction)) return true;
+      //
+      // Read as ONE list, not action-by-action: order matters, because an
+      // action BEFORE a `custom` runs whatever the handler does, while one
+      // AFTER it has to satisfy both terms of that action's conjunction.
+      // `.some(isCompletingAction)` could express neither, and credited a
+      // `"continue"` inside an `onResolve` hook it never looked at the
+      // reachability of at all.
+      if (listCompletes(props.actions)) return true;
     } else if (props.action === "continue") {
       return true;
     }
     if (
-      Array.isArray(props.onPress) &&
       !PRESS_HANDLED_TYPES.has(String(node.type)) &&
-      props.onPress.some(isCompletingAction)
+      listCompletes(props.onPress)
     ) {
       return true;
     }

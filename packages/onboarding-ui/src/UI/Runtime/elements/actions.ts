@@ -6,17 +6,76 @@ import { z } from "zod";
 // on it without an import cycle. Shared by `Button.actions` and the generic
 // `onPress` on every UIElement.
 
+/**
+ * Bounded retry for a `custom` action (#191). The cap is REQUIRED and small —
+ * see the headless `common.types.ts` doc comment for why there is no
+ * "retry until it works" spelling.
+ *
+ * **The handler must be safe to re-run**: every attempt re-invokes the same
+ * host function with the same press-time variables, and a timed-out attempt is
+ * an ordinary failed attempt — so a request that already reached the server and
+ * lost only the answer to the clock is sent again. A `retry` on a
+ * non-idempotent endpoint is N writes for one press. Headless doc comment for
+ * the full reasoning.
+ */
+export type CustomActionRetry = {
+  /** TOTAL attempts, counting the first. 1..10. */
+  maxAttempts: number;
+  /** Fixed pause between attempts, ms (0..10000). Defaults to 0. */
+  delayMs?: number;
+  /**
+   * How long ONE attempt may take before it counts as failed, ms
+   * (1000..300000). Absent means unbounded — see the headless doc comment for
+   * why that is the right default and what the bounded case prevents (#264).
+   */
+  timeoutMs?: number;
+};
+
+export const CustomActionRetrySchema = z.object({
+  maxAttempts: z
+    .number()
+    .int("maxAttempts must be a whole number of attempts")
+    .min(1, "maxAttempts must be at least 1")
+    .max(10, "maxAttempts must be at most 10"),
+  delayMs: z.number().min(0).max(10000).optional(),
+  timeoutMs: z
+    .number()
+    .min(1000, "timeoutMs must be at least 1000 (no real handler answers faster)")
+    .max(300000, "timeoutMs must be at most 300000 (five minutes)")
+    .optional(),
+});
+
 export type CustomButtonAction = {
   type: "custom";
   function: string;
   variables?: string[];
+  /**
+   * Runs once the host handler's promise RESOLVES. Non-terminal — the
+   * enclosing list carries on. A gate's `"continue"` belongs here, not after
+   * the `custom` action, where it would advance on failure too.
+   */
+  onResolve?: ButtonAction[];
+  /**
+   * Runs when the handler FAILS: a throw with every attempt spent, an attempt
+   * past `retry.timeoutMs`, or an unregistered `function` name. Not terminal —
+   * the enclosing list carries on, as it does for `purchase`/`restore`. See the
+   * headless doc comment for why the abort went (#191 / #266).
+   */
+  onError?: ButtonAction[];
+  /** Bounded retry of the handler. Absent means one attempt, no retry. */
+  retry?: CustomActionRetry;
 };
 
-export const CustomButtonActionSchema = z.object({
-  type: z.literal("custom"),
-  function: z.string().min(1, "function must not be empty"),
-  variables: z.array(z.string()).optional(),
-});
+export const CustomButtonActionSchema: z.ZodType<CustomButtonAction> = z.lazy(() =>
+  z.object({
+    type: z.literal("custom"),
+    function: z.string().min(1, "function must not be empty"),
+    variables: z.array(z.string()).optional(),
+    onResolve: z.array(ButtonActionSchema).optional(),
+    onError: z.array(ButtonActionSchema).optional(),
+    retry: CustomActionRetrySchema.optional(),
+  })
+);
 
 export type SetVariableButtonAction = {
   type: "setVariable";

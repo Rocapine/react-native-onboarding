@@ -1,5 +1,6 @@
 import type { ComposableVariableEntry } from "@rocapine/react-native-onboarding";
 import type { UIElement } from "../types";
+import { IN_FLIGHT_ANY_KEY } from "../inFlight";
 
 /**
  * Pure helpers behind the `Repeat` element, kept free of any react-native import
@@ -72,4 +73,48 @@ export const buildRowFlat = (
   }
   flat[`${scope}.index`] = index;
   return flat;
+};
+
+/**
+ * Alias this row's own `actions.pending.<suffixedId>` keys back to the TEMPLATE
+ * id (#191, review round 1, finding 9).
+ *
+ * `suffixIds` rewrites `row-cta` to `row-cta__yearly`, so the runtime publishes
+ * the pending key under an id the author never wrote and cannot spell:
+ * `evaluateCondition` looks its left-hand side up verbatim (only the right-hand
+ * side interpolates `{{…}}`), and the row scope otherwise exposes `item.*`
+ * only. Without this, `disabledWhen: { variable: "actions.pending.row-cta" }`
+ * inside a `Repeat` was dead — the CTA never disabled, the row spinner never
+ * rendered — and the screen-wide `actions.pending` was true for every row at
+ * once, showing the pending state on all of them.
+ *
+ * Scoped to the row: another row's suffix does not match, so each row sees only
+ * its own. The screen-wide key is left alone (an element literally named so that
+ * stripping its suffix collides with it is skipped rather than allowed to
+ * overwrite the flag).
+ *
+ * `parentSuffix` is the chain the ENCLOSING rows already added, because
+ * `suffixIds` composes across nesting levels: a Button inside a `Repeat` inside
+ * a `Repeat` is published as `row-cta__0__a`, and stripping only `__a` yields
+ * `row-cta__0` — still not the id the author wrote (review round 2, finding 2).
+ * The whole chain has to come off at once, and matching on the whole chain is
+ * also what keeps one outer row's press from lighting up the same-keyed inner
+ * row of another.
+ */
+export const withRowPendingAliases = <T>(
+  variables: Record<string, T>,
+  rowKey: string,
+  parentSuffix = ""
+): Record<string, T> => {
+  const suffix = `${parentSuffix}__${rowKey}`;
+  const prefix = `${IN_FLIGHT_ANY_KEY}.`;
+  let out: Record<string, T> | undefined;
+  for (const [key, value] of Object.entries(variables)) {
+    if (!key.startsWith(prefix) || !key.endsWith(suffix)) continue;
+    const templateKey = key.slice(0, key.length - suffix.length);
+    if (templateKey === prefix.slice(0, -1) || templateKey === prefix) continue;
+    out ??= { ...variables };
+    out[templateKey] = value;
+  }
+  return out ?? variables;
 };

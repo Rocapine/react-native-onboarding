@@ -53,17 +53,120 @@ export type HapticStyle = z.infer<typeof HapticStyleSchema>;
 // `{type:"presentPaywall"}` (asks the host to present a paywall by placement —
 // works from an onboarding step or a paywall alike).
 
+/**
+ * Bounded retry for a `custom` action (#191). The cap is REQUIRED and small:
+ * an onboarding gate that keeps hammering a dead service just holds the user on
+ * a screen that never resolves, so there is deliberately no "retry until it
+ * works" spelling.
+ *
+ * **The handler must be safe to re-run.** A retry re-invokes the SAME host
+ * function with the SAME press-time variables, so a handler that writes is
+ * asked to write again: `maxAttempts: 3` over a `/create-plan` or a charge is
+ * three records or three charges for one press, and neither the schema, the
+ * runtime nor the console can tell a safe handler from an unsafe one — this
+ * field is the only place the hazard is stated. `timeoutMs` widens it rather
+ * than bounding it: a timed-out attempt is an ordinary failed attempt, so a
+ * request that reached the server and lost only the ANSWER to the clock is sent
+ * again. Retry a read, a validation, or a write carrying an idempotency key;
+ * for anything else leave `retry` absent and put the recovery in `onError`.
+ * (Same class as the `purchase` double-fire that `disabledWhen` on
+ * `products.purchasing` exists to prevent — one press, several writes, nothing
+ * reporting it.)
+ */
+export type CustomActionRetry = {
+  /**
+   * TOTAL attempts, counting the first — `2` means "try once, retry once".
+   * 1..10. Absent `retry` is the default and means exactly one attempt.
+   */
+  maxAttempts: number;
+  /** Fixed pause between attempts, ms (0..10000). Defaults to 0. */
+  delayMs?: number;
+  /**
+   * How long ONE attempt may take before it counts as failed, ms
+   * (1000..300000). Absent means UNBOUNDED — the behaviour before this field
+   * existed, and the right default: a legitimate LLM call can take 60s+, and
+   * cutting one off by default would be a worse bug than the hang (#264).
+   *
+   * The hang it prevents is a dead screen, not a slow one. The handler is
+   * awaited while the runtime holds this element's single-flight claim, so a
+   * promise that never settles leaves `actions.pending.<elementId>` reading
+   * `"true"` for the life of the screen — and the payload these docs recommend
+   * disables the CTA on exactly that, with no back chevron on a
+   * `displayProgressHeader: false` step.
+   *
+   * A timed-out attempt is an ordinary failed attempt: it retries if the budget
+   * allows, and otherwise runs `onError` like any other failure. Declaring a
+   * timeout without retries is `{ maxAttempts: 1, timeoutMs: … }` — the object
+   * is the attempt policy, and one attempt is a policy.
+   */
+  timeoutMs?: number;
+};
+
+export const CustomActionRetrySchema = z.object({
+  maxAttempts: z
+    .number()
+    .int("maxAttempts must be a whole number of attempts")
+    .min(1, "maxAttempts must be at least 1")
+    .max(10, "maxAttempts must be at most 10"),
+  delayMs: z.number().min(0).max(10000).optional(),
+  timeoutMs: z
+    .number()
+    .min(1000, "timeoutMs must be at least 1000 (no real handler answers faster)")
+    .max(300000, "timeoutMs must be at most 300000 (five minutes)")
+    .optional(),
+});
+
 export type CustomButtonAction = {
   type: "custom";
   function: string;
   variables?: string[];
+  /**
+   * Actions to run once the host handler's promise RESOLVES. Non-terminal: the
+   * enclosing action list carries on afterwards, exactly as it does for a
+   * handler with no hooks.
+   *
+   * This is where anything that must only happen ON SUCCESS belongs — writing
+   * the result into a variable a later screen reads, and the `"continue"` of a
+   * gate that must not advance on failure. A `"continue"` placed AFTER the
+   * `custom` action instead advances on every outcome, which is the right
+   * shape for "fire and move on" and the wrong one for a gate.
+   */
+  onResolve?: ButtonAction[];
+  /**
+   * Actions to run when the handler FAILS — it threw with every attempt spent,
+   * an attempt exceeded `retry.timeoutMs`, or the `function` name is not
+   * registered on the host at all. One rule for all three.
+   *
+   * NOT terminal, with or without this hook: the enclosing list carries on,
+   * exactly as `purchase`/`restore` do on their own `onError`. `custom` used to
+   * diverge here — a throw aborted the list — and that divergence is gone
+   * (semantics decisions 1 and 2, recorded on #191 on 2026-09-11; ticket #266).
+   * It cost more than it bought: two spellings of "on error" inside one action
+   * union behaving differently with nothing in the payload, the schema or the
+   * console to tell them apart, and the two `custom` failure modes disagreeing
+   * with each other. What the abort was protecting — a trailing `"continue"`
+   * walking the user onto a screen that reads variables the handler never wrote
+   * — is `onResolve`'s job, where the author says it rather than the runtime
+   * guessing it.
+   *
+   * The failure is still `console.error`ed whether or not this hook is declared
+   * — a declared hook is error UI, not a reason to lose the stack trace.
+   */
+  onError?: ButtonAction[];
+  /** Bounded retry of the handler. Absent means one attempt, no retry. */
+  retry?: CustomActionRetry;
 };
 
-export const CustomButtonActionSchema = z.object({
-  type: z.literal("custom"),
-  function: z.string().min(1, "function must not be empty"),
-  variables: z.array(z.string()).optional(),
-});
+export const CustomButtonActionSchema: z.ZodType<CustomButtonAction> = z.lazy(() =>
+  z.object({
+    type: z.literal("custom"),
+    function: z.string().min(1, "function must not be empty"),
+    variables: z.array(z.string()).optional(),
+    onResolve: z.array(ButtonActionSchema).optional(),
+    onError: z.array(ButtonActionSchema).optional(),
+    retry: CustomActionRetrySchema.optional(),
+  })
+);
 
 export type SetVariableButtonAction = {
   type: "setVariable";

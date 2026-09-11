@@ -11,7 +11,7 @@ Wire developer-defined functions to `ComposableScreen` `Button` presses. Run ana
 Each `Button` element in a `ComposableScreen` carries an ordered `actions` array. The runtime walks the array on press, executing each entry sequentially:
 
 - `"continue"` — advances the onboarding (terminal — anything after is ignored).
-- `{ type: "custom", function: "<name>", variables?: ["<key>", ...] }` — invokes a handler you registered on `OnboardingProvider.customActions`. Listed variables are read from the live ComposableScreen variable map and forwarded to the handler.
+- `{ type: "custom", function: "<name>", variables?: ["<key>", ...], onResolve?: ButtonAction[], onError?: ButtonAction[], retry?: { maxAttempts: number, delayMs?: number, timeoutMs?: number } }` — invokes a handler you registered on `OnboardingProvider.customActions`. Listed variables are read from the live ComposableScreen variable map and forwarded to the handler. See [Async gates](#async-gates-onresolve-onerror-retry-and-the-pending-state) for the outcome hooks.
 - `{ type: "setVariable", name: "<key>", value: "<value>", label?: "<label>", valueMode?, kind?, arrayOp? }` — writes directly to the variable map (`{ value, label }` shape, matching `Input` / `RadioGroup` / `CheckboxGroup` / `DatePicker`). Useful to capture which branch a user chose before a following `"continue"` triggers `resolveNextStepNumber`.
   - `valueMode: "expression"` (default `"literal"`) evaluates `value` as an expression over `{{var}}` references — arithmetic plus a small stdlib (`min max abs round clamp addDays format list join count plural`) — instead of storing it verbatim.
   - `kind: "int" | "float" | "string"` types the stored value; it decides how a later numeric comparison reads it.
@@ -28,7 +28,14 @@ is documented under [Button actions](../page-types.mdx#button-actions).
 ```typescript
 type ButtonAction =
   | "continue"
-  | { type: "custom"; function: string; variables?: string[] }
+  | {
+      type: "custom";
+      function: string;
+      variables?: string[];
+      onResolve?: ButtonAction[];
+      onError?: ButtonAction[];
+      retry?: { maxAttempts: number; delayMs?: number; timeoutMs?: number };
+    }
   | {
       type: "setVariable";
       name: string;
@@ -126,8 +133,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 | **Order** | Sequential — each action awaits the prior. |
 | **Async** | Returned `Promise` is awaited. |
 | **`"continue"`** | Terminal — chain stops. Place `"continue"` last. |
-| **Thrown error** | `console.error` and chain aborts (subsequent actions, including `"continue"`, do not run). |
-| **Unknown handler name** | `console.warn` and chain skips to the next action. |
+| **Thrown error** | `console.error`, `onError` runs if declared, and the chain carries on to the next action — the same as `purchase`/`restore`. |
+| **Handler never settles** | Only bounded if `retry.timeoutMs` is declared. A timed-out attempt is a failed attempt: it retries if the budget allows, else `console.error` + `onError`. Without it the press waits forever and the CTA stays disabled. |
+| **Retry** | None by default. `retry: { maxAttempts }` re-invokes the same handler with the same press-time variables, up to `maxAttempts` total attempts; `delayMs` pauses between them, `timeoutMs` bounds each one. Only set it on a handler that is safe to run twice — see [Retry only what is safe to run twice](#async-gates-onresolve-onerror-retry-and-the-pending-state). |
+| **Re-entrancy** | A second press on the same element while its list is still running is dropped. |
+| **Unknown handler name** | `console.error`, `onError` runs if declared (`onResolve` does not — nothing resolved), and the chain carries on to the next action. |
+| **Every failure is one rule** | A throw, a timeout and an unregistered name do the same thing: log, run `onError`, keep going. What must only run on success goes in `onResolve`. |
 | **Empty array / no `actions` / no legacy `action`** | Press is a no-op. |
 
 ## Variable shape by element
@@ -175,22 +186,144 @@ customActions={{
       name: variables.name?.value,
       email: variables.email?.value,
     });
-    if (!res.ok) throw new Error("validation failed"); // aborts chain → "continue" skipped
+    if (!res.ok) throw new Error("validation failed"); // runs onError; the chain carries on
   },
 }}
 ```
+
+## Async gates: `onResolve`, `onError`, `retry` and the pending state
+
+A screen that waits on a backend or an LLM needs four things, and all four are
+payload — no host code beyond the handler itself.
+
+```jsonc
+{
+  "id": "generate-cta",
+  "type": "Button",
+  "props": {
+    "label": "Generate plan",
+    // 3. The CTA disables itself while its own action list runs.
+    "disabledWhen": { "variable": "actions.pending.generate-cta", "operator": "eq", "value": "true" },
+    "actions": [
+      { "type": "setVariable", "name": "planError", "value": "false" },
+      {
+        "type": "custom",
+        "function": "generatePlan",
+        "variables": ["goal"],
+        // 1. Bounded retry. `maxAttempts` counts the FIRST attempt, so this is
+        //    one call plus two retries, 500ms apart, and no single attempt may
+        //    run longer than 20s.
+        "retry": { "maxAttempts": 3, "delayMs": 500, "timeoutMs": 20000 },
+        // 2. Outcome hooks, the same nested shape `purchase` and `restore` use.
+        "onResolve": ["continue"],
+        "onError": [{ "type": "setVariable", "name": "planError", "value": "true" }]
+      }
+    ]
+  }
+}
+```
+
+```jsonc
+// 4. Pending and error UI, gated on variables nobody had to write by hand.
+{ "id": "spinner-copy", "type": "Text",
+  "renderWhen": { "variable": "actions.pending.generate-cta", "operator": "eq", "value": "true" },
+  "props": { "content": "Generating your plan…" } },
+{ "id": "error-copy", "type": "Text",
+  "renderWhen": { "variable": "planError", "operator": "eq", "value": "true" },
+  "props": { "content": "Could not reach the service. Tap to try again." } }
+```
+
+**Put `"continue"` in `onResolve` when it must NOT run on failure.** Every
+failure — a throw, a timed-out attempt, an unregistered handler name — runs
+`onError` and then lets the enclosing list carry on, so a `"continue"` placed
+after the `custom` action advances on every outcome. That is the right shape for
+"fire a side effect and move on" and the wrong one for a gate whose next screen
+reads what the handler produced. The two spellings are different intents, not a
+style choice:
+
+- `"onResolve": ["continue"]` — advance only when it worked.
+- `[{custom}, "continue"]` — advance whatever happened.
+
+**`onError` is not terminal, and neither is `purchase`'s.** A declared `onError`
+replaces the silence, and stops nothing. A thrown `custom` handler used to drop the rest of
+its list while every other action in the union carried on — one spelling of "on error", two behaviours, with nothing in the
+payload or the console to tell them apart. The failure is still `console.error`ed
+whether or not a hook is declared: a hook is error UI, not a reason to lose the
+stack trace.
+
+**A screen must stay leaveable when the gate fails.** `onResolve: ["continue"]`
+is the resolve path only — nothing in it runs when the handler fails or when the
+host never registered it. If that `"continue"` is the screen's ONLY way forward,
+a user whose backend is down is stuck. Give the failure path an exit: an
+`onError` that reaches a `"continue"` or a `{"type":"dismiss"}`, a visible retry
+beside a skip, or a `"continue"` trailing the action. The SDK reads the payload
+the same way — a `custom` action counts as a way off the screen only when BOTH
+the resolve path and the failure path reach one (`completingActions.ts`), the
+same AND rule `requestPermission` uses — and supplies its own CTA on a screen
+that has been degraded and fails that test.
+
+**Bound the attempt, or the CTA can die.** With no `retry.timeoutMs`, a handler
+whose promise never settles is awaited forever: `actions.pending.<elementId>`
+stays `"true"`, the `disabledWhen` above keeps the CTA greyed out, neither hook
+ever runs, and on a `displayProgressHeader: false` step there is no back chevron
+either. It is 1000..300000 ms, with no default, because a legitimate LLM call
+can take 60s+ and a silent cut-off would be the worse bug. A timeout without
+retries is `{ "maxAttempts": 1, "timeoutMs": 20000 }`.
+
+**Retry only what is safe to run twice.** `retry` re-invokes the **same
+handler** with the **same press-time variables**, so the `validateProfile` gate
+above with `retry: { "maxAttempts": 3 }` sends three `POST /validate` requests
+on a 500 — or on a `res.json()` that throws *after* the write landed. On a
+non-idempotent endpoint (`/create-plan`, a charge) that is three records or
+three charges for one press, and nothing in the payload, the schema or the
+console says so. `timeoutMs` widens this rather than bounding it: a timed-out
+attempt is an ordinary failed attempt, so a request that reached the server and
+lost only the *answer* to the clock is sent again. Retry reads, validations, and
+writes carrying an idempotency key; for anything else leave `retry` off and put
+the recovery in `onError`. (`purchase` has the same hazard one layer down, which
+is why its CTA carries `disabledWhen` on `products.purchasing`.)
+
+**The pending state is owned by the runtime.** For as long as an element's action
+list is awaiting — across retries included — the variable map carries
+`actions.pending` (`"true"` while ANY element on the screen is busy) and
+`actions.pending.<elementId>` (`"true"` for that one). They are runtime facts and
+win over an author variable of the same name, exactly like resolved product
+variables. A per-element key is absent rather than `"false"` when idle, which
+reads as not-pending under both `eq "true"` and `neq "true"`.
+
+It applies to every element that can dispatch an action list, not just `Button`:
+the generic `onPress` available on any element goes through the same guard, so a
+pressable card is single-flight and publishes its own pending key too.
+
+Inside a `Repeat`, write the pending key with the id **as it appears in the
+template** — `actions.pending.row-cta`. Each row scopes it to its own
+materialized element (the runtime's real key is suffixed, `row-cta__yearly`), so
+one row's pending state never lights up its siblings'. The screen-wide
+`actions.pending` is still screen-wide. A `Repeat` nested in another `Repeat`
+works the same way: the suffixes compose, and the template id is still what you
+write.
+
+There is no spinner element; gate a `Lottie`, a `ProgressIndicator` or a `Text`
+with `renderWhen` instead.
 
 ### Fan-out side effects, then continue
 
 ```jsonc
 {
   "actions": [
-    { "type": "custom", "function": "trackCta" },
-    { "type": "custom", "function": "syncProfile", "variables": ["name", "plan"] },
+    { "type": "custom", "function": "trackCta", "onError": ["continue"] },
+    { "type": "custom", "function": "syncProfile", "variables": ["name", "plan"],
+      "onError": ["continue"] },
     "continue"
   ]
 }
 ```
+
+Side effects, not a gate: the trailing `"continue"` runs whether or not either
+handler succeeded, so analytics that fails offline cannot hold the user on the
+screen. The `onError` hooks here are where failure UI or a fallback would go —
+they are no longer needed to guarantee the exit, as they were while a throw
+aborted the list.
 
 ### Branch on a button-chosen value
 

@@ -1211,6 +1211,19 @@ export const onboardingExample = {
                   },
                 ],
               },
+              // #191 — the runtime publishes `actions.pending.<elementId>` while
+              // that element's action list is awaiting, so a pending state needs
+              // no host code and no new element type.
+              {
+                id: "hero-button-pending",
+                type: "Text",
+                renderWhen: {
+                  variable: "actions.pending.hero-button",
+                  operator: "eq",
+                  value: "true",
+                },
+                props: { content: "One moment…", fontSize: 14, color: "#6B7280" },
+              },
               {
                 id: "hero-button",
                 type: "Button",
@@ -1219,8 +1232,35 @@ export const onboardingExample = {
                   variant: "filled",
                   marginVertical: 8,
                   haptic: "medium",
+                  // Deliberately NOT the `onResolve: ["continue"]` async-gate
+                  // shape (review round 1, findings 1 and 7). This payload is
+                  // the exported `fallbackOnboarding`, rendered by apps that
+                  // pass no `customActions` at all — `trackCta` is registered
+                  // nowhere in the SDK — and a gate puts the screen's only way
+                  // forward behind a handler that host may not have. The
+                  // trailing `"continue"` runs on the resolve path, and
+                  // `onError` covers the other two. The async gate is where
+                  // its handler is guaranteed: `example/app/example/
+                  // composable-screen.tsx` (`async-gate`), which is not that
+                  // screen's only CTA either.
                   actions: [
-                    { type: "custom", function: "trackCta", variables: ["name", "plan", "goals"] },
+                    {
+                      type: "custom",
+                      function: "trackCta",
+                      variables: ["name", "plan", "goals"],
+                      // One attempt, bounded (#264). `trackCta` is analytics —
+                      // if the host's handler never settles, the press never
+                      // finishes, the trailing `"continue"` never runs, and the
+                      // single-flight claim drops every further tap: a dead CTA
+                      // on the screen apps get when they pass no payload at
+                      // all. 8s is generous for a fire-and-forget beacon.
+                      retry: { maxAttempts: 1, timeoutMs: 8000 },
+                      // Kept although the trailing `"continue"` now runs on
+                      // every outcome (semantics decision 1 on #191): it makes
+                      // the intent explicit at the point a reader asks "what
+                      // happens offline?", and it is where failure UI would go.
+                      onError: ["continue"],
+                    },
                     "continue",
                   ],
                 },

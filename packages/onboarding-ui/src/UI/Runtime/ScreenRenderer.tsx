@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from "react-native";
 import { productVariables } from "@rocapine/react-native-onboarding";
 import type { UIElement } from "./types";
@@ -15,6 +15,9 @@ import { VariablesContext } from "./elements/VariablesContext";
 import { AnimatedVariablesContext, useAnimatedVariablesRegistry } from "./elements/AnimatedVariablesContext";
 import { collectElementDefaults } from "./elements/collectDefaults";
 import { mergeVariables, flattenVariables, withProductVariables } from "./variables";
+import { createInFlightRegistry, withInFlightVariables } from "./inFlight";
+
+const NO_ELEMENTS_IN_FLIGHT: ReadonlySet<string> = new Set<string>();
 
 export type ScreenRendererProps = {
   /**
@@ -55,9 +58,21 @@ export const ScreenRenderer = ({ elements, host }: ScreenRendererProps) => {
     () => (products ? productVariables(products) : undefined),
     [products]
   );
+  // Runtime-owned in-flight state (#191). The registry's Set is the authority
+  // and is mutated synchronously inside `claim`, so two taps in one tick cannot
+  // both win; this state only mirrors it so the variable projection re-renders.
+  const [inFlightIds, setInFlightIds] = useState<ReadonlySet<string>>(
+    NO_ELEMENTS_IN_FLIGHT
+  );
+  const inFlight = useMemo(() => createInFlightRegistry(setInFlightIds), []);
+
   const effectiveVariables = useMemo(
-    () => withProductVariables(mergeVariables(elementDefaults, hostVariables), productVars),
-    [elementDefaults, hostVariables, productVars]
+    () =>
+      withInFlightVariables(
+        withProductVariables(mergeVariables(elementDefaults, hostVariables), productVars),
+        inFlightIds
+      ),
+    [elementDefaults, hostVariables, productVars, inFlightIds]
   );
   const flatVariables = useMemo(() => flattenVariables(effectiveVariables), [effectiveVariables]);
 
@@ -104,9 +119,13 @@ export const ScreenRenderer = ({ elements, host }: ScreenRendererProps) => {
       products,
       presentPaywall,
       requestPermission,
+      // Stable for the screen's lifetime (`useMemo` on []), so adding them does
+      // not churn ctx or defeat any element memoization.
+      beginActions: inFlight.claim,
+      endActions: inFlight.release,
       renderChildren,
     }),
-    [theme, getVariables, setVariable, stableOnContinue, customActions, products, presentPaywall, requestPermission, renderChildren]
+    [theme, getVariables, setVariable, stableOnContinue, customActions, products, presentPaywall, requestPermission, inFlight, renderChildren]
   );
   ctxRef.current = ctx;
 

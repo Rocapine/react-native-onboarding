@@ -1248,11 +1248,17 @@ export const onboardingExample = {
                       type: "custom",
                       function: "trackCta",
                       variables: ["name", "plan", "goals"],
-                      // `onError: ["continue"]` is what makes the trailing
-                      // `"continue"` a promise rather than a hope (review round
-                      // 2, finding 1): a handler that THROWS aborts the rest of
-                      // the list, so without this hook an analytics call
-                      // failing offline would strand the user on the screen.
+                      // One attempt, bounded (#264). `trackCta` is analytics —
+                      // if the host's handler never settles, the press never
+                      // finishes, the trailing `"continue"` never runs, and the
+                      // single-flight claim drops every further tap: a dead CTA
+                      // on the screen apps get when they pass no payload at
+                      // all. 8s is generous for a fire-and-forget beacon.
+                      retry: { maxAttempts: 1, timeoutMs: 8000 },
+                      // Kept although the trailing `"continue"` now runs on
+                      // every outcome (semantics decision 1 on #191): it makes
+                      // the intent explicit at the point a reader asks "what
+                      // happens offline?", and it is where failure UI would go.
                       onError: ["continue"],
                     },
                     "continue",

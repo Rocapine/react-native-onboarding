@@ -124,7 +124,11 @@ export default function ComposableScreenExample() {
                         type: 'custom',
                         function: 'generatePlan',
                         variables: ['goal'],
-                        retry: { maxAttempts: 3, delayMs: 400 },
+                        // Each attempt is bounded as well as the number of
+                        // them (#264): without `timeoutMs` a handler whose
+                        // promise never settles holds the claim forever, so the
+                        // `disabledWhen` below greys this CTA out permanently.
+                        retry: { maxAttempts: 3, delayMs: 400, timeoutMs: 10000 },
                         onResolve: [
                           { type: 'setVariable', name: 'planReady', value: 'true' },
                         ],

@@ -174,7 +174,15 @@ function readActions() {
  * here — which is the point: registering it is what makes the docs check start
  * asking for it.
  */
-const PROJECTORS = ["packages/onboarding/src/products/toVariables.ts"];
+const PROJECTORS = [
+  "packages/onboarding/src/products/toVariables.ts",
+  // #191's press-time gate. `actions.pending` is true while any element runs its
+  // action list, `actions.pending.<elementId>` while that one does — the same
+  // flat-dotted shape resolved products use, and owned by the runtime for the
+  // same reason: no payload can write it. It lives in the UI package because the
+  // in-flight claim is a render-time fact, not a data one.
+  "packages/onboarding-ui/src/UI/Runtime/inFlight.ts",
+];
 
 /**
  * Variable keys the runtime puts in the bag that no `variableName` element and no

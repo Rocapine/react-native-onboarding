@@ -12,7 +12,10 @@ Each `Button` element in a `ComposableScreen` carries an ordered `actions` array
 
 - `"continue"` — advances the onboarding (terminal — anything after is ignored).
 - `{ type: "custom", function: "<name>", variables?: ["<key>", ...] }` — invokes a handler you registered on `OnboardingProvider.customActions`. Listed variables are read from the live ComposableScreen variable map and forwarded to the handler.
-- `{ type: "setVariable", name: "<key>", value: "<value>", label?: "<label>" }` — writes directly to the variable map (`{ value, label }` shape, matching `Input` / `RadioGroup` / `CheckboxGroup` / `DatePicker`). Useful to capture which branch a user chose before a following `"continue"` triggers `resolveNextStepNumber`.
+- `{ type: "setVariable", name: "<key>", value: "<value>", label?: "<label>", valueMode?, kind?, arrayOp? }` — writes directly to the variable map (`{ value, label }` shape, matching `Input` / `RadioGroup` / `CheckboxGroup` / `DatePicker`). Useful to capture which branch a user chose before a following `"continue"` triggers `resolveNextStepNumber`.
+  - `valueMode: "expression"` (default `"literal"`) evaluates `value` as an expression over `{{var}}` references — arithmetic plus a small stdlib (`min max abs round clamp addDays format list join count plural`) — instead of storing it verbatim.
+  - `kind: "int" | "float" | "string"` types the stored value; it decides how a later numeric comparison reads it.
+  - `arrayOp: "append" | "remove" | "toggle"` treats the variable as the JSON-encoded `string[]` a multi-select `CheckboxGroup` writes and applies a set operation to it. `kind` is ignored when `arrayOp` is present.
 
 Handlers may be async — the chain awaits each `Promise` before proceeding.
 
@@ -26,7 +29,15 @@ is documented under [Button actions](../page-types.mdx#button-actions).
 type ButtonAction =
   | "continue"
   | { type: "custom"; function: string; variables?: string[] }
-  | { type: "setVariable"; name: string; value: string; label?: string };
+  | {
+      type: "setVariable";
+      name: string;
+      value: string;
+      label?: string;
+      valueMode?: "literal" | "expression";
+      kind?: "int" | "float" | "string";
+      arrayOp?: "append" | "remove" | "toggle";
+    };
   // … plus purchase / restore / dismiss / presentPaywall / requestPermission
 ```
 

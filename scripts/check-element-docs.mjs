@@ -21,6 +21,14 @@
 // So: the prose stays hand-written, and this asserts the facts around it. Same
 // outcome for the drift class, none of the loss.
 //
+// The same argument is why the checks below reach past the element schemas to the
+// `ButtonAction` union and the variables the RUNTIME projects into the bag. Both
+// are membership-and-naming facts spread over six authoring surfaces, and the
+// rule that used to hold them — CLAUDE.md's "mirror schema docs in-repo" step —
+// admitted in its own text that its file list had been incomplete for months and
+// that `website/` was on trust. A list nobody can run is a list that rots, so the
+// list is here, and a surface that goes missing fails.
+//
 // Truth comes from the SOURCE, not the built dist, so this runs with no install
 // and no build step — deliberately, because a check that needs a toolchain is a
 // check that gets skipped.
@@ -127,7 +135,101 @@ function readTruth() {
   };
 }
 
+const COMMON = join(ROOT, "packages/onboarding/src/steps/common.types.ts");
+
+/**
+ * The `ButtonAction` union: variant name → its own field names, read off the zod
+ * schemas in `common.types.ts`.
+ *
+ * The union's member list is parsed FIRST and the variants are then looked up by
+ * name, so a schema sitting in the file but never wired into `ButtonActionSchema`
+ * cannot be mistaken for part of the contract — nor a wired one skipped.
+ */
+function readActions() {
+  const src = readFileSync(COMMON, "utf8");
+  const union =
+    /ButtonActionSchema[^=]*=\s*z\.lazy\(\(\)\s*=>\s*z\.union\(\[([\s\S]*?)\]\)/.exec(src);
+  if (!union) {
+    throw new Error("ButtonActionSchema's union not found — did common.types.ts change shape?");
+  }
+  const members = [...new Set(union[1].match(/\w+ButtonActionSchema/g) ?? [])];
+  if (members.length < 5) {
+    throw new Error(`Only parsed ${members.length} ButtonAction variants — the union parse is broken`);
+  }
+  const out = new Map();
+  for (const name of members) {
+    const decl = src.indexOf(`export const ${name}`);
+    if (decl === -1) throw new Error(`${name} is in the union but declared nowhere`);
+    const body = block(src, src.indexOf("z.object(", decl));
+    if (!body) throw new Error(`Could not read the object body of ${name}`);
+    const variant = /type:\s*z\.literal\("([^"]+)"\)/.exec(body);
+    if (!variant) throw new Error(`${name} declares no type literal`);
+    out.set(variant[1], topKeys(body).filter((k) => k !== "type"));
+  }
+  return out;
+}
+
+/**
+ * Modules that publish variables the RUNTIME owns. A new one has to be listed
+ * here — which is the point: registering it is what makes the docs check start
+ * asking for it.
+ */
+const PROJECTORS = ["packages/onboarding/src/products/toVariables.ts"];
+
+/**
+ * Variable keys the runtime puts in the bag that no `variableName` element and no
+ * `setVariable` action ever writes. They are the standing EXCEPTION to every
+ * "a gate must reference a variable something captures" rule, so a doc stating
+ * that rule without carving them out tells an agent to flag correct payloads.
+ *
+ * A fixed key comes out whole (`products.loaded`); a key built per slot
+ * contributes its namespace prefix (`product.`), because the rest of it is the
+ * author's own slot name.
+ */
+function readProjectedVariables() {
+  const out = new Set();
+  for (const p of PROJECTORS) {
+    const src = readFileSync(join(ROOT, p), "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/\/\/[^\n]*/g, "");
+    for (const m of src.matchAll(/["'`]([a-z][A-Za-z0-9]*(?:\.[A-Za-z0-9]+)+)["'`]/g)) out.add(m[1]);
+    for (const m of src.matchAll(/`([a-z][A-Za-z0-9]*(?:\.[A-Za-z0-9]+)*)\.\$\{/g)) out.add(`${m[1]}.`);
+  }
+  if (!out.size) {
+    throw new Error(`No projected variable keys parsed from ${PROJECTORS.join(", ")}`);
+  }
+  return [...out].sort();
+}
+
 /* ── docs ────────────────────────────────────────────────────────────── */
+
+/**
+ * The authoring surfaces an agent reads to write or review an action list.
+ *
+ * DECLARED rather than discovered, for two reasons: the set spans two trees
+ * (`claude-plugin/` and `website/`), and the rule these checks escalate —
+ * CLAUDE.md's "mirror schema docs in-repo" step — was incomplete for months
+ * precisely because its file list lived in prose nobody could run. A path that
+ * no longer exists is a FAILURE here, so a rename cannot quietly drop a surface.
+ *
+ * Two flags, both self-asserted below so neither can outlive what it describes:
+ * `actionUnion` marks a surface that documents the WHOLE `ButtonAction` union
+ * and therefore owes every field of every variant; `variableRules` marks one
+ * that tells an agent when to FLAG a variable gate, and so needs the
+ * runtime-projected namespaces carved out.
+ */
+const SURFACES = [
+  { path: "claude-plugin/skills/compose-screen-builder/SKILL.md", actionUnion: true },
+  {
+    path: "claude-plugin/skills/validate-step-json/SKILL.md",
+    actionUnion: true,
+    variableRules: true,
+  },
+  { path: "claude-plugin/skills/customize-onboarding-components/SKILL.md" },
+  { path: "claude-plugin/skills/create-step-json/references/composable-archetypes.md" },
+  { path: "claude-plugin/agents/step-json-reviewer.md", actionUnion: true, variableRules: true },
+  { path: "website/docs/customization/custom-actions.mdx" },
+];
 
 function pluginFiles() {
   const out = [];
@@ -189,11 +291,17 @@ function fail(label, detail) {
 
 const truth = readTruth();
 const elementSet = new Set(truth.elements);
+const actions = readActions();
+const projected = readProjectedVariables();
 
 if (process.argv.includes("--list")) {
   console.log(`elements (${truth.elements.length}): ${truth.elements.join(" ")}`);
   console.log(`containers (${truth.containers.length}): ${truth.containers.join(" ")}`);
   console.log(`base props: ${truth.base.length}`);
+  for (const [variant, fields] of actions) {
+    console.log(`action ${variant}: ${fields.join(" ") || "(no fields)"}`);
+  }
+  console.log(`projected variables: ${projected.join(" ")}`);
   console.log("");
 }
 
@@ -347,6 +455,102 @@ function renderInventory(truth) {
       }
     }
   }
+}
+
+/* D. Every authoring surface exists. The whole point of moving this list out of
+      CLAUDE.md is that a rename can no longer take a surface off the check
+      without anyone noticing. */
+const surfaces = new Map();
+{
+  const label = "every authoring surface still exists";
+  const missing = [];
+  for (const s of SURFACES) {
+    try {
+      surfaces.set(s, readFileSync(join(ROOT, s.path), "utf8"));
+    } catch {
+      missing.push(`${s.path} — moved or renamed? update SURFACES in this script`);
+    }
+  }
+  missing.length ? fail(label, missing) : pass(`${label} (${SURFACES.length})`);
+}
+
+/* E. Action-shape DECLARATIONS are complete. A line that writes an action's
+      shape with an optional-field marker (`label?`, `onPending?`) is declaring
+      the variant rather than instantiating it, so it is promising a field set —
+      and an agent that reads a short declaration emits a short action.
+
+      Requiring the whole declared shape but not example payloads is the same
+      enumeration-vs-prose line check B draws: a concrete
+      `{"type":"setVariable","name":"goal","value":"lose"}` in an archetype is
+      one valid action, not a claim about the union, and demanding every optional
+      field there would flag correct docs. The field has to appear SOMEWHERE in
+      the file, not on that line — several surfaces declare the shape on one line
+      and then explain the fields below it. */
+const DECLARES_A_SHAPE = /[A-Za-z]\?\s*[:,}\)]/;
+{
+  const label = "every declared ButtonAction shape names all its fields";
+  const problems = [];
+  for (const [s, src] of surfaces) {
+    src.split("\n").forEach((line, i) => {
+      if (!DECLARES_A_SHAPE.test(line)) return;
+      for (const [variant, fields] of actions) {
+        if (!new RegExp(`type"?:\\s*"?${variant}\\b`).test(line)) continue;
+        const missing = fields.filter((f) => !src.includes(f));
+        if (missing.length) {
+          problems.push(`${s.path}:${i + 1} declares ${variant} but the file never names ${missing.join(", ")}`);
+        }
+      }
+    });
+  }
+  // One short declaration usually repeats down a file; report each gap once.
+  const unique = [...new Set(problems)];
+  unique.length ? fail(label, unique) : pass(`${label} (${actions.size} variants)`);
+}
+
+/* F. The surfaces that document the whole union name every field of it, however
+      they choose to present it. `compose-screen-builder/SKILL.md` writes its
+      actions as concrete JSON examples rather than declarations, one per field
+      cluster, so check E's declaration rule cannot see it at all — and it is the
+      skill an agent reads to AUTHOR an action, where a field nobody documents is
+      a field the model never emits. The flag is what says "this file speaks for
+      the union"; naming all of its variants is what keeps the flag honest. */
+{
+  const label = "union-reference surfaces name every field of every action";
+  const problems = [];
+  for (const [s, src] of surfaces) {
+    if (!s.actionUnion) continue;
+    const unnamed = [...actions.keys()].filter((v) => !src.includes(v));
+    if (unnamed.length) {
+      problems.push(`${s.path} no longer documents ${unnamed.join(", ")} — drop its actionUnion flag or restore them`);
+      continue;
+    }
+    const missing = [...new Set([...actions.values()].flat())].filter((f) => !src.includes(f));
+    if (missing.length) problems.push(`${s.path} never names ${missing.join(", ")}`);
+  }
+  problems.length ? fail(label, problems) : pass(`${label} (${SURFACES.filter((s) => s.actionUnion).length} surfaces)`);
+}
+
+/* F. The uncaptured-variable rule carves out every runtime-projected namespace.
+      `products.loaded` and `product.<slot>.*` are in the variable bag without any
+      element or action having captured them, so a review surface that states the
+      rule and omits the carve-out has an agent flagging correct paywalls — and
+      the reverse, a carve-out naming only some of them, is how `products.error`
+      got half-documented. */
+{
+  const label = "review surfaces carve out every runtime-projected variable";
+  const problems = [];
+  for (const [s, src] of surfaces) {
+    if (!s.variableRules) continue;
+    const states =
+      src.split("\n").some((l) => /(disabledWhen|renderWhen)/.test(l) && /captur/i.test(l));
+    if (!states) {
+      problems.push(`${s.path} states no uncaptured-variable rule any more — drop its variableRules flag or restore the rule`);
+      continue;
+    }
+    const missing = projected.filter((k) => !src.includes(k));
+    if (missing.length) problems.push(`${s.path} never names ${missing.join(", ")}`);
+  }
+  problems.length ? fail(label, problems) : pass(`${label} (${projected.join(", ")})`);
 }
 
 console.log("");

@@ -8,7 +8,7 @@ import { RenderContext, areElementPropsEqual, type ParentType } from "./shared";
 import { useVariables } from "./VariablesContext";
 import { useAnimatedVariables } from "./AnimatedVariablesContext";
 import { animatedGateRefKey, buildAnimatedGatePlan, evalAnimatedNode } from "./animatedGate";
-import { runActions } from "./runActions";
+import { runGuardedActions } from "./runActions";
 import { StackElementComponent } from "./StackElement";
 import { PlainTextElementComponent, ExpressionTextElementComponent } from "./TextElement";
 import { RichTextElementComponent } from "./RichTextElement";
@@ -207,7 +207,13 @@ const renderConcrete = (
   })();
 
   // Generic onPress: make any non-pressable element tappable, dispatching the
-  // same action list as Button via runActions. Skipped for PRESS_HANDLED_TYPES.
+  // same action list as Button — through the SAME single-flight guard, which is
+  // where a cross-element behaviour belongs (CLAUDE.md: wired once centrally
+  // here, never per element). Round 1 of #191 wired only `ButtonElement`, so a
+  // pressable Image/YStack ran its `custom` handler twice on a double tap and
+  // published neither `actions.pending` nor `actions.pending.<elementId>` — the
+  // payload's spinner simply never appeared (review round 1, findings 3 and 8).
+  // Skipped for PRESS_HANDLED_TYPES.
   // A Pressable around a scroll/carousel keeps inner scrolling working — RN's
   // gesture responder gives the scroll the touch when it pans.
   const onPress = p.onPress;
@@ -221,7 +227,7 @@ const renderConcrete = (
       <Pressable
         key={element.id}
         onPress={() => {
-          void runActions(onPress, ctx);
+          void runGuardedActions(element.id, onPress, ctx);
         }}
         style={pressWrapperLayout(p, parentType, elementType, wrapsMotion)}
       >

@@ -149,6 +149,40 @@ describe("withRowPendingAliases", () => {
     const vars = { plan: { value: "yearly" } };
     expect(withRowPendingAliases(vars, "yearly")).toEqual(vars);
   });
+
+  /**
+   * A `Repeat` inside a `Repeat` (review round 2, finding 2). `suffixIds`
+   * COMPOSES across nesting levels — `row-cta` → `row-cta__0` → `row-cta__0__a`
+   * — so each level has to strip its own suffix AND everything its ancestors
+   * added, or the author-spellable `actions.pending.row-cta` is never published
+   * and the row gate is silently dead.
+   */
+  describe("nested Repeat", () => {
+    const inner = pending("row-cta__0__a");
+
+    it("publishes the template key from the innermost row", () => {
+      const out = withRowPendingAliases({ [inner]: { value: "true" } }, "a", "__0");
+      expect(out[pending("row-cta")]).toEqual({ value: "true" });
+    });
+
+    it("still refuses another branch of the tree", () => {
+      const vars = { [inner]: { value: "true" } };
+      // Same inner row key, different OUTER row: not this subtree's press.
+      expect(withRowPendingAliases(vars, "a", "__1")[pending("row-cta")]).toBeUndefined();
+      // Same outer row, different inner row.
+      expect(withRowPendingAliases(vars, "b", "__0")[pending("row-cta")]).toBeUndefined();
+    });
+
+    it("composes the way the renderer does, level by level", () => {
+      // What the outer level hands down, then what the inner level publishes.
+      const screen = { [inner]: { value: "true" }, [pending("outer-cta__0")]: { value: "true" } };
+      const outerRow = withRowPendingAliases(screen, "0");
+      expect(outerRow[pending("outer-cta")]).toEqual({ value: "true" });
+      const innerRow = withRowPendingAliases(outerRow, "a", "__0");
+      expect(innerRow[pending("row-cta")]).toEqual({ value: "true" });
+      expect(innerRow[pending("outer-cta")]).toEqual({ value: "true" });
+    });
+  });
 });
 
 /**
@@ -170,5 +204,14 @@ describe("RepeatElement applies the row pending alias", () => {
 
   it("aliases the press-time getVariables of the row context", () => {
     expect(src).toMatch(/getVariables:[\s\S]{0,120}?withRowPendingAliases\(/);
+  });
+
+  // The accumulated suffix is what makes a nested Repeat work (review round 2,
+  // finding 2): the component must READ its parent's chain off the context and
+  // PUBLISH its own for any Repeat below it.
+  it("reads the parent row suffix and republishes its own", () => {
+    expect(src).toMatch(/rowSuffix/);
+    expect(src).toMatch(/useVariables\(\)/);
+    expect(src).toMatch(/rowSuffix:\s*rowSuffixes\[i\]/);
   });
 });

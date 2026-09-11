@@ -92,12 +92,21 @@ export const buildRowFlat = (
  * its own. The screen-wide key is left alone (an element literally named so that
  * stripping its suffix collides with it is skipped rather than allowed to
  * overwrite the flag).
+ *
+ * `parentSuffix` is the chain the ENCLOSING rows already added, because
+ * `suffixIds` composes across nesting levels: a Button inside a `Repeat` inside
+ * a `Repeat` is published as `row-cta__0__a`, and stripping only `__a` yields
+ * `row-cta__0` — still not the id the author wrote (review round 2, finding 2).
+ * The whole chain has to come off at once, and matching on the whole chain is
+ * also what keeps one outer row's press from lighting up the same-keyed inner
+ * row of another.
  */
 export const withRowPendingAliases = <T>(
   variables: Record<string, T>,
-  rowKey: string
+  rowKey: string,
+  parentSuffix = ""
 ): Record<string, T> => {
-  const suffix = `__${rowKey}`;
+  const suffix = `${parentSuffix}__${rowKey}`;
   const prefix = `${IN_FLIGHT_ANY_KEY}.`;
   let out: Record<string, T> | undefined;
   for (const [key, value] of Object.entries(variables)) {

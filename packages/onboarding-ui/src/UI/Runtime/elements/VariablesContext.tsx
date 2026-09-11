@@ -13,6 +13,18 @@ export type VariablesContextValue = {
   // Variables flattened to primitives (entry.value) for renderWhen /
   // evaluateCondition checks. Memoized once per write in the Renderer.
   flatVariables: Record<string, unknown>;
+
+  /**
+   * The `__<rowKey>` chain every enclosing `Repeat` has appended to the element
+   * ids in this subtree, e.g. `"__0__a"` two levels deep — empty outside a
+   * `Repeat`.
+   *
+   * `withRowPendingAliases` needs the WHOLE chain to republish
+   * `actions.pending.<id>` under the id the author wrote, and a nested `Repeat`
+   * can only learn its ancestors' half of it from here (review round 2,
+   * finding 2).
+   */
+  rowSuffix?: string;
 };
 
 const EMPTY: VariablesContextValue = { variables: {}, flatVariables: {} };

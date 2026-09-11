@@ -272,7 +272,9 @@ Inside a `Repeat`, write the pending key with the id **as it appears in the
 template** — `actions.pending.row-cta`. Each row scopes it to its own
 materialized element (the runtime's real key is suffixed, `row-cta__yearly`), so
 one row's pending state never lights up its siblings'. The screen-wide
-`actions.pending` is still screen-wide.
+`actions.pending` is still screen-wide. A `Repeat` nested in another `Repeat`
+works the same way: the suffixes compose, and the template id is still what you
+write.
 
 There is no spinner element; gate a `Lottie`, a `ProgressIndicator` or a `Text`
 with `renderWhen` instead.

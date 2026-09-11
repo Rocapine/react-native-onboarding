@@ -59,7 +59,7 @@ type Props = {
  * row keep the row scope instead of reverting to the screen's root context.
  */
 export function RepeatElementComponent({ element, ctx, parentType }: Props): React.ReactElement {
-  const { variables, flatVariables } = useVariables();
+  const { variables, flatVariables, rowSuffix: parentSuffix = "" } = useVariables();
   const { props, children } = element;
 
   const rows = props.data ?? [];
@@ -67,6 +67,15 @@ export function RepeatElementComponent({ element, ctx, parentType }: Props): Rea
   const keyField = props.keyField;
 
   const rowKeys = useMemo(() => buildRowKeys(rows, keyField), [rows, keyField]);
+
+  // The FULL id suffix this row's subtree carries — ours plus every enclosing
+  // Repeat's, since `suffixIds` composes across nesting levels. Published back
+  // on the context so a Repeat nested in this row can do the same
+  // (review round 2, finding 2).
+  const rowSuffixes = useMemo(
+    () => rowKeys.map((key) => `${parentSuffix}__${key}`),
+    [rowKeys, parentSuffix]
+  );
 
   // Cloning is memoized on the template + keys: `data` and `children` both come
   // from the memoized parsed step, so this runs once per screen, not per render.
@@ -87,15 +96,18 @@ export function RepeatElementComponent({ element, ctx, parentType }: Props): Rea
         return {
           variables: withRowPendingAliases(
             { ...variables, ...buildRowEntries(row, i, scope) },
-            rowKeys[i]
+            rowKeys[i],
+            parentSuffix
           ),
           flatVariables: withRowPendingAliases(
             { ...flatVariables, ...buildRowFlat(row, i, scope) },
-            rowKeys[i]
+            rowKeys[i],
+            parentSuffix
           ),
+          rowSuffix: rowSuffixes[i],
         };
       }),
-    [rows, scope, variables, flatVariables, rowKeys]
+    [rows, scope, variables, flatVariables, rowKeys, rowSuffixes, parentSuffix]
   );
 
   // Press-time scope (runActions reads ctx.getVariables(), not context).
@@ -110,7 +122,11 @@ export function RepeatElementComponent({ element, ctx, parentType }: Props): Rea
           // expression or a nested action list inside the row sees the pending
           // key under the template id too.
           getVariables: () =>
-            withRowPendingAliases({ ...ctx.getVariables(), ...extra }, rowKeys[i]),
+            withRowPendingAliases(
+              { ...ctx.getVariables(), ...extra },
+              rowKeys[i],
+              parentSuffix
+            ),
           // Self-referential on purpose: a nested container calls the
           // renderChildren of the ctx it was handed, so this keeps descendants
           // on the row's scope rather than falling back to the root ctx.
@@ -118,7 +134,7 @@ export function RepeatElementComponent({ element, ctx, parentType }: Props): Rea
         };
         return rowCtx;
       }),
-    [rows, scope, ctx, rowKeys]
+    [rows, scope, ctx, rowKeys, parentSuffix]
   );
 
   return (

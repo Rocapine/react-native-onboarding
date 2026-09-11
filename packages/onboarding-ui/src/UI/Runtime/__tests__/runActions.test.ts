@@ -834,6 +834,55 @@ describe("runGuardedActions — one press at a time per element (#191)", () => {
     await first;
   });
 
+  /**
+   * The claim is keyed on the AUTHORED id, and the schema declares
+   * `id: z.string()` with no `.min(1)` — so a payload can hand the guard an
+   * empty string. Two unrelated elements would then share one claim and block
+   * each other's presses silently (review round 2, finding 4). An id that
+   * identifies nothing buys no guard, so it gets none: the pre-guard behaviour,
+   * which double-fires at worst, rather than a dead control.
+   */
+  it("does not let a blank id block an unrelated element", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    const handler = vi.fn(async () => {
+      await gate;
+    });
+    const ctx = makeGuardedCtx({ generatePlan: handler });
+    const actions = [{ type: "custom" as const, function: "generatePlan" }];
+
+    const first = runGuardedActions("", actions, ctx);
+    const second = runGuardedActions("", actions, ctx);
+    // Both ran: neither press was swallowed by the other's claim.
+    expect(handler).toHaveBeenCalledTimes(2);
+
+    release();
+    await Promise.all([first, second]);
+  });
+
+  it("still guards every element that HAS an id", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    const handler = vi.fn(async () => {
+      await gate;
+    });
+    const ctx = makeGuardedCtx({ generatePlan: handler });
+    const actions = [{ type: "custom" as const, function: "generatePlan" }];
+
+    const a = runGuardedActions("cta-a", actions, ctx);
+    const b = runGuardedActions("cta-b", actions, ctx);
+    const again = runGuardedActions("cta-a", actions, ctx);
+    // Two distinct elements run; the repeat press on the first does not.
+    expect(handler).toHaveBeenCalledTimes(2);
+
+    release();
+    await Promise.all([a, b, again]);
+  });
+
   it("accepts a press again once the first has finished", async () => {
     const handler = vi.fn(async () => {});
     const ctx = makeGuardedCtx({ generatePlan: handler });

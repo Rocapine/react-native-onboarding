@@ -335,7 +335,6 @@ export async function runActions(
     const requested = act.variables ?? [];
     const vars: Record<string, ComposableVariableEntry | undefined> = {};
     for (const name of requested) vars[name] = variables[name];
-
     // The variables handed to the handler are the PRESS-TIME snapshot, and a
     // retry reuses it rather than re-reading: an attempt is a repeat of the
     // same request, not a new one. `setVariable` still writes through live.
@@ -361,7 +360,9 @@ export async function runActions(
     }
 
     if (resolved) {
-      if (act.onResolve) await runActions(act.onResolve, ctx);
+      // Non-terminal on its own, but a `"continue"` INSIDE it completes the
+      // screen — so it propagates, exactly like every other branch list here.
+      if (act.onResolve && (await runActions(act.onResolve, ctx))) return true;
       continue;
     }
 
@@ -373,10 +374,15 @@ export async function runActions(
       }:`,
       lastError
     );
-    if (act.onError) await runActions(act.onError, ctx);
-    // Terminal either way — see `CustomButtonAction.onError` in ./actions.ts.
-    return;
+    if (act.onError && (await runActions(act.onError, ctx))) return true;
+    // Abort THIS list, and only this list, returning `false` — the pre-#191
+    // behaviour and #260's review-round-2 rule both: `true` means "the screen
+    // is GONE", and a thrown handler leaves it very much present. A declared
+    // `onError` replaces the silence, not the abort.
+    return false;
   }
+  // Ran to the end without completing the screen.
+  return false;
 }
 
 const sleep = (ms: number): Promise<void> =>
@@ -396,20 +402,32 @@ const sleep = (ms: number): Promise<void> =>
  * button permanently dead. `runActions` swallows a handler throw itself, but a
  * bug anywhere else in the list would escape, and a dead CTA is worse than a
  * crash the host's ErrorBoundary can see.
+ *
+ * A BLANK id is not guarded at all. The claim is keyed on the authored id and
+ * the schema declares `id: z.string()` with no `.min(1)`, so two unrelated
+ * elements can both arrive as `""` and would block each other's presses with no
+ * console output and no visual change — a silently dead control, worse than the
+ * double-fire the guard exists to stop (review round 2, finding 4). An id that
+ * identifies nothing also has no spellable `actions.pending.<elementId>`, so
+ * there is nothing to gate a pending UI on either. Duplicate NON-blank ids do
+ * still share a claim: there the authored id is the identity the whole runtime
+ * already uses (the pending key, React keys, `Repeat`'s `suffixIds`), and the
+ * fix is payload-level id uniqueness rather than a second identity here.
  */
 export async function runGuardedActions(
   elementId: string,
   actions: ButtonAction[],
   ctx: RenderContext
-): Promise<void> {
-  if (!ctx.beginActions(elementId)) return;
+): Promise<boolean> {
+  if (elementId.trim() === "") return runActions(actions, ctx);
+  // A dropped press completed nothing, so it reports `false` exactly like a
+  // list that ran to the end — same meaning as `runActions`'s return value.
+  if (!ctx.beginActions(elementId)) return false;
   try {
-    await runActions(actions, ctx);
+    return await runActions(actions, ctx);
   } finally {
     ctx.endActions(elementId);
   }
-  // Ran to the end without completing the screen.
-  return false;
 }
 
 /**

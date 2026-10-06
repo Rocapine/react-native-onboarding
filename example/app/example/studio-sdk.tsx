@@ -131,14 +131,19 @@ export default function StudioSdkCheck() {
     const raw = await AsyncStorage.getItem(CHECK_STORAGE_KEY);
     const bytes = raw ? utf8ByteLength(raw) : 0;
     let storedRunId: string | null = null;
+    let unsent = -1;
     try {
-      storedRunId = raw ? JSON.parse(raw).current?.runId ?? null : null;
+      const stored = raw ? JSON.parse(raw) : null;
+      storedRunId = stored?.current?.runId ?? null;
+      unsent = Object.keys(stored?.outboxes ?? {}).length;
     } catch {
       storedRunId = null;
     }
+    // The stored value is the run state, plus the unsent snapshot while the
+    // collector has not answered: about one budget, up to about two.
     log(
-      truncations.current === 0 && storedRunId === run.runId && bytes > RECORDING_BUDGET,
-      `near-budget run=${run.runId} answers=${capacity - 1} (capacity ${capacity}) truncated=${truncations.current > 0} AsyncStorage[${CHECK_STORAGE_KEY}] read back ${bytes} bytes (budget ${RECORDING_BUDGET}) runId matches=${storedRunId === run.runId} measure=${t1 - t0}ms fill+persist=${t2 - t1}ms`,
+      truncations.current === 0 && storedRunId === run.runId && bytes >= RECORDING_BUDGET - 3000,
+      `near-budget run=${run.runId} answers=${capacity - 1} (capacity ${capacity}) truncated=${truncations.current > 0} AsyncStorage[${CHECK_STORAGE_KEY}] read back ${bytes} bytes (budget ${RECORDING_BUDGET}, unsent snapshots stored ${unsent}) runId matches=${storedRunId === run.runId} measure=${t1 - t0}ms fill+persist=${t2 - t1}ms`,
     );
     log(null, `SAFE TO KILL: run ${run.runId} is stored in progress; kill the app, relaunch, and reopen this screen to resume it`);
   }, [log]);

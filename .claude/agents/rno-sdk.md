@@ -18,7 +18,6 @@ description: |
   `Rocapine/onboarding-studio` or any other repo, or filing and re-auditing tickets.
 model: opus
 effort: high
-isolation: worktree
 tools: Read, Write, Edit, Glob, Grep, Bash, TodoWrite, Skill
 maxTurns: 300
 ---

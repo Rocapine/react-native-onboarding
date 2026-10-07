@@ -62,8 +62,9 @@
 // (`projectV2 (number: N)`, a PN fallback literal or default anywhere, view/item
 // node ids, a GraphQL-variable binding in single or double quotes and with an
 // attached `--field=v=N`/`-Fv=N`, `--web N`, a `|` inside a quoted `--jq`,
-// `\`-continued lines). The Studio side is OB#457; the decisions are mirrored
-// there.
+// `\`-continued lines, a `gh project … N` number that closes inline code or a
+// sentence, a PN fallback inside a nested `"$(… "…" …)"`). The Studio side is
+// OB#457; the decisions are mirrored there.
 //
 // WHY A NODE SCRIPT AND NOT A VITEST FILE
 //

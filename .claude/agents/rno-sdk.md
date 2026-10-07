@@ -150,13 +150,17 @@ code, watch it pass. Do not write implementation before a red test exists.
 ```bash
 npm test --workspace=packages/onboarding      # vitest — headless schemas, conditions
 npm test --workspace=packages/onboarding-ui   # vitest — renderers
-npm run type:check                            # both workspaces
+npm run type:check                            # all three workspaces, example included
 npm run build                                 # required after changing packages/
 npm run check                                 # mirrors CI exactly — run it before pushing
 ```
 
-(`Missing script: build` for the `example` workspace is expected; both packages still
-build.) `npm run check` includes `type:check:tests`, the only thing that type-checks
+`npm run type:check` covers `example` as well as both packages, and `example` already
+fails it on a clean tree. Expect a non-zero exit that is not yours: run it on
+`origin/main` too, diff the two error lists, and report only errors your change added.
+Do not fix `example/` to make it pass unless your ticket is about it. CI does not run
+root type:check. (`Missing script: build` for the `example` workspace is expected; both
+packages still build.) `npm run check` includes `type:check:tests`, the only thing that type-checks
 test files — vitest transpiles them unchecked, so a PR can be locally green on tests
 and type:check and still fail CI.
 
@@ -361,18 +365,19 @@ Read every id at run time from onboarding-studio's `origin/main:.claude/board.js
 ids kept writing to the old one with no error — `npm run check:agents` now fails CI if
 one is pasted into this file. Run the block as written, with `STATUS` set from the
 table. It reads a local onboarding-studio checkout when there is one, fetching first
-because a stale `origin/main` names an old board, and otherwise reads the file from
-GitHub. If the config cannot be read, or has no such status, it writes nothing and
+because a stale `origin/main` names an old board. With no checkout, or when that read
+fails, it reads the file from GitHub instead, never from the stale ref. If the config cannot be read, or has no such status, it writes nothing and
 says so.
 
 ```bash
 STATUS="In progress"                               # or Prioritized / Refining, per the table
 R="$HOME/Developer/onboarding-studio"              # board.json lives there, for tickets in either repo
+BJ=""
 if git -C "$R" rev-parse --git-dir >/dev/null 2>&1; then
   BJ=$(git -C "$R" fetch -q origin main && git -C "$R" show origin/main:.claude/board.json)   # fetch first: a stale ref names an old board
-else
-  BJ=$(gh api -H "Accept: application/vnd.github.raw" "repos/Rocapine/onboarding-studio/contents/.claude/board.json?ref=main")
 fi
+# No checkout, or its fetch failed (offline git, expired credentials, a sandbox): GitHub.
+[ -n "$BJ" ] || BJ=$(gh api -H "Accept: application/vnd.github.raw" "repos/Rocapine/onboarding-studio/contents/.claude/board.json?ref=main")
 PROJ=$(jq -r .board.projectId <<<"$BJ"); SF=$(jq -r .board.statusFieldId <<<"$BJ")
 PN=$(jq -r .board.projectNumber <<<"$BJ"); OPT=$(jq -r --arg s "$STATUS" '.board.statusOptions[$s]' <<<"$BJ")
 if [[ $PN =~ ^[0-9]+$ && $PROJ == PVT_* && $SF == PVTSSF_* && -n $OPT && $OPT != null ]]; then
@@ -383,7 +388,7 @@ if [[ $PN =~ ^[0-9]+$ && $PROJ == PVT_* && $SF == PVTSSF_* && -n $OPT && $OPT !=
     gh api graphql -f query='mutation($p:ID!,$i:ID!,$f:ID!,$v:String!){updateProjectV2ItemFieldValue(input:{projectId:$p,itemId:$i,fieldId:$f,value:{singleSelectOptionId:$v}}){projectV2Item{id}}}' \
       -F p=$PROJ -F i=$ITEM -F f=$SF -F v=$OPT
   else echo "#<ISSUE> is not on project #$PN: Status NOT written"; fi
-else echo "board.json unreadable (local $R origin/main or GitHub), or no \"$STATUS\" status: Status NOT written" >&2; fi
+else echo "board.json unreadable (local $R origin/main, then GitHub), or no \"$STATUS\" status: Status NOT written" >&2; fi
 ```
 
 If `ITEM` comes back empty the issue is not on this board. Say so in your report rather

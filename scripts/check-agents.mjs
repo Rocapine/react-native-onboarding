@@ -192,6 +192,24 @@ export function checkStep7(text) {
 }
 
 /**
+ * Root `npm run type:check` runs every workspace, `example` included, and
+ * `example` already fails on a clean tree. Step 4 must say so, and say to compare
+ * against origin/main, or a builder reads that red as its own regression.
+ * @returns {string[]}
+ */
+export function checkStep4(text) {
+  const flat = text.replace(/\s+/g, " ");
+  const start = flat.indexOf("### 4. Test first, strictly");
+  if (start === -1) return ["step 4 heading `### 4. Test first, strictly` not found"];
+  const end = flat.indexOf("### 5.", start);
+  const step = flat.slice(start, end === -1 ? undefined : end);
+  if (!/npm run type:check(?! ?--workspace)/.test(step)) return [];
+  return /\bexample\b[^]*?\bfails\b[^]*?\borigin\/main\b/.test(step)
+    ? []
+    : ["step 4 runs root `npm run type:check` without saying `example` already fails and to compare against origin/main"];
+}
+
+/**
  * Root CLAUDE.md's parity section is set aside as a whole, not item by item: it
  * also carries a readiness rule and a legacy-board card rule that contradict this
  * agent's own `## PR authority` and `## Board status`.
@@ -253,7 +271,7 @@ export function checkPrAuthority(text) {
 
 /** @returns {string[]} one message per broken expectation */
 export function checkSdkBuilder(text) {
-  const problems = [...checkStep7(text), ...checkParityCarveOut(text), ...checkPrAuthority(text)];
+  const problems = [...checkStep7(text), ...checkParityCarveOut(text), ...checkPrAuthority(text), ...checkStep4(text)];
   if (!/^---\n(?:.*\n)*?name: rno-sdk\n(?:.*\n)*?---\n/.test(text)) {
     problems.push("frontmatter does not declare `name: rno-sdk`");
   }
@@ -274,6 +292,9 @@ export function checkSdkBuilder(text) {
     [/-q "[^"]*select\(\.project\.number==\$PN\)/, "does not select the item by $PN inside a double-quoted jq filter"],
     [/-F r=react-native-onboarding /, "does not look the issue up in react-native-onboarding"],
     [/Never set `Shipped`/, "does not say `Never set \\`Shipped\\``"],
+    // A checkout whose fetch fails (offline git, expired credentials, a sandbox)
+    // must still fall back to GitHub, not only a missing checkout.
+    [/\[ -n "\$BJ" \] \|\| BJ=\$\(gh api /, "does not fall back to `gh api` whenever BJ is empty"],
   ];
   for (const [re, msg] of must) if (!re.test(board)) problems.push(`Board status ${msg}`);
   for (const key of [
@@ -403,6 +424,15 @@ function runFixtures() {
     const got = checkPrAuthority(text);
     if (got.length !== want) failures.push(`pr-authority fixture ${JSON.stringify(text)}: want ${want} problem(s), got ${JSON.stringify(got)}`);
   }
+  const step4 = [
+    ["### 4. Test first, strictly\n```bash\nnpm run type:check   # both workspaces\n```\n### 5. Next", 1],
+    ["### 4. Test first, strictly\n```bash\nnpm run type:check   # all three workspaces\n```\n`example` already fails on a clean tree; diff your errors against origin/main.\n### 5. Next", 0],
+    ["### 4. Test first, strictly\n```bash\nnpm run type:check --workspace=packages/onboarding\n```\n### 5. Next", 0],
+  ];
+  for (const [text, want] of step4) {
+    const got = checkStep4(text);
+    if (got.length !== want) failures.push(`step-4 fixture ${JSON.stringify(text)}: want ${want} problem(s), got ${JSON.stringify(got)}`);
+  }
   const carve = [
     ["Root `CLAUDE.md` carries a `## Native onboarding parity programme` section. None of it applies to you.", 0],
     ["Root `CLAUDE.md` carries a `## Native onboarding parity programme` section. Its verdict file does not apply to you; the rest does.", 1],
@@ -452,7 +482,7 @@ function main() {
     console.error(`check-agents: ${errors.length} problem(s)\n` + errors.join("\n"));
     process.exit(1);
   }
-  console.log(`check-agents: ${files.length} agent file(s) in ${shown} clean (${FIXTURES.length + READY_FIXTURES.length + STEP7_FIXTURES.length + TABLE_FIXTURES.length + AUTH_FIXTURES.length + 3} fixtures pass)`);
+  console.log(`check-agents: ${files.length} agent file(s) in ${shown} clean (${FIXTURES.length + READY_FIXTURES.length + STEP7_FIXTURES.length + TABLE_FIXTURES.length + AUTH_FIXTURES.length + 6} fixtures pass)`);
 }
 
 main();

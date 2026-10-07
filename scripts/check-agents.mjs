@@ -19,9 +19,19 @@
 //    depend on which of two opposite instructions it weighted. Any file with
 //    that section must never forbid marking its PR ready.
 //
-// Plus, for `rno-sdk.md` (this repo's SDK builder), the shape of its
-// `## Board status` block: fetch before reading board.json, read all four ids
-// from it, select the item by `$PN`, look the issue up in this repo.
+// Plus, for `rno-sdk.md` (this repo's SDK builder):
+// - the shape of its `## Board status` block: fetch before reading board.json,
+//   read all four ids from it, select the item by `$PN`, look the issue up in
+//   this repo; and a table whose `Prioritized` row cannot also match a ticket
+//   recommended for close (a close set to Prioritized is re-selected by every
+//   board run);
+// - step 7 opens a DRAFT and defers readiness to `## PR authority` (the third
+//   block of the Studio test: a dropped `--draft` opens a ready PR before review,
+//   and contract 2 cannot see it because nothing then forbids anything);
+// - step 1 sets aside root CLAUDE.md's `## Native onboarding parity programme`
+//   section WHOLESALE. That section also says builders may not take a PR out of
+//   draft and should move cards on the legacy board, which is contract 2's
+//   two-opposite-instructions failure from outside the agents directory.
 //
 // Both contracts are ported from onboarding-studio's `agentBoardIds.test.ts` and
 // `parityAgentsPrAuthority.test.ts`, which could see the SDK builder only while
@@ -153,9 +163,72 @@ function section(text, heading) {
   return end === -1 ? text.slice(start) : text.slice(start, end);
 }
 
+/**
+ * Step 7 opens a draft PR and defers readiness to `## PR authority`. Ported from
+ * the `sdk-parity-dev step 7` block of onboarding-studio's
+ * parityAgentsPrAuthority.test.ts, on whitespace-collapsed text like the original.
+ * @returns {string[]}
+ */
+export function checkStep7(text) {
+  const flat = text.replace(/\s+/g, " ");
+  const start = flat.indexOf("### 7. Commit, PR, report");
+  if (start === -1) return ["step 7 heading `### 7. Commit, PR, report` not found"];
+  // The heading itself, not the backticked mention of it inside step 7.
+  const rel = flat.slice(start).search(/(?<!`)## PR authority/);
+  if (rel === -1) return ["no `## PR authority` heading after step 7"];
+  const step = flat.slice(start, start + rel);
+  const problems = [];
+  if (!/gh pr create --draft --base main/.test(step)) {
+    problems.push("step 7 does not open a draft (`gh pr create --draft --base main`)");
+  }
+  if (!/out of draft per `## PR authority`/.test(step)) {
+    problems.push("step 7 does not defer readiness (`out of draft per ## PR authority`)");
+  }
+  return problems;
+}
+
+/**
+ * Root CLAUDE.md's parity section is set aside as a whole, not item by item: it
+ * also carries a readiness rule and a legacy-board card rule that contradict this
+ * agent's own `## PR authority` and `## Board status`.
+ * @returns {string[]}
+ */
+export function checkParityCarveOut(text) {
+  const flat = text.replace(/\s+/g, " ");
+  return /`## Native onboarding parity programme`[^]*?\bnone of (it|that section) applies to you\b/i.test(flat)
+    ? []
+    : ["step 1 does not set aside root CLAUDE.md's `## Native onboarding parity programme` section as a whole (`none of it applies to you`)"];
+}
+
+/**
+ * The `Prioritized` row is for a narrowed scope only. A ticket recommended for
+ * close must not also match it, or the card goes back to the selectable column.
+ * @returns {string[]}
+ */
+export function checkStatusTable(board) {
+  const rows = board
+    .split("\n")
+    .filter((l) => /^\|/.test(l) && !/^\|\s*-/.test(l))
+    .map((l) => l.split("|").slice(1, -1).map((c) => c.trim()));
+  const prioritized = rows.filter(([, status]) => status === "`Prioritized`");
+  const problems = [];
+  if (prioritized.length !== 1) {
+    problems.push(`Board status table has ${prioritized.length} \`Prioritized\` rows, want 1`);
+  }
+  for (const [when] of prioritized) {
+    if (!/narrow/i.test(when) || /\b(wrong|does not exist|clos)/i.test(when)) {
+      problems.push(`Board status \`Prioritized\` row must be for a narrowed scope only, and must not also match a close: "${when}"`);
+    }
+  }
+  if (!rows.some(([when, status]) => /clos/i.test(when) && /leave Status alone/.test(status))) {
+    problems.push("Board status table has no close row that leaves Status alone");
+  }
+  return problems;
+}
+
 /** @returns {string[]} one message per broken expectation */
 export function checkSdkBuilder(text) {
-  const problems = [];
+  const problems = [...checkStep7(text), ...checkParityCarveOut(text)];
   if (!/^---\n(?:.*\n)*?name: rno-sdk\n(?:.*\n)*?---\n/.test(text)) {
     problems.push("frontmatter does not declare `name: rno-sdk`");
   }
@@ -189,6 +262,7 @@ export function checkSdkBuilder(text) {
   if (/\|\s*`(In review|Shipped|Done)`\s*\|/.test(board)) {
     problems.push("Board status table sets In review, Shipped or Done");
   }
+  problems.push(...checkStatusTable(board));
   return problems;
 }
 
@@ -235,6 +309,24 @@ const READY_FIXTURES = [
   ["Do not mark it ready.", []],
 ];
 
+const STEP7_OK =
+  "### 7. Commit, PR, report\nOpen a **draft** PR (`gh pr create --draft --base main`). Take it out of\ndraft per `## PR authority` below.\n\n## PR authority — ready yes\nTake it out of draft.";
+const STEP7_FIXTURES = [
+  // The backticked mention of `## PR authority` inside step 7 is not the heading.
+  [STEP7_OK, []],
+  [STEP7_OK.replace("--draft ", ""), ["step 7 does not open a draft (`gh pr create --draft --base main`)"]],
+  [STEP7_OK.replace("out of\ndraft per `## PR authority`", "ready"), ["step 7 does not defer readiness (`out of draft per ## PR authority`)"]],
+  [STEP7_OK.replace("\n## PR authority — ready yes", "\n## Authority"), ["no `## PR authority` heading after step 7"]],
+];
+
+const TABLE_OK =
+  "## Board status\n| When | Set Status to |\n|---|---|\n| Started | `In progress` |\n| The gap is real but narrower — you commented a narrowed scope and stopped | `Prioritized` |\n| Blocked | `Refining` |\n| The gap does not exist — you recommended closing it | leave Status alone |\n";
+const TABLE_FIXTURES = [
+  [TABLE_OK, 0],
+  [TABLE_OK.replace("The gap is real but narrower", "The ticket was wrong or narrower"), 1],
+  [TABLE_OK.replace("| The gap does not exist — you recommended closing it | leave Status alone |\n", ""), 1],
+];
+
 function runFixtures() {
   const failures = [];
   for (const [text, want] of FIXTURES) {
@@ -250,6 +342,26 @@ function runFixtures() {
     if (JSON.stringify(got) !== JSON.stringify(want)) {
       failures.push(`ready fixture ${JSON.stringify(text)}: want ${JSON.stringify(want)}, got ${JSON.stringify(got)}`);
     }
+  }
+  for (const [text, want] of STEP7_FIXTURES) {
+    const got = checkStep7(text);
+    if (JSON.stringify(got) !== JSON.stringify(want)) {
+      failures.push(`step-7 fixture ${JSON.stringify(text)}: want ${JSON.stringify(want)}, got ${JSON.stringify(got)}`);
+    }
+  }
+  for (const [text, want] of TABLE_FIXTURES) {
+    const got = checkStatusTable(text);
+    if (got.length !== want) {
+      failures.push(`status-table fixture ${JSON.stringify(text)}: want ${want} problem(s), got ${JSON.stringify(got)}`);
+    }
+  }
+  const carve = [
+    ["Root `CLAUDE.md` carries a `## Native onboarding parity programme` section. None of it applies to you.", 0],
+    ["Root `CLAUDE.md` carries a `## Native onboarding parity programme` section. Its verdict file does not apply to you; the rest does.", 1],
+  ];
+  for (const [text, want] of carve) {
+    const got = checkParityCarveOut(text);
+    if (got.length !== want) failures.push(`carve-out fixture ${JSON.stringify(text)}: want ${want} problem(s), got ${JSON.stringify(got)}`);
   }
   return failures;
 }
@@ -292,7 +404,7 @@ function main() {
     console.error(`check-agents: ${errors.length} problem(s)\n` + errors.join("\n"));
     process.exit(1);
   }
-  console.log(`check-agents: ${files.length} agent file(s) in ${shown} clean (${FIXTURES.length + READY_FIXTURES.length + 1} fixtures pass)`);
+  console.log(`check-agents: ${files.length} agent file(s) in ${shown} clean (${FIXTURES.length + READY_FIXTURES.length + STEP7_FIXTURES.length + TABLE_FIXTURES.length + 3} fixtures pass)`);
 }
 
 main();

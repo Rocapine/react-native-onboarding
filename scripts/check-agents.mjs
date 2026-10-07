@@ -110,20 +110,28 @@ const RULES = [
 // the command instead: a bare integer is the project number unless the token
 // before it is a flag taking it as a value (`--limit 200`, `-L 100`,
 // `item-edit --number 3`). `--owner=X 5` is still caught, since that flag
-// already holds its value.
+// already holds its value, and so is `view --web 5`: the flags below take none.
+// Every boolean flag across the `gh project` subcommands, per `gh project <verb>
+// --help` (gh 2.x).
+const GH_PROJECT_BOOLEAN_FLAGS = new Set(["--web", "-w", "--closed", "--undo", "--drafts", "--clear", "--help"]);
+
+/** @returns {{index: number, match: string}[]} */
 function ghProjectNumbers(line) {
   const out = [];
   for (const m of line.matchAll(/\bgh project [a-z-]+/g)) {
+    const from = m.index + m[0].length;
     const rest = line
-      .slice(m.index + m[0].length)
+      .slice(from)
       .split(/[|;&)]/)[0]
       // Pair quotes left to right; a multi-word string is one opaque token.
-      .replace(/"[^"]*"|'[^']*'/g, (q) => (/\s/.test(q) ? "_" : q));
-    const tokens = rest.split(/\s+/).filter(Boolean);
+      // Same length, so a token's offset is still its offset in the line.
+      .replace(/"[^"]*"|'[^']*'/g, (q) => (/\s/.test(q) ? "_".repeat(q.length) : q));
+    const tokens = [...rest.matchAll(/\S+/g)];
     tokens.forEach((t, i) => {
-      const prev = tokens[i - 1];
-      const isFlagValue = prev !== undefined && /^--?[A-Za-z][\w-]*$/.test(prev);
-      if (/^["']?\d+["']?$/.test(t) && !isFlagValue) out.push(t);
+      const prev = tokens[i - 1]?.[0];
+      const isFlagValue =
+        prev !== undefined && /^--?[A-Za-z][\w-]*$/.test(prev) && !GH_PROJECT_BOOLEAN_FLAGS.has(prev);
+      if (/^["']?\d+["']?$/.test(t[0]) && !isFlagValue) out.push({ index: from + t.index, match: t[0] });
     });
   }
   return out;
@@ -136,6 +144,7 @@ function ghProjectNumbers(line) {
 // so a later statement's `--limit 100` is not its. Not literals: an fd redirect
 // (`2>/dev/null`, `>&2`) and a positional `$1`. A jq index (`.boards[0]`) does
 // count: the line that sets PN must carry no number at all.
+/** @returns {{index: number, match: string}[]} */
 function pnLiterals(line) {
   const out = [];
   for (const m of line.matchAll(/\bPN=/g)) {
@@ -157,25 +166,50 @@ function pnLiterals(line) {
     }
     const value = line.slice(m.index + m[0].length, i);
     const lit = /(?<![\w$&])\d+(?![\w>])/.exec(value);
-    if (lit) out.push(line.slice(m.index, m.index + m[0].length + lit.index + lit[0].length));
+    if (lit) out.push({ index: m.index, match: line.slice(m.index, m.index + m[0].length + lit.index + lit[0].length) });
   }
   return out;
+}
+
+// Physical lines joined across a trailing `\`, as the shell reads them, so a
+// number on a continuation line is still its command's. `lineAt` maps an offset
+// in the joined text back to the physical line it sits on.
+function logicalLines(text) {
+  const out = [];
+  let cur = null;
+  text.split("\n").forEach((l, i) => {
+    if (!cur) cur = { text: "", starts: [] };
+    cur.starts.push({ offset: cur.text.length, line: i + 1 });
+    if (l.endsWith("\\")) {
+      cur.text += l.slice(0, -1) + " ";
+      return;
+    }
+    cur.text += l;
+    out.push(cur);
+    cur = null;
+  });
+  if (cur) out.push(cur);
+  return out.map(({ text, starts }) => ({
+    text,
+    lineAt: (offset) => {
+      let line = starts[0].line;
+      for (const s of starts) if (s.offset <= offset) line = s.line;
+      return line;
+    },
+  }));
 }
 
 /** @returns {{line: number, match: string, why: string}[]} */
 export function findInlineBoardIds(text) {
   const out = [];
-  text.split("\n").forEach((l, i) => {
+  for (const { text: l, lineAt } of logicalLines(text)) {
     for (const { re, why } of RULES) {
-      for (const m of l.matchAll(re)) out.push({ line: i + 1, match: m[0], why });
+      for (const m of l.matchAll(re)) out.push({ line: lineAt(m.index), match: m[0], why });
     }
-    for (const match of pnLiterals(l)) {
-      out.push({ line: i + 1, match, why: "literal project number" });
+    for (const { index, match } of [...pnLiterals(l), ...ghProjectNumbers(l)]) {
+      out.push({ line: lineAt(index), match, why: "literal project number" });
     }
-    for (const n of ghProjectNumbers(l)) {
-      out.push({ line: i + 1, match: n, why: "literal project number" });
-    }
-  });
+  }
   return out;
 }
 
@@ -540,6 +574,14 @@ const FIXTURES = [
   ["gh project item-list 5 --owner Rocapine", ["5"]],
   ["gh project item-list --owner Rocapine 5 --format json", ["5"]],
   ["gh project item-list --owner=Rocapine 5", ["5"]],
+  // A boolean flag takes no value, so the number after it is the project's.
+  ["gh project view --web 5 --owner Rocapine", ["5"]],
+  ["gh project view -w 5 --owner Rocapine", ["5"]],
+  ["gh project list --closed --owner Rocapine && gh project close --undo 5 --owner Rocapine", ["5"]],
+  // A number on a `\`-continued line is the same command's.
+  ["gh project item-list --owner Rocapine \\\n  5 --format json", ["5"]],
+  ["gh api graphql -f query='{organization(login:\"Rocapine\"){projectV2 \\\n(number: 5){id}}}'", ["projectV2  (number: 5"]],
+  ["PN=$(jq -r .board.projectNumber <<<\"$BJ\" \\\n  || echo 5)", ['PN=$(jq -r .board.projectNumber <<<"$BJ"    || echo 5']],
   ["-F v=1a2b3c4d", ["1a2b3c4d"]],
   ["OPT=9f8e7d6c", ["9f8e7d6c"]],
   ['"Prioritized": "47fc9ee4",', ["47fc9ee4"]],
@@ -723,6 +765,9 @@ function runFixtures() {
   }
   const lines = findInlineBoardIds("ok\nok\nPROJ=PVT_kwSYNTHETICxx01").map((v) => v.line);
   if (JSON.stringify(lines) !== "[3]") failures.push(`board-id fixture line number: want [3], got ${JSON.stringify(lines)}`);
+  // A hit on a `\`-continued line reports the physical line it sits on.
+  const contLines = findInlineBoardIds("ok\ngh project item-list \\\n  --owner Rocapine \\\n  5\nPROJ=PVT_kwSYNTHETICxx01").map((v) => v.line);
+  if (JSON.stringify(contLines) !== "[4,5]") failures.push(`board-id fixture continued line number: want [4,5], got ${JSON.stringify(contLines)}`);
   for (const [text, want] of READY_FIXTURES) {
     const got = findReadyForbidden(text);
     if (JSON.stringify(got) !== JSON.stringify(want)) {
@@ -803,7 +848,7 @@ function main() {
     console.error(`check-agents: ${errors.length} problem(s)\n` + errors.join("\n"));
     process.exit(1);
   }
-  console.log(`check-agents: ${files.length} agent file(s) in ${shown} clean (${FIXTURES.length + READY_FIXTURES.length + STEP3_FIXTURES.length + STEP7_FIXTURES.length + TABLE_FIXTURES.length + AUTH_FIXTURES.length + RETURN_FIXTURES.length + LOOKUP_FIXTURES.length + 4} fixtures pass)`);
+  console.log(`check-agents: ${files.length} agent file(s) in ${shown} clean (${FIXTURES.length + READY_FIXTURES.length + STEP3_FIXTURES.length + STEP7_FIXTURES.length + TABLE_FIXTURES.length + AUTH_FIXTURES.length + RETURN_FIXTURES.length + LOOKUP_FIXTURES.length + 5} fixtures pass)`);
 }
 
 main();

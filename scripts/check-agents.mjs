@@ -29,8 +29,10 @@
 //   NAMED checkout whose remote it checks, and carries a fix-round clause (reuse
 //   the worktree and branch the prompt names), so a Studio-launched or fix-round
 //   dispatch cannot branch the wrong repo or abandon the PR branch (RNO#295); its
-//   no-worktree fallback refuses the user's own checkout and fast-forwards to the
-//   PR head (`merge --ff-only "origin/$BR"`);
+//   no-worktree fallback checks the checkout's remote, refuses the user's own
+//   checkout, stops when its `worktree add` fails, checks `$WT` is on `$BR`
+//   after the add (else `git -C "$WT"` walks up to the user's checkout), and
+//   fast-forwards to the PR head (`merge --ff-only "origin/$BR"`);
 // - step 7 opens a DRAFT and defers readiness to `## PR authority` (the third
 //   block of the Studio test: a dropped `--draft` opens a ready PR before review,
 //   and contract 2 cannot see it because nothing then forbids anything);
@@ -254,6 +256,38 @@ export function checkStep3(text) {
   if (!/merge --ff-only "origin\/\$BR"/.test(step)) {
     problems.push('step 3 does not fast-forward the fix-round worktree to the PR head (`merge --ff-only "origin/$BR"`)');
   }
+  problems.push(...checkStep3Fallback(step));
+  return problems;
+}
+
+/**
+ * The no-worktree fix-round fallback (RNO#306 review r1-1/r1-2). When its
+ * `worktree add` fails (the path already exists), `git -C "$WT"` walks up to the
+ * user's own checkout and the fast-forward moves that checkout's branch. So the
+ * add must stop on failure, and `$WT`'s branch must be checked AFTER the add:
+ * the named-worktree block's identical check sits earlier in the text and must
+ * not stand in for it. The fallback also runs in its own Bash call, so it needs
+ * its own remote check, after the first build's.
+ * @param {string} step step 3, whitespace-flattened
+ * @returns {string[]}
+ */
+function checkStep3Fallback(step) {
+  const add = 'worktree add "$WT" "$BR"';
+  const at = step.indexOf(add);
+  if (at === -1) return ['step 3 has no no-worktree fix-round fallback (`worktree add "$WT" "$BR"`)'];
+  const problems = [];
+  if (!/^ \|\| /.test(step.slice(at + add.length))) {
+    problems.push('step 3\'s fix-round fallback does not stop when `worktree add "$WT" "$BR"` fails (`|| { ...; exit 1; }`)');
+  }
+  if (!/git -C "\$WT" branch --show-current\)" = "\$BR"/.test(step.slice(at))) {
+    problems.push('step 3\'s fix-round fallback does not check `$WT` is on `$BR` after adding it (`git -C "$WT" branch --show-current)" = "$BR"`)');
+  }
+  const firstBuild = step.search(/worktree add \S+ -b \S+ origin\/main/);
+  // `-C "$RNO"` or bare, never `-C "$WT"`: the named block's remote check sits
+  // between the first build and the fallback, and checks a different tree.
+  if (!/git (-C "\$RNO" )?remote get-url origin/.test(step.slice(firstBuild === -1 ? 0 : firstBuild, at))) {
+    problems.push("step 3's fix-round fallback does not check the checkout's remote before adding a worktree (`remote get-url origin`)");
+  }
   return problems;
 }
 
@@ -444,11 +478,15 @@ const STEP3_FIRST_BUILD = 'git -C "$RNO" worktree add "$RNO/.claude/worktrees/x"
 const STEP3_MAIN_GUARD = '[ "$(git -C "$RNO" branch --show-current)" != "$BR" ] || exit 1\n';
 const STEP3_FF = 'git -C "$WT" merge --ff-only "origin/$BR"\n';
 const STEP3_CLAUSE = "**In a fix round**, work in the worktree path the prompt names, on its existing\nbranch.\n";
+const STEP3_REMOTE = 'git -C "$RNO" remote get-url origin\n';
+const STEP3_WT_GUARD = '[ "$(git -C "$WT" branch --show-current)" = "$BR" ] || exit 1\n';
+const STEP3_FALLBACK_ADD = 'git -C "$RNO" worktree add "$WT" "$BR" || exit 1\n';
 const STEP3_OK =
   "### 3. Worktree and branch\n" + STEP3_CLAUSE +
-  '```bash\ngit -C "$RNO" remote get-url origin\n' + STEP3_FIRST_BUILD + "```\n" +
-  "If the fix prompt names no worktree:\n```bash\n" + STEP3_MAIN_GUARD +
-  'git -C "$RNO" worktree add "$WT" "$BR"\n' + STEP3_FF + "```\n### 4. Test first, strictly\n";
+  "```bash\n" + STEP3_REMOTE + STEP3_FIRST_BUILD + "```\n" +
+  "Named worktree:\n```bash\n" + 'git -C "$WT" remote get-url origin\n' + STEP3_WT_GUARD + "```\n" +
+  "If the fix prompt names no worktree:\n```bash\n" + STEP3_REMOTE + STEP3_MAIN_GUARD +
+  STEP3_FALLBACK_ADD + STEP3_WT_GUARD + STEP3_FF + "```\n### 4. Test first, strictly\n";
 const STEP3_FIXTURES = [
   [STEP3_OK, 0],
   // The clause deleted: the procedure again contradicts board-run's fix prompt.
@@ -468,6 +506,16 @@ const STEP3_FIXTURES = [
   [STEP3_OK.replace(STEP3_FF, ""), 1],
   // The clause after step 4 is not step 3's.
   [STEP3_OK.replace(STEP3_CLAUSE, "") + STEP3_CLAUSE, 1],
+  // RNO#306 review r1-1/r1-2: the fallback's `worktree add` failing (path
+  // already exists) no longer stops the block, so the fast-forward walks up to
+  // the user's checkout and moves its branch.
+  [STEP3_OK.replace(STEP3_FALLBACK_ADD, 'git -C "$RNO" worktree add "$WT" "$BR"\n'), 1],
+  // r1-1/r1-2: the fallback's own `$WT` branch check deleted. The named block's
+  // identical check, earlier in the text, must not stand in for it.
+  [STEP3_OK.replace(STEP3_FALLBACK_ADD + STEP3_WT_GUARD, STEP3_FALLBACK_ADD), 1],
+  // fixer-1: the fallback runs in its own Bash call and no longer checks the
+  // checkout's remote; the first build's check does not stand in for it.
+  [STEP3_OK.replace("names no worktree:\n```bash\n" + STEP3_REMOTE, "names no worktree:\n```bash\n"), 1],
 ];
 
 const STEP7_OK =

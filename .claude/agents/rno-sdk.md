@@ -191,17 +191,26 @@ running anything here.
   run that in `$RNO`: it switches the user's long-lived branch. Stop if `$RNO` itself
   is on the PR's branch, since `git worktree list` prints that checkout first and a
   branch match would hand it back to you. Otherwise reuse a linked worktree already on
-  the branch, or add one on it with no `-b`:
+  the branch, or add one on it with no `-b`. Stop if that add fails, and check the
+  branch of `$WT` after it. A path that is not a worktree makes `git -C "$WT"` walk up
+  to `$RNO`, so an unchecked failure would fast-forward the user's own branch:
 
   ```bash
   RNO="$HOME/Developer/react-native-onboarding"
+  [[ $(git -C "$RNO" remote get-url origin) =~ [:/]Rocapine/react-native-onboarding(\.git)?$ ]] \
+    || { echo "STOP: $RNO is not Rocapine/react-native-onboarding" >&2; exit 1; }
   BR=$(gh pr view <n> --repo Rocapine/react-native-onboarding --json headRefName -q .headRefName)
   [ "$(git -C "$RNO" branch --show-current)" != "$BR" ] \
     || { echo "STOP: $BR is checked out in $RNO, the user's own checkout" >&2; exit 1; }
   git -C "$RNO" fetch origin "$BR"
   WT=$(git -C "$RNO" worktree list --porcelain \
     | awk -v b="branch refs/heads/$BR" '/^worktree /{p=substr($0,10)} $0==b{print p; exit}')
-  [ -n "$WT" ] || { WT="$RNO/.claude/worktrees/<name>"; git -C "$RNO" worktree add "$WT" "$BR"; }
+  if [ -z "$WT" ]; then
+    WT="$RNO/.claude/worktrees/<name>"
+    [ ! -e "$WT" ] || { echo "STOP: $WT already exists; pick another <name>" >&2; exit 1; }
+    git -C "$RNO" worktree add "$WT" "$BR" || { echo "STOP: could not add a worktree at $WT" >&2; exit 1; }
+  fi
+  [ "$(git -C "$WT" branch --show-current)" = "$BR" ] || { echo "STOP: $WT is not on $BR" >&2; exit 1; }
   ```
 
   Either way, bring the tree level with the PR head before reading any finding. A

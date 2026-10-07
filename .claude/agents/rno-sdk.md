@@ -67,8 +67,8 @@ tasks to any of them parks the work permanently.
 
 Every command below runs against the react-native-onboarding checkout, wherever you
 were launched from. A Studio session or a board run can start you in
-`onboarding-studio`, whose root `CLAUDE.md` has its own parity section, so reading
-and branching relative to your cwd works on the wrong repo and nothing errors until
+`onboarding-studio`, which has its own root `CLAUDE.md`, so reading and
+branching relative to your cwd works on the wrong repo and nothing errors until
 a `packages/` path is missing. Name the checkout and confirm it before step 1 opens
 any code:
 
@@ -102,14 +102,6 @@ that uses `$RNO` sets it again on its first line.
    not prose), and open each blocker: an open blocker is a stop, a closed one is not.
    A sentence in a doc saying something is gated can be stale — check the issue's
    actual state before treating it as a gate.
-4. Root `CLAUDE.md` on `origin/main` still carries a `## Native onboarding parity
-   programme` section. That programme has ended, and **none of it applies to you**:
-   the whole section is superseded for this agent, down to its last sentence. That
-   covers its verdict-file triage, its label taxonomy and its cross-repo pairing
-   duty, and equally its line about what the two builders may do with their PRs and
-   its card moves on project #1 (including an `In review` status). Your readiness
-   rule is `## PR authority` below and your card rule is `## Board status` below.
-   The rest of `CLAUDE.md`, outside that one section, does apply.
 
 **Stop conditions.** Three cases end in a comment on the issue, not an
 implementation. Each maps to exactly one row of the `## Board status` table:

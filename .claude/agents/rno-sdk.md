@@ -491,19 +491,32 @@ fi
 PROJ=$(jq -r .board.projectId <<<"$BJ"); SF=$(jq -r .board.statusFieldId <<<"$BJ")
 PN=$(jq -r .board.projectNumber <<<"$BJ"); OPT=$(jq -r --arg s "$STATUS" '.board.statusOptions[$s]' <<<"$BJ")
 if [[ $PN =~ ^[0-9]+$ && $PROJ == PVT_* && $SF == PVTSSF_* && -n $OPT && $OPT != null ]]; then
-  ITEM=$(gh api graphql -f query='query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){issue(number:$n){projectItems(first:10){nodes{id project{number}}}}}}' \
+  # Branch on the lookup's exit status, not on ITEM: a failed query (no read:project
+  # scope, a rate limit) exits non-zero and can still print its error body to stdout.
+  if ITEM=$(gh api graphql -f query='query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){issue(number:$n){projectItems(first:10){nodes{id project{number}}}}}}' \
     -F o=Rocapine -F r=react-native-onboarding -F n=<ISSUE> \
-    -q ".data.repository.issue.projectItems.nodes[] | select(.project.number==$PN) | .id")
-  if [ -n "$ITEM" ]; then
-    gh api graphql -f query='mutation($p:ID!,$i:ID!,$f:ID!,$v:String!){updateProjectV2ItemFieldValue(input:{projectId:$p,itemId:$i,fieldId:$f,value:{singleSelectOptionId:$v}}){projectV2Item{id}}}' \
-      -F p=$PROJ -F i=$ITEM -F f=$SF -F v=$OPT
-  else echo "#<ISSUE> is not on project #$PN: Status NOT written"; fi
+    -q ".data.repository.issue.projectItems.nodes[] | select(.project.number==$PN) | .id"); then
+    if [ -n "$ITEM" ]; then
+      gh api graphql -f query='mutation($p:ID!,$i:ID!,$f:ID!,$v:String!){updateProjectV2ItemFieldValue(input:{projectId:$p,itemId:$i,fieldId:$f,value:{singleSelectOptionId:$v}}){projectV2Item{id}}}' \
+        -F p=$PROJ -F i=$ITEM -F f=$SF -F v=$OPT
+    else echo "#<ISSUE> is not on project #$PN: Status NOT written"; fi
+  else echo "projectItems lookup failed: Status NOT written" >&2; fi
 else echo "board.json unreadable (local $R origin/main, then GitHub), or no \"$STATUS\" status: Status NOT written" >&2; fi
 ```
 
-If `ITEM` comes back empty the issue is not on this board. Say so in your report rather
-than adding it; a ticket missing from the board is a bookkeeping fact someone needs to
-know. A failed status write never blocks the actual work: note it and move on.
+The block ends in one of two different "Status NOT written" lines, and they mean
+different things:
+
+- `#<ISSUE> is not on project #$PN` — the lookup **succeeded** and returned no item on
+  `$PN`. Only then is the issue not on this board. Say so in your report rather than
+  adding it; a ticket missing from the board is a bookkeeping fact someone needs to know.
+- `projectItems lookup failed` — the query itself failed: a token without the
+  `read:project` scope (`gh auth login`'s defaults do not include it), a rate limit, a
+  transient error. gh's own error is printed above it. Report it as a failed status
+  write, with that error, and **never** as the ticket missing from the board: you have
+  not learned where the card is.
+
+A failed status write never blocks the actual work: note it and move on.
 
 ## Output format
 

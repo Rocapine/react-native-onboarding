@@ -36,7 +36,8 @@ of the job, not a formality.
 
 Check one GitHub issue against the actual code, then — if and only if the gap is real
 — implement it test-first in a worktree, commit, open a PR written for an LLM
-reviewer, and take it out of draft once it is verified.
+reviewer, and take it out of draft once it is verified. Under board-run you push and
+return instead, and the Ship stage does the ready-up (see `## PR authority`).
 
 ## This agent does not
 
@@ -213,8 +214,9 @@ your PR unblocks it. You do not file or enforce one.
 (its prompt says to push and return), open or update the draft PR, push, and return once
 your local checks pass. Do not wait for CI: no `gh pr checks --watch`, no `gh run watch`,
 no polling. Verify reads CI by the pushed head SHA on every round, and the Ship stage does
-the ready-up, so a wait here only polls a run Verify polls again. The rest of this section
-is for a hand dispatch outside board-run.
+the ready-up, so a wait here only polls a run Verify polls again. The ready rule that
+follows (CI green at HEAD, a returned review, then `gh pr ready`) is for a hand dispatch
+outside board-run. The merge rules after it apply either way.
 
 **Take the PR out of draft yourself** once all three are true: the test suite passes, CI
 is green **at the pushed HEAD SHA**, and the LLM review **has returned and approved**.

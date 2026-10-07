@@ -380,6 +380,56 @@ export function checkBoardRunReturn(text) {
   return problems;
 }
 
+/**
+ * The `projectItems` lookup's failure is not the issue's absence (#296). A
+ * failed `gh api graphql` (no `read:project` scope, a rate limit, a transient
+ * error) exits non-zero, and it can still print the error body to stdout, so
+ * `ITEM` is neither reliably empty nor reliably an id. The block must branch on
+ * the lookup's exit status, say `projectItems lookup failed` on failure, and
+ * print "not on project" in, and only in, the success branch. The prose under the
+ * block must name the failure case too, or it tells the agent to report every
+ * "Status NOT written" as a missing card. The `if` must test the substitution
+ * itself, with no `|| true` defeating it, and the Status write's own failure must
+ * print a line of its own, or a write that never landed prints nothing at all.
+ * @returns {string[]}
+ */
+export function checkLookupFailure(board) {
+  const problems = [];
+  const guard = board.search(/\bif ITEM=\$\(gh api graphql /);
+  const absent = board.search(/is not on project #\$PN: Status NOT written/);
+  const failed = board.search(/echo "projectItems lookup failed: Status NOT written"/);
+  const failedWrite = board.search(/\|\| echo "updateProjectV2ItemFieldValue failed: Status NOT written"/);
+  if (guard === -1) {
+    problems.push("Board status does not branch on the projectItems lookup's exit status (`if ITEM=$(gh api graphql …); then`)");
+  } else {
+    // The `if` must test the substitution itself (review r1-4). `… ) || true; then`,
+    // `… || true); then` or `…); true; then` all make it always succeed.
+    const cond = board.slice(guard).match(/^[^]*?;\s*then\b/);
+    if (!cond || cond[0].includes("||") || !/"\);\s*then$/.test(cond[0])) {
+      problems.push("Board status's `if ITEM=$(…)` does not end `\"); then` with no `||`, so it no longer tests the lookup's exit status");
+    }
+  }
+  if (failedWrite === -1 || (guard !== -1 && failedWrite < guard)) {
+    problems.push("Board status's updateProjectV2ItemFieldValue call prints no `updateProjectV2ItemFieldValue failed: Status NOT written` line when the write fails");
+  }
+  if (failed === -1) {
+    problems.push("Board status does not print `projectItems lookup failed: Status NOT written` when the lookup fails");
+  }
+  if (absent === -1) {
+    problems.push("Board status never prints `is not on project #$PN: Status NOT written`, so a card missing from the board goes unreported");
+  } else if (guard !== -1 && failed !== -1 && !(guard < absent && absent < failed)) {
+    problems.push("Board status prints \"not on project\" outside the lookup's success branch");
+  }
+  const prose = board.replace(/```[^]*?```/g, "");
+  if (!/lookup failed/.test(prose)) {
+    problems.push("Board status prose does not tell a failed lookup apart from an issue missing from the board");
+  }
+  if (!/updateProjectV2ItemFieldValue failed/.test(prose)) {
+    problems.push("Board status prose does not say what a failed Status write prints, so its absence can read as success");
+  }
+  return problems;
+}
+
 /** @returns {string[]} one message per broken expectation */
 export function checkSdkBuilder(text) {
   const problems = [...checkStep3(text), ...checkStep7(text), ...checkParityCarveOut(text), ...checkPrAuthority(text), ...checkStep4(text), ...checkBoardRunReturn(text)];
@@ -420,6 +470,7 @@ export function checkSdkBuilder(text) {
     problems.push("Board status table sets In review, Shipped or Done");
   }
   problems.push(...checkStatusTable(board));
+  problems.push(...checkLookupFailure(board));
   return problems;
 }
 
@@ -560,8 +611,74 @@ const TABLE_FIXTURES = [
   [TABLE_OK.replace("| The gap does not exist — you recommended closing it | leave Status alone |\n", ""), 1],
 ];
 
+const LOOKUP_OK = [
+  "## Board status",
+  "```bash",
+  "  if ITEM=$(gh api graphql -f query='…' \\",
+  '    -q "… | select(.project.number==$PN) | .id"); then',
+  '    if [ -n "$ITEM" ]; then',
+  "      gh api graphql -f query='mutation…' \\",
+  '        || echo "updateProjectV2ItemFieldValue failed: Status NOT written" >&2',
+  '    else echo "#<ISSUE> is not on project #$PN: Status NOT written"; fi',
+  '  else echo "projectItems lookup failed: Status NOT written" >&2; fi',
+  "```",
+  "",
+  "`not on project` means the lookup succeeded; `projectItems lookup failed` means it did not.",
+  "`updateProjectV2ItemFieldValue failed` means the card was found and the write did not land.",
+  "",
+].join("\n");
+// The pre-#296 block: an unguarded assignment, so a failed lookup reads as absent.
+const LOOKUP_UNGUARDED = [
+  "## Board status",
+  "```bash",
+  "  ITEM=$(gh api graphql -f query='…' \\",
+  '    -q "… | select(.project.number==$PN) | .id")',
+  '  if [ -n "$ITEM" ]; then',
+  "    gh api graphql -f query='mutation…'",
+  '  else echo "#<ISSUE> is not on project #$PN: Status NOT written"; fi',
+  "```",
+  "",
+  "If `ITEM` comes back empty the issue is not on this board.",
+  "",
+].join("\n");
+const LOOKUP_FIXTURES = [
+  [LOOKUP_OK, 0],
+  // No exit-status branch, no failure line for the lookup or the write, and prose
+  // that names neither.
+  [LOOKUP_UNGUARDED, 5],
+  // Guarded, but the failure branch still says "not on project".
+  [LOOKUP_OK.replace('echo "projectItems lookup failed: Status NOT written"', 'echo "#<ISSUE> is not on project #$PN: Status NOT written"'), 1],
+  // "not on project" moved into the failure branch, after it.
+  [
+    LOOKUP_OK.replace('    else echo "#<ISSUE> is not on project #$PN: Status NOT written"; fi\n', "    fi\n").replace(
+      ">&2; fi",
+      '>&2; echo "#<ISSUE> is not on project #$PN: Status NOT written"; fi',
+    ),
+    1,
+  ],
+  // The "not on project" echo deleted outright: a card missing from the board is
+  // then never reported, though the lookup succeeded (review r0-1).
+  [LOOKUP_OK.replace('    else echo "#<ISSUE> is not on project #$PN: Status NOT written"; fi\n', "    fi\n"), 1],
+  // The bash is right but the prose still equates empty with absent.
+  [LOOKUP_OK.replace("`not on project` means the lookup succeeded; `projectItems lookup failed` means it did not.", "If `ITEM` comes back empty the issue is not on this board."), 1],
+  // The exit-status branch defeated (review r1-4): each of these makes the `if`
+  // always succeed, so a failed lookup reads as "not on project" again and an
+  // error body on stdout reaches the mutation as the item id.
+  [LOOKUP_OK.replace('.id"); then', '.id") || true; then'), 1],
+  [LOOKUP_OK.replace('.id"); then', '.id" || true); then'), 1],
+  [LOOKUP_OK.replace('.id"); then', '.id"); true; then'), 1],
+  // The Status write's own failure prints no "Status NOT written" line (review r1-1).
+  [LOOKUP_OK.replace(" \\\n        || echo \"updateProjectV2ItemFieldValue failed: Status NOT written\" >&2", ""), 1],
+  // The bash prints it, but the prose does not say what it means (review r1-1).
+  [LOOKUP_OK.replace("`updateProjectV2ItemFieldValue failed` means the card was found and the write did not land.\n", ""), 1],
+];
+
 function runFixtures() {
   const failures = [];
+  for (const [text, want] of LOOKUP_FIXTURES) {
+    const got = checkLookupFailure(text);
+    if (got.length !== want) failures.push(`lookup-failure fixture ${JSON.stringify(text)}: want ${want} problem(s), got ${JSON.stringify(got)}`);
+  }
   for (const [text, want] of FIXTURES) {
     const got = findInlineBoardIds(text).map((v) => v.match);
     if (JSON.stringify(got) !== JSON.stringify(want)) {
@@ -658,7 +775,7 @@ function main() {
     console.error(`check-agents: ${errors.length} problem(s)\n` + errors.join("\n"));
     process.exit(1);
   }
-  console.log(`check-agents: ${files.length} agent file(s) in ${shown} clean (${FIXTURES.length + READY_FIXTURES.length + STEP3_FIXTURES.length + STEP7_FIXTURES.length + TABLE_FIXTURES.length + AUTH_FIXTURES.length + RETURN_FIXTURES.length + 6} fixtures pass)`);
+  console.log(`check-agents: ${files.length} agent file(s) in ${shown} clean (${FIXTURES.length + READY_FIXTURES.length + STEP3_FIXTURES.length + STEP7_FIXTURES.length + TABLE_FIXTURES.length + AUTH_FIXTURES.length + RETURN_FIXTURES.length + LOOKUP_FIXTURES.length + 6} fixtures pass)`);
 }
 
 main();

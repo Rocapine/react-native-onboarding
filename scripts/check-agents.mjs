@@ -662,6 +662,10 @@ const FIXTURES = [
   ['PN=$(jq -r .board.projectNumber <<<"$BJ") && gh issue list --limit 100', []],
   // Must pass: an error exit after `||` is a separate command, not the value.
   ['PN=$(jq -r .board.projectNumber <<<"$BJ") || exit 1', []],
+  // Each separator ends the value even with no space before the next number.
+  ['PN=$(jq -r .board.projectNumber <<<"$BJ");LIMIT=100', []],
+  ['PN=$(jq -r .board.projectNumber <<<"$BJ")&&LIMIT=100', []],
+  ['PN=$(jq -r .board.projectNumber <<<"$BJ")||LIMIT=100', []],
   ['PN=$(jq -r .board.projectNumber <<<"$BJ") || { echo "no PN" >&2; exit 1; }', []],
   // ...but a second assignment after it is its own `PN=`.
   ['PN=$(jq -r .board.projectNumber <<<"$BJ") || PN=5', ["PN=5"]],

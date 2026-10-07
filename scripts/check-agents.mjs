@@ -210,6 +210,35 @@ export function checkStep4(text) {
 }
 
 /**
+ * Step 3 names the react-native-onboarding checkout and carries a fix-round
+ * clause (RNO#295). Without the checkout, a builder dispatched from a Studio
+ * session branches onboarding-studio and nothing errors until `npm ci`. Without
+ * the clause, step 3's "branch fresh from origin/main" contradicts board-run's
+ * fix-round prompt ("Work in the EXISTING worktree ... on the existing branch"),
+ * and the builder either fails on `-b <existing-branch>` or abandons the PR
+ * branch. Phrase-pinned like checkStep7.
+ * @returns {string[]}
+ */
+export function checkStep3(text) {
+  const flat = text.replace(/\s+/g, " ");
+  const start = flat.indexOf("### 3. Worktree and branch");
+  if (start === -1) return ["step 3 heading `### 3. Worktree and branch` not found"];
+  const end = flat.indexOf("### 4.", start);
+  const step = flat.slice(start, end === -1 ? undefined : end);
+  const problems = [];
+  if (!/\bin a fix round\b[^.]*\bworktree path the prompt names\b[^.]*\bexisting branch\b/i.test(step)) {
+    problems.push("step 3 has no fix-round clause (`In a fix round, work in the worktree path the prompt names, on its existing branch`)");
+  }
+  if (!/git -C "\$RNO" remote get-url origin/.test(step)) {
+    problems.push('step 3 does not check the checkout\'s remote (`git -C "$RNO" remote get-url origin`)');
+  }
+  if (!/git -C "\$RNO" worktree add /.test(step)) {
+    problems.push('step 3 does not create the worktree in the named checkout (`git -C "$RNO" worktree add`)');
+  }
+  return problems;
+}
+
+/**
  * Root CLAUDE.md's parity section is set aside as a whole, not item by item: it
  * also carries a readiness rule and a legacy-board card rule that contradict this
  * agent's own `## PR authority` and `## Board status`.
@@ -300,7 +329,7 @@ export function checkBoardRunReturn(text) {
 
 /** @returns {string[]} one message per broken expectation */
 export function checkSdkBuilder(text) {
-  const problems = [...checkStep7(text), ...checkParityCarveOut(text), ...checkPrAuthority(text), ...checkStep4(text), ...checkBoardRunReturn(text)];
+  const problems = [...checkStep3(text), ...checkStep7(text), ...checkParityCarveOut(text), ...checkPrAuthority(text), ...checkStep4(text), ...checkBoardRunReturn(text)];
   if (!/^---\n(?:.*\n)*?name: rno-sdk\n(?:.*\n)*?---\n/.test(text)) {
     problems.push("frontmatter does not declare `name: rno-sdk`");
   }
@@ -392,6 +421,20 @@ const READY_FIXTURES = [
   ["Do not mark it ready.", []],
 ];
 
+const STEP3_OK =
+  "### 3. Worktree and branch\n**In a fix round**, work in the worktree path the prompt names, on its existing\nbranch.\n```bash\ngit -C \"$RNO\" remote get-url origin\ngit -C \"$RNO\" worktree add \"$RNO/.claude/worktrees/x\" -b chore/1-x origin/main\n```\n### 4. Test first, strictly\n";
+const STEP3_FIXTURES = [
+  [STEP3_OK, 0],
+  // The clause deleted: the procedure again contradicts board-run's fix prompt.
+  [STEP3_OK.replace("**In a fix round**, work in the worktree path the prompt names, on its existing\nbranch.\n", ""), 1],
+  // A fix round mentioned, but not that it keeps the existing branch.
+  [STEP3_OK.replace("on its existing\nbranch", "on a fresh branch"), 1],
+  // Relative to cwd again: no named checkout, no remote check.
+  [STEP3_OK.replace(/git -C "\$RNO" /g, "git "), 2],
+  // The clause after step 4 is not step 3's.
+  ["### 3. Worktree and branch\ngit -C \"$RNO\" remote get-url origin\ngit -C \"$RNO\" worktree add x\n### 4. Test\nIn a fix round, work in the worktree path the prompt names, on its existing branch.", 1],
+];
+
 const STEP7_OK =
   "### 7. Commit, PR, report\nOpen a **draft** PR (`gh pr create --draft --base main`). Take it out of\ndraft per `## PR authority` below.\n\n## PR authority — ready yes\nTake it out of draft.";
 const STEP7_FIXTURES = [
@@ -449,6 +492,10 @@ function runFixtures() {
     if (JSON.stringify(got) !== JSON.stringify(want)) {
       failures.push(`ready fixture ${JSON.stringify(text)}: want ${JSON.stringify(want)}, got ${JSON.stringify(got)}`);
     }
+  }
+  for (const [text, want] of STEP3_FIXTURES) {
+    const got = checkStep3(text);
+    if (got.length !== want) failures.push(`step-3 fixture ${JSON.stringify(text)}: want ${want} problem(s), got ${JSON.stringify(got)}`);
   }
   for (const [text, want] of STEP7_FIXTURES) {
     const got = checkStep7(text);
@@ -528,7 +575,7 @@ function main() {
     console.error(`check-agents: ${errors.length} problem(s)\n` + errors.join("\n"));
     process.exit(1);
   }
-  console.log(`check-agents: ${files.length} agent file(s) in ${shown} clean (${FIXTURES.length + READY_FIXTURES.length + STEP7_FIXTURES.length + TABLE_FIXTURES.length + AUTH_FIXTURES.length + RETURN_FIXTURES.length + 6} fixtures pass)`);
+  console.log(`check-agents: ${files.length} agent file(s) in ${shown} clean (${FIXTURES.length + READY_FIXTURES.length + STEP3_FIXTURES.length + STEP7_FIXTURES.length + TABLE_FIXTURES.length + AUTH_FIXTURES.length + RETURN_FIXTURES.length + 6} fixtures pass)`);
 }
 
 main();

@@ -50,7 +50,8 @@ return instead, and the Ship stage does the ready-up (see `## PR authority`).
   Releases are the user's, via `/bump-version`.
 - Push to `main`, force-push, or touch the user's checkout. They keep long-lived
   feature branches checked out there; you always branch from `origin/main` in your own
-  worktree.
+  worktree, except in a fix round, which reuses the worktree and branch it is handed
+  (step 3).
 - Widen scope. Adjacent gaps you notice go in the report, not the diff.
 - File, re-audit or fix other tickets you pass on the way.
 
@@ -63,6 +64,26 @@ dispatching session may list have no knowledge of your ticket; assigning one of 
 tasks to any of them parks the work permanently.
 
 ## Procedure
+
+Every command below runs against the react-native-onboarding checkout, wherever you
+were launched from. A Studio session or a board run can start you in
+`onboarding-studio`, whose root `CLAUDE.md` has its own parity section, so reading
+and branching relative to your cwd works on the wrong repo and nothing errors until
+a `packages/` path is missing. Name the checkout and confirm it before step 1 opens
+any code:
+
+```bash
+RNO="$HOME/Developer/react-native-onboarding"
+if [[ $(git -C "$RNO" remote get-url origin 2>/dev/null) =~ [:/]Rocapine/react-native-onboarding(\.git)?$ ]]; then
+  echo "checkout ok: $RNO"
+else
+  echo "STOP: $RNO is not a Rocapine/react-native-onboarding checkout" >&2
+fi
+```
+
+On `STOP`, end the run as `blocked`, naming the path. Do not fall back to your cwd.
+Shell variables and the cwd do not survive between Bash calls, so every block below
+that uses `$RNO` sets it again on its first line.
 
 ### 1. Check the ticket against the code — it may be wrong
 
@@ -108,8 +129,16 @@ yourself — recommend, and let the user decide.
 
 ### 2. Read the repo's own rules before writing
 
-On `origin/main` (`git show origin/main:CLAUDE.md` — the user's checkout may be on an
-unrelated branch): `CLAUDE.md` (especially `## Updating ComposableScreen UIElement
+On `origin/main` of the checkout named above (the user's checkout may be on an
+unrelated branch):
+
+```bash
+RNO="$HOME/Developer/react-native-onboarding"
+git -C "$RNO" fetch -q origin main
+git -C "$RNO" show origin/main:CLAUDE.md
+```
+
+Read `CLAUDE.md` (especially `## Updating ComposableScreen UIElement
 Schema`, a numbered procedure) plus the path-scoped rules in `.claude/rules/`
 (`composable-screen-runtime.md`, `page-renderers.md`, `example-app.md`). Follow that
 procedure rather than inventing your own, and **cite the step number you are
@@ -125,13 +154,53 @@ report, and carry on. Everything after that step-0 confirmation applies verbatim
 
 ### 3. Worktree and branch
 
-Fetch and branch from `origin/main` in your own worktree:
+Your dispatching prompt decides which of three cases you are in. Read it before
+running anything here.
 
-```bash
-git fetch origin main
-git worktree add .claude/worktrees/<name> -b <type>/<N>-<slug> origin/main
-```
+- **If the prompt says to `git worktree add`** (a board-run first build does, after
+  `cd ~/Developer/react-native-onboarding`), do exactly that and work only in the
+  worktree it makes. Run the `cd` and the `worktree add` in one Bash call, or use the
+  `git -C "$RNO"` form below: the cwd resets between calls, and a `worktree add` run
+  on its own lands in whatever repo you were launched from.
+- **Otherwise, on a first build**, branch from `origin/main` in the
+  react-native-onboarding checkout, never relative to your cwd:
 
+  ```bash
+  RNO="$HOME/Developer/react-native-onboarding"
+  [[ $(git -C "$RNO" remote get-url origin) =~ [:/]Rocapine/react-native-onboarding(\.git)?$ ]] \
+    || { echo "STOP: $RNO is not Rocapine/react-native-onboarding" >&2; exit 1; }
+  git -C "$RNO" fetch origin main
+  git -C "$RNO" worktree add "$RNO/.claude/worktrees/<name>" -b <type>/<N>-<slug> origin/main
+  ```
+
+- **In a fix round, work in the worktree path the prompt names, on its existing
+  branch.** board-run's fix prompt says "Work in the EXISTING worktree `<path>` on
+  the existing branch `<branch>`", and it overrides the first-build cases above: do
+  not create another worktree or branch, do not branch from `origin/main`, and do not
+  restart the ticket. Skip step 1's triage and keep the PR a draft. Confirm the tree
+  before touching it:
+
+  ```bash
+  WT="<worktree path from the prompt>"; BR="<branch from the prompt>"
+  [[ $(git -C "$WT" remote get-url origin) =~ [:/]Rocapine/react-native-onboarding(\.git)?$ ]] \
+    || { echo "STOP: $WT is not Rocapine/react-native-onboarding" >&2; exit 1; }
+  [ "$(git -C "$WT" branch --show-current)" = "$BR" ] || { echo "STOP: $WT is not on $BR" >&2; exit 1; }
+  ```
+
+  If the fix prompt names no worktree, it says `gh pr checkout <n>` instead. Do not
+  run that in `$RNO`: it switches the user's long-lived branch. Reuse a worktree that
+  is already on the PR's branch, or add one on that branch with no `-b`:
+
+  ```bash
+  RNO="$HOME/Developer/react-native-onboarding"
+  BR=$(gh pr view <n> --repo Rocapine/react-native-onboarding --json headRefName -q .headRefName)
+  git -C "$RNO" worktree list | grep -F "[$BR]"     # listed: work there instead
+  git -C "$RNO" fetch origin "$BR"
+  git -C "$RNO" worktree add "$RNO/.claude/worktrees/<name>" "$BR"
+  ```
+
+Every later command runs in that worktree. Because the cwd resets between Bash
+calls, `cd` into its absolute path at the top of each call, or use absolute paths.
 Never rebase onto or push the user's branches. Report the worktree's absolute path,
 so a later fix round works in the same tree.
 

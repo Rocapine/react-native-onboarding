@@ -183,9 +183,10 @@ function pnLiterals(line) {
   const out = [];
   for (const m of line.matchAll(/\bPN=/g)) {
     let i = m.index + m[0].length;
-    // What closes each open context, innermost last. Bash nests: a `$(` inside
-    // `"…"` starts a fresh command whose own `"` opens a quote rather than
-    // closing the outer one (`PN="$(jq -r ".a // 5" …)"`, RNO#297 r1-1).
+    // What closes each open context, innermost last. Bash nests: a `$(` or a
+    // backtick inside `"…"` starts a fresh command whose own `"` opens a quote
+    // rather than closing the outer one (`PN="$(jq -r ".a // 5" …)"`, RNO#297
+    // r1-1).
     const open = [];
     for (; i < line.length; i++) {
       const c = line[i];
@@ -200,10 +201,12 @@ function pnLiterals(line) {
       }
       if (top === '"') {
         if (c === '"') open.pop();
+        else if (c === "`") open.push(c);
         else if (c === "$" && (line[i + 1] === "(" || line[i + 1] === "{")) open.push(line[++i] === "(" ? ")" : "}");
         continue;
       }
-      if (c === "'" || c === '"') open.push(c);
+      if (c === "`" && top === "`") open.pop();
+      else if (c === "'" || c === '"' || c === "`") open.push(c);
       else if (c === "(") open.push(")");
       else if (c === "{") open.push("}");
       else if (c === ")" || c === "}") {
@@ -684,6 +687,11 @@ const FIXTURES = [
   ['PN="$(jq -r ".board.projectNumber" <<<"$BJ" || echo 5)"', ['PN="$(jq -r ".board.projectNumber" <<<"$BJ" || echo 5']],
   // Must pass: the same nesting with no literal.
   ['PN="$(jq -r ".board.projectNumber" <<<"$BJ")" || exit 1', []],
+  // A backtick command substitution is a context too, bare or inside `"…"`.
+  ["PN=`jq -r '.board.projectNumber // 5' <<<\"$BJ\"`", ["PN=`jq -r '.board.projectNumber // 5"]],
+  ['PN="`jq -r ".board.projectNumber // 5" <<<"$BJ"`"', ['PN="`jq -r ".board.projectNumber // 5']],
+  // Must pass: the same with no literal.
+  ['PN=`jq -r .board.projectNumber <<<"$BJ"` || exit 1', []],
   // Must pass: fd redirects and a positional parameter are not literals, and
   // a number in a later `;`/`&&` statement is not the assignment's.
   ['PN=$(jq -r .board.projectNumber <<<"$BJ" 2>/dev/null)', []],

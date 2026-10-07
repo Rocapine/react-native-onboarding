@@ -49,10 +49,26 @@
 //   8-hex token holding at least one digit, the shape of every single-select
 //   option id). For the same reason it cannot check that each status in an
 //   agent's table exists on the board.
-// - A literal bound through a GraphQL variable (`-F p=5` into
-//   `projectV2(number:$p)`) is indistinguishable from `-F n=448`.
-// - `gh project view --web 5`: a boolean flag right before the number reads as
-//   that flag's value. A number on a `\`-continued line is also missed.
+// - A GraphQL query held in a shell variable (`-f query="$Q"`) or read from a
+//   file (`--input`): a literal bound to its `projectV2(number:$v)` variable is
+//   caught only when the query text is in the same `gh api graphql` command.
+// - A `gh project` boolean flag newer than the list in GH_PROJECT_BOOLEAN_FLAGS
+//   reads as taking the number after it as its value.
+// - A default on a variable other than PN (`${PROJECT:-5}`). PN's defaults fail
+//   anywhere, since PN is the variable every Status template reads; failing any
+//   name's default would also fail `${LIMIT:-100}`.
+//
+// RNO#297 closed the misses this script inherited from the Studio original
+// (`projectV2 (number: N)`, a PN fallback literal or default anywhere, view/item
+// node ids, a GraphQL-variable binding in single or double quotes and with an
+// attached `--field=v=N`/`-Fv=N`, `--web N`, a `|` inside a quoted `--jq`,
+// `\`-continued lines, a `gh project … N` number that closes inline code or a
+// sentence, a PN fallback inside a nested `"$(… "…" …)"`). The Studio side is
+// OB#457; the decisions are mirrored there. RNO#322 then fixed two backtick
+// regressions that fixing those introduced: a prose `PN=` closing inline code
+// read as a substitution, and a backtick substitution argument hiding a `gh
+// project` number after it. The Studio mirror splits on no backtick, so has
+// neither.
 //
 // WHY A NODE SCRIPT AND NOT A VITEST FILE
 //
@@ -82,20 +98,33 @@ const SDK_BUILDER = "rno-sdk.md";
 
 // A literal project number is a violation in each form below:
 // - jq `.project.number==N`, any spacing
-// - GraphQL `projectV2(number:N)`
+// - GraphQL `projectV2(number:N)`, any spacing, or N bound through the variable
+//   it reads, see graphqlBoundNumbers
 // - REST `projectsV2/N`
-// - a hardcoded `PN=N`, the variable every Status template reads
+// - any integer literal in a `PN=` assignment, the variable every Status
+//   template reads, see pnLiterals, and a PN default (`${PN:-N}`) anywhere
 // - `gh project <verb> ... N`, see ghProjectNumbers
+// Each rule runs on `\`-joined logical lines, see logicalLines.
 //
 // Matching the bare `PVT_` prefix would be wrong: every agent keeps a guard,
 // `$PROJ == PVT_* && $SF == PVTSSF_*`, that holds the prefix as a glob. Only an
 // id LITERAL (prefix plus a body) is a violation.
+//
+// An integer literal in a PN value, shared by the PN-default rule and pnLiterals
+// so both exempt the same things: a positional parameter (`$1`, `${10}`), a digit
+// inside a name (`$N2`), and an fd redirect (`2>/dev/null`, `>&2`).
+const INT_LITERAL = String.raw`(?<![\w$&]|\$\{)\d+(?![\w>])`;
+
 const RULES = [
-  { re: /\bPVT(SSF|F)?_[A-Za-z0-9_-]{8,}/g, why: "board node id" },
+  // Any project node id: `PVT_` project, `PVTSSF_`/`PVTF_` field, `PVTV_` view,
+  // `PVTI_` item. The `*` of the guard glob sits outside the body class.
+  { re: /\bPVT[A-Z]*_[A-Za-z0-9_-]{8,}/g, why: "board node id" },
   { re: /project\.number\s*==\s*\d+/g, why: "literal project number" },
-  { re: /projectV2\(\s*number\s*:\s*\d+/g, why: "literal project number" },
+  { re: /projectV2\s*\(\s*number\s*:\s*\d+/g, why: "literal project number" },
   { re: /\bprojectsV2\/\d+/g, why: "literal project number" },
-  { re: /\bPN=["']?\d+/g, why: "literal project number" },
+  // A PN default ANYWHERE (`: "${PN:=5}"`, `item-list ${PN:-5}`, `-F pn="${PN:-5}"`)
+  // is the same fallback as one in the `PN=` line. `${PN:?msg}` aborts instead.
+  { re: new RegExp(String.raw`\$\{PN:?[-=+][^}]*?` + INT_LITERAL, "g"), why: "fallback project number" },
   // Single-select option ids are 8 lowercase hex. Requiring a digit keeps
   // all-letter hex words ("deadbeef", "acceded") out. The guards keep out the
   // other 8-hex shapes: a word character on either side (a 40-char sha, a
@@ -109,21 +138,173 @@ const RULES = [
 // the command instead: a bare integer is the project number unless the token
 // before it is a flag taking it as a value (`--limit 200`, `-L 100`,
 // `item-edit --number 3`). `--owner=X 5` is still caught, since that flag
-// already holds its value.
+// already holds its value, and so is `view --web 5`: the flags below take none.
+// Every boolean flag across the `gh project` subcommands, per `gh project <verb>
+// --help` (gh 2.x).
+const GH_PROJECT_BOOLEAN_FLAGS = new Set(["--web", "-w", "--closed", "--undo", "--drafts", "--clear", "--help"]);
+
+/** @returns {{start: number, at: number, end: number, match: string}[]} */
 function ghProjectNumbers(line) {
   const out = [];
   for (const m of line.matchAll(/\bgh project [a-z-]+/g)) {
+    const from = m.index + m[0].length;
     const rest = line
-      .slice(m.index + m[0].length)
-      .split(/[|;&)]/)[0]
-      // Pair quotes left to right; a multi-word string is one opaque token.
-      .replace(/"[^"]*"|'[^']*'/g, (q) => (/\s/.test(q) ? "_" : q));
-    const tokens = rest.split(/\s+/).filter(Boolean);
+      .slice(from)
+      // Pair quotes left to right; a string holding a space or a command
+      // separator is one opaque token, so the `|` of `--jq '.a | .b'` does not
+      // end the command. Same length, so a token's offset is still its offset
+      // in the line.
+      .replace(/"[^"]*"|'[^']*'/g, (q) => (/[\s|;&)`]/.test(q) ? "_".repeat(q.length) : q));
+    // An unpaired closing backtick ends it too: the close of markdown inline
+    // code (`gh project view 5`) or of a shell command substitution. Backticks
+    // pair from the line's start, so an odd count before the command means the
+    // first one in `rest` closes the span the command sits in. Every pair after
+    // that is opaque, so a substitution as an earlier argument (`--owner \`jq
+    // …\` 5`) does not hide the number after it (RNO#322 r2-2).
+    const insideSpan = (line.slice(0, from).match(/`/g) ?? []).length % 2 === 1;
+    const cut = (insideSpan ? rest : rest.replace(/`[^`]*`/g, (q) => "_".repeat(q.length))).split(/[|;&)`]/)[0];
+    const tokens = [...cut.matchAll(/\S+/g)];
     tokens.forEach((t, i) => {
-      const prev = tokens[i - 1];
-      const isFlagValue = prev !== undefined && /^--?[A-Za-z][\w-]*$/.test(prev);
-      if (/^["']?\d+["']?$/.test(t) && !isFlagValue) out.push(t);
+      const prev = tokens[i - 1]?.[0];
+      const isFlagValue =
+        prev !== undefined && /^--?[A-Za-z][\w-]*$/.test(prev) && !GH_PROJECT_BOOLEAN_FLAGS.has(prev);
+      // A trailing `.`/`,` is prose punctuation: "open it with gh project view 5."
+      const num = /^["']?\d+["']?(?=[.,]?$)/.exec(t[0]);
+      if (num && !isFlagValue) {
+        const start = from + t.index;
+        out.push({ start, at: start, end: start + num[0].length, match: num[0] });
+      }
     });
+  }
+  return out;
+}
+
+// A `PN=` assignment holding ANY integer literal: `PN=5`, `PN="5"`, and the
+// fallbacks `${PN:-5}`, jq `// 5`, `|| echo 5`. A fallback is the dangerous
+// one, since it also passes the agents' `[[ $PN =~ ^[0-9]+$ ]]` guard. The
+// assignment runs, as bash reads it, to the first space, `;`, `|` or `&` outside
+// `$(…)`/`${…}` and quotes, so a later statement's `--limit 100` and the
+// `|| exit 1` after it are not its; a `|| PN=5` after it is its own `PN=`. Not literals: an fd redirect
+// (`2>/dev/null`, `>&2`) and a positional `$1`. A jq index (`.boards[0]`) does
+// count: the line that sets PN must carry no number at all.
+/** @returns {{start: number, at: number, end: number, match: string}[]} */
+function pnLiterals(line) {
+  const out = [];
+  for (const m of line.matchAll(/\bPN=/g)) {
+    let i = m.index + m[0].length;
+    // What closes each open context, innermost last. Bash nests: a `$(` or a
+    // backtick inside `"…"` starts a fresh command whose own `"` opens a quote
+    // rather than closing the outer one (`PN="$(jq -r ".a // 5" …)"`, RNO#297
+    // r1-1).
+    const open = [];
+    for (; i < line.length; i++) {
+      const c = line[i];
+      const top = open[open.length - 1];
+      if (top === "'") {
+        if (c === "'") open.pop();
+        continue;
+      }
+      if (c === "\\") {
+        i++;
+        continue;
+      }
+      if (top === '"') {
+        if (c === '"') open.pop();
+        else if (c === "`") open.push(c);
+        else if (c === "$" && (line[i + 1] === "(" || line[i + 1] === "{")) open.push(line[++i] === "(" ? ")" : "}");
+        continue;
+      }
+      if (c === "`" && top === "`") open.pop();
+      // A bare backtick before a space, the end of the line or prose punctuation
+      // closes markdown inline code (`PN=`, `PN=$(…)`), so it ends the value. One
+      // before a command (`PN=\`jq …\``, `PN=\`./get-pn.sh\``) opens a
+      // substitution (RNO#322 r2-1).
+      else if (c === "`" && open.length === 0 && /^(?:$|[\s,;:!?)|&]|\.(?:\s|$))/.test(line.slice(i + 1, i + 3))) break;
+      else if (c === "'" || c === '"' || c === "`") open.push(c);
+      else if (c === "(") open.push(")");
+      else if (c === "{") open.push("}");
+      else if (c === ")" || c === "}") {
+        if (open.length === 0) break;
+        open.pop();
+      } else if (open.length === 0 && /[\s;|&]/.test(c)) break;
+    }
+    const value = line.slice(m.index + m[0].length, i);
+    const lit = new RegExp(INT_LITERAL).exec(value);
+    if (lit) {
+      const end = m.index + m[0].length + lit.index + lit[0].length;
+      out.push({ start: m.index, at: end - lit[0].length, end, match: line.slice(m.index, end) });
+    }
+  }
+  return out;
+}
+
+// Physical lines joined across a trailing `\`, as the shell reads them, so a
+// number on a continuation line is still its command's. `lineAt` maps an offset
+// in the joined text back to the physical line it sits on.
+function logicalLines(text) {
+  const out = [];
+  let cur = null;
+  text.split("\n").forEach((l, i) => {
+    if (!cur) cur = { text: "", starts: [] };
+    cur.starts.push({ offset: cur.text.length, line: i + 1 });
+    if (l.endsWith("\\")) {
+      cur.text += l.slice(0, -1) + " ";
+      return;
+    }
+    cur.text += l;
+    out.push(cur);
+    cur = null;
+  });
+  if (cur) out.push(cur);
+  return out.map(({ text, starts }) => ({
+    text,
+    lineAt: (offset) => {
+      let line = starts[0].line;
+      for (const s of starts) if (s.offset <= offset) line = s.line;
+      return line;
+    },
+  }));
+}
+
+// A literal bound through a GraphQL variable: `projectV2(number:$pn)` with
+// `-F pn=5` (or `-f`, `--field`, `--raw-field`, attached as `-Fpn=5` or
+// `--field=pn=5`), or a literal default in the
+// declaration (`$pn:Int! = 5`). Only the variable `projectV2(number:…)` reads
+// counts, so `-F n=448` bound to `issue(number:$n)` in the same command passes.
+// A command runs from `gh api graphql` to the first newline outside quotes and
+// not `\`-escaped, which spans a query written across lines inside its quotes.
+// Still unseen: a query held in a shell variable (`-f query="$Q"`) or read from
+// a file (`--input`), since the variable name is then not in the command.
+/** @returns {{index: number, match: string}[]} */
+function graphqlBoundNumbers(text) {
+  const out = [];
+  for (const m of text.matchAll(/\bgh api graphql\b/g)) {
+    let i = m.index;
+    let quote = null;
+    for (; i < text.length; i++) {
+      const c = text[i];
+      if (quote) {
+        if (c === quote) quote = null;
+        else if (quote === '"' && c === "\\") i++;
+        continue;
+      }
+      if (c === "'" || c === '"') quote = c;
+      else if (c === "\\") i++;
+      else if (c === "\n") break;
+    }
+    const cmd = text.slice(m.index, i);
+    // `\\$pn` is how a double-quoted query spells `$pn` for bash.
+    const vars = new Set([...cmd.matchAll(/projectV2\s*\(\s*number\s*:\s*\\?\$(\w+)/g)].map((v) => v[1]));
+    for (const v of vars) {
+      const binds = [
+        // `-F pn=5`, and a flag holding its own value: `-Fpn=5`, `--field=pn=5`.
+        new RegExp(String.raw`(?<!\S)(?:-[fF](?:\s+|=)?|--(?:raw-)?field(?:\s+|=))["']?${v}=["']?\d+(?!\w)`, "g"),
+        new RegExp(String.raw`\$${v}\s*:\s*Int!?\s*=\s*\d+`, "g"),
+      ];
+      for (const re of binds) {
+        for (const b of cmd.matchAll(re)) out.push({ index: m.index + b.index, match: b[0] });
+      }
+    }
   }
   return out;
 }
@@ -131,15 +312,28 @@ function ghProjectNumbers(line) {
 /** @returns {{line: number, match: string, why: string}[]} */
 export function findInlineBoardIds(text) {
   const out = [];
-  text.split("\n").forEach((l, i) => {
+  for (const { text: l, lineAt } of logicalLines(text)) {
+    // `start`/`end` span the match in the logical line; `at` is the offset whose
+    // physical line is reported (a PN literal's own, not its `PN=`'s).
+    const hits = [];
     for (const { re, why } of RULES) {
-      for (const m of l.matchAll(re)) out.push({ line: i + 1, match: m[0], why });
+      for (const m of l.matchAll(re)) {
+        hits.push({ start: m.index, at: m.index, end: m.index + m[0].length, match: m[0], why });
+      }
     }
-    for (const n of ghProjectNumbers(l)) {
-      out.push({ line: i + 1, match: n, why: "literal project number" });
-    }
-  });
-  return out;
+    for (const h of [...pnLiterals(l), ...ghProjectNumbers(l)]) hits.push({ ...h, why: "literal project number" });
+    // One violation, one report: `PN=${PN:-5}` is both a PN literal and a PN
+    // default, so a hit inside another hit's span is dropped.
+    const kept = hits.filter(
+      (h, i) => !hits.some((o, j) => j !== i && o.start <= h.start && h.end <= o.end && (o.end - o.start > h.end - h.start || j < i)),
+    );
+    for (const { at, match, why } of kept) out.push({ line: lineAt(at), match, why });
+  }
+  for (const { index, match } of graphqlBoundNumbers(text)) {
+    const line = text.slice(0, index).split("\n").length;
+    out.push({ line, match, why: "literal project number bound to a GraphQL variable" });
+  }
+  return out.sort((a, b) => a.line - b.line);
 }
 
 // ---------------------------------------------------------------------------
@@ -149,6 +343,13 @@ export function findInlineBoardIds(text) {
 // Run on whitespace-collapsed text: the phrase wraps across lines in the source.
 // "Out of draft" is the same act as "mark ready" in other words; the section's
 // own instruction uses it.
+//
+// A conditional is still a violation: "do not take it out of draft until CI is
+// green" fails (RNO#297). It agrees with `## PR authority`, but "until a human
+// approves" contradicts it, and the two differ only in a condition a regex
+// cannot weigh. Exempting until/before/unless would pass both. Write the
+// positive form instead, as the section itself does: "take it out of draft
+// once CI is green".
 const FORBIDS_READY =
   /\b(neither may|may not|must not|do not|don.t|never)\b[^.;]*?\b(mark\b[^.;]*?\bready|take\b[^.;]*?\bout of draft)\b/gi;
 
@@ -478,15 +679,126 @@ const FIXTURES = [
   ["deadbeef and acceded are words, not ids", []],
   ['PROJ="PVT_kwSYNTHETICxx01"', ["PVT_kwSYNTHETICxx01"]],
   ["SF=PVTSSF_lSYNTHETICxx02\nF=PVTF_lSYNTHETICxx03", ["PVTSSF_lSYNTHETICxx02", "PVTF_lSYNTHETICxx03"]],
+  // A view id and an item id (RNO#297, mirroring OB#457). An item id is
+  // per-issue and must be looked up, never pasted.
+  ["ITEM=PVTI_lSYNTHETICxx04 VIEW=PVTV_lSYNTHETICxx05", ["PVTI_lSYNTHETICxx04", "PVTV_lSYNTHETICxx05"]],
   ["select(.project.number==1)", ["project.number==1"]],
   ["select(.project.number == 5)", ["project.number == 5"]],
   ['organization(login:"Rocapine"){projectV2(number:5){id}}', ["projectV2(number:5"]],
+  // Whitespace before the paren is valid GraphQL.
+  ['organization(login:"Rocapine"){projectV2 (number: 5){id}}', ["projectV2 (number: 5"]],
   ["gh api orgs/Rocapine/projectsV2/5/items", ["projectsV2/5"]],
   ['PN="5"', ['PN="5']],
   ["export PN=1", ["PN=1"]],
+  // A fallback literal passes the agents' `[[ $PN =~ ^[0-9]+$ ]]` guard, so a
+  // partial board.json silently searches the old board (RNO#297, OB#457).
+  ["PN=${PN:-5}", ["PN=${PN:-5"]],
+  ["PN=$(jq -r '.board.projectNumber // 5' <<<\"$BJ\")", ["PN=$(jq -r '.board.projectNumber // 5"]],
+  ['PN=$(jq -r .board.projectNumber <<<"$BJ" || echo 5)', ['PN=$(jq -r .board.projectNumber <<<"$BJ" || echo 5']],
+  // A `"` inside `"$(…)"` opens a new quote, it does not close the outer one,
+  // so the space before `// 5` is still inside the value (RNO#297 r1-1).
+  ['PN="$(jq -r ".board.projectNumber // 5" <<<"$BJ")"', ['PN="$(jq -r ".board.projectNumber // 5']],
+  ['PN="$(jq -r ".board.projectNumber" <<<"$BJ" || echo 5)"', ['PN="$(jq -r ".board.projectNumber" <<<"$BJ" || echo 5']],
+  // Must pass: the same nesting with no literal.
+  ['PN="$(jq -r ".board.projectNumber" <<<"$BJ")" || exit 1', []],
+  // A backtick command substitution is a context too, bare or inside `"…"`.
+  ["PN=`jq -r '.board.projectNumber // 5' <<<\"$BJ\"`", ["PN=`jq -r '.board.projectNumber // 5"]],
+  ['PN="`jq -r ".board.projectNumber // 5" <<<"$BJ"`"', ['PN="`jq -r ".board.projectNumber // 5']],
+  // Must pass: the same with no literal.
+  ['PN=`jq -r .board.projectNumber <<<"$BJ"` || exit 1', []],
+  // Must pass: in prose, a backtick right after a `PN=` value closes inline code
+  // rather than opening a substitution, so a later number is not the value's
+  // (RNO#322 r2-1).
+  ["Set `PN=` from board.json before step 3.", []],
+  ["The template's `PN=` line reads board.json; see step 4 for the guard.", []],
+  ["| `PN=` | read in step 2 |", []],
+  ["`PN=$(...)` is line 1 of 2", []],
+  ["Set `PN=`, then read step 3.", []],
+  ["Set `PN=`. Step 3 reads it.", []],
+  // A substitution still opens on a command, a path included.
+  ["PN=`./get-pn.sh 5`", ["PN=`./get-pn.sh 5"]],
+  // Must pass: fd redirects and a positional parameter are not literals, and
+  // a number in a later `;`/`&&` statement is not the assignment's.
+  ['PN=$(jq -r .board.projectNumber <<<"$BJ" 2>/dev/null)', []],
+  ['PN=$(jq -r .board.projectNumber <<<"$BJ" 2>&1 >&2)', []],
+  ["PN=$1", []],
+  ["PN=${2}", []],
+  ['PN=$(jq -r .board.projectNumber <<<"$BJ") && gh issue list --limit 100', []],
+  // Must pass: an error exit after `||` is a separate command, not the value.
+  ['PN=$(jq -r .board.projectNumber <<<"$BJ") || exit 1', []],
+  // Each separator ends the value even with no space before the next number.
+  ['PN=$(jq -r .board.projectNumber <<<"$BJ");LIMIT=100', []],
+  ['PN=$(jq -r .board.projectNumber <<<"$BJ")&&LIMIT=100', []],
+  ['PN=$(jq -r .board.projectNumber <<<"$BJ")||LIMIT=100', []],
+  ['PN=$(jq -r .board.projectNumber <<<"$BJ") || { echo "no PN" >&2; exit 1; }', []],
+  // ...but a second assignment after it is its own `PN=`.
+  ['PN=$(jq -r .board.projectNumber <<<"$BJ") || PN=5', ["PN=5"]],
+  // A PN default outside the assignment is the same fallback (RNO#297 r0-1).
+  [': "${PN:=5}"', ["${PN:=5"]],
+  ["gh project item-list ${PN:-5} --owner Rocapine", ["${PN:-5"]],
+  ['gh project item-list "${PN:-5}" --owner Rocapine', ["${PN:-5"]],
+  ["-q '.nodes[] | select(.project.number==${PN:-5}) | .id'", ["${PN:-5"]],
+  ['gh api graphql -f query=\'query($pn:Int!){organization(login:"R"){projectV2(number:$pn){id}}}\' -F pn="${PN:-5}"', ["${PN:-5"]],
+  ["gh project item-list ${PN:+5} --owner Rocapine", ["${PN:+5"]],
+  // Must pass: `${PN:?msg}` aborts, it supplies no value, even with a digit in it.
+  [': "${PN:?board.json has no projectNumber, see step 3}"', []],
+  // Must pass: a positional parameter is not a literal, as in `PN=$1` (r1-2).
+  ["PN=${PN:-$1}", []],
+  ["gh project item-list ${PN:-$1} --owner Rocapine", []],
+  ['gh project item-list "${PN:-${10}}" --owner Rocapine', []],
+  ["gh project item-list ${PN:-$N2} --owner Rocapine", []],
+  // ...but a literal after one still fails.
+  ["gh project item-list ${PN:-${1:-5}} --owner Rocapine", ["${PN:-${1:-5"]],
   ["gh project item-list 5 --owner Rocapine", ["5"]],
   ["gh project item-list --owner Rocapine 5 --format json", ["5"]],
   ["gh project item-list --owner=Rocapine 5", ["5"]],
+  // A boolean flag takes no value, so the number after it is the project's.
+  ["gh project view --web 5 --owner Rocapine", ["5"]],
+  ["gh project view -w 5 --owner Rocapine", ["5"]],
+  ["gh project list --closed --owner Rocapine && gh project close --undo 5 --owner Rocapine", ["5"]],
+  // Prose: a number closing markdown inline code or a sentence is still the
+  // project's (RNO#297 r1-3).
+  ["Use `gh project view --web 5` to open it.", ["5"]],
+  ["Open it with `gh project view 5`.", ["5"]],
+  ["Open it with gh project view 5. Then edit it.", ["5"]],
+  ["Run gh project item-list 5, then filter.", ["5"]],
+  // Must pass: a closing backtick ends the command, so prose after it is not its.
+  ["`gh project item-list \"$PN\"` returns at most 30 items.", []],
+  // A backtick substitution as an earlier argument does not end the command;
+  // only an unpaired closing backtick does (RNO#322 r2-2).
+  ["gh project item-list --owner `jq -r .owner <<<\"$BJ\"` 5", ["5"]],
+  // A backtick closing inline code still cuts when a later span follows it: the
+  // pairs are counted from the line's start, not from after `gh project <verb>`.
+  ["Use `gh project view 5` and see `foo`.", ["5"]],
+  // A `|` inside a quoted argument does not end the command (RNO#297 r0-4).
+  ["gh project item-list --owner R --jq '.items[] | .id' 5", ["5"]],
+  ["gh project item-list --owner R --jq '.items[]|.id' 5", ["5"]],
+  // Must pass: a real pipe still ends it.
+  ["gh project item-list \"$PN\" --owner R --format json | jq '.items | length > 5'", []],
+  // A number on a `\`-continued line is the same command's.
+  ["gh project item-list --owner Rocapine \\\n  5 --format json", ["5"]],
+  ["gh api graphql -f query='{organization(login:\"Rocapine\"){projectV2 \\\n(number: 5){id}}}'", ["projectV2  (number: 5"]],
+  ["PN=$(jq -r .board.projectNumber <<<\"$BJ\" \\\n  || echo 5)", ['PN=$(jq -r .board.projectNumber <<<"$BJ"    || echo 5']],
+  // A literal bound through the GraphQL variable `projectV2(number:$v)` reads.
+  ["gh api graphql -f query='query($pn:Int!){organization(login:\"Rocapine\"){projectV2(number:$pn){id}}}' -F pn=5", ["-F pn=5"]],
+  ["gh api graphql -f query='query($p:Int!){organization(login:\"Rocapine\"){projectV2 (number: $p){id}}}' --field p=5", ["--field p=5"]],
+  // The query spans lines inside its quotes, and the binding sits on a
+  // `\`-continued line after it.
+  ["gh api graphql -f query='query($o:String!,$pn:Int!){\n  organization(login:$o){projectV2(number:$pn){id}}}' \\\n  -f o=Rocapine -f pn=\"5\"", ['-f pn="5']],
+  // A literal default in the variable's declaration is the same binding.
+  ["gh api graphql -f query='query($pn:Int! = 5){organization(login:\"Rocapine\"){projectV2(number:$pn){id}}}'", ["$pn:Int! = 5"]],
+  // In double quotes bash needs `\$pn`; the query is the same (RNO#297 r0-2).
+  ['gh api graphql -f query="query(\\$pn:Int!){organization(login:\\"R\\"){projectV2(number:\\$pn){id}}}" -F pn=5', ["-F pn=5"]],
+  ['gh api graphql -f query="query(\\$pn:Int! = 5){organization(login:\\"R\\"){projectV2(number:\\$pn){id}}}"', ["$pn:Int! = 5"]],
+  // A flag holding its own value: `--field=k=v`, `-Fk=v` (RNO#297 r0-3, r0-6).
+  ["gh api graphql --field=pn=5 -f query='query($pn:Int!){organization(login:\"R\"){projectV2(number:$pn){id}}}'", ["--field=pn=5"]],
+  ["gh api graphql -f query='query($pn:Int!){organization(login:\"R\"){projectV2(number:$pn){id}}}' -Fpn=5", ["-Fpn=5"]],
+  ["gh api graphql -f query='query($pn:Int!){organization(login:\"R\"){projectV2(number:$pn){id}}}' --raw-field=pn=5", ["--raw-field=pn=5"]],
+  // Must pass: the variable bound from $PN, and a literal bound to a DIFFERENT
+  // variable (an issue number) in the same command.
+  ["gh api graphql -f query='query($pn:Int!,$n:Int!){organization(login:\"Rocapine\"){projectV2(number:$pn){id}} repository(owner:\"Rocapine\",name:\"r\"){issue(number:$n){id}}}' -F pn=\"$PN\" -F n=448", []],
+  // Must pass: a literal bound in a different command from the one reading it.
+  ["gh api graphql -f query='query($pn:Int!){organization(login:\"Rocapine\"){projectV2(number:$pn){id}}}' -F pn=$PN\ngh api graphql -f query='query($pn:Int!){repository(owner:\"Rocapine\",name:\"r\"){issue(number:$pn){id}}}' -F pn=448", []],
   ["-F v=1a2b3c4d", ["1a2b3c4d"]],
   ["OPT=9f8e7d6c", ["9f8e7d6c"]],
   ['"Prioritized": "47fc9ee4",', ["47fc9ee4"]],
@@ -506,6 +818,14 @@ const READY_FIXTURES = [
   ["## PR authority\nDo not leave a verified PR sitting in draft.", []],
   // No PR authority section: the contract does not apply.
   ["Do not mark it ready.", []],
+  // A trailing until/before/unless does NOT exempt the sentence (RNO#297). The
+  // agreeing "until CI is green" and the contradicting "until a human approves"
+  // differ only in the condition, which a regex cannot weigh; the positive form
+  // says the same thing and passes.
+  ["## PR authority\nDo not take it out of draft until CI is green.", ["Do not take it out of draft"]],
+  ["## PR authority\nNever mark it ready until a human has approved it.", ["Never mark it ready"]],
+  ["## PR authority\nDo not mark it ready before the review is clean, unless asked.", ["Do not mark it ready"]],
+  ["## PR authority\nTake it out of draft once CI is green.", []],
 ];
 
 const STEP3_FIRST_BUILD = 'git -C "$RNO" worktree add "$RNO/.claude/worktrees/x" -b chore/1-x origin/main\n';
@@ -670,6 +990,15 @@ function runFixtures() {
   }
   const lines = findInlineBoardIds("ok\nok\nPROJ=PVT_kwSYNTHETICxx01").map((v) => v.line);
   if (JSON.stringify(lines) !== "[3]") failures.push(`board-id fixture line number: want [3], got ${JSON.stringify(lines)}`);
+  // A hit on a `\`-continued line reports the physical line it sits on.
+  const contLines = findInlineBoardIds("ok\ngh project item-list \\\n  --owner Rocapine \\\n  5\nPROJ=PVT_kwSYNTHETICxx01").map((v) => v.line);
+  if (JSON.stringify(contLines) !== "[4,5]") failures.push(`board-id fixture continued line number: want [4,5], got ${JSON.stringify(contLines)}`);
+  // A GraphQL binding reports the line the binding sits on, not the query's.
+  const gqlLines = findInlineBoardIds("ok\ngh api graphql -f query='query($pn:Int!){\n  organization(login:$o){projectV2(number:$pn){id}}}' \\\n  -F pn=5").map((v) => v.line);
+  if (JSON.stringify(gqlLines) !== "[4]") failures.push(`board-id fixture graphql binding line number: want [4], got ${JSON.stringify(gqlLines)}`);
+  // A PN literal reports the line the literal is on, not where `PN=` starts.
+  const pnLines = findInlineBoardIds('ok\nPN=$(jq -r .board.projectNumber <<<"$BJ" \\\n  || echo 5)').map((v) => v.line);
+  if (JSON.stringify(pnLines) !== "[3]") failures.push(`board-id fixture PN literal line number: want [3], got ${JSON.stringify(pnLines)}`);
   for (const [text, want] of READY_FIXTURES) {
     const got = findReadyForbidden(text);
     if (JSON.stringify(got) !== JSON.stringify(want)) {
@@ -739,7 +1068,7 @@ function main() {
       errors.push(`${shown}/${file}:${v.line}: ${v.why} \`${v.match}\` — read it from onboarding-studio's .claude/board.json at run time instead`);
     }
     for (const hit of findReadyForbidden(text)) {
-      errors.push(`${shown}/${file}: has \`## PR authority\` but forbids marking its PR ready: "${hit}"`);
+      errors.push(`${shown}/${file}: has \`## PR authority\` but forbids marking its PR ready: "${hit}" — a conditional counts too; say when to take it out of draft ("once CI is green"), not when not to`);
     }
     if (file === SDK_BUILDER) {
       for (const p of checkSdkBuilder(text)) errors.push(`${shown}/${file}: ${p}`);
@@ -750,7 +1079,7 @@ function main() {
     console.error(`check-agents: ${errors.length} problem(s)\n` + errors.join("\n"));
     process.exit(1);
   }
-  console.log(`check-agents: ${files.length} agent file(s) in ${shown} clean (${FIXTURES.length + READY_FIXTURES.length + STEP3_FIXTURES.length + STEP7_FIXTURES.length + TABLE_FIXTURES.length + AUTH_FIXTURES.length + RETURN_FIXTURES.length + LOOKUP_FIXTURES.length + 4} fixtures pass)`);
+  console.log(`check-agents: ${files.length} agent file(s) in ${shown} clean (${FIXTURES.length + READY_FIXTURES.length + STEP3_FIXTURES.length + STEP7_FIXTURES.length + TABLE_FIXTURES.length + AUTH_FIXTURES.length + RETURN_FIXTURES.length + LOOKUP_FIXTURES.length + 7} fixtures pass)`);
 }
 
 main();

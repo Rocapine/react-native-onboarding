@@ -194,9 +194,11 @@ running anything here.
   ```bash
   RNO="$HOME/Developer/react-native-onboarding"
   BR=$(gh pr view <n> --repo Rocapine/react-native-onboarding --json headRefName -q .headRefName)
-  git -C "$RNO" worktree list | grep -F "[$BR]"     # listed: work there instead
-  git -C "$RNO" fetch origin "$BR"
-  git -C "$RNO" worktree add "$RNO/.claude/worktrees/<name>" "$BR"
+  if git -C "$RNO" worktree list | grep -F "[$BR]"; then
+    echo "reuse the worktree listed above"
+  else
+    git -C "$RNO" fetch origin "$BR" && git -C "$RNO" worktree add "$RNO/.claude/worktrees/<name>" "$BR"
+  fi
   ```
 
 Every later command runs in that worktree. Because the cwd resets between Bash

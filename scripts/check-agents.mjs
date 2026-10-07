@@ -149,16 +149,20 @@ function ghProjectNumbers(line) {
       // separator is one opaque token, so the `|` of `--jq '.a | .b'` does not
       // end the command. Same length, so a token's offset is still its offset
       // in the line.
-      .replace(/"[^"]*"|'[^']*'/g, (q) => (/[\s|;&)]/.test(q) ? "_".repeat(q.length) : q))
-      .split(/[|;&)]/)[0];
+      .replace(/"[^"]*"|'[^']*'/g, (q) => (/[\s|;&)`]/.test(q) ? "_".repeat(q.length) : q))
+      // A backtick ends it too: the close of markdown inline code (`gh project
+      // view 5`) or of a shell command substitution.
+      .split(/[|;&)`]/)[0];
     const tokens = [...rest.matchAll(/\S+/g)];
     tokens.forEach((t, i) => {
       const prev = tokens[i - 1]?.[0];
       const isFlagValue =
         prev !== undefined && /^--?[A-Za-z][\w-]*$/.test(prev) && !GH_PROJECT_BOOLEAN_FLAGS.has(prev);
-      if (/^["']?\d+["']?$/.test(t[0]) && !isFlagValue) {
+      // A trailing `.`/`,` is prose punctuation: "open it with gh project view 5."
+      const num = /^["']?\d+["']?(?=[.,]?$)/.exec(t[0]);
+      if (num && !isFlagValue) {
         const start = from + t.index;
-        out.push({ start, at: start, end: start + t[0].length, match: t[0] });
+        out.push({ start, at: start, end: start + num[0].length, match: num[0] });
       }
     });
   }
@@ -718,6 +722,14 @@ const FIXTURES = [
   ["gh project view --web 5 --owner Rocapine", ["5"]],
   ["gh project view -w 5 --owner Rocapine", ["5"]],
   ["gh project list --closed --owner Rocapine && gh project close --undo 5 --owner Rocapine", ["5"]],
+  // Prose: a number closing markdown inline code or a sentence is still the
+  // project's (RNO#297 r1-3).
+  ["Use `gh project view --web 5` to open it.", ["5"]],
+  ["Open it with `gh project view 5`.", ["5"]],
+  ["Open it with gh project view 5. Then edit it.", ["5"]],
+  ["Run gh project item-list 5, then filter.", ["5"]],
+  // Must pass: a closing backtick ends the command, so prose after it is not its.
+  ["`gh project item-list \"$PN\"` returns at most 30 items.", []],
   // A `|` inside a quoted argument does not end the command (RNO#297 r0-4).
   ["gh project item-list --owner R --jq '.items[] | .id' 5", ["5"]],
   ["gh project item-list --owner R --jq '.items[]|.id' 5", ["5"]],

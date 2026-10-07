@@ -42,6 +42,14 @@ jobs:
       - name: PR context stays one round trip
         run: npm run check:pr-context
 
+      # Also before install: node builtins only. The SDK builder agent moves cards
+      # on a project board whose ids live in another repo's board.json; an id
+      # pasted back inline here strands it on the old board after a move, with no
+      # error. It also keeps any agent with a PR authority section from telling
+      # itself not to mark its PR ready.
+      - name: Agents read board ids at run time
+        run: npm run check:agents
+
       - name: Install dependencies
         # --ignore-scripts skips native postinstalls (e.g. @shopify/react-native-skia
         # downloads a prebuilt binary from a CDN that intermittently 504s). The build

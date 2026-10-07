@@ -386,7 +386,7 @@ export function checkBoardRunReturn(text) {
  * error) exits non-zero, and it can still print the error body to stdout, so
  * `ITEM` is neither reliably empty nor reliably an id. The block must branch on
  * the lookup's exit status, say `projectItems lookup failed` on failure, and
- * reach "not on project" only inside the success branch. The prose under the
+ * print "not on project" in, and only in, the success branch. The prose under the
  * block must name the failure case too, or it tells the agent to report every
  * "Status NOT written" as a missing card.
  * @returns {string[]}
@@ -402,7 +402,9 @@ export function checkLookupFailure(board) {
   if (failed === -1) {
     problems.push("Board status does not print `projectItems lookup failed: Status NOT written` when the lookup fails");
   }
-  if (guard !== -1 && failed !== -1 && !(absent === -1 || (guard < absent && absent < failed))) {
+  if (absent === -1) {
+    problems.push("Board status never prints `is not on project #$PN: Status NOT written`, so a card missing from the board goes unreported");
+  } else if (guard !== -1 && failed !== -1 && !(guard < absent && absent < failed)) {
     problems.push("Board status prints \"not on project\" outside the lookup's success branch");
   }
   const prose = board.replace(/```[^]*?```/g, "");
@@ -634,6 +636,9 @@ const LOOKUP_FIXTURES = [
     ),
     1,
   ],
+  // The "not on project" echo deleted outright: a card missing from the board is
+  // then never reported, though the lookup succeeded (review r0-1).
+  [LOOKUP_OK.replace('    else echo "#<ISSUE> is not on project #$PN: Status NOT written"; fi\n', "    fi\n"), 1],
   // The bash is right but the prose still equates empty with absent.
   [LOOKUP_OK.replace("`not on project` means the lookup succeeded; `projectItems lookup failed` means it did not.", "If `ITEM` comes back empty the issue is not on this board."), 1],
 ];

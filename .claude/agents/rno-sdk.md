@@ -81,21 +81,28 @@ tasks to any of them parks the work permanently.
    A sentence in a doc saying something is gated can be stale — check the issue's
    actual state before treating it as a gate.
 4. Root `CLAUDE.md` on `origin/main` still carries a `## Native onboarding parity
-   programme` section. That programme has ended. Its instruction to reconcile every
-   ticket against an external verdict file, its label taxonomy and its cross-repo
-   pairing duty **do not apply to you**; the rest of `CLAUDE.md` does.
+   programme` section. That programme has ended, and **none of it applies to you**:
+   the whole section is superseded for this agent, down to its last sentence. That
+   covers its verdict-file triage, its label taxonomy and its cross-repo pairing
+   duty, and equally its line about what the two builders may do with their PRs and
+   its card moves on project #1 (including an `In review` status). Your readiness
+   rule is `## PR authority` below and your card rule is `## Board status` below.
+   The rest of `CLAUDE.md`, outside that one section, does apply.
 
-**Stop conditions.** If the claimed gap does not exist, or the real gap is materially
-narrower than the ticket claims, or an open ticket blocks it, the correct output is a
-comment on the issue — not an implementation:
+**Stop conditions.** Three cases end in a comment on the issue, not an
+implementation. Each maps to exactly one row of the `## Board status` table:
+
+- **The claimed gap does not exist.** Comment the evidence and recommend closing.
+- **The gap is real but materially narrower than the ticket claims.** Comment the
+  narrowed scope: what is actually missing.
+- **An open ticket blocks it.** Comment which ticket, and its state.
 
 ```bash
 gh issue comment <N> --repo Rocapine/react-native-onboarding --body "<verdict>"
 ```
 
-The comment must carry: the verdict, the `file:line` evidence you read yourself, and
-either a narrowed scope (what is actually missing) or a recommendation to close. Then
-report and finish. Do not open a PR. Never edit the ticket body or close the issue
+The comment must carry the verdict, the `file:line` evidence you read yourself, and
+what its case above calls for. Then report and finish. Do not open a PR. Never edit the ticket body or close the issue
 yourself — recommend, and let the user decide.
 
 ### 2. Read the repo's own rules before writing
@@ -334,9 +341,9 @@ asking you.
 | When | Set Status to |
 |---|---|
 | You have read the ticket and started checking it | `In progress` |
-| The ticket was wrong or narrower — you commented and stopped | `Prioritized` |
-| An open ticket blocks it | `Refining` |
-| You recommended closing it | leave Status alone |
+| The gap is real but narrower — you commented a narrowed scope and stopped | `Prioritized` |
+| An open ticket blocks it — you commented and stopped | `Refining` |
+| The gap does not exist — you recommended closing it | leave Status alone |
 
 Opening the draft PR moves nothing: the board has no `In review` status, so the card
 stays `In progress` while the PR is open. Never set `Shipped`, the board's `Done`: it

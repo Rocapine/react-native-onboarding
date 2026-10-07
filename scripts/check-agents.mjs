@@ -54,11 +54,16 @@
 //   caught only when the query text is in the same `gh api graphql` command.
 // - A `gh project` boolean flag newer than the list in GH_PROJECT_BOOLEAN_FLAGS
 //   reads as taking the number after it as its value.
+// - A default on a variable other than PN (`${PROJECT:-5}`). PN's defaults fail
+//   anywhere, since PN is the variable every Status template reads; failing any
+//   name's default would also fail `${LIMIT:-100}`.
 //
 // RNO#297 closed the misses this script inherited from the Studio original
-// (`projectV2 (number: N)`, a PN fallback literal, view/item node ids, a
-// GraphQL-variable binding, `--web N`, `\`-continued lines). The Studio side is
-// OB#457; the decisions are mirrored there.
+// (`projectV2 (number: N)`, a PN fallback literal or default anywhere, view/item
+// node ids, a GraphQL-variable binding in single or double quotes and with an
+// attached `--field=v=N`/`-Fv=N`, `--web N`, a `|` inside a quoted `--jq`,
+// `\`-continued lines). The Studio side is OB#457; the decisions are mirrored
+// there.
 //
 // WHY A NODE SCRIPT AND NOT A VITEST FILE
 //
@@ -92,7 +97,7 @@ const SDK_BUILDER = "rno-sdk.md";
 //   it reads, see graphqlBoundNumbers
 // - REST `projectsV2/N`
 // - any integer literal in a `PN=` assignment, the variable every Status
-//   template reads, see pnLiterals
+//   template reads, see pnLiterals, and a PN default (`${PN:-N}`) anywhere
 // - `gh project <verb> ... N`, see ghProjectNumbers
 // Each rule runs on `\`-joined logical lines, see logicalLines.
 //
@@ -106,6 +111,9 @@ const RULES = [
   { re: /project\.number\s*==\s*\d+/g, why: "literal project number" },
   { re: /projectV2\s*\(\s*number\s*:\s*\d+/g, why: "literal project number" },
   { re: /\bprojectsV2\/\d+/g, why: "literal project number" },
+  // A PN default ANYWHERE (`: "${PN:=5}"`, `item-list ${PN:-5}`, `-F pn="${PN:-5}"`)
+  // is the same fallback as one in the `PN=` line. `${PN:?msg}` aborts instead.
+  { re: /\$\{PN:?[-=+][^}]*?\d+/g, why: "fallback project number" },
   // Single-select option ids are 8 lowercase hex. Requiring a digit keeps
   // all-letter hex words ("deadbeef", "acceded") out. The guards keep out the
   // other 8-hex shapes: a word character on either side (a 40-char sha, a
@@ -124,23 +132,28 @@ const RULES = [
 // --help` (gh 2.x).
 const GH_PROJECT_BOOLEAN_FLAGS = new Set(["--web", "-w", "--closed", "--undo", "--drafts", "--clear", "--help"]);
 
-/** @returns {{index: number, match: string}[]} */
+/** @returns {{start: number, at: number, end: number, match: string}[]} */
 function ghProjectNumbers(line) {
   const out = [];
   for (const m of line.matchAll(/\bgh project [a-z-]+/g)) {
     const from = m.index + m[0].length;
     const rest = line
       .slice(from)
-      .split(/[|;&)]/)[0]
-      // Pair quotes left to right; a multi-word string is one opaque token.
-      // Same length, so a token's offset is still its offset in the line.
-      .replace(/"[^"]*"|'[^']*'/g, (q) => (/\s/.test(q) ? "_".repeat(q.length) : q));
+      // Pair quotes left to right; a string holding a space or a command
+      // separator is one opaque token, so the `|` of `--jq '.a | .b'` does not
+      // end the command. Same length, so a token's offset is still its offset
+      // in the line.
+      .replace(/"[^"]*"|'[^']*'/g, (q) => (/[\s|;&)]/.test(q) ? "_".repeat(q.length) : q))
+      .split(/[|;&)]/)[0];
     const tokens = [...rest.matchAll(/\S+/g)];
     tokens.forEach((t, i) => {
       const prev = tokens[i - 1]?.[0];
       const isFlagValue =
         prev !== undefined && /^--?[A-Za-z][\w-]*$/.test(prev) && !GH_PROJECT_BOOLEAN_FLAGS.has(prev);
-      if (/^["']?\d+["']?$/.test(t[0]) && !isFlagValue) out.push({ index: from + t.index, match: t[0] });
+      if (/^["']?\d+["']?$/.test(t[0]) && !isFlagValue) {
+        const start = from + t.index;
+        out.push({ start, at: start, end: start + t[0].length, match: t[0] });
+      }
     });
   }
   return out;
@@ -149,11 +162,12 @@ function ghProjectNumbers(line) {
 // A `PN=` assignment holding ANY integer literal: `PN=5`, `PN="5"`, and the
 // fallbacks `${PN:-5}`, jq `// 5`, `|| echo 5`. A fallback is the dangerous
 // one, since it also passes the agents' `[[ $PN =~ ^[0-9]+$ ]]` guard. The
-// assignment runs to the first `;` or `&&` outside `$(…)`/`${…}` and quotes,
-// so a later statement's `--limit 100` is not its. Not literals: an fd redirect
+// assignment runs, as bash reads it, to the first space, `;`, `|` or `&` outside
+// `$(…)`/`${…}` and quotes, so a later statement's `--limit 100` and the
+// `|| exit 1` after it are not its; a `|| PN=5` after it is its own `PN=`. Not literals: an fd redirect
 // (`2>/dev/null`, `>&2`) and a positional `$1`. A jq index (`.boards[0]`) does
 // count: the line that sets PN must carry no number at all.
-/** @returns {{index: number, match: string}[]} */
+/** @returns {{start: number, at: number, end: number, match: string}[]} */
 function pnLiterals(line) {
   const out = [];
   for (const m of line.matchAll(/\bPN=/g)) {
@@ -171,11 +185,14 @@ function pnLiterals(line) {
       else if (c === ")" || c === "}") {
         if (depth === 0) break;
         depth--;
-      } else if (depth === 0 && (c === ";" || (c === "&" && line[i + 1] === "&"))) break;
+      } else if (depth === 0 && /[\s;|&]/.test(c)) break;
     }
     const value = line.slice(m.index + m[0].length, i);
     const lit = /(?<![\w$&])\d+(?![\w>])/.exec(value);
-    if (lit) out.push({ index: m.index, match: line.slice(m.index, m.index + m[0].length + lit.index + lit[0].length) });
+    if (lit) {
+      const end = m.index + m[0].length + lit.index + lit[0].length;
+      out.push({ start: m.index, at: end - lit[0].length, end, match: line.slice(m.index, end) });
+    }
   }
   return out;
 }
@@ -209,7 +226,8 @@ function logicalLines(text) {
 }
 
 // A literal bound through a GraphQL variable: `projectV2(number:$pn)` with
-// `-F pn=5` (or `-f`, `--field`, `--raw-field`), or a literal default in the
+// `-F pn=5` (or `-f`, `--field`, `--raw-field`, attached as `-Fpn=5` or
+// `--field=pn=5`), or a literal default in the
 // declaration (`$pn:Int! = 5`). Only the variable `projectV2(number:…)` reads
 // counts, so `-F n=448` bound to `issue(number:$n)` in the same command passes.
 // A command runs from `gh api graphql` to the first newline outside quotes and
@@ -234,10 +252,12 @@ function graphqlBoundNumbers(text) {
       else if (c === "\n") break;
     }
     const cmd = text.slice(m.index, i);
-    const vars = new Set([...cmd.matchAll(/projectV2\s*\(\s*number\s*:\s*\$(\w+)/g)].map((v) => v[1]));
+    // `\\$pn` is how a double-quoted query spells `$pn` for bash.
+    const vars = new Set([...cmd.matchAll(/projectV2\s*\(\s*number\s*:\s*\\?\$(\w+)/g)].map((v) => v[1]));
     for (const v of vars) {
       const binds = [
-        new RegExp(String.raw`(?<!\S)(?:-[fF]|--(?:raw-)?field)\s+["']?${v}=["']?\d+(?!\w)`, "g"),
+        // `-F pn=5`, and a flag holding its own value: `-Fpn=5`, `--field=pn=5`.
+        new RegExp(String.raw`(?<!\S)(?:-[fF](?:\s+|=)?|--(?:raw-)?field(?:\s+|=))["']?${v}=["']?\d+(?!\w)`, "g"),
         new RegExp(String.raw`\$${v}\s*:\s*Int!?\s*=\s*\d+`, "g"),
       ];
       for (const re of binds) {
@@ -252,12 +272,21 @@ function graphqlBoundNumbers(text) {
 export function findInlineBoardIds(text) {
   const out = [];
   for (const { text: l, lineAt } of logicalLines(text)) {
+    // `start`/`end` span the match in the logical line; `at` is the offset whose
+    // physical line is reported (a PN literal's own, not its `PN=`'s).
+    const hits = [];
     for (const { re, why } of RULES) {
-      for (const m of l.matchAll(re)) out.push({ line: lineAt(m.index), match: m[0], why });
+      for (const m of l.matchAll(re)) {
+        hits.push({ start: m.index, at: m.index, end: m.index + m[0].length, match: m[0], why });
+      }
     }
-    for (const { index, match } of [...pnLiterals(l), ...ghProjectNumbers(l)]) {
-      out.push({ line: lineAt(index), match, why: "literal project number" });
-    }
+    for (const h of [...pnLiterals(l), ...ghProjectNumbers(l)]) hits.push({ ...h, why: "literal project number" });
+    // One violation, one report: `PN=${PN:-5}` is both a PN literal and a PN
+    // default, so a hit inside another hit's span is dropped.
+    const kept = hits.filter(
+      (h, i) => !hits.some((o, j) => j !== i && o.start <= h.start && h.end <= o.end && (o.end - o.start > h.end - h.start || j < i)),
+    );
+    for (const { at, match, why } of kept) out.push({ line: lineAt(at), match, why });
   }
   for (const { index, match } of graphqlBoundNumbers(text)) {
     const line = text.slice(0, index).split("\n").length;
@@ -631,6 +660,20 @@ const FIXTURES = [
   ['PN=$(jq -r .board.projectNumber <<<"$BJ" 2>&1 >&2)', []],
   ["PN=$1", []],
   ['PN=$(jq -r .board.projectNumber <<<"$BJ") && gh issue list --limit 100', []],
+  // Must pass: an error exit after `||` is a separate command, not the value.
+  ['PN=$(jq -r .board.projectNumber <<<"$BJ") || exit 1', []],
+  ['PN=$(jq -r .board.projectNumber <<<"$BJ") || { echo "no PN" >&2; exit 1; }', []],
+  // ...but a second assignment after it is its own `PN=`.
+  ['PN=$(jq -r .board.projectNumber <<<"$BJ") || PN=5', ["PN=5"]],
+  // A PN default outside the assignment is the same fallback (RNO#297 r0-1).
+  [': "${PN:=5}"', ["${PN:=5"]],
+  ["gh project item-list ${PN:-5} --owner Rocapine", ["${PN:-5"]],
+  ['gh project item-list "${PN:-5}" --owner Rocapine', ["${PN:-5"]],
+  ["-q '.nodes[] | select(.project.number==${PN:-5}) | .id'", ["${PN:-5"]],
+  ['gh api graphql -f query=\'query($pn:Int!){organization(login:"R"){projectV2(number:$pn){id}}}\' -F pn="${PN:-5}"', ["${PN:-5"]],
+  ["gh project item-list ${PN:+5} --owner Rocapine", ["${PN:+5"]],
+  // Must pass: `${PN:?msg}` aborts, it supplies no value, even with a digit in it.
+  [': "${PN:?board.json has no projectNumber, see step 3}"', []],
   ["gh project item-list 5 --owner Rocapine", ["5"]],
   ["gh project item-list --owner Rocapine 5 --format json", ["5"]],
   ["gh project item-list --owner=Rocapine 5", ["5"]],
@@ -638,6 +681,11 @@ const FIXTURES = [
   ["gh project view --web 5 --owner Rocapine", ["5"]],
   ["gh project view -w 5 --owner Rocapine", ["5"]],
   ["gh project list --closed --owner Rocapine && gh project close --undo 5 --owner Rocapine", ["5"]],
+  // A `|` inside a quoted argument does not end the command (RNO#297 r0-4).
+  ["gh project item-list --owner R --jq '.items[] | .id' 5", ["5"]],
+  ["gh project item-list --owner R --jq '.items[]|.id' 5", ["5"]],
+  // Must pass: a real pipe still ends it.
+  ["gh project item-list \"$PN\" --owner R --format json | jq '.items | length > 5'", []],
   // A number on a `\`-continued line is the same command's.
   ["gh project item-list --owner Rocapine \\\n  5 --format json", ["5"]],
   ["gh api graphql -f query='{organization(login:\"Rocapine\"){projectV2 \\\n(number: 5){id}}}'", ["projectV2  (number: 5"]],
@@ -650,6 +698,13 @@ const FIXTURES = [
   ["gh api graphql -f query='query($o:String!,$pn:Int!){\n  organization(login:$o){projectV2(number:$pn){id}}}' \\\n  -f o=Rocapine -f pn=\"5\"", ['-f pn="5']],
   // A literal default in the variable's declaration is the same binding.
   ["gh api graphql -f query='query($pn:Int! = 5){organization(login:\"Rocapine\"){projectV2(number:$pn){id}}}'", ["$pn:Int! = 5"]],
+  // In double quotes bash needs `\$pn`; the query is the same (RNO#297 r0-2).
+  ['gh api graphql -f query="query(\\$pn:Int!){organization(login:\\"R\\"){projectV2(number:\\$pn){id}}}" -F pn=5', ["-F pn=5"]],
+  ['gh api graphql -f query="query(\\$pn:Int! = 5){organization(login:\\"R\\"){projectV2(number:\\$pn){id}}}"', ["$pn:Int! = 5"]],
+  // A flag holding its own value: `--field=k=v`, `-Fk=v` (RNO#297 r0-3, r0-6).
+  ["gh api graphql --field=pn=5 -f query='query($pn:Int!){organization(login:\"R\"){projectV2(number:$pn){id}}}'", ["--field=pn=5"]],
+  ["gh api graphql -f query='query($pn:Int!){organization(login:\"R\"){projectV2(number:$pn){id}}}' -Fpn=5", ["-Fpn=5"]],
+  ["gh api graphql -f query='query($pn:Int!){organization(login:\"R\"){projectV2(number:$pn){id}}}' --raw-field=pn=5", ["--raw-field=pn=5"]],
   // Must pass: the variable bound from $PN, and a literal bound to a DIFFERENT
   // variable (an issue number) in the same command.
   ["gh api graphql -f query='query($pn:Int!,$n:Int!){organization(login:\"Rocapine\"){projectV2(number:$pn){id}} repository(owner:\"Rocapine\",name:\"r\"){issue(number:$n){id}}}' -F pn=\"$PN\" -F n=448", []],
@@ -852,6 +907,9 @@ function runFixtures() {
   // A GraphQL binding reports the line the binding sits on, not the query's.
   const gqlLines = findInlineBoardIds("ok\ngh api graphql -f query='query($pn:Int!){\n  organization(login:$o){projectV2(number:$pn){id}}}' \\\n  -F pn=5").map((v) => v.line);
   if (JSON.stringify(gqlLines) !== "[4]") failures.push(`board-id fixture graphql binding line number: want [4], got ${JSON.stringify(gqlLines)}`);
+  // A PN literal reports the line the literal is on, not where `PN=` starts.
+  const pnLines = findInlineBoardIds('ok\nPN=$(jq -r .board.projectNumber <<<"$BJ" \\\n  || echo 5)').map((v) => v.line);
+  if (JSON.stringify(pnLines) !== "[3]") failures.push(`board-id fixture PN literal line number: want [3], got ${JSON.stringify(pnLines)}`);
   for (const [text, want] of READY_FIXTURES) {
     const got = findReadyForbidden(text);
     if (JSON.stringify(got) !== JSON.stringify(want)) {
@@ -932,7 +990,7 @@ function main() {
     console.error(`check-agents: ${errors.length} problem(s)\n` + errors.join("\n"));
     process.exit(1);
   }
-  console.log(`check-agents: ${files.length} agent file(s) in ${shown} clean (${FIXTURES.length + READY_FIXTURES.length + STEP3_FIXTURES.length + STEP7_FIXTURES.length + TABLE_FIXTURES.length + AUTH_FIXTURES.length + RETURN_FIXTURES.length + LOOKUP_FIXTURES.length + 6} fixtures pass)`);
+  console.log(`check-agents: ${files.length} agent file(s) in ${shown} clean (${FIXTURES.length + READY_FIXTURES.length + STEP3_FIXTURES.length + STEP7_FIXTURES.length + TABLE_FIXTURES.length + AUTH_FIXTURES.length + RETURN_FIXTURES.length + LOOKUP_FIXTURES.length + 7} fixtures pass)`);
 }
 
 main();

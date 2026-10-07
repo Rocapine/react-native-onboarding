@@ -172,20 +172,33 @@ function pnLiterals(line) {
   const out = [];
   for (const m of line.matchAll(/\bPN=/g)) {
     let i = m.index + m[0].length;
-    let depth = 0;
-    let quote = null;
+    // What closes each open context, innermost last. Bash nests: a `$(` inside
+    // `"…"` starts a fresh command whose own `"` opens a quote rather than
+    // closing the outer one (`PN="$(jq -r ".a // 5" …)"`, RNO#297 r1-1).
+    const open = [];
     for (; i < line.length; i++) {
       const c = line[i];
-      if (quote) {
-        if (c === quote) quote = null;
+      const top = open[open.length - 1];
+      if (top === "'") {
+        if (c === "'") open.pop();
         continue;
       }
-      if (c === "'" || c === '"') quote = c;
-      else if (c === "(" || c === "{") depth++;
+      if (c === "\\") {
+        i++;
+        continue;
+      }
+      if (top === '"') {
+        if (c === '"') open.pop();
+        else if (c === "$" && (line[i + 1] === "(" || line[i + 1] === "{")) open.push(line[++i] === "(" ? ")" : "}");
+        continue;
+      }
+      if (c === "'" || c === '"') open.push(c);
+      else if (c === "(") open.push(")");
+      else if (c === "{") open.push("}");
       else if (c === ")" || c === "}") {
-        if (depth === 0) break;
-        depth--;
-      } else if (depth === 0 && /[\s;|&]/.test(c)) break;
+        if (open.length === 0) break;
+        open.pop();
+      } else if (open.length === 0 && /[\s;|&]/.test(c)) break;
     }
     const value = line.slice(m.index + m[0].length, i);
     const lit = /(?<![\w$&])\d+(?![\w>])/.exec(value);
@@ -654,6 +667,12 @@ const FIXTURES = [
   ["PN=${PN:-5}", ["PN=${PN:-5"]],
   ["PN=$(jq -r '.board.projectNumber // 5' <<<\"$BJ\")", ["PN=$(jq -r '.board.projectNumber // 5"]],
   ['PN=$(jq -r .board.projectNumber <<<"$BJ" || echo 5)', ['PN=$(jq -r .board.projectNumber <<<"$BJ" || echo 5']],
+  // A `"` inside `"$(…)"` opens a new quote, it does not close the outer one,
+  // so the space before `// 5` is still inside the value (RNO#297 r1-1).
+  ['PN="$(jq -r ".board.projectNumber // 5" <<<"$BJ")"', ['PN="$(jq -r ".board.projectNumber // 5']],
+  ['PN="$(jq -r ".board.projectNumber" <<<"$BJ" || echo 5)"', ['PN="$(jq -r ".board.projectNumber" <<<"$BJ" || echo 5']],
+  // Must pass: the same nesting with no literal.
+  ['PN="$(jq -r ".board.projectNumber" <<<"$BJ")" || exit 1', []],
   // Must pass: fd redirects and a positional parameter are not literals, and
   // a number in a later `;`/`&&` statement is not the assignment's.
   ['PN=$(jq -r .board.projectNumber <<<"$BJ" 2>/dev/null)', []],

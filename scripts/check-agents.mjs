@@ -93,9 +93,11 @@ const RULES = [
   { re: /\bprojectsV2\/\d+/g, why: "literal project number" },
   { re: /\bPN=["']?\d+/g, why: "literal project number" },
   // Single-select option ids are 8 lowercase hex. Requiring a digit keeps
-  // all-letter hex words ("deadbeef", "acceded") out; `\b` keeps a 40-char sha
-  // and a `wf_48bf5783` run id out, since neither has a word boundary there.
-  { re: /\b(?=[0-9a-f]*\d)[0-9a-f]{8}\b/g, why: "single-select option id" },
+  // all-letter hex words ("deadbeef", "acceded") out. The guards keep out the
+  // other 8-hex shapes: a word character on either side (a 40-char sha, a
+  // `wf_48bf5783` run id), a `#` before (an RGBA colour, `#00000080`), or a `-`
+  // on either side (a UUID's first segment, `550e8400-e29b-…`).
+  { re: /(?<![#\w-])(?=[0-9a-f]*\d)[0-9a-f]{8}(?![\w-])/g, why: "single-select option id" },
 ];
 
 // gh takes flags before or after the positional project number, so a regex on
@@ -141,8 +143,10 @@ export function findInlineBoardIds(text) {
 // ---------------------------------------------------------------------------
 
 // Run on whitespace-collapsed text: the phrase wraps across lines in the source.
+// "Out of draft" is the same act as "mark ready" in other words; the section's
+// own instruction uses it.
 const FORBIDS_READY =
-  /\b(neither may|may not|must not|do not|don.t|never)\b[^.;]*?\bmark\b[^.;]*?\bready\b/gi;
+  /\b(neither may|may not|must not|do not|don.t|never)\b[^.;]*?\b(mark\b[^.;]*?\bready|take\b[^.;]*?\bout of draft)\b/gi;
 
 export function findReadyForbidden(text) {
   const flat = text.replace(/\s+/g, " ");
@@ -226,9 +230,30 @@ export function checkStatusTable(board) {
   return problems;
 }
 
+/**
+ * The `## PR authority` section still authorizes readiness, positively.
+ * @returns {string[]}
+ */
+export function checkPrAuthority(text) {
+  // Contract 2 only finds sentences that forbid; a section reworded to say
+  // nothing, or the command deleted, would pass it. Pin the instruction and the
+  // command inside the section. Phrase-pinned like checkStep7: it guards this
+  // wording, not every wording with the same meaning.
+  const auth = section(text, "## PR authority");
+  if (auth === null) return []; // reported by checkSdkBuilder
+  const problems = [];
+  if (!/\*\*Take the PR out of draft yourself\*\*/.test(auth)) {
+    problems.push("`## PR authority` does not say `**Take the PR out of draft yourself**`");
+  }
+  if (!/^gh pr ready\b/m.test(auth)) {
+    problems.push("`## PR authority` does not carry the `gh pr ready` command");
+  }
+  return problems;
+}
+
 /** @returns {string[]} one message per broken expectation */
 export function checkSdkBuilder(text) {
-  const problems = [...checkStep7(text), ...checkParityCarveOut(text)];
+  const problems = [...checkStep7(text), ...checkParityCarveOut(text), ...checkPrAuthority(text)];
   if (!/^---\n(?:.*\n)*?name: rno-sdk\n(?:.*\n)*?---\n/.test(text)) {
     problems.push("frontmatter does not declare `name: rno-sdk`");
   }
@@ -298,6 +323,10 @@ const FIXTURES = [
   ["gh project item-list --owner=Rocapine 5", ["5"]],
   ["-F v=1a2b3c4d", ["1a2b3c4d"]],
   ["OPT=9f8e7d6c", ["9f8e7d6c"]],
+  ['"Prioritized": "47fc9ee4",', ["47fc9ee4"]],
+  // An 8-digit RGBA colour and a UUID's first segment are 8 hex too.
+  ['Use `backgroundColor: "#00000080"` for a 50% scrim', []],
+  ["id 550e8400-e29b-41d4-a716-446655440000", []],
 ];
 
 const READY_FIXTURES = [
@@ -305,6 +334,10 @@ const READY_FIXTURES = [
   ["## PR authority\nDo not merge it and do not bump a version.", []],
   ["## PR authority\nOpen a draft PR. Do not merge it and do not mark it\nready.", ["Do not merge it and do not mark it ready"]],
   ["## PR authority\nNeither may merge, mark a PR ready, or bump.", ["Neither may merge, mark a PR ready"]],
+  ["## PR authority\nNever take the PR out of draft yourself.", ["Never take the PR out of draft"]],
+  // A semicolon ends the forbidding clause: this is sdk-parity-dev's step 7.
+  ["## PR authority\nDo not bump a version; take it out of draft per `## PR authority` below.", []],
+  ["## PR authority\nDo not leave a verified PR sitting in draft.", []],
   // No PR authority section: the contract does not apply.
   ["Do not mark it ready.", []],
 ];
@@ -317,6 +350,17 @@ const STEP7_FIXTURES = [
   [STEP7_OK.replace("--draft ", ""), ["step 7 does not open a draft (`gh pr create --draft --base main`)"]],
   [STEP7_OK.replace("out of\ndraft per `## PR authority`", "ready"), ["step 7 does not defer readiness (`out of draft per ## PR authority`)"]],
   [STEP7_OK.replace("\n## PR authority — ready yes", "\n## Authority"), ["no `## PR authority` heading after step 7"]],
+];
+
+const AUTH_OK =
+  "## PR authority — ready yes\n**Take the PR out of draft yourself** once verified.\n\n```bash\ngh pr ready <number>\n```\n\n## Output format\ngh pr ready";
+const AUTH_FIXTURES = [
+  [AUTH_OK, 0],
+  // The review's reproduction: the instruction inverted, the command deleted.
+  [AUTH_OK.replace("**Take", "**Never take").replace("gh pr ready <number>\n", ""), 2],
+  [AUTH_OK.replace("**Take", "**Never take"), 1],
+  // The command outside the section does not count.
+  [AUTH_OK.replace("gh pr ready <number>\n", ""), 1],
 ];
 
 const TABLE_OK =
@@ -354,6 +398,10 @@ function runFixtures() {
     if (got.length !== want) {
       failures.push(`status-table fixture ${JSON.stringify(text)}: want ${want} problem(s), got ${JSON.stringify(got)}`);
     }
+  }
+  for (const [text, want] of AUTH_FIXTURES) {
+    const got = checkPrAuthority(text);
+    if (got.length !== want) failures.push(`pr-authority fixture ${JSON.stringify(text)}: want ${want} problem(s), got ${JSON.stringify(got)}`);
   }
   const carve = [
     ["Root `CLAUDE.md` carries a `## Native onboarding parity programme` section. None of it applies to you.", 0],
@@ -404,7 +452,7 @@ function main() {
     console.error(`check-agents: ${errors.length} problem(s)\n` + errors.join("\n"));
     process.exit(1);
   }
-  console.log(`check-agents: ${files.length} agent file(s) in ${shown} clean (${FIXTURES.length + READY_FIXTURES.length + STEP7_FIXTURES.length + TABLE_FIXTURES.length + 3} fixtures pass)`);
+  console.log(`check-agents: ${files.length} agent file(s) in ${shown} clean (${FIXTURES.length + READY_FIXTURES.length + STEP7_FIXTURES.length + TABLE_FIXTURES.length + AUTH_FIXTURES.length + 3} fixtures pass)`);
 }
 
 main();

@@ -91,9 +91,11 @@ const SDK_BUILDER = "rno-sdk.md";
 // `$PROJ == PVT_* && $SF == PVTSSF_*`, that holds the prefix as a glob. Only an
 // id LITERAL (prefix plus a body) is a violation.
 const RULES = [
-  { re: /\bPVT(SSF|F)?_[A-Za-z0-9_-]{8,}/g, why: "board node id" },
+  // Any project node id: `PVT_` project, `PVTSSF_`/`PVTF_` field, `PVTV_` view,
+  // `PVTI_` item. The `*` of the guard glob sits outside the body class.
+  { re: /\bPVT[A-Z]*_[A-Za-z0-9_-]{8,}/g, why: "board node id" },
   { re: /project\.number\s*==\s*\d+/g, why: "literal project number" },
-  { re: /projectV2\(\s*number\s*:\s*\d+/g, why: "literal project number" },
+  { re: /projectV2\s*\(\s*number\s*:\s*\d+/g, why: "literal project number" },
   { re: /\bprojectsV2\/\d+/g, why: "literal project number" },
   { re: /\bPN=["']?\d+/g, why: "literal project number" },
   // Single-select option ids are 8 lowercase hex. Requiring a digit keeps
@@ -478,9 +480,14 @@ const FIXTURES = [
   ["deadbeef and acceded are words, not ids", []],
   ['PROJ="PVT_kwSYNTHETICxx01"', ["PVT_kwSYNTHETICxx01"]],
   ["SF=PVTSSF_lSYNTHETICxx02\nF=PVTF_lSYNTHETICxx03", ["PVTSSF_lSYNTHETICxx02", "PVTF_lSYNTHETICxx03"]],
+  // A view id and an item id (RNO#297, mirroring OB#457). An item id is
+  // per-issue and must be looked up, never pasted.
+  ["ITEM=PVTI_lSYNTHETICxx04 VIEW=PVTV_lSYNTHETICxx05", ["PVTI_lSYNTHETICxx04", "PVTV_lSYNTHETICxx05"]],
   ["select(.project.number==1)", ["project.number==1"]],
   ["select(.project.number == 5)", ["project.number == 5"]],
   ['organization(login:"Rocapine"){projectV2(number:5){id}}', ["projectV2(number:5"]],
+  // Whitespace before the paren is valid GraphQL.
+  ['organization(login:"Rocapine"){projectV2 (number: 5){id}}', ["projectV2 (number: 5"]],
   ["gh api orgs/Rocapine/projectsV2/5/items", ["projectsV2/5"]],
   ['PN="5"', ['PN="5']],
   ["export PN=1", ["PN=1"]],

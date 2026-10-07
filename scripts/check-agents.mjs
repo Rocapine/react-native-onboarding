@@ -97,7 +97,6 @@ const RULES = [
   { re: /project\.number\s*==\s*\d+/g, why: "literal project number" },
   { re: /projectV2\s*\(\s*number\s*:\s*\d+/g, why: "literal project number" },
   { re: /\bprojectsV2\/\d+/g, why: "literal project number" },
-  { re: /\bPN=["']?\d+/g, why: "literal project number" },
   // Single-select option ids are 8 lowercase hex. Requiring a digit keeps
   // all-letter hex words ("deadbeef", "acceded") out. The guards keep out the
   // other 8-hex shapes: a word character on either side (a 40-char sha, a
@@ -130,12 +129,48 @@ function ghProjectNumbers(line) {
   return out;
 }
 
+// A `PN=` assignment holding ANY integer literal: `PN=5`, `PN="5"`, and the
+// fallbacks `${PN:-5}`, jq `// 5`, `|| echo 5`. A fallback is the dangerous
+// one, since it also passes the agents' `[[ $PN =~ ^[0-9]+$ ]]` guard. The
+// assignment runs to the first `;` or `&&` outside `$(…)`/`${…}` and quotes,
+// so a later statement's `--limit 100` is not its. Not literals: an fd redirect
+// (`2>/dev/null`, `>&2`) and a positional `$1`. A jq index (`.boards[0]`) does
+// count: the line that sets PN must carry no number at all.
+function pnLiterals(line) {
+  const out = [];
+  for (const m of line.matchAll(/\bPN=/g)) {
+    let i = m.index + m[0].length;
+    let depth = 0;
+    let quote = null;
+    for (; i < line.length; i++) {
+      const c = line[i];
+      if (quote) {
+        if (c === quote) quote = null;
+        continue;
+      }
+      if (c === "'" || c === '"') quote = c;
+      else if (c === "(" || c === "{") depth++;
+      else if (c === ")" || c === "}") {
+        if (depth === 0) break;
+        depth--;
+      } else if (depth === 0 && (c === ";" || (c === "&" && line[i + 1] === "&"))) break;
+    }
+    const value = line.slice(m.index + m[0].length, i);
+    const lit = /(?<![\w$&])\d+(?![\w>])/.exec(value);
+    if (lit) out.push(line.slice(m.index, m.index + m[0].length + lit.index + lit[0].length));
+  }
+  return out;
+}
+
 /** @returns {{line: number, match: string, why: string}[]} */
 export function findInlineBoardIds(text) {
   const out = [];
   text.split("\n").forEach((l, i) => {
     for (const { re, why } of RULES) {
       for (const m of l.matchAll(re)) out.push({ line: i + 1, match: m[0], why });
+    }
+    for (const match of pnLiterals(l)) {
+      out.push({ line: i + 1, match, why: "literal project number" });
     }
     for (const n of ghProjectNumbers(l)) {
       out.push({ line: i + 1, match: n, why: "literal project number" });
@@ -491,6 +526,17 @@ const FIXTURES = [
   ["gh api orgs/Rocapine/projectsV2/5/items", ["projectsV2/5"]],
   ['PN="5"', ['PN="5']],
   ["export PN=1", ["PN=1"]],
+  // A fallback literal passes the agents' `[[ $PN =~ ^[0-9]+$ ]]` guard, so a
+  // partial board.json silently searches the old board (RNO#297, OB#457).
+  ["PN=${PN:-5}", ["PN=${PN:-5"]],
+  ["PN=$(jq -r '.board.projectNumber // 5' <<<\"$BJ\")", ["PN=$(jq -r '.board.projectNumber // 5"]],
+  ['PN=$(jq -r .board.projectNumber <<<"$BJ" || echo 5)', ['PN=$(jq -r .board.projectNumber <<<"$BJ" || echo 5']],
+  // Must pass: fd redirects and a positional parameter are not literals, and
+  // a number in a later `;`/`&&` statement is not the assignment's.
+  ['PN=$(jq -r .board.projectNumber <<<"$BJ" 2>/dev/null)', []],
+  ['PN=$(jq -r .board.projectNumber <<<"$BJ" 2>&1 >&2)', []],
+  ["PN=$1", []],
+  ['PN=$(jq -r .board.projectNumber <<<"$BJ") && gh issue list --limit 100', []],
   ["gh project item-list 5 --owner Rocapine", ["5"]],
   ["gh project item-list --owner Rocapine 5 --format json", ["5"]],
   ["gh project item-list --owner=Rocapine 5", ["5"]],

@@ -207,8 +207,9 @@ running anything here.
   Either way, bring the tree level with the PR head before reading any finding. A
   local branch can outlive its worktree and fall behind a push made elsewhere (the
   "Update branch" button, another tree), and `worktree add` checks out that stale
-  local branch rather than origin's tip. Append this to the same Bash call as the
-  block above, since `$WT` and `$BR` do not survive into the next call:
+  local branch rather than origin's tip. Append this to the same Bash call as
+  whichever block above set `$WT` and `$BR`, since they do not survive into the next
+  call:
 
   ```bash
   git -C "$WT" fetch origin "$BR" && git -C "$WT" merge --ff-only "origin/$BR" \

@@ -49,10 +49,16 @@
 //   8-hex token holding at least one digit, the shape of every single-select
 //   option id). For the same reason it cannot check that each status in an
 //   agent's table exists on the board.
-// - A literal bound through a GraphQL variable (`-F p=5` into
-//   `projectV2(number:$p)`) is indistinguishable from `-F n=448`.
-// - `gh project view --web 5`: a boolean flag right before the number reads as
-//   that flag's value. A number on a `\`-continued line is also missed.
+// - A GraphQL query held in a shell variable (`-f query="$Q"`) or read from a
+//   file (`--input`): a literal bound to its `projectV2(number:$v)` variable is
+//   caught only when the query text is in the same `gh api graphql` command.
+// - A `gh project` boolean flag newer than the list in GH_PROJECT_BOOLEAN_FLAGS
+//   reads as taking the number after it as its value.
+//
+// RNO#297 closed the misses this script inherited from the Studio original
+// (`projectV2 (number: N)`, a PN fallback literal, view/item node ids, a
+// GraphQL-variable binding, `--web N`, `\`-continued lines). The Studio side is
+// OB#457; the decisions are mirrored there.
 //
 // WHY A NODE SCRIPT AND NOT A VITEST FILE
 //
@@ -82,10 +88,13 @@ const SDK_BUILDER = "rno-sdk.md";
 
 // A literal project number is a violation in each form below:
 // - jq `.project.number==N`, any spacing
-// - GraphQL `projectV2(number:N)`
+// - GraphQL `projectV2(number:N)`, any spacing, or N bound through the variable
+//   it reads, see graphqlBoundNumbers
 // - REST `projectsV2/N`
-// - a hardcoded `PN=N`, the variable every Status template reads
+// - any integer literal in a `PN=` assignment, the variable every Status
+//   template reads, see pnLiterals
 // - `gh project <verb> ... N`, see ghProjectNumbers
+// Each rule runs on `\`-joined logical lines, see logicalLines.
 //
 // Matching the bare `PVT_` prefix would be wrong: every agent keeps a guard,
 // `$PROJ == PVT_* && $SF == PVTSSF_*`, that holds the prefix as a glob. Only an
@@ -264,6 +273,13 @@ export function findInlineBoardIds(text) {
 // Run on whitespace-collapsed text: the phrase wraps across lines in the source.
 // "Out of draft" is the same act as "mark ready" in other words; the section's
 // own instruction uses it.
+//
+// A conditional is still a violation: "do not take it out of draft until CI is
+// green" fails (RNO#297). It agrees with `## PR authority`, but "until a human
+// approves" contradicts it, and the two differ only in a condition a regex
+// cannot weigh. Exempting until/before/unless would pass both. Write the
+// positive form instead, as the section itself does: "take it out of draft
+// once CI is green".
 const FORBIDS_READY =
   /\b(neither may|may not|must not|do not|don.t|never)\b[^.;]*?\b(mark\b[^.;]*?\bready|take\b[^.;]*?\bout of draft)\b/gi;
 
@@ -658,6 +674,14 @@ const READY_FIXTURES = [
   ["## PR authority\nDo not leave a verified PR sitting in draft.", []],
   // No PR authority section: the contract does not apply.
   ["Do not mark it ready.", []],
+  // A trailing until/before/unless does NOT exempt the sentence (RNO#297). The
+  // agreeing "until CI is green" and the contradicting "until a human approves"
+  // differ only in the condition, which a regex cannot weigh; the positive form
+  // says the same thing and passes.
+  ["## PR authority\nDo not take it out of draft until CI is green.", ["Do not take it out of draft"]],
+  ["## PR authority\nNever mark it ready until a human has approved it.", ["Never mark it ready"]],
+  ["## PR authority\nDo not mark it ready before the review is clean, unless asked.", ["Do not mark it ready"]],
+  ["## PR authority\nTake it out of draft once CI is green.", []],
 ];
 
 const STEP3_FIRST_BUILD = 'git -C "$RNO" worktree add "$RNO/.claude/worktrees/x" -b chore/1-x origin/main\n';
@@ -897,7 +921,7 @@ function main() {
       errors.push(`${shown}/${file}:${v.line}: ${v.why} \`${v.match}\` — read it from onboarding-studio's .claude/board.json at run time instead`);
     }
     for (const hit of findReadyForbidden(text)) {
-      errors.push(`${shown}/${file}: has \`## PR authority\` but forbids marking its PR ready: "${hit}"`);
+      errors.push(`${shown}/${file}: has \`## PR authority\` but forbids marking its PR ready: "${hit}" — a conditional counts too; say when to take it out of draft ("once CI is green"), not when not to`);
     }
     if (file === SDK_BUILDER) {
       for (const p of checkSdkBuilder(text)) errors.push(`${shown}/${file}: ${p}`);

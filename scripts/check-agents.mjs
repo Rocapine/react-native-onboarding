@@ -35,11 +35,7 @@
 //   fast-forwards to the PR head (`merge --ff-only "origin/$BR"`);
 // - step 7 opens a DRAFT and defers readiness to `## PR authority` (the third
 //   block of the Studio test: a dropped `--draft` opens a ready PR before review,
-//   and contract 2 cannot see it because nothing then forbids anything);
-// - step 1 sets aside root CLAUDE.md's `## Native onboarding parity programme`
-//   section WHOLESALE. That section also says builders may not take a PR out of
-//   draft and should move cards on the legacy board, which is contract 2's
-//   two-opposite-instructions failure from outside the agents directory.
+//   and contract 2 cannot see it because nothing then forbids anything).
 //
 // Both contracts are ported from onboarding-studio's `agentBoardIds.test.ts` and
 // `parityAgentsPrAuthority.test.ts`, which could see the SDK builder only while
@@ -292,19 +288,6 @@ function checkStep3Fallback(step) {
 }
 
 /**
- * Root CLAUDE.md's parity section is set aside as a whole, not item by item: it
- * also carries a readiness rule and a legacy-board card rule that contradict this
- * agent's own `## PR authority` and `## Board status`.
- * @returns {string[]}
- */
-export function checkParityCarveOut(text) {
-  const flat = text.replace(/\s+/g, " ");
-  return /`## Native onboarding parity programme`[^]*?\bnone of (it|that section) applies to you\b/i.test(flat)
-    ? []
-    : ["step 1 does not set aside root CLAUDE.md's `## Native onboarding parity programme` section as a whole (`none of it applies to you`)"];
-}
-
-/**
  * The `Prioritized` row is for a narrowed scope only. A ticket recommended for
  * close must not also match it, or the card goes back to the selectable column.
  * @returns {string[]}
@@ -432,7 +415,7 @@ export function checkLookupFailure(board) {
 
 /** @returns {string[]} one message per broken expectation */
 export function checkSdkBuilder(text) {
-  const problems = [...checkStep3(text), ...checkStep7(text), ...checkParityCarveOut(text), ...checkPrAuthority(text), ...checkStep4(text), ...checkBoardRunReturn(text)];
+  const problems = [...checkStep3(text), ...checkStep7(text), ...checkPrAuthority(text), ...checkStep4(text), ...checkBoardRunReturn(text)];
   if (!/^---\n(?:.*\n)*?name: rno-sdk\n(?:.*\n)*?---\n/.test(text)) {
     problems.push("frontmatter does not declare `name: rno-sdk`");
   }
@@ -726,14 +709,6 @@ function runFixtures() {
     const got = checkStep4(text);
     if (got.length !== want) failures.push(`step-4 fixture ${JSON.stringify(text)}: want ${want} problem(s), got ${JSON.stringify(got)}`);
   }
-  const carve = [
-    ["Root `CLAUDE.md` carries a `## Native onboarding parity programme` section. None of it applies to you.", 0],
-    ["Root `CLAUDE.md` carries a `## Native onboarding parity programme` section. Its verdict file does not apply to you; the rest does.", 1],
-  ];
-  for (const [text, want] of carve) {
-    const got = checkParityCarveOut(text);
-    if (got.length !== want) failures.push(`carve-out fixture ${JSON.stringify(text)}: want ${want} problem(s), got ${JSON.stringify(got)}`);
-  }
   return failures;
 }
 
@@ -775,7 +750,7 @@ function main() {
     console.error(`check-agents: ${errors.length} problem(s)\n` + errors.join("\n"));
     process.exit(1);
   }
-  console.log(`check-agents: ${files.length} agent file(s) in ${shown} clean (${FIXTURES.length + READY_FIXTURES.length + STEP3_FIXTURES.length + STEP7_FIXTURES.length + TABLE_FIXTURES.length + AUTH_FIXTURES.length + RETURN_FIXTURES.length + LOOKUP_FIXTURES.length + 6} fixtures pass)`);
+  console.log(`check-agents: ${files.length} agent file(s) in ${shown} clean (${FIXTURES.length + READY_FIXTURES.length + STEP3_FIXTURES.length + STEP7_FIXTURES.length + TABLE_FIXTURES.length + AUTH_FIXTURES.length + RETURN_FIXTURES.length + LOOKUP_FIXTURES.length + 4} fixtures pass)`);
 }
 
 main();

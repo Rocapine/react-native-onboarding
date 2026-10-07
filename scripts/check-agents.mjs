@@ -104,6 +104,12 @@ const SDK_BUILDER = "rno-sdk.md";
 // Matching the bare `PVT_` prefix would be wrong: every agent keeps a guard,
 // `$PROJ == PVT_* && $SF == PVTSSF_*`, that holds the prefix as a glob. Only an
 // id LITERAL (prefix plus a body) is a violation.
+//
+// An integer literal in a PN value, shared by the PN-default rule and pnLiterals
+// so both exempt the same things: a positional parameter (`$1`, `${10}`), a digit
+// inside a name (`$N2`), and an fd redirect (`2>/dev/null`, `>&2`).
+const INT_LITERAL = String.raw`(?<![\w$&]|\$\{)\d+(?![\w>])`;
+
 const RULES = [
   // Any project node id: `PVT_` project, `PVTSSF_`/`PVTF_` field, `PVTV_` view,
   // `PVTI_` item. The `*` of the guard glob sits outside the body class.
@@ -113,7 +119,7 @@ const RULES = [
   { re: /\bprojectsV2\/\d+/g, why: "literal project number" },
   // A PN default ANYWHERE (`: "${PN:=5}"`, `item-list ${PN:-5}`, `-F pn="${PN:-5}"`)
   // is the same fallback as one in the `PN=` line. `${PN:?msg}` aborts instead.
-  { re: /\$\{PN:?[-=+][^}]*?\d+/g, why: "fallback project number" },
+  { re: new RegExp(String.raw`\$\{PN:?[-=+][^}]*?` + INT_LITERAL, "g"), why: "fallback project number" },
   // Single-select option ids are 8 lowercase hex. Requiring a digit keeps
   // all-letter hex words ("deadbeef", "acceded") out. The guards keep out the
   // other 8-hex shapes: a word character on either side (a 40-char sha, a
@@ -201,7 +207,7 @@ function pnLiterals(line) {
       } else if (open.length === 0 && /[\s;|&]/.test(c)) break;
     }
     const value = line.slice(m.index + m[0].length, i);
-    const lit = /(?<![\w$&])\d+(?![\w>])/.exec(value);
+    const lit = new RegExp(INT_LITERAL).exec(value);
     if (lit) {
       const end = m.index + m[0].length + lit.index + lit[0].length;
       out.push({ start: m.index, at: end - lit[0].length, end, match: line.slice(m.index, end) });
@@ -678,6 +684,7 @@ const FIXTURES = [
   ['PN=$(jq -r .board.projectNumber <<<"$BJ" 2>/dev/null)', []],
   ['PN=$(jq -r .board.projectNumber <<<"$BJ" 2>&1 >&2)', []],
   ["PN=$1", []],
+  ["PN=${2}", []],
   ['PN=$(jq -r .board.projectNumber <<<"$BJ") && gh issue list --limit 100', []],
   // Must pass: an error exit after `||` is a separate command, not the value.
   ['PN=$(jq -r .board.projectNumber <<<"$BJ") || exit 1', []],
@@ -697,6 +704,13 @@ const FIXTURES = [
   ["gh project item-list ${PN:+5} --owner Rocapine", ["${PN:+5"]],
   // Must pass: `${PN:?msg}` aborts, it supplies no value, even with a digit in it.
   [': "${PN:?board.json has no projectNumber, see step 3}"', []],
+  // Must pass: a positional parameter is not a literal, as in `PN=$1` (r1-2).
+  ["PN=${PN:-$1}", []],
+  ["gh project item-list ${PN:-$1} --owner Rocapine", []],
+  ['gh project item-list "${PN:-${10}}" --owner Rocapine', []],
+  ["gh project item-list ${PN:-$N2} --owner Rocapine", []],
+  // ...but a literal after one still fails.
+  ["gh project item-list ${PN:-${1:-5}} --owner Rocapine", ["${PN:-${1:-5"]],
   ["gh project item-list 5 --owner Rocapine", ["5"]],
   ["gh project item-list --owner Rocapine 5 --format json", ["5"]],
   ["gh project item-list --owner=Rocapine 5", ["5"]],

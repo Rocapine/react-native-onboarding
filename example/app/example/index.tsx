@@ -66,6 +66,7 @@ const examples: Example[] = [
   },
   { name: "Question", route: "/example/question" },
   { name: "Ratings", route: "/example/ratings" },
+  { name: "studio-sdk check (#289)", route: "/example/studio-sdk" },
   { name: "Error Test", route: "/example/error-test", style: { backgroundColor: "#dc2626" } },
 ];
 

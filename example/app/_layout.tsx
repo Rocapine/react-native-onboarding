@@ -13,6 +13,9 @@ import { configureReanimatedLogger, ReanimatedLogLevel } from "react-native-rean
 import { LocaleProvider, useLocale } from "../contexts/locale-context";
 import { shouldGeneratePlanFail } from "../components/asyncGateDemo";
 import { REFS as PRODUCT_REFS, provider as productProvider } from "./example/composable-screen-products";
+// The @rocapine/studio-sdk check's startup guard (#289): throws at launch if its
+// collector URL is not local. See studio-sdk-check/config.ts.
+import "../studio-sdk-check/config";
 
 configureReanimatedLogger({ level: ReanimatedLogLevel.warn, strict: false });
 

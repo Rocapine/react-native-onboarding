@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, Pressable } from "react-native";
-import { useRouter } from "expo-router";
+import { Redirect, useRouter } from "expo-router";
 import { useOnboardingStart } from "@rocapine/react-native-onboarding";
 import { useTheme } from "@rocapine/react-native-onboarding-ui";
 import { SUPPORTED_LOCALES, useLocale } from "../contexts/locale-context";
@@ -8,7 +8,17 @@ export const unstable_settings = {
   anchor: "(tabs)",
 };
 
-export default function RootLayout() {
+// Set when Metro is started for the studio-sdk check (#289), so a simulator can
+// reach the check screen without a deep link: iOS asks to confirm every
+// `simctl openurl`, and nothing can tap that prompt headlessly.
+const STUDIO_SDK_CHECK_AUTORUN = process.env.EXPO_PUBLIC_STUDIO_SDK_CHECK_AUTORUN === "1";
+
+export default function Index() {
+  if (STUDIO_SDK_CHECK_AUTORUN) return <Redirect href="/example/studio-sdk?auto=1" />;
+  return <Home />;
+}
+
+function Home() {
   const router = useRouter();
   const { theme, colorScheme, toggleTheme } = useTheme();
   // Resolve the entry point from configuration.startStepId (falls back to step 1).

@@ -187,7 +187,7 @@ When adding/changing a `UIElement` type in either ComposableScreen `types.ts`, *
 
    Note which package's list decides: the strip is keyed to `getRenderableElementTypes()`, derived from the **UI** mirror union, because that is what parses and renders. The headless package is a peer dep by range, so the two can be installed at different versions; see `.claude/rules/composable-screen-runtime.md`.
 
-   Still open, tracked on #209: no `sdkVersion` reaches the backend (`OnboardingStudioClient` sends `projectId`/`platform`/optional `appVersion` only), so Studio cannot yet compute a capability floor or gate a publish on it. Until it can, publishing a new element type to an audience running older apps is a **silent partial screen**, not an error anybody sees.
+   Still open, tracked on [#233](https://github.com/Rocapine/react-native-onboarding/issues/233) (#209 is closed; it shipped only the strip above): no `sdkVersion` reaches the backend (`OnboardingStudioClient` sends `projectId`/`platform`/optional `appVersion` only), so Studio cannot yet compute a capability floor or gate a publish on it. Until it can, publishing a new element type to an audience running older apps is a **silent partial screen**, not an error anybody sees.
 
 5. **Display this prompt for `onboarding-studio` repo** (CMS backend that must mirror schema changes):
 
@@ -245,7 +245,7 @@ Schema/renderer mismatches ship silently: no validation error, no warning, just 
 
 A related capability gap, also open and not a mismatch, because it fails loudly: `Repeat` rows reach their subtree only through `{{item.*}}` string interpolation, and every animation timing prop is `z.number()`, so repeated rows cannot be staggered ([#220](https://github.com/Rocapine/react-native-onboarding/issues/220)).
 
-When adding anything, check both halves (the headless schema and the UI renderer, see step 3 of the schema procedure above), and prefer failing loudly at publish time over rendering a placeholder.
+When adding anything, check both halves, and know that they are two different checks. Step 3 of the schema procedure above keeps the headless schema and the UI mirror's re-declared schema in agreement; it cannot see a renderer that parses a value and then ignores it or falls through to another branch, which is what every mismatch above does (both schemas accept the value). So for each variant, enum value or binding the schema accepts, add a renderer test showing it produces its own output, not a placeholder or another variant's. Prefer failing loudly at publish time over rendering a placeholder: if you cannot render a value, do not declare it.
 
 ## How SDK tickets are built
 

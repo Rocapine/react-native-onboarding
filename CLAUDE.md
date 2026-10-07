@@ -187,7 +187,7 @@ When adding/changing a `UIElement` type in either ComposableScreen `types.ts`, *
 
    Note which package's list decides: the strip is keyed to `getRenderableElementTypes()`, derived from the **UI** mirror union, because that is what parses and renders. The headless package is a peer dep by range, so the two can be installed at different versions; see `.claude/rules/composable-screen-runtime.md`.
 
-   Still open, tracked on [#233](https://github.com/Rocapine/react-native-onboarding/issues/233) (#209 is closed; it shipped only the strip above): no `sdkVersion` reaches the backend (`OnboardingStudioClient` sends `projectId`/`platform`/optional `appVersion` only), so Studio cannot yet compute a capability floor or gate a publish on it. Until it can, publishing a new element type to an audience running older apps is a **silent partial screen**, not an error anybody sees.
+   Still a gap, with no open tracker (#233 was closed not planned on 2026-10-07; #209 is closed and shipped only the strip above): no `sdkVersion` reaches the backend (`OnboardingStudioClient` sends `projectId`/`platform`/optional `appVersion` only), so Studio cannot yet compute a capability floor or gate a publish on it. Until it can, publishing a new element type to an audience running older apps is a **silent partial screen**, not an error anybody sees.
 
 5. **Display this prompt for `onboarding-studio` repo** (CMS backend that must mirror schema changes):
 
@@ -237,13 +237,13 @@ The `rocapine-marketplace` entry states the version too and lives in another rep
 
 ## A schema without a renderer is not a feature
 
-Schema/renderer mismatches ship silently: no validation error, no warning, just a placeholder or the wrong output. Three were still open on 2026-10-07 (check each issue's state before relying on it):
+Schema/renderer mismatches ship silently: no validation error, no warning, just a placeholder or the wrong output. Each one below is stated by where it lives in the code, not by an issue's state: #218, #219 and #220 were closed NOT_PLANNED on 2026-10-07 when the legacy project #1 board was retired, with the code unchanged. Re-read the cited line before relying on one being fixed:
 
-- `pickerType` accepts `gender`/`age`/`coach` and renders a "not yet implemented" placeholder ([#210](https://github.com/Rocapine/react-native-onboarding/issues/210)).
-- `Loader variant:"texts_fading"` renders bars ([#218](https://github.com/Rocapine/react-native-onboarding/issues/218)).
-- `Input.variableName` reads as a two-way binding but is write-only after mount: the renderer seeds the field once from a `useState` initializer (`packages/onboarding-ui/src/UI/Runtime/elements/InputElement.tsx`), so a later write to that variable (a preset chip, say) never reaches the field ([#219](https://github.com/Rocapine/react-native-onboarding/issues/219)).
+- `pickerType` accepts `gender`/`age`/`coach` and renders a "not yet implemented" placeholder (`packages/onboarding-ui/src/UI/Pages/Picker/Renderer.tsx:102`; open as [#210](https://github.com/Rocapine/react-native-onboarding/issues/210)).
+- `Loader variant:"texts_fading"` renders bars: `packages/onboarding-ui/src/UI/Pages/Loader/Renderer.tsx:31` branches only on `"circle"`, while `Loader/types.ts:15` accepts `"texts_fading"` (historical issue: #218, closed not planned).
+- `Input.variableName` reads as a two-way binding but is write-only after mount: the renderer seeds the field once from a `useState` initializer (`packages/onboarding-ui/src/UI/Runtime/elements/InputElement.tsx`), so a later write to that variable (a preset chip, say) never reaches the field (`InputElement.tsx:71`; historical issue: #219, closed not planned).
 
-A related capability gap, also open and not a mismatch, because it fails loudly: `Repeat` rows reach their subtree only through `{{item.*}}` string interpolation, and every animation timing prop is `z.number()`, so repeated rows cannot be staggered ([#220](https://github.com/Rocapine/react-native-onboarding/issues/220)).
+A related capability gap, still in the code and not a mismatch, because it fails loudly: `Repeat` rows reach their subtree only through `{{item.*}}` string interpolation, and every animation timing prop is `z.number()`, so repeated rows cannot be staggered (historical issue: #220, closed not planned).
 
 When adding anything, check both halves, and know that they are two different checks. Step 3 of the schema procedure above keeps the headless schema and the UI mirror's re-declared schema in agreement; it cannot see a renderer that parses a value and then ignores it or falls through to another branch, which is what every mismatch above does (both schemas accept the value). So for each variant, enum value or binding the schema accepts, add a renderer test showing it produces its own output, not a placeholder or another variant's. Prefer failing loudly at publish time over rendering a placeholder: if you cannot render a value, do not declare it.
 

@@ -25,6 +25,14 @@
 //   this repo; and a table whose `Prioritized` row cannot also match a ticket
 //   recommended for close (a close set to Prioritized is re-selected by every
 //   board run);
+// - step 3 creates its first-build worktree (`-b <branch> origin/main`) in a
+//   NAMED checkout whose remote it checks, and carries a fix-round clause (reuse
+//   the worktree and branch the prompt names), so a Studio-launched or fix-round
+//   dispatch cannot branch the wrong repo or abandon the PR branch (RNO#295); its
+//   no-worktree fallback checks the checkout's remote, refuses the user's own
+//   checkout, stops when its `worktree add` fails, checks `$WT` is on `$BR`
+//   after the add (else `git -C "$WT"` walks up to the user's checkout), and
+//   fast-forwards to the PR head (`merge --ff-only "origin/$BR"`);
 // - step 7 opens a DRAFT and defers readiness to `## PR authority` (the third
 //   block of the Studio test: a dropped `--draft` opens a ready PR before review,
 //   and contract 2 cannot see it because nothing then forbids anything);
@@ -210,6 +218,80 @@ export function checkStep4(text) {
 }
 
 /**
+ * Step 3 names the react-native-onboarding checkout and carries a fix-round
+ * clause (RNO#295). Without the checkout, a builder dispatched from a Studio
+ * session branches onboarding-studio and nothing errors until `npm ci`. Without
+ * the clause, step 3's "branch fresh from origin/main" contradicts board-run's
+ * fix-round prompt ("Work in the EXISTING worktree ... on the existing branch"),
+ * and the builder either fails on `-b <existing-branch>` or abandons the PR
+ * branch. Phrase-pinned like checkStep7.
+ * @returns {string[]}
+ */
+export function checkStep3(text) {
+  const flat = text.replace(/\s+/g, " ");
+  const start = flat.indexOf("### 3. Worktree and branch");
+  if (start === -1) return ["step 3 heading `### 3. Worktree and branch` not found"];
+  const end = flat.indexOf("### 4.", start);
+  const step = flat.slice(start, end === -1 ? undefined : end);
+  const problems = [];
+  if (!/\bin a fix round\b[^.]*\bworktree path the prompt names\b[^.]*\bexisting branch\b/i.test(step)) {
+    problems.push("step 3 has no fix-round clause (`In a fix round, work in the worktree path the prompt names, on its existing branch`)");
+  }
+  if (!/git -C "\$RNO" remote get-url origin/.test(step)) {
+    problems.push('step 3 does not check the checkout\'s remote (`git -C "$RNO" remote get-url origin`)');
+  }
+  // Anchored on the first build's own tokens (`-b <branch> origin/main`): the
+  // no-worktree fix-round fallback also runs `git -C "$RNO" worktree add`, on an
+  // existing branch, and must not stand in for this line (RNO#306 review r0-3).
+  if (!/git -C "\$RNO" worktree add \S+ -b \S+ origin\/main/.test(step)) {
+    problems.push('step 3 does not create the first-build worktree in the named checkout (`git -C "$RNO" worktree add <path> -b <branch> origin/main`)');
+  }
+  // The fallback must refuse when the user's own checkout is on the PR branch:
+  // `git worktree list` prints that checkout first, so a branch match picks it.
+  // `$RNO`-qualified because the named-worktree block checks `$WT`'s branch.
+  if (!/git -C "\$RNO" branch --show-current/.test(step)) {
+    problems.push('step 3 does not refuse a fix round on the user\'s own checkout (`git -C "$RNO" branch --show-current`)');
+  }
+  // A local branch can outlive its worktree and fall behind origin's PR head.
+  if (!/merge --ff-only "origin\/\$BR"/.test(step)) {
+    problems.push('step 3 does not fast-forward the fix-round worktree to the PR head (`merge --ff-only "origin/$BR"`)');
+  }
+  problems.push(...checkStep3Fallback(step));
+  return problems;
+}
+
+/**
+ * The no-worktree fix-round fallback (RNO#306 review r1-1/r1-2). When its
+ * `worktree add` fails (the path already exists), `git -C "$WT"` walks up to the
+ * user's own checkout and the fast-forward moves that checkout's branch. So the
+ * add must stop on failure, and `$WT`'s branch must be checked AFTER the add:
+ * the named-worktree block's identical check sits earlier in the text and must
+ * not stand in for it. The fallback also runs in its own Bash call, so it needs
+ * its own remote check, after the first build's.
+ * @param {string} step step 3, whitespace-flattened
+ * @returns {string[]}
+ */
+function checkStep3Fallback(step) {
+  const add = 'worktree add "$WT" "$BR"';
+  const at = step.indexOf(add);
+  if (at === -1) return ['step 3 has no no-worktree fix-round fallback (`worktree add "$WT" "$BR"`)'];
+  const problems = [];
+  if (!/^ \|\| /.test(step.slice(at + add.length))) {
+    problems.push('step 3\'s fix-round fallback does not stop when `worktree add "$WT" "$BR"` fails (`|| { ...; exit 1; }`)');
+  }
+  if (!/git -C "\$WT" branch --show-current\)" = "\$BR"/.test(step.slice(at))) {
+    problems.push('step 3\'s fix-round fallback does not check `$WT` is on `$BR` after adding it (`git -C "$WT" branch --show-current)" = "$BR"`)');
+  }
+  const firstBuild = step.search(/worktree add \S+ -b \S+ origin\/main/);
+  // `-C "$RNO"` or bare, never `-C "$WT"`: the named block's remote check sits
+  // between the first build and the fallback, and checks a different tree.
+  if (!/git (-C "\$RNO" )?remote get-url origin/.test(step.slice(firstBuild === -1 ? 0 : firstBuild, at))) {
+    problems.push("step 3's fix-round fallback does not check the checkout's remote before adding a worktree (`remote get-url origin`)");
+  }
+  return problems;
+}
+
+/**
  * Root CLAUDE.md's parity section is set aside as a whole, not item by item: it
  * also carries a readiness rule and a legacy-board card rule that contradict this
  * agent's own `## PR authority` and `## Board status`.
@@ -300,7 +382,7 @@ export function checkBoardRunReturn(text) {
 
 /** @returns {string[]} one message per broken expectation */
 export function checkSdkBuilder(text) {
-  const problems = [...checkStep7(text), ...checkParityCarveOut(text), ...checkPrAuthority(text), ...checkStep4(text), ...checkBoardRunReturn(text)];
+  const problems = [...checkStep3(text), ...checkStep7(text), ...checkParityCarveOut(text), ...checkPrAuthority(text), ...checkStep4(text), ...checkBoardRunReturn(text)];
   if (!/^---\n(?:.*\n)*?name: rno-sdk\n(?:.*\n)*?---\n/.test(text)) {
     problems.push("frontmatter does not declare `name: rno-sdk`");
   }
@@ -392,6 +474,50 @@ const READY_FIXTURES = [
   ["Do not mark it ready.", []],
 ];
 
+const STEP3_FIRST_BUILD = 'git -C "$RNO" worktree add "$RNO/.claude/worktrees/x" -b chore/1-x origin/main\n';
+const STEP3_MAIN_GUARD = '[ "$(git -C "$RNO" branch --show-current)" != "$BR" ] || exit 1\n';
+const STEP3_FF = 'git -C "$WT" merge --ff-only "origin/$BR"\n';
+const STEP3_CLAUSE = "**In a fix round**, work in the worktree path the prompt names, on its existing\nbranch.\n";
+const STEP3_REMOTE = 'git -C "$RNO" remote get-url origin\n';
+const STEP3_WT_GUARD = '[ "$(git -C "$WT" branch --show-current)" = "$BR" ] || exit 1\n';
+const STEP3_FALLBACK_ADD = 'git -C "$RNO" worktree add "$WT" "$BR" || exit 1\n';
+const STEP3_OK =
+  "### 3. Worktree and branch\n" + STEP3_CLAUSE +
+  "```bash\n" + STEP3_REMOTE + STEP3_FIRST_BUILD + "```\n" +
+  "Named worktree:\n```bash\n" + 'git -C "$WT" remote get-url origin\n' + STEP3_WT_GUARD + "```\n" +
+  "If the fix prompt names no worktree:\n```bash\n" + STEP3_REMOTE + STEP3_MAIN_GUARD +
+  STEP3_FALLBACK_ADD + STEP3_WT_GUARD + STEP3_FF + "```\n### 4. Test first, strictly\n";
+const STEP3_FIXTURES = [
+  [STEP3_OK, 0],
+  // The clause deleted: the procedure again contradicts board-run's fix prompt.
+  [STEP3_OK.replace(STEP3_CLAUSE, ""), 1],
+  // A fix round mentioned, but not that it keeps the existing branch.
+  [STEP3_OK.replace("on its existing\nbranch", "on a fresh branch"), 1],
+  // Relative to cwd again everywhere: no remote check, no named first-build
+  // checkout, no guard on the user's checkout.
+  [STEP3_OK.replace(/git -C "\$RNO" /g, "git "), 3],
+  // RNO#306 review r0-3: ONLY the first-build line reverted to cwd-relative. The
+  // fallback's own `git -C "$RNO" worktree add` must not stand in for it.
+  [STEP3_OK.replace(STEP3_FIRST_BUILD, "git worktree add .claude/worktrees/x -b chore/1-x origin/main\n"), 1],
+  // r0-1/r0-4: the fallback no longer refuses when the user's checkout is on the
+  // PR branch, so `worktree list` would hand back $RNO itself.
+  [STEP3_OK.replace(STEP3_MAIN_GUARD, ""), 1],
+  // r0-2: no fast-forward to origin, so a stale local branch is edited.
+  [STEP3_OK.replace(STEP3_FF, ""), 1],
+  // The clause after step 4 is not step 3's.
+  [STEP3_OK.replace(STEP3_CLAUSE, "") + STEP3_CLAUSE, 1],
+  // RNO#306 review r1-1/r1-2: the fallback's `worktree add` failing (path
+  // already exists) no longer stops the block, so the fast-forward walks up to
+  // the user's checkout and moves its branch.
+  [STEP3_OK.replace(STEP3_FALLBACK_ADD, 'git -C "$RNO" worktree add "$WT" "$BR"\n'), 1],
+  // r1-1/r1-2: the fallback's own `$WT` branch check deleted. The named block's
+  // identical check, earlier in the text, must not stand in for it.
+  [STEP3_OK.replace(STEP3_FALLBACK_ADD + STEP3_WT_GUARD, STEP3_FALLBACK_ADD), 1],
+  // fixer-1: the fallback runs in its own Bash call and no longer checks the
+  // checkout's remote; the first build's check does not stand in for it.
+  [STEP3_OK.replace("names no worktree:\n```bash\n" + STEP3_REMOTE, "names no worktree:\n```bash\n"), 1],
+];
+
 const STEP7_OK =
   "### 7. Commit, PR, report\nOpen a **draft** PR (`gh pr create --draft --base main`). Take it out of\ndraft per `## PR authority` below.\n\n## PR authority — ready yes\nTake it out of draft.";
 const STEP7_FIXTURES = [
@@ -449,6 +575,10 @@ function runFixtures() {
     if (JSON.stringify(got) !== JSON.stringify(want)) {
       failures.push(`ready fixture ${JSON.stringify(text)}: want ${JSON.stringify(want)}, got ${JSON.stringify(got)}`);
     }
+  }
+  for (const [text, want] of STEP3_FIXTURES) {
+    const got = checkStep3(text);
+    if (got.length !== want) failures.push(`step-3 fixture ${JSON.stringify(text)}: want ${want} problem(s), got ${JSON.stringify(got)}`);
   }
   for (const [text, want] of STEP7_FIXTURES) {
     const got = checkStep7(text);
@@ -528,7 +658,7 @@ function main() {
     console.error(`check-agents: ${errors.length} problem(s)\n` + errors.join("\n"));
     process.exit(1);
   }
-  console.log(`check-agents: ${files.length} agent file(s) in ${shown} clean (${FIXTURES.length + READY_FIXTURES.length + STEP7_FIXTURES.length + TABLE_FIXTURES.length + AUTH_FIXTURES.length + RETURN_FIXTURES.length + 6} fixtures pass)`);
+  console.log(`check-agents: ${files.length} agent file(s) in ${shown} clean (${FIXTURES.length + READY_FIXTURES.length + STEP3_FIXTURES.length + STEP7_FIXTURES.length + TABLE_FIXTURES.length + AUTH_FIXTURES.length + RETURN_FIXTURES.length + 6} fixtures pass)`);
 }
 
 main();

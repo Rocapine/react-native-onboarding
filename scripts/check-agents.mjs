@@ -25,6 +25,10 @@
 //   this repo; and a table whose `Prioritized` row cannot also match a ticket
 //   recommended for close (a close set to Prioritized is re-selected by every
 //   board run);
+// - step 3 creates its worktree in a NAMED checkout whose remote it checks, and
+//   carries a fix-round clause (reuse the worktree and branch the prompt names),
+//   so a Studio-launched or fix-round dispatch cannot branch the wrong repo or
+//   abandon the PR branch (RNO#295);
 // - step 7 opens a DRAFT and defers readiness to `## PR authority` (the third
 //   block of the Studio test: a dropped `--draft` opens a ready PR before review,
 //   and contract 2 cannot see it because nothing then forbids anything);

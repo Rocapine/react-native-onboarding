@@ -156,7 +156,7 @@ npm run check                                 # mirrors CI exactly — run it be
 ```
 
 `npm run type:check` covers `example` as well as both packages, and `example` already
-fails it on a clean tree. Expect a non-zero exit that is not yours: run it on
+fails it on a clean tree (#247). Expect a non-zero exit that is not yours: run it on
 `origin/main` too, diff the two error lists, and report only errors your change added.
 Do not fix `example/` to make it pass unless your ticket is about it. CI does not run
 root type:check. (`Missing script: build` for the `example` workspace is expected; both

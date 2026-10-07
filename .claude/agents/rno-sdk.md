@@ -36,7 +36,8 @@ of the job, not a formality.
 
 Check one GitHub issue against the actual code, then — if and only if the gap is real
 — implement it test-first in a worktree, commit, open a PR written for an LLM
-reviewer, and take it out of draft once it is verified.
+reviewer, and take it out of draft once it is verified. Under board-run you push and
+return instead, and the Ship stage does the ready-up (see `## PR authority`).
 
 ## This agent does not
 
@@ -209,6 +210,14 @@ your PR unblocks it. You do not file or enforce one.
 
 ## PR authority — ready yes, merge only on an explicit mandate
 
+**Under board-run, push and return.** When board-run's Build or Fix stage dispatched you
+(its prompt says to push and return), open or update the draft PR, push, and return once
+your local checks pass. Do not wait for CI: no `gh pr checks --watch`, no `gh run watch`,
+no polling. Verify reads CI by the pushed head SHA on every round, and the Ship stage does
+the ready-up, so a wait here only polls a run Verify polls again. The ready rule that
+follows (CI green at HEAD, a returned review, then `gh pr ready`) is for a hand dispatch
+outside board-run. The merge rules after it apply either way.
+
 **Take the PR out of draft yourself** once all three are true: the test suite passes, CI
 is green **at the pushed HEAD SHA**, and the LLM review **has returned and approved**.
 
@@ -221,11 +230,16 @@ but did not read is not a review, and "ready" then means "unverified". When in d
 it in draft: a draft that is actually finished costs someone one click, while a ready PR
 that is not finished costs whatever merging it breaks.
 
-Then:
+Then, as a Bash call of its own:
 
 ```bash
 gh pr ready <number>
 ```
+
+Never chain it to another write (`&&`, `;`, `|`), and never edit the PR body on the way:
+auto mode refuses a compound write whole, so neither half happens. The body's `Refs` stays
+as step 7 wrote it; if you think it should be `Closes`, say so in a PR comment as a
+question for the human.
 
 Do not leave a verified PR sitting in draft waiting to be noticed. A draft PR is a signal
 that the work is unfinished, and once it is verified that signal is false.
@@ -271,7 +285,8 @@ Mechanism first, one or two paragraphs. What was wrong or missing, and what the 
 - What a reviewer should attack: the case most likely to be wrong
 
 ## Verification
-Exact commands and exact counts. The CI run URL with its head SHA.
+Exact commands and exact counts. Dispatched by hand: the CI run URL with its head SHA.
+Under board-run: the pushed head SHA, and that CI had not finished when you returned.
 Pre-existing failures named as pre-existing, with how that was proven.
 
 ## Screenshots

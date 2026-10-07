@@ -269,9 +269,38 @@ export function checkPrAuthority(text) {
   return problems;
 }
 
+/**
+ * Under board-run the builder pushes and returns (roca-helm#21): Verify reads CI
+ * by head SHA on every round and the Ship stage does the ready-up, so a builder
+ * that waits for green CI first polls a run Verify polls again. `## PR authority`
+ * must carve that case out before its hand-dispatch rule. And `gh pr ready` runs
+ * alone (roca-helm#25): auto mode refuses a compound write whole, so a ready
+ * chained to another write never happens. A backtick ends an inline command.
+ * @returns {string[]}
+ */
+export function checkBoardRunReturn(text) {
+  const problems = [];
+  const auth = section(text, "## PR authority");
+  if (auth !== null) {
+    const flat = auth.replace(/\s+/g, " ");
+    if (!/\bboard-run\b[^.]*\bpush and return\b/i.test(flat)) {
+      problems.push("`## PR authority` does not say that under board-run you push and return");
+    }
+    if (!/\bVerify reads CI\b[^.]*\bhead SHA\b/.test(flat)) {
+      problems.push("`## PR authority` does not say Verify reads CI by head SHA");
+    }
+  }
+  text.split("\n").forEach((l, i) => {
+    if (/gh pr ready[^`\n]*(&&|;|\|)/.test(l)) {
+      problems.push(`line ${i + 1}: \`gh pr ready\` chained to another command`);
+    }
+  });
+  return problems;
+}
+
 /** @returns {string[]} one message per broken expectation */
 export function checkSdkBuilder(text) {
-  const problems = [...checkStep7(text), ...checkParityCarveOut(text), ...checkPrAuthority(text), ...checkStep4(text)];
+  const problems = [...checkStep7(text), ...checkParityCarveOut(text), ...checkPrAuthority(text), ...checkStep4(text), ...checkBoardRunReturn(text)];
   if (!/^---\n(?:.*\n)*?name: rno-sdk\n(?:.*\n)*?---\n/.test(text)) {
     problems.push("frontmatter does not declare `name: rno-sdk`");
   }
@@ -384,6 +413,19 @@ const AUTH_FIXTURES = [
   [AUTH_OK.replace("gh pr ready <number>\n", ""), 1],
 ];
 
+const RETURN_OK =
+  "## PR authority — ready yes\n**Under board-run, push and return.** Verify reads CI by the pushed head\nSHA, and the Ship stage does the ready-up.\n\n```bash\ngh pr ready <number>\n```\n\n## Output format\n";
+const RETURN_FIXTURES = [
+  [RETURN_OK, 0],
+  [RETURN_OK.replace("push and return", "wait for CI"), 1],
+  [RETURN_OK.replace("Verify reads CI by the pushed head\nSHA", "Verify checks it"), 1],
+  // No section: checkSdkBuilder reports that; this check stays quiet.
+  ["no section here", 0],
+  ['## PR authority\nboard-run: push and return. Verify reads CI by head SHA.\n```bash\ngh pr ready 12 && gh pr comment 12 --body-file b.md\n```', 1],
+  ["Run `gh pr ready 12` alone, then `gh pr comment 12 --body-file b.md`; never both in one call.", 0],
+  ["gh pr ready 12; gh pr edit 12 --body x", 1],
+];
+
 const TABLE_OK =
   "## Board status\n| When | Set Status to |\n|---|---|\n| Started | `In progress` |\n| The gap is real but narrower — you commented a narrowed scope and stopped | `Prioritized` |\n| Blocked | `Refining` |\n| The gap does not exist — you recommended closing it | leave Status alone |\n";
 const TABLE_FIXTURES = [
@@ -423,6 +465,10 @@ function runFixtures() {
   for (const [text, want] of AUTH_FIXTURES) {
     const got = checkPrAuthority(text);
     if (got.length !== want) failures.push(`pr-authority fixture ${JSON.stringify(text)}: want ${want} problem(s), got ${JSON.stringify(got)}`);
+  }
+  for (const [text, want] of RETURN_FIXTURES) {
+    const got = checkBoardRunReturn(text);
+    if (got.length !== want) failures.push(`board-run-return fixture ${JSON.stringify(text)}: want ${want} problem(s), got ${JSON.stringify(got)}`);
   }
   const step4 = [
     ["### 4. Test first, strictly\n```bash\nnpm run type:check   # both workspaces\n```\n### 5. Next", 1],
@@ -482,7 +528,7 @@ function main() {
     console.error(`check-agents: ${errors.length} problem(s)\n` + errors.join("\n"));
     process.exit(1);
   }
-  console.log(`check-agents: ${files.length} agent file(s) in ${shown} clean (${FIXTURES.length + READY_FIXTURES.length + STEP7_FIXTURES.length + TABLE_FIXTURES.length + AUTH_FIXTURES.length + 6} fixtures pass)`);
+  console.log(`check-agents: ${files.length} agent file(s) in ${shown} clean (${FIXTURES.length + READY_FIXTURES.length + STEP7_FIXTURES.length + TABLE_FIXTURES.length + AUTH_FIXTURES.length + RETURN_FIXTURES.length + 6} fixtures pass)`);
 }
 
 main();

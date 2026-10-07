@@ -237,7 +237,15 @@ The `rocapine-marketplace` entry states the version too and lives in another rep
 
 ## A schema without a renderer is not a feature
 
-Schema/renderer mismatches ship silently: no validation error, no warning, just a placeholder or the wrong output. Two were still open on 2026-10-07: `pickerType` accepts `gender`/`age`/`coach` and renders a "not yet implemented" placeholder ([#210](https://github.com/Rocapine/react-native-onboarding/issues/210)), and `Loader variant:"texts_fading"` renders bars ([#218](https://github.com/Rocapine/react-native-onboarding/issues/218)). When adding anything, check both halves (the headless schema and the UI renderer, see step 3 of the schema procedure above), and prefer failing loudly at publish time over rendering a placeholder.
+Schema/renderer mismatches ship silently: no validation error, no warning, just a placeholder or the wrong output. Three were still open on 2026-10-07 (check each issue's state before relying on it):
+
+- `pickerType` accepts `gender`/`age`/`coach` and renders a "not yet implemented" placeholder ([#210](https://github.com/Rocapine/react-native-onboarding/issues/210)).
+- `Loader variant:"texts_fading"` renders bars ([#218](https://github.com/Rocapine/react-native-onboarding/issues/218)).
+- `Input.variableName` reads as a two-way binding but is write-only after mount: the renderer seeds the field once from a `useState` initializer (`packages/onboarding-ui/src/UI/Runtime/elements/InputElement.tsx`), so a later write to that variable (a preset chip, say) never reaches the field ([#219](https://github.com/Rocapine/react-native-onboarding/issues/219)).
+
+A related capability gap, also open and not a mismatch, because it fails loudly: `Repeat` rows reach their subtree only through `{{item.*}}` string interpolation, and every animation timing prop is `z.number()`, so repeated rows cannot be staggered ([#220](https://github.com/Rocapine/react-native-onboarding/issues/220)).
+
+When adding anything, check both halves (the headless schema and the UI renderer, see step 3 of the schema procedure above), and prefer failing loudly at publish time over rendering a placeholder.
 
 ## How SDK tickets are built
 

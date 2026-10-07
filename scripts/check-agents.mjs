@@ -199,6 +199,46 @@ function logicalLines(text) {
   }));
 }
 
+// A literal bound through a GraphQL variable: `projectV2(number:$pn)` with
+// `-F pn=5` (or `-f`, `--field`, `--raw-field`), or a literal default in the
+// declaration (`$pn:Int! = 5`). Only the variable `projectV2(number:…)` reads
+// counts, so `-F n=448` bound to `issue(number:$n)` in the same command passes.
+// A command runs from `gh api graphql` to the first newline outside quotes and
+// not `\`-escaped, which spans a query written across lines inside its quotes.
+// Still unseen: a query held in a shell variable (`-f query="$Q"`) or read from
+// a file (`--input`), since the variable name is then not in the command.
+/** @returns {{index: number, match: string}[]} */
+function graphqlBoundNumbers(text) {
+  const out = [];
+  for (const m of text.matchAll(/\bgh api graphql\b/g)) {
+    let i = m.index;
+    let quote = null;
+    for (; i < text.length; i++) {
+      const c = text[i];
+      if (quote) {
+        if (c === quote) quote = null;
+        else if (quote === '"' && c === "\\") i++;
+        continue;
+      }
+      if (c === "'" || c === '"') quote = c;
+      else if (c === "\\") i++;
+      else if (c === "\n") break;
+    }
+    const cmd = text.slice(m.index, i);
+    const vars = new Set([...cmd.matchAll(/projectV2\s*\(\s*number\s*:\s*\$(\w+)/g)].map((v) => v[1]));
+    for (const v of vars) {
+      const binds = [
+        new RegExp(String.raw`(?<!\S)(?:-[fF]|--(?:raw-)?field)\s+["']?${v}=["']?\d+(?!\w)`, "g"),
+        new RegExp(String.raw`\$${v}\s*:\s*Int!?\s*=\s*\d+`, "g"),
+      ];
+      for (const re of binds) {
+        for (const b of cmd.matchAll(re)) out.push({ index: m.index + b.index, match: b[0] });
+      }
+    }
+  }
+  return out;
+}
+
 /** @returns {{line: number, match: string, why: string}[]} */
 export function findInlineBoardIds(text) {
   const out = [];
@@ -210,7 +250,11 @@ export function findInlineBoardIds(text) {
       out.push({ line: lineAt(index), match, why: "literal project number" });
     }
   }
-  return out;
+  for (const { index, match } of graphqlBoundNumbers(text)) {
+    const line = text.slice(0, index).split("\n").length;
+    out.push({ line, match, why: "literal project number bound to a GraphQL variable" });
+  }
+  return out.sort((a, b) => a.line - b.line);
 }
 
 // ---------------------------------------------------------------------------
@@ -582,6 +626,19 @@ const FIXTURES = [
   ["gh project item-list --owner Rocapine \\\n  5 --format json", ["5"]],
   ["gh api graphql -f query='{organization(login:\"Rocapine\"){projectV2 \\\n(number: 5){id}}}'", ["projectV2  (number: 5"]],
   ["PN=$(jq -r .board.projectNumber <<<\"$BJ\" \\\n  || echo 5)", ['PN=$(jq -r .board.projectNumber <<<"$BJ"    || echo 5']],
+  // A literal bound through the GraphQL variable `projectV2(number:$v)` reads.
+  ["gh api graphql -f query='query($pn:Int!){organization(login:\"Rocapine\"){projectV2(number:$pn){id}}}' -F pn=5", ["-F pn=5"]],
+  ["gh api graphql -f query='query($p:Int!){organization(login:\"Rocapine\"){projectV2 (number: $p){id}}}' --field p=5", ["--field p=5"]],
+  // The query spans lines inside its quotes, and the binding sits on a
+  // `\`-continued line after it.
+  ["gh api graphql -f query='query($o:String!,$pn:Int!){\n  organization(login:$o){projectV2(number:$pn){id}}}' \\\n  -f o=Rocapine -f pn=\"5\"", ['-f pn="5']],
+  // A literal default in the variable's declaration is the same binding.
+  ["gh api graphql -f query='query($pn:Int! = 5){organization(login:\"Rocapine\"){projectV2(number:$pn){id}}}'", ["$pn:Int! = 5"]],
+  // Must pass: the variable bound from $PN, and a literal bound to a DIFFERENT
+  // variable (an issue number) in the same command.
+  ["gh api graphql -f query='query($pn:Int!,$n:Int!){organization(login:\"Rocapine\"){projectV2(number:$pn){id}} repository(owner:\"Rocapine\",name:\"r\"){issue(number:$n){id}}}' -F pn=\"$PN\" -F n=448", []],
+  // Must pass: a literal bound in a different command from the one reading it.
+  ["gh api graphql -f query='query($pn:Int!){organization(login:\"Rocapine\"){projectV2(number:$pn){id}}}' -F pn=$PN\ngh api graphql -f query='query($pn:Int!){repository(owner:\"Rocapine\",name:\"r\"){issue(number:$pn){id}}}' -F pn=448", []],
   ["-F v=1a2b3c4d", ["1a2b3c4d"]],
   ["OPT=9f8e7d6c", ["9f8e7d6c"]],
   ['"Prioritized": "47fc9ee4",', ["47fc9ee4"]],
@@ -768,6 +825,9 @@ function runFixtures() {
   // A hit on a `\`-continued line reports the physical line it sits on.
   const contLines = findInlineBoardIds("ok\ngh project item-list \\\n  --owner Rocapine \\\n  5\nPROJ=PVT_kwSYNTHETICxx01").map((v) => v.line);
   if (JSON.stringify(contLines) !== "[4,5]") failures.push(`board-id fixture continued line number: want [4,5], got ${JSON.stringify(contLines)}`);
+  // A GraphQL binding reports the line the binding sits on, not the query's.
+  const gqlLines = findInlineBoardIds("ok\ngh api graphql -f query='query($pn:Int!){\n  organization(login:$o){projectV2(number:$pn){id}}}' \\\n  -F pn=5").map((v) => v.line);
+  if (JSON.stringify(gqlLines) !== "[4]") failures.push(`board-id fixture graphql binding line number: want [4], got ${JSON.stringify(gqlLines)}`);
   for (const [text, want] of READY_FIXTURES) {
     const got = findReadyForbidden(text);
     if (JSON.stringify(got) !== JSON.stringify(want)) {
@@ -848,7 +908,7 @@ function main() {
     console.error(`check-agents: ${errors.length} problem(s)\n` + errors.join("\n"));
     process.exit(1);
   }
-  console.log(`check-agents: ${files.length} agent file(s) in ${shown} clean (${FIXTURES.length + READY_FIXTURES.length + STEP3_FIXTURES.length + STEP7_FIXTURES.length + TABLE_FIXTURES.length + AUTH_FIXTURES.length + RETURN_FIXTURES.length + LOOKUP_FIXTURES.length + 5} fixtures pass)`);
+  console.log(`check-agents: ${files.length} agent file(s) in ${shown} clean (${FIXTURES.length + READY_FIXTURES.length + STEP3_FIXTURES.length + STEP7_FIXTURES.length + TABLE_FIXTURES.length + AUTH_FIXTURES.length + RETURN_FIXTURES.length + LOOKUP_FIXTURES.length + 6} fixtures pass)`);
 }
 
 main();

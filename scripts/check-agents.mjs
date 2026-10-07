@@ -25,10 +25,12 @@
 //   this repo; and a table whose `Prioritized` row cannot also match a ticket
 //   recommended for close (a close set to Prioritized is re-selected by every
 //   board run);
-// - step 3 creates its worktree in a NAMED checkout whose remote it checks, and
-//   carries a fix-round clause (reuse the worktree and branch the prompt names),
-//   so a Studio-launched or fix-round dispatch cannot branch the wrong repo or
-//   abandon the PR branch (RNO#295);
+// - step 3 creates its first-build worktree (`-b <branch> origin/main`) in a
+//   NAMED checkout whose remote it checks, and carries a fix-round clause (reuse
+//   the worktree and branch the prompt names), so a Studio-launched or fix-round
+//   dispatch cannot branch the wrong repo or abandon the PR branch (RNO#295); its
+//   no-worktree fallback refuses the user's own checkout and fast-forwards to the
+//   PR head (`merge --ff-only "origin/$BR"`);
 // - step 7 opens a DRAFT and defers readiness to `## PR authority` (the third
 //   block of the Studio test: a dropped `--draft` opens a ready PR before review,
 //   and contract 2 cannot see it because nothing then forbids anything);
@@ -236,8 +238,21 @@ export function checkStep3(text) {
   if (!/git -C "\$RNO" remote get-url origin/.test(step)) {
     problems.push('step 3 does not check the checkout\'s remote (`git -C "$RNO" remote get-url origin`)');
   }
-  if (!/git -C "\$RNO" worktree add /.test(step)) {
-    problems.push('step 3 does not create the worktree in the named checkout (`git -C "$RNO" worktree add`)');
+  // Anchored on the first build's own tokens (`-b <branch> origin/main`): the
+  // no-worktree fix-round fallback also runs `git -C "$RNO" worktree add`, on an
+  // existing branch, and must not stand in for this line (RNO#306 review r0-3).
+  if (!/git -C "\$RNO" worktree add \S+ -b \S+ origin\/main/.test(step)) {
+    problems.push('step 3 does not create the first-build worktree in the named checkout (`git -C "$RNO" worktree add <path> -b <branch> origin/main`)');
+  }
+  // The fallback must refuse when the user's own checkout is on the PR branch:
+  // `git worktree list` prints that checkout first, so a branch match picks it.
+  // `$RNO`-qualified because the named-worktree block checks `$WT`'s branch.
+  if (!/git -C "\$RNO" branch --show-current/.test(step)) {
+    problems.push('step 3 does not refuse a fix round on the user\'s own checkout (`git -C "$RNO" branch --show-current`)');
+  }
+  // A local branch can outlive its worktree and fall behind origin's PR head.
+  if (!/merge --ff-only "origin\/\$BR"/.test(step)) {
+    problems.push('step 3 does not fast-forward the fix-round worktree to the PR head (`merge --ff-only "origin/$BR"`)');
   }
   return problems;
 }
@@ -425,18 +440,34 @@ const READY_FIXTURES = [
   ["Do not mark it ready.", []],
 ];
 
+const STEP3_FIRST_BUILD = 'git -C "$RNO" worktree add "$RNO/.claude/worktrees/x" -b chore/1-x origin/main\n';
+const STEP3_MAIN_GUARD = '[ "$(git -C "$RNO" branch --show-current)" != "$BR" ] || exit 1\n';
+const STEP3_FF = 'git -C "$WT" merge --ff-only "origin/$BR"\n';
+const STEP3_CLAUSE = "**In a fix round**, work in the worktree path the prompt names, on its existing\nbranch.\n";
 const STEP3_OK =
-  "### 3. Worktree and branch\n**In a fix round**, work in the worktree path the prompt names, on its existing\nbranch.\n```bash\ngit -C \"$RNO\" remote get-url origin\ngit -C \"$RNO\" worktree add \"$RNO/.claude/worktrees/x\" -b chore/1-x origin/main\n```\n### 4. Test first, strictly\n";
+  "### 3. Worktree and branch\n" + STEP3_CLAUSE +
+  '```bash\ngit -C "$RNO" remote get-url origin\n' + STEP3_FIRST_BUILD + "```\n" +
+  "If the fix prompt names no worktree:\n```bash\n" + STEP3_MAIN_GUARD +
+  'git -C "$RNO" worktree add "$WT" "$BR"\n' + STEP3_FF + "```\n### 4. Test first, strictly\n";
 const STEP3_FIXTURES = [
   [STEP3_OK, 0],
   // The clause deleted: the procedure again contradicts board-run's fix prompt.
-  [STEP3_OK.replace("**In a fix round**, work in the worktree path the prompt names, on its existing\nbranch.\n", ""), 1],
+  [STEP3_OK.replace(STEP3_CLAUSE, ""), 1],
   // A fix round mentioned, but not that it keeps the existing branch.
   [STEP3_OK.replace("on its existing\nbranch", "on a fresh branch"), 1],
-  // Relative to cwd again: no named checkout, no remote check.
-  [STEP3_OK.replace(/git -C "\$RNO" /g, "git "), 2],
+  // Relative to cwd again everywhere: no remote check, no named first-build
+  // checkout, no guard on the user's checkout.
+  [STEP3_OK.replace(/git -C "\$RNO" /g, "git "), 3],
+  // RNO#306 review r0-3: ONLY the first-build line reverted to cwd-relative. The
+  // fallback's own `git -C "$RNO" worktree add` must not stand in for it.
+  [STEP3_OK.replace(STEP3_FIRST_BUILD, "git worktree add .claude/worktrees/x -b chore/1-x origin/main\n"), 1],
+  // r0-1/r0-4: the fallback no longer refuses when the user's checkout is on the
+  // PR branch, so `worktree list` would hand back $RNO itself.
+  [STEP3_OK.replace(STEP3_MAIN_GUARD, ""), 1],
+  // r0-2: no fast-forward to origin, so a stale local branch is edited.
+  [STEP3_OK.replace(STEP3_FF, ""), 1],
   // The clause after step 4 is not step 3's.
-  ["### 3. Worktree and branch\ngit -C \"$RNO\" remote get-url origin\ngit -C \"$RNO\" worktree add x\n### 4. Test\nIn a fix round, work in the worktree path the prompt names, on its existing branch.", 1],
+  [STEP3_OK.replace(STEP3_CLAUSE, "") + STEP3_CLAUSE, 1],
 ];
 
 const STEP7_OK =

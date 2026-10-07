@@ -188,17 +188,31 @@ running anything here.
   ```
 
   If the fix prompt names no worktree, it says `gh pr checkout <n>` instead. Do not
-  run that in `$RNO`: it switches the user's long-lived branch. Reuse a worktree that
-  is already on the PR's branch, or add one on that branch with no `-b`:
+  run that in `$RNO`: it switches the user's long-lived branch. Stop if `$RNO` itself
+  is on the PR's branch, since `git worktree list` prints that checkout first and a
+  branch match would hand it back to you. Otherwise reuse a linked worktree already on
+  the branch, or add one on it with no `-b`:
 
   ```bash
   RNO="$HOME/Developer/react-native-onboarding"
   BR=$(gh pr view <n> --repo Rocapine/react-native-onboarding --json headRefName -q .headRefName)
-  if git -C "$RNO" worktree list | grep -F "[$BR]"; then
-    echo "reuse the worktree listed above"
-  else
-    git -C "$RNO" fetch origin "$BR" && git -C "$RNO" worktree add "$RNO/.claude/worktrees/<name>" "$BR"
-  fi
+  [ "$(git -C "$RNO" branch --show-current)" != "$BR" ] \
+    || { echo "STOP: $BR is checked out in $RNO, the user's own checkout" >&2; exit 1; }
+  git -C "$RNO" fetch origin "$BR"
+  WT=$(git -C "$RNO" worktree list --porcelain \
+    | awk -v b="branch refs/heads/$BR" '/^worktree /{p=substr($0,10)} $0==b{print p; exit}')
+  [ -n "$WT" ] || { WT="$RNO/.claude/worktrees/<name>"; git -C "$RNO" worktree add "$WT" "$BR"; }
+  ```
+
+  Either way, bring the tree level with the PR head before reading any finding. A
+  local branch can outlive its worktree and fall behind a push made elsewhere (the
+  "Update branch" button, another tree), and `worktree add` checks out that stale
+  local branch rather than origin's tip. Append this to the same Bash call as the
+  block above, since `$WT` and `$BR` do not survive into the next call:
+
+  ```bash
+  git -C "$WT" fetch origin "$BR" && git -C "$WT" merge --ff-only "origin/$BR" \
+    || { echo "STOP: $WT cannot fast-forward to origin/$BR" >&2; exit 1; }
   ```
 
 Every later command runs in that worktree. Because the cwd resets between Bash

@@ -14,15 +14,19 @@ import { getRandomValues } from "expo-crypto";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { diagnosticVerdict } from "../../studio-sdk-check/checkRuns";
 import {
   checkContext,
+  checkRuns,
   checkTracker,
   COLLECTOR_URL,
   LOG_PREFIX,
+  sendLedger,
   setDiagnosticListener,
   STARTUP_GET_RANDOM_VALUES,
   uuidCheckTracker,
 } from "../../studio-sdk-check/config";
+import { pollSummary } from "../../studio-sdk-check/ledger";
 import { assertLocalUrl, CHECK_STORAGE_KEY } from "../../studio-sdk-check/localOnly";
 import { BIG_RUN_START, fillAnswers, measureCapacity } from "../../studio-sdk-check/nearBudget";
 import { isLowercaseUuidV7, withRandomSource, type RandomSourceMode } from "../../studio-sdk-check/randomSource";
@@ -31,6 +35,8 @@ type Line = { at: string; ok: boolean | null; text: string };
 
 const SUMMARY_URL = assertLocalUrl(COLLECTOR_URL.replace(/\/v1\/onboarding-runs$/, "/summary"));
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** How long the summary waits for the collector to hold every run this process sent. */
+const SUMMARY_TIMEOUT_MS = 15_000;
 
 const TRACKED_START = {
   onboarding: { key: "studio_sdk_check_flow", version: "1" },
@@ -65,7 +71,7 @@ export default function StudioSdkCheck() {
   useEffect(() => {
     setDiagnosticListener((d) => {
       if (d.code === "truncated") truncations.current += 1;
-      log(d.code === "truncated" ? null : false, `diagnostic ${d.code}${d.runId ? ` run=${d.runId}` : ""}: ${d.message}`);
+      log(diagnosticVerdict(d.code), `diagnostic ${d.code}${d.runId ? ` run=${d.runId}` : ""}: ${d.message}`);
     });
   }, [log]);
 
@@ -87,8 +93,10 @@ export default function StudioSdkCheck() {
         getRandomValues as never,
       );
       const run = r.result;
+      sendLedger.started(run.runId);
       run.enterStep("only");
       run.complete();
+      sendLedger.expectStatus(run.runId, "completed");
       tracker.dispose();
       const sourceOk = mode === "absent" ? r.mathRandomCalls >= 16 && r.getRandomValuesCalls === 0 : r.getRandomValuesCalls >= 1 && r.mathRandomCalls === 0;
       log(
@@ -100,8 +108,22 @@ export default function StudioSdkCheck() {
   );
 
   // (4) A hand-coded onboarding, tracked into the local collector through AsyncStorage.
+  // A near-budget run left in progress by a previous "Run all" is completed
+  // first (checkRuns), so this start does not replace it (run-replaced).
+  const startOnCheckTracker = useCallback(
+    (options: Parameters<typeof checkRuns.start>[1]) => {
+      const { run, completedLeftover } = checkRuns.start(checkTracker(), options);
+      if (completedLeftover) {
+        sendLedger.expectStatus(completedLeftover, "completed");
+        log(null, `completed run ${completedLeftover}, the near-budget run a previous Run all left in progress, before starting run ${run.runId}`);
+      }
+      return run;
+    },
+    [log],
+  );
+
   const trackedOnboarding = useCallback(async () => {
-    const run = checkTracker().start(TRACKED_START);
+    const run = startOnCheckTracker(TRACKED_START);
     run.enterStep("welcome");
     await sleep(200);
     run.exitStep("welcome");
@@ -113,9 +135,10 @@ export default function StudioSdkCheck() {
     run.exitStep("level_advanced", { answers: [{ questionKey: "daily_minutes", kind: "numeric", value: 15, unit: "minute" }] });
     run.enterStep("done");
     run.complete();
+    sendLedger.expectStatus(run.runId, "completed");
     await checkTracker().idle();
-    log(true, `tracked run sent run=${run.runId} (validation happens in the collector: see its log)`);
-  }, [log]);
+    log(null, `tracked run completed run=${run.runId} (the summary checks it reached the collector, valid)`);
+  }, [log, startOnCheckTracker]);
 
   // (3a) A run filled to just under RECORDING_BUDGET, stored in AsyncStorage and read back. Left in progress.
   const bigRun = useCallback(async () => {
@@ -123,9 +146,11 @@ export default function StudioSdkCheck() {
     const capacity = measureCapacity(checkContext());
     const t1 = Date.now();
     truncations.current = 0;
-    const run: OnboardingRun = checkTracker().start(BIG_RUN_START);
+    const run: OnboardingRun = startOnCheckTracker(BIG_RUN_START);
     fillAnswers(run, capacity - 1);
     run.background(); // sends now
+    checkRuns.leaveInProgress(run);
+    sendLedger.expectStatus(run.runId, "in_progress");
     await checkTracker().idle();
     const t2 = Date.now();
     const raw = await AsyncStorage.getItem(CHECK_STORAGE_KEY);
@@ -146,15 +171,17 @@ export default function StudioSdkCheck() {
       `near-budget run=${run.runId} answers=${capacity - 1} (capacity ${capacity}) truncated=${truncations.current > 0} AsyncStorage[${CHECK_STORAGE_KEY}] read back ${bytes} bytes (budget ${RECORDING_BUDGET}, unsent snapshots stored ${unsent}) runId matches=${storedRunId === run.runId} measure=${t1 - t0}ms fill+persist=${t2 - t1}ms`,
     );
     log(null, `SAFE TO KILL: run ${run.runId} is stored in progress; kill the app, relaunch, and reopen this screen to resume it`);
-  }, [log]);
+  }, [log, startOnCheckTracker]);
 
+  // PASS only when every run this process started reached the collector, valid,
+  // with nothing unsent, at the status it ended at. Polls rather than sleeping.
   const summary = useCallback(async () => {
-    try {
-      const s = await fetch(SUMMARY_URL).then((r) => r.json());
-      log(s.invalid === 0, `collector summary received=${s.received} valid=${s.valid} invalid=${s.invalid}`);
-    } catch (e) {
-      log(false, `collector unreachable at ${SUMMARY_URL}: ${String(e)}`);
-    }
+    const verdict = await pollSummary({
+      ledger: sendLedger,
+      fetchSummary: () => fetch(SUMMARY_URL).then((r) => r.json()),
+      timeoutMs: SUMMARY_TIMEOUT_MS,
+    });
+    for (const line of verdict.lines) log(line.ok, line.text);
   }, [log]);
 
   const runAll = useCallback(async () => {
@@ -165,7 +192,6 @@ export default function StudioSdkCheck() {
       checkUuid("present");
       await trackedOnboarding();
       await bigRun();
-      await sleep(1500);
       await summary();
     } catch (e) {
       log(false, `check threw: ${String(e)}`);
@@ -184,9 +210,10 @@ export default function StudioSdkCheck() {
       const resumed = await checkTracker().resume();
       if (resumed) {
         log(true, `RESUMED run=${resumed.runId} at step=${resumed.currentStepKey} from ${raw ? utf8ByteLength(raw) : 0} stored bytes; completing it`);
+        sendLedger.started(resumed.runId);
         resumed.complete();
+        sendLedger.expectStatus(resumed.runId, "completed");
         await checkTracker().idle();
-        await sleep(1500);
         await summary();
       } else {
         log(null, `nothing to resume (stored bytes: ${raw ? utf8ByteLength(raw) : 0})`);

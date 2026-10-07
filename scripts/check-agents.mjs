@@ -64,7 +64,11 @@
 // attached `--field=v=N`/`-Fv=N`, `--web N`, a `|` inside a quoted `--jq`,
 // `\`-continued lines, a `gh project … N` number that closes inline code or a
 // sentence, a PN fallback inside a nested `"$(… "…" …)"`). The Studio side is
-// OB#457; the decisions are mirrored there.
+// OB#457; the decisions are mirrored there. RNO#322 then fixed two backtick
+// regressions that fixing those introduced: a prose `PN=` closing inline code
+// read as a substitution, and a backtick substitution argument hiding a `gh
+// project` number after it. The Studio mirror splits on no backtick, so has
+// neither.
 //
 // WHY A NODE SCRIPT AND NOT A VITEST FILE
 //
@@ -150,11 +154,16 @@ function ghProjectNumbers(line) {
       // separator is one opaque token, so the `|` of `--jq '.a | .b'` does not
       // end the command. Same length, so a token's offset is still its offset
       // in the line.
-      .replace(/"[^"]*"|'[^']*'/g, (q) => (/[\s|;&)`]/.test(q) ? "_".repeat(q.length) : q))
-      // A backtick ends it too: the close of markdown inline code (`gh project
-      // view 5`) or of a shell command substitution.
-      .split(/[|;&)`]/)[0];
-    const tokens = [...rest.matchAll(/\S+/g)];
+      .replace(/"[^"]*"|'[^']*'/g, (q) => (/[\s|;&)`]/.test(q) ? "_".repeat(q.length) : q));
+    // An unpaired closing backtick ends it too: the close of markdown inline
+    // code (`gh project view 5`) or of a shell command substitution. Backticks
+    // pair from the line's start, so an odd count before the command means the
+    // first one in `rest` closes the span the command sits in. Every pair after
+    // that is opaque, so a substitution as an earlier argument (`--owner \`jq
+    // …\` 5`) does not hide the number after it (RNO#322 r2-2).
+    const insideSpan = (line.slice(0, from).match(/`/g) ?? []).length % 2 === 1;
+    const cut = (insideSpan ? rest : rest.replace(/`[^`]*`/g, (q) => "_".repeat(q.length))).split(/[|;&)`]/)[0];
+    const tokens = [...cut.matchAll(/\S+/g)];
     tokens.forEach((t, i) => {
       const prev = tokens[i - 1]?.[0];
       const isFlagValue =
@@ -206,6 +215,11 @@ function pnLiterals(line) {
         continue;
       }
       if (c === "`" && top === "`") open.pop();
+      // A bare backtick before a space, the end of the line or prose punctuation
+      // closes markdown inline code (`PN=`, `PN=$(…)`), so it ends the value. One
+      // before a command (`PN=\`jq …\``, `PN=\`./get-pn.sh\``) opens a
+      // substitution (RNO#322 r2-1).
+      else if (c === "`" && open.length === 0 && /^(?:$|[\s,;:!?)|&]|\.(?:\s|$))/.test(line.slice(i + 1, i + 3))) break;
       else if (c === "'" || c === '"' || c === "`") open.push(c);
       else if (c === "(") open.push(")");
       else if (c === "{") open.push("}");
@@ -692,6 +706,17 @@ const FIXTURES = [
   ['PN="`jq -r ".board.projectNumber // 5" <<<"$BJ"`"', ['PN="`jq -r ".board.projectNumber // 5']],
   // Must pass: the same with no literal.
   ['PN=`jq -r .board.projectNumber <<<"$BJ"` || exit 1', []],
+  // Must pass: in prose, a backtick right after a `PN=` value closes inline code
+  // rather than opening a substitution, so a later number is not the value's
+  // (RNO#322 r2-1).
+  ["Set `PN=` from board.json before step 3.", []],
+  ["The template's `PN=` line reads board.json; see step 4 for the guard.", []],
+  ["| `PN=` | read in step 2 |", []],
+  ["`PN=$(...)` is line 1 of 2", []],
+  ["Set `PN=`, then read step 3.", []],
+  ["Set `PN=`. Step 3 reads it.", []],
+  // A substitution still opens on a command, a path included.
+  ["PN=`./get-pn.sh 5`", ["PN=`./get-pn.sh 5"]],
   // Must pass: fd redirects and a positional parameter are not literals, and
   // a number in a later `;`/`&&` statement is not the assignment's.
   ['PN=$(jq -r .board.projectNumber <<<"$BJ" 2>/dev/null)', []],
@@ -739,6 +764,12 @@ const FIXTURES = [
   ["Run gh project item-list 5, then filter.", ["5"]],
   // Must pass: a closing backtick ends the command, so prose after it is not its.
   ["`gh project item-list \"$PN\"` returns at most 30 items.", []],
+  // A backtick substitution as an earlier argument does not end the command;
+  // only an unpaired closing backtick does (RNO#322 r2-2).
+  ["gh project item-list --owner `jq -r .owner <<<\"$BJ\"` 5", ["5"]],
+  // A backtick closing inline code still cuts when a later span follows it: the
+  // pairs are counted from the line's start, not from after `gh project <verb>`.
+  ["Use `gh project view 5` and see `foo`.", ["5"]],
   // A `|` inside a quoted argument does not end the command (RNO#297 r0-4).
   ["gh project item-list --owner R --jq '.items[] | .id' 5", ["5"]],
   ["gh project item-list --owner R --jq '.items[]|.id' 5", ["5"]],

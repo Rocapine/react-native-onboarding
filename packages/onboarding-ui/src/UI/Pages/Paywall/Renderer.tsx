@@ -88,7 +88,7 @@ const PaywallStepRendererBase = ({
   const { catalog, catalogStatus, isProviderMounted, customScreens } = usePaywall();
   const { observePresentation } = usePaywallHost();
   const { composableVariables, setComposableVariable } = useContext(OnboardingProgressContext);
-  const { setVariable: setHeadlessVariable, customActions, products } =
+  const { setVariable: setHeadlessVariable, customActions, products, navigation } =
     useContext(HeadlessProgressContext);
 
   const decision = useMemo(
@@ -116,14 +116,16 @@ const PaywallStepRendererBase = ({
   );
 
   // Reports this step to `PaywallProvider`'s `observer` (surface
-  // "paywall_step"). Starts only on a `show` decision; see the hook for the
-  // whole lifecycle. Declared BEFORE the skip effect below, so a paywall that
-  // resolves and then cannot render is started before it is failed.
-  const observation = usePaywallStepObservation(observePresentation, paywall);
+  // "paywall_step"). Starts only on a `show` decision, once per focused visit
+  // (`navigation.useFocusEffect`, the `useOnboardingStep` precedent: a Stack
+  // keeps an advanced step mounted and shows it again on back); see the hook
+  // for the whole lifecycle. Declared BEFORE the skip effect below, so a
+  // paywall that resolves and then cannot render is started before it is failed.
   const renderable = isCustom ? Boolean(CustomScreen) : Boolean(parsedElements?.success);
-  useEffect(() => {
-    if (renderable) observation.shown();
-  }, [renderable, paywall?.id, observation]);
+  const observation = usePaywallStepObservation(observePresentation, paywall, {
+    renderable,
+    useFocusEffect: navigation?.useFocusEffect,
+  });
 
   // Every skip path, as one effect. Each logs the diagnosis rather than
   // skipping quietly: a silently skipped paywall in a paid funnel is the most
@@ -207,6 +209,11 @@ const PaywallStepRendererBase = ({
   // callback, so the gate applies identically to it.
   const complete = useCallback(
     (outcome?: CompleteOutcome) => {
+      // A custom screen's own `complete({status:"cancelled"})` never passes the
+      // gate, but it is the store outcome `present()` would report, so record
+      // it before the gate (r1-6). An elements purchase is already recorded by
+      // `observedProducts` below; recording it twice is harmless (last wins).
+      if (outcome?.status === "cancelled") observation.beginPurchase()(outcome);
       if (!shouldAdvanceOnComplete(outcome)) return;
       observation.advance(outcome);
       onContinue();
@@ -279,8 +286,17 @@ const PaywallStepRendererBase = ({
   // component, so a crash caught there unmounts it and could only ever read as
   // a dismissal. Same `ErrorBoundary`, same `stepType`, wrapping the whole
   // output — the fallback the user sees is the one they saw before.
+  // Keyed by paywall id, as `PaywallHost` keys its content
+  // (`UI/Paywall/PaywallHost.tsx:384,399`): a revalidation that swaps the
+  // variant after a crash remounts the boundary and renders the new one rather
+  // than A's fallback forever (r1-7). The presentation itself is not restarted
+  // by the swap (see the hook), so the new variant is shown unreported.
   const template = (children: React.ReactNode) => (
-    <ErrorBoundary stepType="PaywallStep" onError={() => observation.fail("render-error")}>
+    <ErrorBoundary
+      key={paywall.id}
+      stepType="PaywallStep"
+      onError={() => observation.fail("render-error")}
+    >
       <OnboardingTemplate
         step={validated as unknown as OnboardingStepType}
         onContinue={onContinue}

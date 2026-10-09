@@ -10,12 +10,16 @@ here.
 ### Added
 
 - **Inline `Paywall` step reports to `PaywallProvider`'s `observer`** (#286),
-  as `surface: "paywall_step"`. It ends with the same outcome `present()` would
-  give the same user action: the last store result (`purchased` with the slot,
-  or `cancelled`) upgrades a bare dismissal, and a purchase that settles after
-  its paywall was swapped or the step unmounted is dropped. Against a headless
-  older than `usePaywallHost().observePresentation` it reports nothing rather
-  than throwing.
+  as `surface: "paywall_step"`. One presentation per focused visit, read through
+  the onboarding's `navigation.useFocusEffect`, so going back to a step reports
+  a new presentation. A variant swap inside a visit keeps the presentation open,
+  as `present()` does. The last store result (`purchased` with the slot, or
+  `cancelled`, including a custom screen's `complete({status:"cancelled"})`)
+  upgrades a bare dismissal. Nothing is reported once the step has blurred or
+  unmounted, so a purchase that settles after that is dropped. Against a
+  headless older than `usePaywallHost().observePresentation` it reports nothing
+  rather than throwing. The step's crash boundary is now keyed by paywall id,
+  so a revalidated variant renders after a crash.
 - **`requestPermission` ButtonAction dispatch** (#196) — the renderer half of
   the new headless action. `elements/permissions.ts` asks through whichever
   optional Expo module is installed (`expo-notifications`,

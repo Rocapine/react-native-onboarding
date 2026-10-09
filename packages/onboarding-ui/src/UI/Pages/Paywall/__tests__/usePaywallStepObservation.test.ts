@@ -107,6 +107,18 @@ describe("usePaywallStepObservation — end", () => {
     ]);
   });
 
+  it("upgrades an unmount to purchased when a purchase happened but did not advance (purchase → dismiss)", async () => {
+    // Spec §4.6's canonical `{type:"purchase", onSuccess:[{type:"dismiss"}]}`:
+    // in a step the dismiss does not advance, so the end comes from unmount.
+    // A paying user must not read as a non-conversion — same rule as
+    // `present()`'s `resolvePresentedOutcome`.
+    const { observe, calls } = recorder();
+    await render(createElement(Probe, { observe, paywall: A }));
+    api.recordPurchase("annual");
+    await unmount();
+    expect(calls[calls.length - 1]).toEqual(["end", "pw-a", { status: "purchased" }, "annual"]);
+  });
+
   it("ends purchased when the outcome itself says purchased (a custom screen), with no key", async () => {
     const { observe, calls } = recorder();
     await render(createElement(Probe, { observe, paywall: A }));

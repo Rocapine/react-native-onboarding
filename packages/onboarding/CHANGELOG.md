@@ -7,6 +7,19 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 ## [Unreleased]
 
 ### Added
+- **`PaywallProvider` `observer` prop** — an optional `PaywallObserver` told
+  about every paywall presentation, so a host can send it to its own analytics
+  (#286). `start(info)` runs once `present()` accepts (never for an
+  `unknown-moment` or `already-presenting` refusal), `handle.shown()` on the
+  host's acknowledgement, and `handle.end(outcome)` exactly once with the
+  reconciled result — every later error as `status: "error"` with its `reason`.
+  An elements-mode purchase carries `transaction.productId`, the purchased
+  slot's id for the running platform. The inline `Paywall` step reports through
+  the same observer with `surface: "paywall_step"`, via the new
+  `usePaywallHost().observePresentation`. The types are copied verbatim from
+  rocalytics-sdk's `src/paywall/observer.ts`, whose tracker satisfies them
+  structurally. Every observer call is guarded: a throw, a rejection, or a
+  `start()` returning no handle never changes what `present()` resolves.
 
 - **`requestPermission` ButtonAction** — ask the OS for a permission and branch
   on the answer within the SAME press (#196). An eighth `ButtonAction` member:

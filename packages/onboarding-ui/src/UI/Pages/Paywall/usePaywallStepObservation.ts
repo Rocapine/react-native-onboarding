@@ -19,7 +19,9 @@ import type { PaywallPresentation, PresentErrorReason } from "@rocapine/react-na
  * `PaywallProvider` does — it ends one only when its paywall becomes null
  * (`PaywallProvider.tsx:703-706`), so a purchase in flight across a swap is
  * still reported (r1-1). The info passed to `start()` is the paywall as it was
- * at start, the provider's choice too.
+ * at start, the provider's choice too. An ENDED presentation is not reused for
+ * a different paywall: after a render crash, a revalidated variant renders (the
+ * boundary is keyed by id) and can be bought, so it starts its own.
  *
  * - **start** — once the step decision is `show` and the step is focused.
  *   `no-provider`, `loading` and `unknown-moment` start nothing: they are
@@ -98,6 +100,7 @@ const NOOP_PRESENTATION: PaywallPresentation = { shown: () => {}, end: () => {} 
 const NOOP_RECORD = () => {};
 
 type Open = {
+  id: string;
   presentation: PaywallPresentation;
   ended: boolean;
   shown: boolean;
@@ -144,11 +147,16 @@ export function usePaywallStepObservation<P extends { id: string }>(
   // The presentation for this visit, started if need be. Null while there is
   // nothing to show or the step is not being visited.
   const ensure = useCallback((): Open | null => {
-    if (!visiting.current || !latestPaywall.current) return null;
-    if (open.current) return open.current;
+    const current = latestPaywall.current;
+    if (!visiting.current || !current) return null;
+    // A live presentation survives a variant swap (r1-1). An ENDED one is not
+    // reused for a different paywall: after a crash a revalidated variant
+    // renders and can be bought, so it is a presentation of its own.
+    if (open.current && !(open.current.ended && open.current.id !== current.id)) return open.current;
     const observe = observeRef.current;
     open.current = {
-      presentation: typeof observe === "function" ? observe(latestPaywall.current) : NOOP_PRESENTATION,
+      id: current.id,
+      presentation: typeof observe === "function" ? observe(current) : NOOP_PRESENTATION,
       ended: false,
       shown: false,
       purchaseOutcome: null,

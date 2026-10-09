@@ -327,6 +327,28 @@ describe("usePaywallStepObservation — purchase generation guard", () => {
   });
 });
 
+describe("usePaywallStepObservation — a different paywall after an ENDED presentation", () => {
+  it("starts a new presentation for it, and does not restart the same id", async () => {
+    // A crashed (render-error), then a revalidation delivers B, which renders:
+    // B is on screen and can be bought, so it is a presentation of its own.
+    const { observe, calls } = recorder();
+    await render(createElement(Probe, { observe, paywall: A, renderable: true }));
+    api.fail("render-error");
+    await render(createElement(Probe, { observe, paywall: { ...A }, renderable: true }));
+    await render(createElement(Probe, { observe, paywall: B, renderable: true }));
+    api.beginPurchase()({ status: "purchased", productKey: "annual" });
+    api.advance(undefined);
+    expect(calls).toEqual([
+      ["start", "pw-a"],
+      ["shown", "pw-a"],
+      ["end", "pw-a", { status: "error", reason: "render-error" }, null],
+      ["start", "pw-b"],
+      ["shown", "pw-b"],
+      ["end", "pw-b", { status: "purchased" }, "annual"],
+    ]);
+  });
+});
+
 describe("usePaywallStepObservation — nothing after the step is gone (r1-2)", () => {
   it("reports nothing for an advance, fail or purchase that arrives after unmount", async () => {
     // The real runtime: a purchase settles after unmount, `record` is dropped,

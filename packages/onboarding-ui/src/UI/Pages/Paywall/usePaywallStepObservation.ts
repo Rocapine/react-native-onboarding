@@ -22,7 +22,8 @@ import type { PaywallPresentation, PresentErrorReason } from "@rocapine/react-na
  *   - the paywall leaving the catalog mid-step: `error` / `paywall-disappeared`,
  *     as `present()` reports it.
  *   - unmount with nothing else ended: `dismissed` (the user went back, or the
- *     flow was torn down). Without this a step presentation would never end.
+ *     flow was torn down), or `purchased` if a purchase was recorded first.
+ *     Without this a step presentation would never end.
  *
  * START IS LAZY. A child that throws on the very first render is caught by an
  * error boundary whose `componentDidCatch` runs in the layout phase — BEFORE
@@ -120,5 +121,13 @@ function finish(
 ) {
   if (!o || o.ended) return;
   o.ended = true;
-  o.presentation.end(result, result.status === "purchased" ? o.purchasedKey : null);
+  // A bare `dismissed` after a purchase is a purchase — the step twin of
+  // `present()`'s `resolvePresentedOutcome`. Spec §4.6's canonical
+  // `{type:"purchase", onSuccess:[{type:"dismiss"}]}` does not advance a step,
+  // so its end arrives here from unmount, and must not read as a non-conversion.
+  const final =
+    result.status === "dismissed" && o.purchasedKey !== null
+      ? { status: "purchased" as const }
+      : result;
+  o.presentation.end(final, final.status === "purchased" ? o.purchasedKey : null);
 }

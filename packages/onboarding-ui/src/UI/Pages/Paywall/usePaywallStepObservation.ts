@@ -6,12 +6,25 @@ import type { PaywallPresentation, PresentErrorReason } from "@rocapine/react-na
  * (reported as `surface: "paywall_step"` by `usePaywallHost().observePresentation`).
  *
  * A step has no `present()`, no acknowledgement and no `complete()` that ends
- * anything, so its lifecycle is defined here (proposed on RNO#286):
+ * anything, so its lifecycle is defined here (proposed on RNO#286, reworked in
+ * review round 2):
  *
- * - **start** — only once the step decision is `show`. `no-provider`,
- *   `loading` and `unknown-moment` start nothing: they are pre-resolution, like
- *   `present()`'s refusals.
- * - **shown** — the renderer calls it once the paywall's content commits.
+ * ONE PRESENTATION PER VISIT. A visit runs from the step gaining focus to it
+ * losing focus (or unmounting), read through the onboarding's own
+ * `navigation.useFocusEffect` — the `useOnboardingStep` precedent, because a
+ * push-based Stack keeps an advanced step MOUNTED and shows it again on back,
+ * and `present()` opens a fresh presentation for every showing (r1-5). Inside a
+ * visit the presentation is keyed on the moment, not on the paywall id: a
+ * revalidation that swaps the moment's variant keeps it open, exactly as
+ * `PaywallProvider` does — it ends one only when its paywall becomes null
+ * (`PaywallProvider.tsx:703-706`), so a purchase in flight across a swap is
+ * still reported (r1-1). The info passed to `start()` is the paywall as it was
+ * at start, the provider's choice too.
+ *
+ * - **start** — once the step decision is `show` and the step is focused.
+ *   `no-provider`, `loading` and `unknown-moment` start nothing: they are
+ *   pre-resolution, like `present()`'s refusals.
+ * - **shown** — at most once per presentation, once `renderable` is true.
  * - **end** — exactly one of:
  *   - `advance(outcome)`: the step's gate let the user through. `purchased`
  *     only when a purchase actually happened (`beginPurchase`) or the outcome
@@ -21,24 +34,26 @@ import type { PaywallPresentation, PresentErrorReason } from "@rocapine/react-na
  *     `unknown-custom-screen`, `render-error`).
  *   - the paywall leaving the catalog mid-step: `error` / `paywall-disappeared`,
  *     as `present()` reports it.
- *   - unmount with nothing else ended: `dismissed` (the user went back, or the
- *     flow was torn down), upgraded to the last store outcome (`purchased` /
- *     `cancelled`) exactly as `present()` upgrades one. Without this a step
- *     presentation would never end.
+ *   - blur or unmount with nothing else ended: `dismissed` (the user went back,
+ *     or the flow was torn down), upgraded to the last store outcome
+ *     (`purchased` / `cancelled`) exactly as `present()` upgrades one.
+ *
+ * NOTHING AFTER THE VISIT. Between blur/unmount and the next focus every call
+ * is a no-op. A purchase that settles after the step left is followed in the
+ * real runtime by its `onSuccess` `continue` reaching `advance()` through a
+ * stale closure; that must not start a presentation nobody saw (r1-2).
  *
  * PURCHASES are tracked like `PaywallProvider`'s own `purchase` wrapper:
  * - the last `purchased`/`cancelled` wins, `pending`/`error` are ignored, and
  *   the key is kept only for `purchased` (`purchaseOutcomeFromResult`);
  * - a generation guard: `beginPurchase()` binds to the presentation open when
  *   the purchase STARTED, and its result is dropped if that presentation has
- *   since ended or been replaced (`shouldRecordPurchaseOutcome`'s race). It
- *   never starts a presentation, so a purchase settling after unmount reports
- *   nothing rather than a start with no end.
+ *   since ended or been replaced (`shouldRecordPurchaseOutcome`'s race).
  *
  * START IS LAZY. A child that throws on the very first render is caught by an
  * error boundary whose `componentDidCatch` runs in the layout phase — BEFORE
- * this hook's start effect. So `fail()`/`advance()` start the presentation
- * themselves if it has not started yet, and the effect then finds it open.
+ * this hook's effects. So `fail()`/`advance()` start the presentation
+ * themselves if it has not started yet, and the effects then find it open.
  *
  * Imports only `react` and types, so it is testable under jsdom without a
  * react-native stub.
@@ -48,7 +63,6 @@ import type { PaywallPresentation, PresentErrorReason } from "@rocapine/react-na
  * nothing to report — the hook then reports nothing rather than throwing.
  */
 export type PaywallStepObservation = {
-  shown(): void;
   /**
    * Call BEFORE awaiting the store; call the returned function with the store's
    * result. Bound to the presentation open at the call.
@@ -84,40 +98,87 @@ const NOOP_PRESENTATION: PaywallPresentation = { shown: () => {}, end: () => {} 
 const NOOP_RECORD = () => {};
 
 type Open = {
-  id: string;
   presentation: PaywallPresentation;
   ended: boolean;
+  shown: boolean;
   purchaseOutcome: PurchaseOutcome;
   purchasedKey: string | null;
+};
+
+type FocusEffect = (effect: () => void | (() => void)) => void;
+
+export type PaywallStepObservationOptions = {
+  /** The paywall's content can render (elements parsed, custom screen registered). */
+  renderable: boolean;
+  /**
+   * The onboarding's `navigation.useFocusEffect`. Must be a stable reference
+   * (the `OnboardingProvider` `navigation` contract). Without one, a visit is
+   * the mount — `expoRouterAdapter`'s own fallback.
+   */
+  useFocusEffect?: FocusEffect;
+};
+
+const useMountAsFocus: FocusEffect = (effect) => {
+  useEffect(effect, [effect]);
 };
 
 export function usePaywallStepObservation<P extends { id: string }>(
   observePresentation: ((paywall: P) => PaywallPresentation) | undefined,
   paywall: P | null,
+  { renderable, useFocusEffect = useMountAsFocus }: PaywallStepObservationOptions,
 ): PaywallStepObservation {
   const latestPaywall = useRef(paywall);
   latestPaywall.current = paywall;
+  // Read through refs so every callback below is stable: the focus effect
+  // re-runs on a new callback identity, and a re-run is a blur + focus — an
+  // end and a restart for a mere re-render or an inline `observePresentation`.
+  const observeRef = useRef(observePresentation);
+  observeRef.current = observePresentation;
+  const renderableRef = useRef(renderable);
+  renderableRef.current = renderable;
   const open = useRef<Open | null>(null);
+  // Between focus and blur/unmount. True from the first render, so the lazy
+  // start in a first-render `componentDidCatch` (before any effect) works.
+  const visiting = useRef(true);
 
-  // The presentation for the CURRENT paywall, started if need be. Null while
-  // there is nothing to show.
+  // The presentation for this visit, started if need be. Null while there is
+  // nothing to show or the step is not being visited.
   const ensure = useCallback((): Open | null => {
-    const current = latestPaywall.current;
-    if (!current) return null;
-    if (open.current?.id === current.id) return open.current;
-    // A different paywall replaced the one being observed (a revalidation
-    // swapped the moment's variant): the old one is gone from the screen.
-    finish(open.current, { status: "error", reason: "paywall-disappeared" });
+    if (!visiting.current || !latestPaywall.current) return null;
+    if (open.current) return open.current;
+    const observe = observeRef.current;
     open.current = {
-      id: current.id,
-      presentation:
-        typeof observePresentation === "function" ? observePresentation(current) : NOOP_PRESENTATION,
+      presentation: typeof observe === "function" ? observe(latestPaywall.current) : NOOP_PRESENTATION,
       ended: false,
+      shown: false,
       purchaseOutcome: null,
       purchasedKey: null,
     };
     return open.current;
-  }, [observePresentation]);
+  }, []);
+
+  const reportShown = useCallback(() => {
+    if (!renderableRef.current) return;
+    const o = ensure();
+    if (!o || o.ended || o.shown) return;
+    o.shown = true;
+    o.presentation.shown();
+  }, [ensure]);
+
+  const leave = useCallback(() => {
+    finish(open.current, { status: "dismissed" });
+    open.current = null;
+    visiting.current = false;
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      visiting.current = true;
+      ensure();
+      reportShown();
+      return leave;
+    }, [ensure, reportShown, leave]),
+  );
 
   const id = paywall?.id ?? null;
   useEffect(() => {
@@ -129,29 +190,27 @@ export function usePaywallStepObservation<P extends { id: string }>(
     open.current = null;
   }, [id, ensure]);
 
-  // Unmount. Clears the ref so a StrictMode remount starts a NEW presentation
-  // rather than finding an ended one and reporting nothing.
-  useEffect(
-    () => () => {
-      finish(open.current, { status: "dismissed" });
-      open.current = null;
-    },
-    [],
-  );
+  useEffect(() => {
+    if (renderable) reportShown();
+  }, [renderable, id, reportShown]);
+
+  // Unmount, for a navigation whose focus effect does not clean up on unmount.
+  // `finish` is idempotent, so the usual double cleanup is harmless. The setup
+  // re-arms a StrictMode remount, which runs this cleanup in between.
+  useEffect(() => {
+    visiting.current = true;
+    return leave;
+  }, [leave]);
 
   return useMemo<PaywallStepObservation>(
     () => ({
-      shown: () => {
-        const o = ensure();
-        if (o && !o.ended) o.presentation.shown();
-      },
       beginPurchase: () => {
         const started = ensure();
         if (!started) return NOOP_RECORD;
         return (result) => {
           // The generation guard: only the presentation the purchase started
           // on, and only while it is still open. Never `ensure()` here — after
-          // an unmount that would start a presentation nothing ever ends.
+          // the visit that would start a presentation nothing ever ends.
           if (open.current !== started || started.ended) return;
           const outcome = purchaseOutcomeFromResult(result);
           if (!outcome) return;

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach } from "vitest";
-import React, { Component, StrictMode, act, createElement, type ReactNode } from "react";
+import React, { Component, StrictMode, act, createElement, useEffect, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import type { PaywallPresentation } from "@rocapine/react-native-onboarding";
 import {
@@ -45,16 +45,59 @@ let root: Root | null = null;
 let container: HTMLDivElement | null = null;
 let api: PaywallStepObservation;
 
+type FocusEffect = (effect: () => void | (() => void)) => void;
+
+/**
+ * A controllable `navigation.useFocusEffect`, with expo-router's semantics:
+ * the effect runs on focus (and on mount while focused), its cleanup on blur
+ * and on unmount. `blur()`/`focus()` model a push-based Stack, where an
+ * advanced step stays MOUNTED underneath the next one and is focused again on
+ * back (r1-5).
+ */
+const focusController = () => {
+  let effect: (() => void | (() => void)) | null = null;
+  let cleanup: void | (() => void);
+  let focused = true;
+  const runCleanup = () => {
+    if (typeof cleanup === "function") cleanup();
+    cleanup = undefined;
+  };
+  const useFocusEffect: FocusEffect = (e) => {
+    effect = e;
+    useEffect(() => {
+      if (focused) cleanup = e();
+      return runCleanup;
+    }, [e]);
+  };
+  return {
+    useFocusEffect,
+    blur: () =>
+      act(async () => {
+        focused = false;
+        runCleanup();
+      }),
+    focus: () =>
+      act(async () => {
+        focused = true;
+        cleanup = effect!();
+      }),
+  };
+};
+
 const Probe = ({
   observe,
   paywall,
+  renderable = false,
+  useFocusEffect,
   children,
 }: {
   observe: ((p: Paywall) => PaywallPresentation) | undefined;
   paywall: Paywall | null;
+  renderable?: boolean;
+  useFocusEffect?: FocusEffect;
   children?: ReactNode;
 }) => {
-  api = usePaywallStepObservation(observe, paywall);
+  api = usePaywallStepObservation(observe, paywall, { renderable, useFocusEffect });
   return createElement(React.Fragment, null, children);
 };
 
@@ -105,8 +148,7 @@ describe("usePaywallStepObservation — end", () => {
 
   it("ends purchased with the recorded product key when a purchase advances, and not again on unmount", async () => {
     const { observe, calls } = recorder();
-    await render(createElement(Probe, { observe, paywall: A }));
-    api.shown();
+    await render(createElement(Probe, { observe, paywall: A, renderable: true }));
     api.beginPurchase()({ status: "purchased", productKey: "annual" });
     api.advance(undefined);
     await unmount();
@@ -166,13 +208,19 @@ describe("usePaywallStepObservation — end", () => {
     ]);
   });
 
-  it("drops a purchase recorded under a previous paywall", async () => {
+  it("keeps ONE presentation when the moment's variant swaps mid-step, as present() does (r1-1)", async () => {
+    // `PaywallProvider` ends a presentation only when its paywall becomes null
+    // (`PaywallProvider.tsx:703-706`); a different id under the same moment
+    // leaves it open. A step visit is one presentation for the same reason.
     const { observe, calls } = recorder();
     await render(createElement(Probe, { observe, paywall: A }));
     api.beginPurchase()({ status: "purchased", productKey: "annual" });
     await render(createElement(Probe, { observe, paywall: B }));
     api.advance(undefined);
-    expect(calls[calls.length - 1]).toEqual(["end", "pw-b", { status: "dismissed" }, null]);
+    expect(calls).toEqual([
+      ["start", "pw-a"],
+      ["end", "pw-a", { status: "purchased" }, "annual"],
+    ]);
   });
 });
 
@@ -239,18 +287,19 @@ describe("usePaywallStepObservation — cancelled (parity with present())", () =
 });
 
 describe("usePaywallStepObservation — purchase generation guard", () => {
-  it("does not credit a purchase started on A to B when the variant swaps while it is in flight", async () => {
+  it("records a purchase still in flight when the variant swaps, so the conversion is reported (r1-1)", async () => {
+    // The reviewer's sequence: buy on A, a re-key swaps the moment to B while
+    // the store sheet is open, the store says purchased, onSuccess continues.
     const { observe, calls } = recorder();
     await render(createElement(Probe, { observe, paywall: A }));
     const record = api.beginPurchase();
     await render(createElement(Probe, { observe, paywall: B }));
     record({ status: "purchased", productKey: "annual" });
+    api.advance(undefined);
     await unmount();
     expect(calls).toEqual([
       ["start", "pw-a"],
-      ["end", "pw-a", { status: "error", reason: "paywall-disappeared" }, null],
-      ["start", "pw-b"],
-      ["end", "pw-b", { status: "dismissed" }, null],
+      ["end", "pw-a", { status: "purchased" }, "annual"],
     ]);
   });
 
@@ -278,11 +327,111 @@ describe("usePaywallStepObservation — purchase generation guard", () => {
   });
 });
 
+describe("usePaywallStepObservation — nothing after the step is gone (r1-2)", () => {
+  it("reports nothing for an advance, fail or purchase that arrives after unmount", async () => {
+    // The real runtime: a purchase settles after unmount, `record` is dropped,
+    // then onSuccess `continue` reaches `complete()` -> `advance()` through a
+    // stale closure. A custom screen's stale `complete({status:"purchased"})`
+    // takes the same path.
+    const { observe, calls } = recorder();
+    await render(createElement(Probe, { observe, paywall: A, renderable: true }));
+    const record = api.beginPurchase();
+    await unmount();
+    const before = [...calls];
+    record({ status: "purchased", productKey: "annual" });
+    api.advance(undefined);
+    api.advance({ status: "purchased" });
+    api.fail("render-error");
+    api.beginPurchase()({ status: "purchased", productKey: "annual" });
+    expect(calls).toEqual(before);
+  });
+
+  it("reports nothing for a late advance while the step is blurred under the next one", async () => {
+    const { observe, calls } = recorder();
+    const nav = focusController();
+    await render(createElement(Probe, { observe, paywall: A, useFocusEffect: nav.useFocusEffect }));
+    await nav.blur();
+    const before = [...calls];
+    api.advance({ status: "purchased" });
+    expect(calls).toEqual(before);
+  });
+});
+
+describe("usePaywallStepObservation — focus: one presentation per VISIT (r1-5)", () => {
+  it("starts a fresh presentation when an advanced step is focused again, and records a purchase there", async () => {
+    // A push-based Stack keeps the advanced step mounted; back focuses it
+    // again. `present()` would open a new presentation for a second showing.
+    const { observe, calls } = recorder();
+    const nav = focusController();
+    await render(
+      createElement(Probe, { observe, paywall: A, renderable: true, useFocusEffect: nav.useFocusEffect }),
+    );
+    api.advance(undefined); // a plain continue, then router.push
+    await nav.blur();
+    await nav.focus(); // the user swipes back
+    api.beginPurchase()({ status: "purchased", productKey: "annual" });
+    api.advance(undefined);
+    expect(calls).toEqual([
+      ["start", "pw-a"],
+      ["shown", "pw-a"],
+      ["end", "pw-a", { status: "dismissed" }, null],
+      ["start", "pw-a"],
+      ["shown", "pw-a"],
+      ["end", "pw-a", { status: "purchased" }, "annual"],
+    ]);
+  });
+
+  it("ends an open presentation dismissed on blur, upgraded to the store outcome", async () => {
+    const { observe, calls } = recorder();
+    const nav = focusController();
+    await render(createElement(Probe, { observe, paywall: A, useFocusEffect: nav.useFocusEffect }));
+    api.beginPurchase()({ status: "cancelled" });
+    await nav.blur(); // still mounted: the end must come from the blur itself
+    expect(calls).toEqual([
+      ["start", "pw-a"],
+      ["end", "pw-a", { status: "cancelled" }, null],
+    ]);
+    await unmount();
+    expect(calls).toHaveLength(2);
+  });
+
+  it("does not end and restart on a re-render (an unmemoized effect would)", async () => {
+    const { observe, calls } = recorder();
+    const nav = focusController();
+    await render(createElement(Probe, { observe, paywall: A, useFocusEffect: nav.useFocusEffect }));
+    await render(createElement(Probe, { observe, paywall: { ...A }, useFocusEffect: nav.useFocusEffect }));
+    await render(
+      createElement(Probe, { observe: (p) => observe(p), paywall: A, useFocusEffect: nav.useFocusEffect }),
+    );
+    expect(calls).toEqual([["start", "pw-a"]]);
+  });
+});
+
+describe("usePaywallStepObservation — shown", () => {
+  it("reports shown once the content is renderable, once per presentation", async () => {
+    const { observe, calls } = recorder();
+    await render(createElement(Probe, { observe, paywall: A, renderable: false }));
+    await render(createElement(Probe, { observe, paywall: A, renderable: true }));
+    await render(createElement(Probe, { observe, paywall: B, renderable: true }));
+    expect(calls).toEqual([
+      ["start", "pw-a"],
+      ["shown", "pw-a"],
+    ]);
+  });
+
+  it("never reports shown for content that is not renderable", async () => {
+    const { observe, calls } = recorder();
+    await render(createElement(Probe, { observe, paywall: A, renderable: false }));
+    api.fail("parse-error");
+    await unmount();
+    expect(calls.map(([n]) => n)).toEqual(["start", "end"]);
+  });
+});
+
 describe("usePaywallStepObservation — older headless (no observePresentation)", () => {
   it("reports nothing and never throws when the headless predates observePresentation", async () => {
     await render(createElement(Probe, { observe: undefined, paywall: A }));
     expect(() => {
-      api.shown();
       api.beginPurchase()({ status: "purchased", productKey: "annual" });
       api.advance(undefined);
       api.fail("render-error");

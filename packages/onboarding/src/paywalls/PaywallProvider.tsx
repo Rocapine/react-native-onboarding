@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { Platform } from "react-native";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { OnboardingStudioClient } from "../OnboardingStudioClient";
 import { getPaywallsQuery } from "./getPaywalls.query";
@@ -33,6 +34,13 @@ import {
   createCatalogSettleWaiter,
   type CatalogSettleWaiter,
 } from "./catalogSettleWaiter";
+import {
+  NOOP_PAYWALL_PRESENTATION,
+  openPaywallPresentation,
+  type PaywallObserver,
+  type PaywallPresentation,
+  type PaywallPresentationSource,
+} from "./observer";
 
 // Module-scope, private to this file — mirrors `OnboardingProvider.tsx:17-23`.
 // `OnboardingProvider`'s QueryClient is not exported, so it cannot be reused
@@ -146,6 +154,16 @@ export type PaywallContextValue = {
    * already mounts. `PaywallHost`'s own prop still wins for that host.
    */
   customScreens: CustomPaywallScreens;
+  /**
+   * Opens one observed presentation for a surface OTHER than `present()` —
+   * today the inline `Paywall` onboarding step, reported as
+   * `surface: "paywall_step"`. Calls the provider's `observer.start` now and
+   * returns a handle whose `shown`/`end` never throw and reach the observer at
+   * most once / exactly once. A no-op handle when no observer was passed.
+   *
+   * `present()` reports itself; a paywall HOST never calls this for it.
+   */
+  observePresentation: (paywall: PaywallPresentationSource) => PaywallPresentation;
 };
 
 const EMPTY_PAYWALL_CONTEXT: PaywallContextValue = {
@@ -173,6 +191,7 @@ const EMPTY_PAYWALL_CONTEXT: PaywallContextValue = {
   acknowledgePresentation: () => {},
   customActions: EMPTY_CUSTOM_ACTIONS,
   customScreens: EMPTY_CUSTOM_SCREENS,
+  observePresentation: () => NOOP_PAYWALL_PRESENTATION,
 };
 
 /**
@@ -201,11 +220,29 @@ export const PaywallContext = createContext<PaywallContextValue>(EMPTY_PAYWALL_C
  */
 export const usePaywallHost = (): Pick<
   PaywallContextValue,
-  "activePaywall" | "complete" | "acknowledgePresentation" | "customActions" | "customScreens"
+  | "activePaywall"
+  | "complete"
+  | "acknowledgePresentation"
+  | "customActions"
+  | "customScreens"
+  | "observePresentation"
 > => {
-  const { activePaywall, complete, acknowledgePresentation, customActions, customScreens } =
-    useContext(PaywallContext);
-  return { activePaywall, complete, acknowledgePresentation, customActions, customScreens };
+  const {
+    activePaywall,
+    complete,
+    acknowledgePresentation,
+    customActions,
+    customScreens,
+    observePresentation,
+  } = useContext(PaywallContext);
+  return {
+    activePaywall,
+    complete,
+    acknowledgePresentation,
+    customActions,
+    customScreens,
+    observePresentation,
+  };
 };
 
 interface PaywallProviderProps {
@@ -281,6 +318,27 @@ interface PaywallProviderProps {
    * chance to land before a feature is given away.
    */
   registerTimeoutMs?: number;
+  /**
+   * Told about every paywall presentation, so the HOST can send it to its own
+   * analytics — this SDK sends nothing anywhere itself. Optional: omit it and
+   * nothing changes.
+   *
+   * `start(info)` runs once a `present()` call is accepted (never for an
+   * `unknown-moment` or `already-presenting` refusal) and may return a handle;
+   * `handle.shown()` runs when the host confirms the paywall is on screen, and
+   * `handle.end(outcome)` exactly once with the final `present()` result —
+   * including every post-acceptance error, as `status: "error"` with its
+   * `reason`. The inline `Paywall` onboarding step reports through the same
+   * observer with `surface: "paywall_step"`.
+   *
+   * Every call is guarded: an observer that throws, rejects, or returns
+   * something that is not a handle is logged and ignored, and never changes
+   * what `present()` resolves. The types match rocalytics-sdk's
+   * `PaywallObserver`, so its paywall tracker can be passed straight in.
+   *
+   * Read through a ref, so an inline object is fine.
+   */
+  observer?: PaywallObserver;
 }
 
 interface PaywallProviderInnerProps {
@@ -294,6 +352,7 @@ interface PaywallProviderInnerProps {
   customScreens: CustomPaywallScreens;
   presentAckTimeoutMs: number | null;
   registerTimeoutMs: number;
+  observer?: PaywallObserver;
 }
 
 const PaywallProviderInner = ({
@@ -307,6 +366,7 @@ const PaywallProviderInner = ({
   customScreens,
   presentAckTimeoutMs,
   registerTimeoutMs,
+  observer,
 }: PaywallProviderInnerProps) => {
   // `data` straight off `useQuery` is the single source of truth (Finding 1,
   // 2026-08-17 final review) — react-query's own cache already gets both a
@@ -420,6 +480,10 @@ const PaywallProviderInner = ({
   // starts (`present()`'s "start" branch) so one presentation's purchase
   // can never leak into the next.
   const lastPurchaseOutcomeRef = useRef<PurchaseOutcomeDuringPresentation>(null);
+  // The product key of the purchase recorded in `lastPurchaseOutcomeRef`, written
+  // under the SAME generation guard — so the observer's `transaction.productId`
+  // can never name a purchase from another presentation.
+  const lastPurchasedKeyRef = useRef<string | null>(null);
 
   // Monotonic, incremented every time a presentation actually starts (never
   // on the "immediate" no-op branch). Resetting `lastPurchaseOutcomeRef` at
@@ -446,6 +510,7 @@ const PaywallProviderInner = ({
       const outcome = purchaseOutcomeFromResult(result);
       if (outcome && shouldRecordPurchaseOutcome(startedInGeneration, presentationGenerationRef.current)) {
         lastPurchaseOutcomeRef.current = outcome;
+        lastPurchasedKeyRef.current = result.status === "purchased" ? result.productKey : null;
       }
       return result;
     },
@@ -497,6 +562,14 @@ const PaywallProviderInner = ({
   const activeMomentRef = useRef(activeMoment);
   activeMomentRef.current = activeMoment;
   const pendingResolveRef = useRef<((result: PresentResult) => void) | null>(null);
+  // Ref so `present`/`complete`/`acknowledgePresentation` keep empty deps while
+  // reading the CURRENT prop — hosts will pass an inline object.
+  const observerRef = useRef(observer);
+  observerRef.current = observer;
+  // The observed presentation in flight. Holds its OWN copy of the paywall
+  // (inside the handle), because by `complete()` time `activePaywall` can
+  // already be null — that is exactly the `paywall-disappeared` case.
+  const presentationRef = useRef<PaywallPresentation | null>(null);
 
   // present() must not fetch anything — the catalog and products are already
   // resolved (or resolving) from mount. It only decides, synchronously,
@@ -510,7 +583,16 @@ const PaywallProviderInner = ({
     // still-in-flight purchase from a PREVIOUS presentation must not be
     // allowed to write into this one — see `presentationGenerationRef`.
     lastPurchaseOutcomeRef.current = null;
+    lastPurchasedKeyRef.current = null;
     presentationGenerationRef.current += 1;
+    // Only the "start" decision reaches here: refusals return above, before
+    // anything is reported (contract rule P1).
+    presentationRef.current = openPaywallPresentation(
+      observerRef.current,
+      decision.paywall,
+      "present",
+      Platform.OS
+    );
     // Authoritative NOW, synchronously — see the ref's doc above. A second
     // `present()` call before React commits reads this value, not the stale
     // pre-commit state, and correctly takes the "already showing" branch.
@@ -573,6 +655,8 @@ const PaywallProviderInner = ({
   const complete = useCallback((result: PresentResult) => {
     const resolve = pendingResolveRef.current;
     pendingResolveRef.current = null;
+    const presentation = presentationRef.current;
+    presentationRef.current = null;
     // Authoritative NOW, synchronously — same reasoning as `present()`'s
     // assignment above: a `present()` issued from the resolution continuation
     // (`const r = await present("a"); … present("downsell")` — a downsell
@@ -582,14 +666,29 @@ const PaywallProviderInner = ({
     activeMomentRef.current = null;
     setActiveMoment(null);
     setHostAcknowledged(false);
-    resolve?.(resolvePresentedOutcome(result, lastPurchaseOutcomeRef.current));
+    // The RECONCILED outcome, so a dismiss the store upgraded to a purchase is
+    // reported as one. Every post-acceptance error funnels through here too
+    // (`paywall-disappeared`, `host-never-presented`, the host's parse/render
+    // errors), so this is the single `end()` site for `present()`. Reported
+    // before `resolve`, and with the ref already cleared, so a downsell
+    // `present()` issued from the resolution starts a clean presentation.
+    const outcome = resolvePresentedOutcome(result, lastPurchaseOutcomeRef.current);
+    presentation?.end(outcome, lastPurchasedKeyRef.current);
+    resolve?.(outcome);
   }, []);
 
   // Stable (empty deps) like `present`/`complete`: the host wires this straight
   // into a Modal prop, and an identity change per render would churn it.
   const acknowledgePresentation = useCallback(() => {
     setHostAcknowledged(true);
+    presentationRef.current?.shown();
   }, []);
+
+  const observePresentation = useCallback(
+    (paywall: PaywallPresentationSource) =>
+      openPaywallPresentation(observerRef.current, paywall, "paywall_step", Platform.OS),
+    []
+  );
 
   // `activePaywall` was hoisted above `productRefs` — see the comment there
   // (Finding 6, 2026-08-17 final review) for why it is derived from
@@ -656,6 +755,7 @@ const PaywallProviderInner = ({
       acknowledgePresentation,
       customActions,
       customScreens,
+      observePresentation,
     }),
     [
       present,
@@ -669,6 +769,7 @@ const PaywallProviderInner = ({
       acknowledgePresentation,
       customActions,
       customScreens,
+      observePresentation,
     ]
   );
 
@@ -712,6 +813,7 @@ export const PaywallProvider = ({
   customScreens = EMPTY_CUSTOM_SCREENS,
   presentAckTimeoutMs = DEFAULT_PRESENT_ACK_TIMEOUT_MS,
   registerTimeoutMs = DEFAULT_REGISTER_TIMEOUT_MS,
+  observer,
 }: PaywallProviderProps) => {
   // Prop wins, else whatever `OnboardingStudio.init()` built. Read during render,
   // so `init()` must run before the first render — at module scope.
@@ -739,6 +841,7 @@ export const PaywallProvider = ({
         customScreens={customScreens}
         presentAckTimeoutMs={presentAckTimeoutMs}
         registerTimeoutMs={registerTimeoutMs}
+        observer={observer}
       >
         {children}
       </PaywallProviderInner>

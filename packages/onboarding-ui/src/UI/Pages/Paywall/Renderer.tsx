@@ -4,12 +4,14 @@ import {
   OnboardingProgressContext as HeadlessProgressContext,
   useOnboardingHeaderHeight,
   usePaywall,
+  usePaywallHost,
 } from "@rocapine/react-native-onboarding";
 import { PaywallStepTypeSchema, type PaywallStepType } from "./types";
 import type { OnboardingStepType } from "../../types";
 import { resolvePaywallStepDecision } from "./resolvePaywallStepDecision";
 import { shouldAdvanceOnComplete } from "./shouldAdvanceOnComplete";
-import { withErrorBoundary } from "../../ErrorBoundary";
+import { usePaywallStepObservation } from "./usePaywallStepObservation";
+import { ErrorBoundary, withErrorBoundary } from "../../ErrorBoundary";
 import { OnboardingTemplate } from "../../Templates/OnboardingTemplate";
 import {
   OnboardingProgressContext,
@@ -45,6 +47,10 @@ type ResolvedPaywall = {
   id: string;
   name: string;
   moment: string;
+  // Read only to report the presentation to `PaywallProvider`'s observer.
+  audienceId?: number | null;
+  billing?: "store" | "stripe";
+  products?: Array<{ key: string; ios?: string; android?: string }>;
   elements: unknown;
   renderMode?: "elements" | "custom" | null;
   customScreenId?: string | null;
@@ -80,6 +86,7 @@ const PaywallStepRendererBase = ({
   const { moment } = validated.payload;
 
   const { catalog, catalogStatus, isProviderMounted, customScreens } = usePaywall();
+  const { observePresentation } = usePaywallHost();
   const { composableVariables, setComposableVariable } = useContext(OnboardingProgressContext);
   const { setVariable: setHeadlessVariable, customActions, products } =
     useContext(HeadlessProgressContext);
@@ -107,6 +114,16 @@ const PaywallStepRendererBase = ({
     () => (paywall && !isCustom ? ScreenElementsSchema.safeParse(paywall.elements) : null),
     [paywall, isCustom],
   );
+
+  // Reports this step to `PaywallProvider`'s `observer` (surface
+  // "paywall_step"). Starts only on a `show` decision; see the hook for the
+  // whole lifecycle. Declared BEFORE the skip effect below, so a paywall that
+  // resolves and then cannot render is started before it is failed.
+  const observation = usePaywallStepObservation(observePresentation, paywall);
+  const renderable = isCustom ? Boolean(CustomScreen) : Boolean(parsedElements?.success);
+  useEffect(() => {
+    if (renderable) observation.shown();
+  }, [renderable, paywall?.id, observation]);
 
   // Every skip path, as one effect. Each logs the diagnosis rather than
   // skipping quietly: a silently skipped paywall in a paid funnel is the most
@@ -148,6 +165,7 @@ const PaywallStepRendererBase = ({
           `SKIPPING the step so the user is not trapped. Registered ids: ${registered || "(none)"}. ` +
           "Pass the screen via <PaywallProvider customScreens={{ … }} />.",
       );
+      observation.fail("unknown-custom-screen");
       onContinue();
       return;
     }
@@ -158,6 +176,7 @@ const PaywallStepRendererBase = ({
           "in the authored paywall — fix it in the studio.",
         parsedElements.error,
       );
+      observation.fail("parse-error");
       onContinue();
     }
   }, [
@@ -171,6 +190,7 @@ const PaywallStepRendererBase = ({
     customScreens,
     parsedElements,
     onContinue,
+    observation,
   ]);
 
   const setVariableAndSync = useCallback(
@@ -187,9 +207,27 @@ const PaywallStepRendererBase = ({
   // callback, so the gate applies identically to it.
   const complete = useCallback(
     (outcome?: CompleteOutcome) => {
-      if (shouldAdvanceOnComplete(outcome)) onContinue();
+      if (!shouldAdvanceOnComplete(outcome)) return;
+      observation.advance(outcome);
+      onContinue();
     },
-    [onContinue],
+    [onContinue, observation],
+  );
+
+  // The step's own purchases, recorded so the observer's `end(purchased)` can
+  // name the purchased slot. Wraps the runtime rather than reading the
+  // provider's per-`present()` tracking, which a step is not part of.
+  const observedProducts = useMemo(
+    () =>
+      products && {
+        ...products,
+        purchase: async (key: string) => {
+          const result = await products.purchase(key);
+          if (result.status === "purchased") observation.recordPurchase(result.productKey);
+          return result;
+        },
+      },
+    [products, observation],
   );
 
   const host: ScreenHost = useMemo(
@@ -198,7 +236,7 @@ const PaywallStepRendererBase = ({
       setVariable: setVariableAndSync,
       complete,
       customActions,
-      products,
+      products: observedProducts,
       // A paywall step opening ANOTHER paywall is out of scope for now; the
       // engine requires the field, so this is an explicit no-op rather than an
       // accidental one.
@@ -211,7 +249,7 @@ const PaywallStepRendererBase = ({
       setVariableAndSync,
       complete,
       customActions,
-      products,
+      observedProducts,
       requestPermission,
       keyboardVerticalOffset,
       headerHeight,
@@ -232,15 +270,22 @@ const PaywallStepRendererBase = ({
   // tick from unmounting. A spinner is the honest thing to show in all of them.
   if (!paywall) return spinner;
 
+  // The inner boundary exists to REPORT a render-time crash as
+  // `end(error, render-error)`: the outer `withErrorBoundary` sits above this
+  // component, so a crash caught there unmounts it and could only ever read as
+  // a dismissal. Same `ErrorBoundary`, same `stepType`, wrapping the whole
+  // output — the fallback the user sees is the one they saw before.
   const template = (children: React.ReactNode) => (
-    <OnboardingTemplate
-      step={validated as unknown as OnboardingStepType}
-      onContinue={onContinue}
-      theme={theme}
-      disableTopPadding
-    >
-      {children}
-    </OnboardingTemplate>
+    <ErrorBoundary stepType="PaywallStep" onError={() => observation.fail("render-error")}>
+      <OnboardingTemplate
+        step={validated as unknown as OnboardingStepType}
+        onContinue={onContinue}
+        theme={theme}
+        disableTopPadding
+      >
+        {children}
+      </OnboardingTemplate>
+    </ErrorBoundary>
   );
 
   if (isCustom) {

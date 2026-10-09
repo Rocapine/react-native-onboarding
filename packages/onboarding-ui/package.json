@@ -8,6 +8,7 @@
     "build": "rm -rf dist && tsc && cp -r src/assets dist/",
     "watch": "tsc --watch",
     "type:check": "tsc --noEmit",
+    "type:check:tests": "tsc -p tsconfig.test.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "prepublishOnly": "node ../../scripts/check-versions.mjs"

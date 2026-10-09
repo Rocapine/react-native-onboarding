@@ -1,0 +1,16 @@
+{
+  // Type-checks the test files, which `tsconfig.json` excludes so they never
+  // reach `dist`. `npm run type:check:tests` — vitest itself does not type-check.
+  // Tests also import the headless package's source and `example/` by relative
+  // path, so rootDir widens to the repo root, and `import.meta` (vitest) needs
+  // an ES module target.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": "../..",
+    "module": "esnext",
+    "moduleResolution": "bundler"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

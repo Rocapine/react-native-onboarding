@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 // Deep `/dist/` import of the built payload — the same pattern
 // repeatRowGating.test.ts uses to reach the headless package from the UI
 // workspace. It needs `npm run build` first, and pulls no React Native code
@@ -173,10 +174,10 @@ describe("example payload — the stdlib demo actually demonstrates the stdlib",
     // hand (CLAUDE.md step 2). Reading the file is the only way to catch the
     // two drifting apart, which is how the constant version survived review.
     const src = readFileSync(
-      new URL(
+      fileURLToPath(new URL(
         "../../../../../../example/app/example/composable-screen.tsx",
         import.meta.url
-      ),
+      ).href),
       "utf8"
     );
     expect(src).toContain(action!.value);

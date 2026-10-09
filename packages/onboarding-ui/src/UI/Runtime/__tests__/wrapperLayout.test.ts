@@ -85,7 +85,8 @@ describe("nestedFillLayout", () => {
   // The bug, stated as an invariant: a box nested inside the parent-facing one
   // must never carry `flex`, because that zeroes its flexBasis.
   it("never emits flex", () => {
-    expect(nestedFillLayout(props({ flex: 1 })).flex).toBeUndefined();
+    // `flex` is absent from NestedFillLayout by type; the cast checks it is absent at runtime too.
+    expect((nestedFillLayout(props({ flex: 1 })) as { flex?: unknown }).flex).toBeUndefined();
   });
 
   // `flexBasis: 0` was doing two jobs: it collapsed the box (the bug) AND it
@@ -243,7 +244,7 @@ describe("withNestedLayout", () => {
     expect((withNestedLayout(card({ flex: 1 })).props as { mode?: string }).mode).toBeUndefined();
     expect(inner.id).toBe("card");
     expect(inner.type).toBe("YStack");
-    expect(inner.children).toBe(el.children);
+    expect((inner as { children?: unknown }).children).toBe((el as { children?: unknown }).children);
   });
 
   // `fillsParent` is IMPORTED, not restated: the five renderers call the same
@@ -267,8 +268,8 @@ describe("withNestedLayout", () => {
 
   it("still reports flex sizing after the demotion", () => {
     const el = card({ flex: 1 });
-    expect(wantsFlexSizing(el.props)).toBe(true);
-    expect(wantsFlexSizing(withNestedLayout(el).props)).toBe(true);
+    expect(wantsFlexSizing(el.props as BaseBoxProps)).toBe(true);
+    expect(wantsFlexSizing(withNestedLayout(el).props as BaseBoxProps)).toBe(true);
   });
 
   it("returns a referentially stable clone so React.memo still skips", () => {
@@ -279,8 +280,8 @@ describe("withNestedLayout", () => {
 
 describe("the whole wrapper chain", () => {
   it("emits the zero-basis flex on exactly one box, the outermost", () => {
-    const p = props({ flex: 1, transform: { scale: 0.98 }, onPress: [{ type: "continue" }] });
-    const chain = [
+    const p = props({ flex: 1, transform: { scale: 0.98 }, onPress: [{ type: "dismiss" }] });
+    const chain: { flex?: unknown; flexGrow?: unknown; flexShrink?: unknown }[] = [
       parentFacingLayout(p, "XStack", "YStack"), // AnimatedBox outer view
       nestedFillLayout(p), // AnimatedBox inner (static-transform) view
       pressWrapperLayout(p, "XStack", "YStack", true), // Pressable

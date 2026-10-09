@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import {
   GENERATE_PLAN_MAX_ATTEMPTS,
   shouldGeneratePlanFail,
@@ -38,7 +39,7 @@ const press = (state: { attempts: number }, maxAttempts: number): "resolve" | "e
 
 describe("example app — the async gate demo reaches both outcomes", () => {
   it("declares the same retry cap in the payload and the handler", () => {
-    const src = readFileSync(EXAMPLE, "utf8");
+    const src = readFileSync(fileURLToPath(EXAMPLE.href), "utf8");
     const cap = /retry:\s*\{\s*maxAttempts:\s*(\d+)/.exec(src);
     expect(cap, "async-gate payload declares no retry cap").toBeTruthy();
     expect(Number(cap![1])).toBe(GENERATE_PLAN_MAX_ATTEMPTS);
@@ -69,7 +70,7 @@ describe("example app — the async gate demo reaches both outcomes", () => {
   });
 
   it("wires the handler to the shared schedule rather than its own modulus", () => {
-    const src = readFileSync(LAYOUT, "utf8");
+    const src = readFileSync(fileURLToPath(LAYOUT.href), "utf8");
     expect(src).toContain("shouldGeneratePlanFail");
     expect(src).not.toMatch(/generatePlanAttempts\s*%/);
   });

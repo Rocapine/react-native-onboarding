@@ -285,7 +285,7 @@ describe("PaywallStepRenderer — custom screen cancelled (r1-6)", () => {
 });
 
 describe("PaywallStepRenderer — crash then variant swap (r1-4, r1-7)", () => {
-  it("renders the new variant after a crash, and reports no impression for it", async () => {
+  it("renders the new variant after a crash, reports it as a new presentation, and records its purchase", async () => {
     const calls = recorder();
     setCatalog(paywall("pw-a", { elements: [{ type: "Throws" }] }));
     await quietly(() => render());
@@ -293,11 +293,19 @@ describe("PaywallStepRenderer — crash then variant swap (r1-4, r1-7)", () => {
     await quietly(() => render());
     // The boundary is keyed by paywall id (PaywallHost's precedent), so B renders.
     expect(h.rendered).toEqual(["content-pw-b"]);
-    // One presentation per visit: A's ended with render-error, and a swap
-    // neither restarts it nor reports B shown.
+    // A ENDED with render-error, so B on screen is a new presentation: a live
+    // swap keeps one presentation, an ended one is not reused for another id.
+    // Without that, a purchase on the visible B would be reported nowhere.
+    await act(async () => {
+      await h.host.products.purchase("annual");
+      h.host.complete(undefined);
+    });
     expect(calls).toEqual([
       ["start", "pw-a"],
       ["end", "pw-a", { status: "error", reason: "render-error" }, null],
+      ["start", "pw-b"],
+      ["shown", "pw-b"],
+      ["end", "pw-b", { status: "purchased" }, "annual"],
     ]);
   });
 });

@@ -9,6 +9,13 @@ here.
 
 ### Added
 
+- **Inline `Paywall` step reports to `PaywallProvider`'s `observer`** (#286),
+  as `surface: "paywall_step"`. It ends with the same outcome `present()` would
+  give the same user action: the last store result (`purchased` with the slot,
+  or `cancelled`) upgrades a bare dismissal, and a purchase that settles after
+  its paywall was swapped or the step unmounted is dropped. Against a headless
+  older than `usePaywallHost().observePresentation` it reports nothing rather
+  than throwing.
 - **`requestPermission` ButtonAction dispatch** (#196) — the renderer half of
   the new headless action. `elements/permissions.ts` asks through whichever
   optional Expo module is installed (`expo-notifications`,

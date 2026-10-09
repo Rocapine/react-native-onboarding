@@ -214,16 +214,20 @@ const PaywallStepRendererBase = ({
     [onContinue, observation],
   );
 
-  // The step's own purchases, recorded so the observer's `end(purchased)` can
-  // name the purchased slot. Wraps the runtime rather than reading the
-  // provider's per-`present()` tracking, which a step is not part of.
+  // The step's own purchases, recorded so the observer's `end()` reports what
+  // the store did (`purchased` with the slot, or `cancelled`). Wraps the runtime
+  // rather than reading the provider's per-`present()` tracking, which a step is
+  // not part of. `beginPurchase` runs BEFORE the await, so a result that settles
+  // after the paywall was swapped or the step unmounted is dropped — the
+  // provider's `shouldRecordPurchaseOutcome` rule.
   const observedProducts = useMemo(
     () =>
       products && {
         ...products,
         purchase: async (key: string) => {
+          const record = observation.beginPurchase();
           const result = await products.purchase(key);
-          if (result.status === "purchased") observation.recordPurchase(result.productKey);
+          record(result);
           return result;
         },
       },

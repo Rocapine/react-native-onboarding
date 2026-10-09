@@ -73,6 +73,7 @@ Props worth knowing:
 | `locale` | overrides the device locale for authored copy |
 | `customAudienceParams` | **static** values the studio's audience filters can match on — build-time facts set once at mount. For anything that changes at runtime use `OnboardingStudio` (see below), which merges over this and wins per key |
 | `presentAckTimeoutMs` | how long to wait for the host to confirm the paywall appeared. Defaults to 5000. `null` disables the recovery — only pass it if your host genuinely cannot acknowledge. |
+| `observer` | optional `PaywallObserver` told about every presentation — `start(info)` on an accepted `present()` (never on an `unknown-moment` / `already-presenting` refusal) and on an inline `Paywall` step that resolves (`surface: "paywall_step"`), then `shown()` at most once and `end(outcome)` exactly once. The SDK sends nothing anywhere itself: this is how a host gets paywall presentations into its own analytics. Matches rocalytics-sdk's `PaywallObserver`, so its paywall tracker can be passed straight in. A throwing observer is logged and ignored — it never changes what `present()` resolves |
 
 **Do not** mount two `PaywallProvider`s. Products are resolved once over the union of every paywall's `products[]` and published through context; a second provider means a second store round-trip and two `purchasing` flags.
 

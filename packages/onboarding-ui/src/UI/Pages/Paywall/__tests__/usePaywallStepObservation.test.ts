@@ -5,8 +5,18 @@ import { createRoot, type Root } from "react-dom/client";
 import type { PaywallPresentation } from "@rocapine/react-native-onboarding";
 import {
   usePaywallStepObservation,
+  purchaseOutcomeFromResult as uiPurchaseOutcomeFromResult,
+  resolvePresentedOutcome as uiResolvePresentedOutcome,
   type PaywallStepObservation,
 } from "../usePaywallStepObservation";
+// The headless originals, imported by source path to hold the UI mirror equal —
+// the `completingActions` / `requestPermission.test.ts` precedent. A runtime
+// import of them from the package would key this package's behaviour on
+// whichever headless version a host resolved within the peer range.
+import {
+  purchaseOutcomeFromResult as headlessPurchaseOutcomeFromResult,
+  resolvePresentedOutcome as headlessResolvePresentedOutcome,
+} from "../../../../../../onboarding/src/paywalls/present";
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -40,7 +50,7 @@ const Probe = ({
   paywall,
   children,
 }: {
-  observe: (p: Paywall) => PaywallPresentation;
+  observe: ((p: Paywall) => PaywallPresentation) | undefined;
   paywall: Paywall | null;
   children?: ReactNode;
 }) => {
@@ -97,7 +107,7 @@ describe("usePaywallStepObservation — end", () => {
     const { observe, calls } = recorder();
     await render(createElement(Probe, { observe, paywall: A }));
     api.shown();
-    api.recordPurchase("annual");
+    api.beginPurchase()({ status: "purchased", productKey: "annual" });
     api.advance(undefined);
     await unmount();
     expect(calls).toEqual([
@@ -114,7 +124,7 @@ describe("usePaywallStepObservation — end", () => {
     // `present()`'s `resolvePresentedOutcome`.
     const { observe, calls } = recorder();
     await render(createElement(Probe, { observe, paywall: A }));
-    api.recordPurchase("annual");
+    api.beginPurchase()({ status: "purchased", productKey: "annual" });
     await unmount();
     expect(calls[calls.length - 1]).toEqual(["end", "pw-a", { status: "purchased" }, "annual"]);
   });
@@ -159,15 +169,130 @@ describe("usePaywallStepObservation — end", () => {
   it("drops a purchase recorded under a previous paywall", async () => {
     const { observe, calls } = recorder();
     await render(createElement(Probe, { observe, paywall: A }));
-    api.recordPurchase("annual");
+    api.beginPurchase()({ status: "purchased", productKey: "annual" });
     await render(createElement(Probe, { observe, paywall: B }));
     api.advance(undefined);
     expect(calls[calls.length - 1]).toEqual(["end", "pw-b", { status: "dismissed" }, null]);
   });
 });
 
+describe("usePaywallStepObservation — cancelled (parity with present())", () => {
+  it("ends cancelled when a purchase was cancelled and the user leaves (unmount)", async () => {
+    const { observe, calls } = recorder();
+    await render(createElement(Probe, { observe, paywall: A }));
+    api.beginPurchase()({ status: "cancelled" });
+    await unmount();
+    expect(calls[calls.length - 1]).toEqual(["end", "pw-a", { status: "cancelled" }, null]);
+  });
+
+  it("ends cancelled when a plain continue follows a cancelled purchase", async () => {
+    const { observe, calls } = recorder();
+    await render(createElement(Probe, { observe, paywall: A }));
+    api.beginPurchase()({ status: "cancelled" });
+    api.advance(undefined);
+    expect(calls[calls.length - 1]).toEqual(["end", "pw-a", { status: "cancelled" }, null]);
+  });
+
+  it("lets the LAST store outcome win, as the provider does: purchased then cancelled ends cancelled, with no key", async () => {
+    const { observe, calls } = recorder();
+    await render(createElement(Probe, { observe, paywall: A }));
+    api.beginPurchase()({ status: "purchased", productKey: "annual" });
+    api.beginPurchase()({ status: "cancelled" });
+    await unmount();
+    expect(calls[calls.length - 1]).toEqual(["end", "pw-a", { status: "cancelled" }, null]);
+  });
+
+  it("ignores pending and error store results, as the provider does", async () => {
+    const { observe, calls } = recorder();
+    await render(createElement(Probe, { observe, paywall: A }));
+    api.beginPurchase()({ status: "pending" });
+    api.beginPurchase()({ status: "error" });
+    await unmount();
+    expect(calls[calls.length - 1]).toEqual(["end", "pw-a", { status: "dismissed" }, null]);
+  });
+
+  it("mirrors the headless purchaseOutcomeFromResult + resolvePresentedOutcome exactly", () => {
+    const results = [
+      { status: "purchased", productKey: "annual" } as const,
+      { status: "cancelled" } as const,
+      { status: "pending" } as const,
+      { status: "error", error: new Error("x") } as const,
+    ];
+    const reported = [
+      { status: "dismissed" } as const,
+      { status: "purchased" } as const,
+      { status: "cancelled" } as const,
+      { status: "error", reason: "render-error" } as const,
+    ];
+    for (const r of results) {
+      const ui = uiPurchaseOutcomeFromResult(r);
+      expect(ui).toEqual(headlessPurchaseOutcomeFromResult(r));
+      for (const rep of reported) {
+        for (const outcome of [ui, null]) {
+          expect(uiResolvePresentedOutcome(rep, outcome)).toEqual(
+            headlessResolvePresentedOutcome(rep, outcome),
+          );
+        }
+      }
+    }
+  });
+});
+
+describe("usePaywallStepObservation — purchase generation guard", () => {
+  it("does not credit a purchase started on A to B when the variant swaps while it is in flight", async () => {
+    const { observe, calls } = recorder();
+    await render(createElement(Probe, { observe, paywall: A }));
+    const record = api.beginPurchase();
+    await render(createElement(Probe, { observe, paywall: B }));
+    record({ status: "purchased", productKey: "annual" });
+    await unmount();
+    expect(calls).toEqual([
+      ["start", "pw-a"],
+      ["end", "pw-a", { status: "error", reason: "paywall-disappeared" }, null],
+      ["start", "pw-b"],
+      ["end", "pw-b", { status: "dismissed" }, null],
+    ]);
+  });
+
+  it("does not credit a purchase to a LATER presentation of the same paywall id", async () => {
+    // Identity, not id: the same reasoning as the provider's monotonic
+    // generation rather than a moment-string compare.
+    const { observe, calls } = recorder();
+    await render(createElement(Probe, { observe, paywall: A }));
+    const record = api.beginPurchase();
+    await render(createElement(Probe, { observe, paywall: null }));
+    await render(createElement(Probe, { observe, paywall: A }));
+    record({ status: "purchased", productKey: "annual" });
+    await unmount();
+    expect(calls[calls.length - 1]).toEqual(["end", "pw-a", { status: "dismissed" }, null]);
+  });
+
+  it("starts nothing when a purchase settles after the step unmounted", async () => {
+    const { observe, calls } = recorder();
+    await render(createElement(Probe, { observe, paywall: A }));
+    const record = api.beginPurchase();
+    await unmount();
+    const before = [...calls];
+    record({ status: "purchased", productKey: "annual" });
+    expect(calls).toEqual(before);
+  });
+});
+
+describe("usePaywallStepObservation — older headless (no observePresentation)", () => {
+  it("reports nothing and never throws when the headless predates observePresentation", async () => {
+    await render(createElement(Probe, { observe: undefined, paywall: A }));
+    expect(() => {
+      api.shown();
+      api.beginPurchase()({ status: "purchased", productKey: "annual" });
+      api.advance(undefined);
+      api.fail("render-error");
+    }).not.toThrow();
+    await unmount();
+  });
+});
+
 describe("usePaywallStepObservation — render errors", () => {
-  class Boundary extends Component<{ onError: () => void; children: ReactNode }, { failed: boolean }> {
+  class Boundary extends Component<{ onError: () => void; children?: ReactNode }, { failed: boolean }> {
     state = { failed: false };
     static getDerivedStateFromError() {
       return { failed: true };

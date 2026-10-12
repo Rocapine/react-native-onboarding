@@ -22,8 +22,14 @@ here.
   the old purchase never reaches. The paywall leaving the catalog mid-step
   waits for a purchase in flight the same way, and ends `purchased` if one
   already settled, as `present()` now does; with neither it ends
-  `paywall-disappeared` at once. A purchase made after a variant swap reports
-  the bought variant's store id. Against a
+  `paywall-disappeared` at once. Once a purchase settles `purchased`, the
+  presentation ends `purchased` with that key whatever follows (a later
+  cancelled purchase, a render failure, the paywall disappearing). A purchase
+  made after a variant swap reports the bought variant's store id.
+- **`PaywallHost` keys its content per presentation** (#286), with the
+  presentation-bound `complete` from the headless, so a paywall's action chain
+  that outlives its presentation cannot close the next one, even when the same
+  moment is presented again in the same render. Against a
   headless older than `usePaywallHost().observePresentation` it reports nothing
   rather than throwing. The step's crash boundary is now keyed by paywall id,
   so a revalidated variant renders after a crash.

@@ -32,6 +32,25 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   adapter's purchase wait), then `dismissed`; the Modal closes and other
   `present()` calls work meanwhile. With no purchase, it still resolves
   `paywall-disappeared` at once.
+- **A settled purchase sticks** (#286). Once a purchase settles `purchased`
+  during a presentation, `present()` resolves `purchased` and the observer ends
+  `purchased` with that purchase's key and transaction, whatever follows: a
+  later cancelled or second purchase, a dismissal, the paywall disappearing, or
+  a host-reported error such as `render-error`. Before, the last store result
+  won and only a bare dismissal was upgraded, so `register()` could deny a user
+  who had paid.
+- **Closing a `present()` paywall waits for a purchase in flight** (#286). A
+  `dismissed` close (the `dismiss` action, Android back, a host close button)
+  while a purchase is pending frees the surface at once but resolves
+  `present()` only when the purchase settles, with its outcome, bounded at
+  180 s then `dismissed`. Other reported ends still resolve at once.
+- **`usePaywallHost().complete` is bound to one presentation** (#286). Its
+  identity changes once per presentation, and a stale copy is a no-op: a
+  paywall's action chain that finishes after its presentation ended (an
+  `onSuccess: [dismiss]` resuming once the purchase settles) no longer closes
+  the paywall that replaced it. A host rendering its own modal must call the
+  `complete` from the current render; one stashed across presentations now
+  does nothing, and the paywall it should have closed stays up.
 
 - **`requestPermission` ButtonAction** — ask the OS for a permission and branch
   on the answer within the SAME press (#196). An eighth `ButtonAction` member:

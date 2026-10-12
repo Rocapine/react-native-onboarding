@@ -8,7 +8,50 @@ here.
 ## [Unreleased]
 
 ### Added
+- **A paywall's stale action chain ends at its `purchase`** (#286). When the
+  presentation a chain belongs to has left the screen (a `custom` or
+  `requestPermission` step resumed after the paywall closed), the `purchase`
+  action is skipped and the rest of the chain dropped, enclosing lists
+  included: no `onSuccess`/`onCancel`/`onError`/`onPending`, so an `onCancel`
+  holding `presentPaywall` cannot open a downsell nobody asked for. Read from
+  the headless `ProductRuntime.presentationEnded`; a purchase that started on
+  screen and settles after the close still runs its branch.
+- **`PaywallHost` acknowledges a paywall that takes its Modal in the same
+  render as one closing** (#286). The Modal stays `visible`, so `onShow` does
+  not fire again; `PaywallHost` acknowledges the new presentation itself, but
+  only when it renders it (not an unregistered custom screen, not elements
+  that fail to parse) and only when an `onShow` arrived during the Modal's
+  current visible stretch. An `onShow` that arrives while the Modal is hidden
+  (iOS delivers one late for a paywall that ended before its slide-in
+  finished) is ignored, so it cannot vouch for the next presentation. A
+  successor over a Modal the platform refused stays unacknowledged, so the
+  wedge recovery still applies.
 
+- **Inline `Paywall` step reports to `PaywallProvider`'s `observer`** (#286),
+  as `surface: "paywall_step"`. One presentation per focused visit, read through
+  the onboarding's `navigation.useFocusEffect`, so going back to a step reports
+  a new presentation. A variant swap inside a visit keeps the presentation open,
+  as `present()` does. The last store result (`purchased` with the slot, or
+  `cancelled`, including a custom screen's `complete({status:"cancelled"})`)
+  upgrades a bare dismissal. A purchase still in flight when the step blurs or
+  unmounts is counted: the presentation stays open until it settles and ends
+  with its outcome (bounded at 180 s, the expo-iap adapter's purchase wait, then
+  `dismissed`). Going back to the step meanwhile starts a new presentation that
+  the old purchase never reaches. The paywall leaving the catalog mid-step
+  waits for a purchase in flight the same way, and ends `purchased` if one
+  already settled, as `present()` now does; with neither it ends
+  `paywall-disappeared` at once. Once a purchase settles `purchased`, the
+  presentation ends `purchased` with that key whatever follows (a later
+  cancelled purchase, a render failure, the paywall disappearing), and a blur
+  or disappearance no longer waits for a second purchase in flight. A purchase
+  made after a variant swap reports the bought variant's store id.
+- **`PaywallHost` keys its content per presentation** (#286), with the
+  presentation-bound `complete` from the headless, so a paywall's action chain
+  that outlives its presentation cannot close the next one, even when the same
+  moment is presented again in the same render. Against a
+  headless older than `usePaywallHost().observePresentation` it reports nothing
+  rather than throwing. The step's crash boundary is now keyed by paywall id,
+  so a revalidated variant renders after a crash.
 - **`requestPermission` ButtonAction dispatch** (#196) — the renderer half of
   the new headless action. `elements/permissions.ts` asks through whichever
   optional Expo module is installed (`expo-notifications`,

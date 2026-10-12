@@ -163,6 +163,19 @@ export async function runActions(
         );
         continue;
       }
+      // The paywall this chain belongs to has left the screen (a `custom` or
+      // `requestPermission` step before this resumed after it closed): the
+      // provider would refuse the purchase as `cancelled`, and running
+      // `onCancel` on a refusal the user never made can open a downsell over
+      // nothing. End the chain, siblings and enclosing lists included: `true`
+      // is "the screen is gone", which it is. Checked in the same tick as the
+      // call, so it cannot disagree with the refusal.
+      if (runtime.presentationEnded?.()) {
+        console.warn(
+          `[ComposableScreen] \`purchase\` of "${key}" skipped: its paywall is no longer on screen, so the rest of this action list was dropped.`
+        );
+        return true;
+      }
       const result = await runtime.purchase(key);
       if (result.status === "purchased" && act.onSuccess) {
         if (await runActions(act.onSuccess, ctx)) return true;

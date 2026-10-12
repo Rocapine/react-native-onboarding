@@ -73,6 +73,7 @@ Props worth knowing:
 | `locale` | overrides the device locale for authored copy |
 | `customAudienceParams` | **static** values the studio's audience filters can match on — build-time facts set once at mount. For anything that changes at runtime use `OnboardingStudio` (see below), which merges over this and wins per key |
 | `presentAckTimeoutMs` | how long to wait for the host to confirm the paywall appeared. Defaults to 5000. `null` disables the recovery — only pass it if your host genuinely cannot acknowledge. |
+| `observer` | optional `PaywallObserver` told about every presentation — `start(info)` on an accepted `present()` (never on an `unknown-moment` / `already-presenting` refusal) and on an inline `Paywall` step that resolves (`surface: "paywall_step"`), then `shown()` at most once and `end(outcome)` exactly once. The SDK sends nothing anywhere itself: this is how a host gets paywall presentations into its own analytics. Matches rocalytics-sdk's `PaywallObserver`, so its paywall tracker can be passed straight in. A throwing observer is logged and ignored — it never changes what `present()` resolves |
 
 **Do not** mount two `PaywallProvider`s. Products are resolved once over the union of every paywall's `products[]` and published through context; a second provider means a second store round-trip and two `purchasing` flags.
 
@@ -166,6 +167,8 @@ const SCREENS = { "paywall-native-v2": NativePaywall };
 Four things that will otherwise cost you an afternoon:
 
 - **`complete` must be called on every exit path**, including your own close button. Until it is, the paywall stays active and every later `present()` resolves `"already-presenting"`. The acknowledgement timeout only rescues a paywall that never *appeared*, not one that appeared and was never closed.
+- **Call the `complete` from the current render.** It is bound to one presentation and changes identity per presentation; a copy stashed from an earlier one (a ref set once, a module variable) is a no-op, so your modal would never close. A stale call is ignored on purpose: it is how a paywall's late `onSuccess: [dismiss]` is kept from closing the next one. The product runtime's `purchase` is bound the same way: one requested by a paywall no longer on screen does not open the store. An authored action chain stops there, running no branch; a direct call resolves `cancelled`.
+- **Closing while a purchase is in flight resolves late.** `present()` resolves when the purchase settles (up to 180 s), with its outcome; the surface is free meanwhile. Once a purchase has settled `purchased`, `present()` resolves `"purchased"` however the paywall then closes.
 - **`customScreens` must be referentially stable** — module scope or `useMemo`. It lands in the context value and in consumers' dependency arrays, so a fresh object each render re-derives their decisions each render.
 - **You get product IDS, not prices.** The SDK resolves no store products for a custom paywall, so `payload` carries ids and your screen asks the store for its own display prices. That is deliberate: a native paywall already knows how to do that, and it is the reason it does not need the studio.
 - **An unregistered id shows nothing, by design.** `present()` resolves `{ status: "error", reason: "unknown-custom-screen" }` and the Modal never opens, rather than trapping the user behind an empty full-screen sheet. The console names the missing id *and* the ones you did register, which is usually the whole diagnosis.
@@ -201,7 +204,7 @@ const { activePaywall, complete, acknowledgePresentation, customActions } = useP
 // call acknowledgePresentation once it is on screen, complete() exactly once.
 ```
 
-**`acknowledgePresentation` is not optional.** iOS refuses to present over an already-presenting view controller — another Modal, a `presentation: "modal"` route, a StoreKit alert. Without the acknowledgement the SDK cannot tell "shown" from "silently refused", and one refused presentation would leave `activeMoment` set for the life of the process, making every later `present()` resolve `"already-presenting"` with no error and no log. The acknowledgement is what lets it recover.
+**`acknowledgePresentation` is not optional, and only you can call it.** Call it from the Modal's `onShow`. If you keep one Modal mounted and `visible` while one presentation ends and the next starts in the same render, `onShow` does not fire again: call it then too, but only if an `onShow` arrived during that Modal's current visible stretch, and never for a paywall you will not render. Ignore an `onShow` that arrives while your Modal is hidden: iOS delivers one late for a paywall that ended before its slide-in finished. Otherwise that next paywall is abandoned after `presentAckTimeoutMs` as `host-never-presented`. A Modal re-keyed per presentation fires `onShow` each time and needs nothing more. iOS refuses to present over an already-presenting view controller — another Modal, a `presentation: "modal"` route, a StoreKit alert. Without the acknowledgement the SDK cannot tell "shown" from "silently refused", and one refused presentation would leave `activeMoment` set for the life of the process, making every later `present()` resolve `"already-presenting"` with no error and no log. The acknowledgement is what lets it recover.
 
 **`complete` must be called exactly once per presentation**, or the `present()` promise never settles.
 
@@ -244,7 +247,7 @@ const result = await present("onboarding_end");
 | `host-never-presented` | the platform refused. With `PaywallHost` this means something else was already presenting; with your own modal, that you never called `acknowledgePresentation` |
 | `parse-error` | authored data is invalid — fix it in the studio, the app cannot |
 | `render-error` | the element tree threw |
-| `paywall-disappeared` | a studio publish removed the moment mid-presentation |
+| `paywall-disappeared` | the moment left the catalog mid-presentation (a studio publish, or a catalog re-key such as a user property set on purchase) with no purchase made on it. A purchase wins: one that settled resolves `"purchased"`, and one in flight is waited for (up to 180 s) and resolves with its outcome |
 
 Gate a "fall back to another engine" decision on `catalogStatus === "ready"`, **not** on `catalog !== null`. A catalog served from disk while a fresh fetch is in flight reports `"revalidating"`, and a moment missing from it may simply not have arrived yet.
 

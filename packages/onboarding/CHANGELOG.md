@@ -7,6 +7,81 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 ## [Unreleased]
 
 ### Added
+- **`PaywallProvider` `observer` prop** — an optional `PaywallObserver` told
+  about every paywall presentation, so a host can send it to its own analytics
+  (#286). `start(info)` runs once `present()` accepts (never for an
+  `unknown-moment` or `already-presenting` refusal), `handle.shown()` on the
+  host's acknowledgement, and `handle.end(outcome)` exactly once with the
+  reconciled result — every later error as `status: "error"` with its `reason`.
+  An elements-mode purchase carries `transaction.productId`, the purchased
+  slot's id for the running platform. The inline `Paywall` step reports through
+  the same observer with `surface: "paywall_step"`, via the new
+  `usePaywallHost().observePresentation`, whose handle's `end()` takes the
+  paywall a purchase was made on, so a purchase after a background
+  revalidation swapped the moment's variant reports that variant's store id, on
+  both surfaces. The types are copied verbatim from
+  rocalytics-sdk's `src/paywall/observer.ts`, whose tracker satisfies them
+  structurally. Every observer call is guarded: a throw, a rejection, or a
+  `start()` returning no handle never changes what `present()` resolves.
+- **A purchase wins over a paywall that disappears mid-presentation** (#286).
+  Behaviour change for `present()`, not only the observer: if a purchase
+  settled `purchased` before the moment left the catalog (a studio publish, or
+  a query-key change such as a host setting a user property on purchase),
+  `present()` now resolves `purchased`, not `error` / `paywall-disappeared`. A
+  purchase still in flight is waited for, bounded at 180 s (the expo-iap
+  adapter's purchase wait), then `dismissed`; the Modal closes and other
+  `present()` calls work meanwhile. With no purchase, it still resolves
+  `paywall-disappeared` at once.
+- **A settled purchase sticks** (#286). Once a purchase settles `purchased`
+  during a presentation, `present()` resolves `purchased` and the observer ends
+  `purchased` with that purchase's key and transaction, whatever follows: a
+  later cancelled or second purchase, a dismissal, the paywall disappearing, or
+  a host-reported error such as `render-error`. Before, the last store result
+  won and only a bare dismissal was upgraded, so `register()` could deny a user
+  who had paid.
+- **Closing a `present()` paywall waits for a purchase in flight** (#286). A
+  `dismissed` close (the `dismiss` action, Android back, a host close button)
+  while a purchase is pending frees the surface at once but resolves
+  `present()` only when the purchase settles, with its outcome, bounded at
+  180 s then `dismissed`. Other reported ends still resolve at once.
+- **`usePaywallHost().complete` is bound to one presentation** (#286). Its
+  identity changes once per presentation, and a stale copy is a no-op: a
+  paywall's action chain that finishes after its presentation ended (an
+  `onSuccess: [dismiss]` resuming once the purchase settles) no longer closes
+  the paywall that replaced it. A host rendering its own modal must call the
+  `complete` from the current render; one stashed across presentations now
+  does nothing, and the paywall it should have closed stays up.
+- **A paywall's `purchase` is bound to its presentation too** (#286). The
+  product runtime `PaywallProvider` publishes binds `purchase` to the
+  presentation on screen when it was rendered. A purchase requested through a
+  presentation that has since left (a stale action chain, e.g. a `custom` or
+  `requestPermission` step followed by `purchase`, resuming after the paywall
+  closed) does not open the store and resolves `{ status: "cancelled" }`,
+  recording nothing on the presentation now showing. Logged with a warning.
+- **`ProductRuntime.presentationEnded?: () => boolean`** (#286). Additive and
+  optional: `true` once the paywall presentation a runtime was published for
+  has left the screen, the same test the bound `purchase` refuses on. The UI
+  package's action engine checks it before a `purchase` and ends a stale
+  action chain there, so the refusal's `cancelled` never runs `onCancel` (or
+  any other branch, or any action after it). Absent on every other runtime,
+  which means "never ended".
+- **Only the host acknowledges a presentation** (#286). The provider never
+  calls `shown()` or acknowledges on its own. A host's contract, in the
+  `usePaywallHost().acknowledgePresentation` JSDoc: acknowledge from the
+  Modal's `onShow`; acknowledge again when a new presentation takes a Modal
+  kept mounted and `visible` across the swap (an `await present()`
+  continuation, or the same moment again, in the same commit), because
+  `onShow` does not fire twice, but only if an `onShow` arrived during the
+  Modal's current visible stretch; ignore an `onShow` that arrives while the
+  Modal is hidden (iOS delivers one late for a paywall that ended before its
+  slide-in finished); and never acknowledge a presentation the host will not
+  render. A host of its
+  own that wires `onShow` alone keeps working, but a same-commit successor is
+  abandoned after `presentAckTimeoutMs` as `host-never-presented`. A Modal
+  re-keyed per presentation fires `onShow` each time and needs nothing more.
+- A close or disappearance with a purchase in flight no longer waits when a
+  purchase has already settled `purchased`: the end is fixed, so it ends
+  `purchased` at once.
 
 - **`requestPermission` ButtonAction** — ask the OS for a permission and branch
   on the answer within the SAME press (#196). An eighth `ButtonAction` member:

@@ -197,6 +197,18 @@ export { PaywallProvider, usePaywallHost } from "./paywalls/PaywallProvider";
 // live in the headless package. onboarding-ui re-exports both names.
 export type { CustomPaywallScreenProps, CustomPaywallScreens } from "./paywalls/customScreens";
 export type { PaywallContextValue } from "./paywalls/PaywallProvider";
+// `PaywallProvider`'s `observer` prop: the host's own analytics hook into every
+// presentation. Names match rocalytics-sdk's `PaywallObserver` verbatim.
+export type {
+  PaywallObserver,
+  PaywallPresentationInfo,
+  PaywallPresentationHandle,
+  PaywallPresentationEnd,
+  PaywallTransactionInfo,
+  PaywallSurface,
+  PaywallPresentation,
+  PaywallPresentationSource,
+} from "./paywalls/observer";
 export { usePaywall } from "./paywalls/usePaywall";
 // Exported so a host can switch exhaustively on what the catalog is doing
 // rather than inferring it from `isReady` plus a non-null check.

@@ -18,40 +18,8 @@ import {
   resolvePaywallModalDecision,
 } from "./resolvePaywallModalDecision";
 import type { CustomPaywallScreenProps, CustomPaywallScreens } from "./CustomPaywallScreen";
-
-// `usePaywallHost().complete` takes the CLOSED `PresentResult` union
-// (required argument); `ScreenHost.complete` takes the OPEN `CompleteOutcome`
-// (optional argument — a bare `"continue"` action calls it with none at all).
-// This function ONLY does that narrowing — nothing more.
-//
-// The engine itself only ever produces `undefined` (bare `"continue"`) or
-// `{status:"dismissed"}` (the `dismiss` action — see `runActions.ts`) —
-// `dismiss` doesn't know anything about purchase state, so a purchase closed
-// via spec §4.6's `{type:"purchase", onSuccess:[{type:"dismiss"}]}` narrows
-// to `"dismissed"` right here too, unchanged. The "did a purchase actually
-// happen" upgrade to `"purchased"`/`"cancelled"` is NOT this function's job:
-// it happens one level up, in `PaywallProvider`'s `purchase()` wrapper
-// (records the outcome, race-guarded against a stale in-flight purchase from
-// a PREVIOUS presentation — see `shouldRecordPurchaseOutcome`) and its
-// `complete()` (applies `resolvePresentedOutcome`) — both in `present.ts` /
-// `PaywallProvider.tsx`, where the product runtime and the pending
-// `present()` resolver already live. This function still checks the status
-// against the closed set (rather than hardcoding `"dismissed"`) purely so a
-// genuinely explicit status forwards unchanged instead of being clobbered.
-const PRESENT_RESULT_STATUSES: ReadonlySet<PresentResult["status"]> = new Set([
-  "purchased",
-  "dismissed",
-  "cancelled",
-  "error",
-]);
-
-function toPresentResult(outcome?: CompleteOutcome): PresentResult {
-  const status = outcome?.status;
-  if (status && (PRESENT_RESULT_STATUSES as ReadonlySet<string>).has(status)) {
-    return { status: status as PresentResult["status"] };
-  }
-  return { status: "dismissed" };
-}
+import { presentationContentKey, toPresentResult } from "./presentationBinding";
+import { useSurfaceAcknowledgement } from "./useSurfaceAcknowledgement";
 
 type PaywallContentProps = {
   /** Already parsed by `PaywallHost` — see `resolvePaywallModalDecision`'s doc for why parsing happens OUTSIDE this component's error boundary. */
@@ -271,8 +239,10 @@ export const PaywallHost = ({ customScreens, requestPermission }: PaywallHostPro
 
   // Adapts the engine's open `ScreenHost.complete` (optional CompleteOutcome)
   // into `usePaywallHost().complete`'s closed, required `PresentResult` — see
-  // `toPresentResult` above. `resolvePresent` is itself stable (empty-deps
-  // `useCallback` in `PaywallProvider`), so this wrapper is too.
+  // `toPresentResult` (`presentationBinding.ts`). `resolvePresent` is BOUND to
+  // one presentation by the provider and changes identity once per
+  // presentation, so this wrapper does too; effects keyed on it re-run once per
+  // presentation, harmlessly, since a stale or repeated end is a no-op.
   const complete = useCallback(
     (outcome?: CompleteOutcome) => resolvePresent(toPresentResult(outcome)),
     [resolvePresent]
@@ -361,9 +331,16 @@ export const PaywallHost = ({ customScreens, requestPermission }: PaywallHostPro
     resolvePresent({ status: "error", reason: "unknown-custom-screen" });
   }, [decision, resolvePresent, activePaywall, effectiveScreens]);
 
+  // Computed once and handed to both the Modal and the acknowledgement: the
+  // swap acknowledgement must see exactly what the Modal shows, so a successor
+  // the host will not render (an unregistered custom screen, a parse failure)
+  // is never reported on screen.
+  const visible = decision.type === "show" || decision.type === "show-custom";
+  const onShow = useSurfaceAcknowledgement(visible, resolvePresent, acknowledgePresentation);
+
   return (
     <Modal
-      visible={decision.type === "show" || decision.type === "show-custom"}
+      visible={visible}
       animationType="slide"
       presentationStyle="fullScreen"
       transparent={false}
@@ -375,13 +352,16 @@ export const PaywallHost = ({ customScreens, requestPermission }: PaywallHostPro
       // `presentation: "modal"` route, a StoreKit alert) — and without this
       // signal that refusal wedged every later present() call for the life of
       // the process. onShow never fires when the platform refuses, which is
-      // exactly what makes it the right signal.
-      onShow={acknowledgePresentation}
+      // exactly what makes it the right signal. A presentation that takes this
+      // Modal while it stays visible gets no second `onShow`; the hook above
+      // acknowledges that one, and only when an `onShow` arrived during the
+      // Modal's current visible stretch; a late `onShow` while hidden is ignored.
+      onShow={onShow}
     >
       <SafeAreaProvider>
         {decision.type === "show" && activePaywall && (
           <PaywallContent
-            key={activePaywall.id}
+            key={presentationContentKey(activePaywall.id, resolvePresent)}
             elements={decision.elements}
             complete={complete}
             customActions={customActions}
@@ -396,7 +376,7 @@ export const PaywallHost = ({ customScreens, requestPermission }: PaywallHostPro
             free, rather than each host having to reimplement both. */}
         {decision.type === "show-custom" && activePaywall && (
           <CustomPaywallContent
-            key={activePaywall.id}
+            key={presentationContentKey(activePaywall.id, resolvePresent)}
             Screen={decision.Screen}
             payload={decision.payload}
             complete={complete}

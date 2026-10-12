@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { Platform } from "react-native";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { OnboardingStudioClient } from "../OnboardingStudioClient";
 import { getPaywallsQuery } from "./getPaywalls.query";
@@ -12,12 +13,12 @@ import {
   resolvePresentDecision,
   selectActiveProductRuntime,
   shouldBreakPresentationWedge,
-  resolvePresentedOutcome,
-  shouldRecordPurchaseOutcome,
+  resolveEndedOutcome,
+  LATE_PURCHASE_TIMEOUT_MS,
   type PurchaseOutcomeDuringPresentation,
 } from "./present";
 import { useProducts } from "../products/useProducts";
-import { ProductProvider, ProductStatus } from "../products/types";
+import { ProductProvider, ProductStatus, type PurchaseResult } from "../products/types";
 import { ProductRuntimeContext } from "../products/ProductRuntimeContext";
 import type { CustomActions } from "../infra/provider/OnboardingProvider";
 import type { CustomPaywallScreens } from "./customScreens";
@@ -33,6 +34,13 @@ import {
   createCatalogSettleWaiter,
   type CatalogSettleWaiter,
 } from "./catalogSettleWaiter";
+import {
+  NOOP_PAYWALL_PRESENTATION,
+  openPaywallPresentation,
+  type PaywallObserver,
+  type PaywallPresentation,
+  type PaywallPresentationSource,
+} from "./observer";
 
 // Module-scope, private to this file — mirrors `OnboardingProvider.tsx:17-23`.
 // `OnboardingProvider`'s QueryClient is not exported, so it cannot be reused
@@ -122,15 +130,44 @@ export type PaywallContextValue = {
    * Resolve the pending `present()` call and clear the active moment.
    * Call this from the presented paywall's `ScreenHost.complete` (Task 7's
    * `PaywallHost`) — never from an ordinary consumer.
+   *
+   * BOUND to the presentation on screen when it was rendered: its identity
+   * changes once per presentation, and a stale copy (a previous paywall's
+   * action chain finishing late) is a no-op rather than closing whatever is on
+   * screen now. Call the `complete` from the CURRENT render; one stashed
+   * across presentations does nothing.
    */
   complete: (result: PresentResult) => void;
   /**
-   * Called by the paywall HOST once the paywall is actually on screen (the UI
-   * host wires this to its Modal's `onShow`) — never by an ordinary consumer.
+   * Called by the paywall HOST once the CURRENT presentation is actually on
+   * screen — never by an ordinary consumer. The provider never acknowledges a
+   * presentation on its own: only the host knows what it renders.
+   *
+   * The contract for a host of its own (the UI package's `PaywallHost` meets
+   * it already):
+   * - Call it from the Modal's `onShow`, which fires when the Modal appears
+   *   and never when the platform refuses to present.
+   * - Call it again when a new presentation takes a Modal you kept mounted
+   *   and `visible` (the previous one ended and the next started in the same
+   *   commit, e.g. an `await present("a")` continuation): `onShow` does not
+   *   fire twice, and without the call that paywall is abandoned after
+   *   `presentAckTimeoutMs` as `host-never-presented`. Only do so if an
+   *   `onShow` arrived while the Modal was visible, during its current
+   *   visible stretch.
+   * - Ignore an `onShow` that arrives while your Modal is hidden. iOS emits it
+   *   from the present completion with no visibility check, so a paywall that
+   *   ended before its slide-in finished delivers it late. Acting on it (or
+   *   counting it as confirmation) vouches for a presentation nobody saw.
+   * - Never call it for a presentation you will not render (a custom screen
+   *   you do not have, elements that fail to parse): it would report a paywall
+   *   nobody saw as shown, and disable the recovery below.
+   * - A Modal re-keyed per presentation needs none of the above: each one
+   *   mounts afresh and fires its own `onShow`.
    *
    * Without it a presentation the platform silently refused is
    * indistinguishable from one the user is reading, and the refused case wedges
    * the surface permanently. See `shouldBreakPresentationWedge` in `present.ts`.
+   * Calling it twice for one presentation is harmless.
    */
   acknowledgePresentation: () => void;
   /** Forwarded into the presented paywall's `ScreenHost.customActions`. */
@@ -146,6 +183,16 @@ export type PaywallContextValue = {
    * already mounts. `PaywallHost`'s own prop still wins for that host.
    */
   customScreens: CustomPaywallScreens;
+  /**
+   * Opens one observed presentation for a surface OTHER than `present()` —
+   * today the inline `Paywall` onboarding step, reported as
+   * `surface: "paywall_step"`. Calls the provider's `observer.start` now and
+   * returns a handle whose `shown`/`end` never throw and reach the observer at
+   * most once / exactly once. A no-op handle when no observer was passed.
+   *
+   * `present()` reports itself; a paywall HOST never calls this for it.
+   */
+  observePresentation: (paywall: PaywallPresentationSource) => PaywallPresentation;
 };
 
 const EMPTY_PAYWALL_CONTEXT: PaywallContextValue = {
@@ -173,6 +220,7 @@ const EMPTY_PAYWALL_CONTEXT: PaywallContextValue = {
   acknowledgePresentation: () => {},
   customActions: EMPTY_CUSTOM_ACTIONS,
   customScreens: EMPTY_CUSTOM_SCREENS,
+  observePresentation: () => NOOP_PAYWALL_PRESENTATION,
 };
 
 /**
@@ -201,11 +249,29 @@ export const PaywallContext = createContext<PaywallContextValue>(EMPTY_PAYWALL_C
  */
 export const usePaywallHost = (): Pick<
   PaywallContextValue,
-  "activePaywall" | "complete" | "acknowledgePresentation" | "customActions" | "customScreens"
+  | "activePaywall"
+  | "complete"
+  | "acknowledgePresentation"
+  | "customActions"
+  | "customScreens"
+  | "observePresentation"
 > => {
-  const { activePaywall, complete, acknowledgePresentation, customActions, customScreens } =
-    useContext(PaywallContext);
-  return { activePaywall, complete, acknowledgePresentation, customActions, customScreens };
+  const {
+    activePaywall,
+    complete,
+    acknowledgePresentation,
+    customActions,
+    customScreens,
+    observePresentation,
+  } = useContext(PaywallContext);
+  return {
+    activePaywall,
+    complete,
+    acknowledgePresentation,
+    customActions,
+    customScreens,
+    observePresentation,
+  };
 };
 
 interface PaywallProviderProps {
@@ -281,6 +347,27 @@ interface PaywallProviderProps {
    * chance to land before a feature is given away.
    */
   registerTimeoutMs?: number;
+  /**
+   * Told about every paywall presentation, so the HOST can send it to its own
+   * analytics — this SDK sends nothing anywhere itself. Optional: omit it and
+   * nothing changes.
+   *
+   * `start(info)` runs once a `present()` call is accepted (never for an
+   * `unknown-moment` or `already-presenting` refusal) and may return a handle;
+   * `handle.shown()` runs when the host confirms the paywall is on screen, and
+   * `handle.end(outcome)` exactly once with the final `present()` result —
+   * including every post-acceptance error, as `status: "error"` with its
+   * `reason`. The inline `Paywall` onboarding step reports through the same
+   * observer with `surface: "paywall_step"`.
+   *
+   * Every call is guarded: an observer that throws, rejects, or returns
+   * something that is not a handle is logged and ignored, and never changes
+   * what `present()` resolves. The types match rocalytics-sdk's
+   * `PaywallObserver`, so its paywall tracker can be passed straight in.
+   *
+   * Read through a ref, so an inline object is fine.
+   */
+  observer?: PaywallObserver;
 }
 
 interface PaywallProviderInnerProps {
@@ -294,7 +381,64 @@ interface PaywallProviderInnerProps {
   customScreens: CustomPaywallScreens;
   presentAckTimeoutMs: number | null;
   registerTimeoutMs: number;
+  observer?: PaywallObserver;
 }
+
+/**
+ * One accepted `present()` presentation, from its start to its single end:
+ * the observer handle, the `present()` resolver, and what the store did during
+ * it (a settled `purchased` sticks, with its key and the paywall bought on;
+ * before one, the last `cancelled` is kept). `pending` counts purchases begun on it and not
+ * yet settled; `timer` bounds the wait when its paywall disappeared with one in
+ * flight.
+ */
+type PresentationRecord = {
+  presentation: PaywallPresentation;
+  resolve: (result: PresentResult) => void;
+  purchaseOutcome: PurchaseOutcomeDuringPresentation;
+  purchasedKey: string | null;
+  purchasedFrom: PaywallPresentationSource | null;
+  pending: number;
+  ended: boolean;
+  timer: ReturnType<typeof setTimeout> | null;
+};
+
+/**
+ * Whether an off-surface record should wait for its purchases rather than end
+ * now: only while one is in flight AND its end is still open. Once a purchase
+ * settled `purchased` the end is fixed (`resolveEndedOutcome`), so nothing a
+ * pending one settles to could change it.
+ */
+const shouldWaitForPurchases = (record: PresentationRecord) =>
+  record.pending > 0 && record.purchaseOutcome !== "purchased";
+
+/**
+ * Keeps an off-surface record open for the purchases still in flight on it:
+ * the purchase wrapper ends it when the last one settles, or this bound does,
+ * `dismissed`. Never cleared by an unmount, so a purchase that never settles
+ * cannot leak it.
+ */
+const waitForPurchases = (record: PresentationRecord) => {
+  record.timer ??= setTimeout(() => endPresentation(record, { status: "dismissed" }), LATE_PURCHASE_TIMEOUT_MS);
+};
+
+/**
+ * The single end of a `present()` presentation: reports to the observer and
+ * resolves `present()` with the same reconciled outcome (`resolveEndedOutcome`:
+ * a settled purchase sticks, otherwise `resolvePresentedOutcome` upgrades a bare
+ * `dismissed` to what the store did — see its doc for why `dismiss`'s own
+ * `{status:"dismissed"}` isn't treated as an unoverridable explicit answer).
+ * Reported before resolving. Idempotent.
+ */
+const endPresentation = (record: PresentationRecord | null, result: PresentResult) => {
+  if (!record || record.ended) return;
+  record.ended = true;
+  if (record.timer) clearTimeout(record.timer);
+  record.timer = null;
+  const outcome = resolveEndedOutcome(result, record.purchaseOutcome);
+  record.presentation.end(outcome, record.purchasedKey, record.purchasedFrom);
+  record.resolve(outcome);
+};
 
 const PaywallProviderInner = ({
   children,
@@ -307,6 +451,7 @@ const PaywallProviderInner = ({
   customScreens,
   presentAckTimeoutMs,
   registerTimeoutMs,
+  observer,
 }: PaywallProviderInnerProps) => {
   // `data` straight off `useQuery` is the single source of truth (Finding 1,
   // 2026-08-17 final review) — react-query's own cache already gets both a
@@ -414,46 +559,94 @@ const PaywallProviderInner = ({
     }
   }, [activePaywall, stripeProductProvider]);
 
-  // Tracks what a purchase attempt resolved to during the CURRENT
-  // presentation — read by `complete()` to upgrade a generic "dismissed"
-  // outcome (see `resolvePresentedOutcome`), reset when a new presentation
-  // starts (`present()`'s "start" branch) so one presentation's purchase
-  // can never leak into the next.
-  const lastPurchaseOutcomeRef = useRef<PurchaseOutcomeDuringPresentation>(null);
+  // The presentation `present()` has on screen: its observer handle, its
+  // resolver and what the store did during it. One record per accepted
+  // `present()`, never reused, so its identity is the purchase race guard below.
+  const presentationRecordRef = useRef<PresentationRecord | null>(null);
+  // The same record as STATE, so the context's `complete` can be bound to the
+  // presentation a render showed (see `completeOnSurface`). State, not the
+  // ref: a same-moment re-present in one batch leaves `activeMoment` equal, and
+  // only a new object identity guarantees the context re-renders with B's
+  // `complete` rather than keeping A's.
+  const [surfaceRecord, setSurfaceRecord] = useState<PresentationRecord | null>(null);
+  const activePaywallRef = useRef(activePaywall);
+  activePaywallRef.current = activePaywall;
 
-  // Monotonic, incremented every time a presentation actually starts (never
-  // on the "immediate" no-op branch). Resetting `lastPurchaseOutcomeRef` at
-  // that same moment is NOT enough to stop a stale write: paywall A's
-  // `purchase()` can still be in flight when the user dismisses A and
-  // paywall B is presented (which resets the ref); if A's promise settles
-  // AFTER that reset, an unconditional write would land "purchased" in what
-  // is now B's tracker. `purchase()` below captures the generation it
-  // started in and only writes if that generation is still current — see
-  // `shouldRecordPurchaseOutcome`. DO NOT remove the guard because the write
-  // "looks" unconditional; that is exactly the race it closes.
-  const presentationGenerationRef = useRef(0);
-
-  // Wraps `productRuntime.purchase` to record the outcome above (race-guarded
-  // — see `presentationGenerationRef`); every other field (and — critically —
-  // the object's change cadence, since `products.purchasing` flips must
-  // still propagate) is untouched. `productRuntime.purchase` is itself
+  // Wraps `productRuntime.purchase` to record the outcome on the presentation
+  // the purchase STARTED on; every other field (and — critically — the
+  // object's change cadence, since `products.purchasing` flips must still
+  // propagate) is untouched. `productRuntime.purchase` is itself
   // `useCallback(…, [])`-stable (`useProducts.ts`), so this wrapper never
   // changes identity either.
-  const purchase = useCallback(
-    async (key: string) => {
-      const startedInGeneration = presentationGenerationRef.current;
+  //
+  // The race guard: binding to the record captured BEFORE the await is what
+  // stops a stale write. Paywall A's purchase can still be in flight when the
+  // user dismisses A and B is presented; when A's promise settles it reaches
+  // A's record, which has ended, and is dropped — it never lands in B's. DO NOT
+  // read `presentationRecordRef` after the await because it "looks" the same;
+  // that is exactly the race. A record still waiting after its paywall
+  // disappeared has not ended, so its purchase is recorded there and ends it.
+  //
+  // The paywall a purchase was made ON is read at the start too: a background
+  // revalidation can swap the moment's variant mid-presentation, which stays
+  // credited to the variant shown first, but the bought slot's store id is the
+  // swapped-in variant's, and that id is what joins to revenue.
+  //
+  // A purchase with no presentation on screen (the inline step's, which tracks
+  // its own) is recorded nowhere.
+  const purchaseOn = useCallback(
+    async (record: PresentationRecord | null, key: string): Promise<PurchaseResult> => {
+      // Bound like `complete` (see `completeOnSurface`): a purchase requested
+      // through a presentation that is no longer on the surface — a stale
+      // action chain resuming after its paywall closed, e.g. a `custom` or
+      // `requestPermission` step followed by `purchase` — never opens the
+      // store over whatever is showing now, and records nothing anywhere.
+      // The action engine never gets here for a stale chain (it checks
+      // `presentationEnded` first and ends the chain); this `cancelled` is for
+      // a direct caller, such as a custom screen.
+      if (record && presentationRecordRef.current !== record) {
+        console.warn(
+          "[paywalls] A purchase was requested by a paywall that is no longer on screen; " +
+            "it was not started and resolves as cancelled."
+        );
+        return { status: "cancelled" };
+      }
+      const madeOn = activePaywallRef.current;
+      if (record) record.pending += 1;
       const result = await productRuntime.purchase(key);
+      if (!record || record.ended) return result;
+      record.pending -= 1;
       const outcome = purchaseOutcomeFromResult(result);
-      if (outcome && shouldRecordPurchaseOutcome(startedInGeneration, presentationGenerationRef.current)) {
-        lastPurchaseOutcomeRef.current = outcome;
+      // A settled purchase sticks — see `resolveEndedOutcome`.
+      if (outcome && record.purchaseOutcome !== "purchased") {
+        record.purchaseOutcome = outcome;
+        record.purchasedKey = result.status === "purchased" ? result.productKey : null;
+        record.purchasedFrom = result.status === "purchased" ? madeOn : null;
+      }
+      // Off screen (closed, or its paywall disappeared) and nothing else in
+      // flight: this was the purchase it was waiting for.
+      if (record.pending === 0 && presentationRecordRef.current !== record) {
+        endPresentation(record, { status: "dismissed" });
       }
       return result;
     },
     [productRuntime.purchase]
   );
+  // The runtime every renderer reads, its `purchase` bound to the record on
+  // the surface when it was rendered (null with no `present()` showing, which
+  // records nothing: the inline step tracks its own).
+  //
+  // `presentationEnded` is the same test `purchaseOn` refuses on, built from
+  // the same captured record, so the action engine's check and the refusal
+  // cannot disagree: a stale chain stops at its `purchase` instead of reading
+  // the refusal's `cancelled` as the user's and running `onCancel`.
   const productRuntimeWithPurchaseTracking = useMemo(
-    () => ({ ...productRuntime, purchase }),
-    [productRuntime, purchase]
+    () => ({
+      ...productRuntime,
+      purchase: (key: string) => purchaseOn(surfaceRecord, key),
+      presentationEnded: () => surfaceRecord !== null && presentationRecordRef.current !== surfaceRecord,
+    }),
+    [productRuntime, purchaseOn, surfaceRecord]
   );
 
   // `activeMoment`'s `useState` was hoisted above `productRefs` — see the
@@ -488,7 +681,7 @@ const PaywallProviderInner = ({
   // issued in the same tick (`Promise.all([present("a"), present("b")])`, or
   // two `presentPaywall` actions in one action list) both read the stale ref,
   // both take the "start" branch, and the second overwrites
-  // `pendingResolveRef` — the first promise then never settles, exactly the
+  // the first one's record — that promise then never settles, exactly the
   // orphaning this whole ref/resolver scheme exists to prevent. Assigning
   // synchronously inside `present`/`complete` closes that window; this
   // render-body line stays only as a resync for the (rare) case something
@@ -496,7 +689,10 @@ const PaywallProviderInner = ({
   // callback.
   const activeMomentRef = useRef(activeMoment);
   activeMomentRef.current = activeMoment;
-  const pendingResolveRef = useRef<((result: PresentResult) => void) | null>(null);
+  // Ref so `present`/`complete`/`acknowledgePresentation` keep empty deps while
+  // reading the CURRENT prop — hosts will pass an inline object.
+  const observerRef = useRef(observer);
+  observerRef.current = observer;
 
   // present() must not fetch anything — the catalog and products are already
   // resolved (or resolving) from mount. It only decides, synchronously,
@@ -506,22 +702,40 @@ const PaywallProviderInner = ({
     if (decision.type === "immediate") {
       return Promise.resolve(decision.result);
     }
-    // Fresh presentation: no purchase has happened under it yet, and any
-    // still-in-flight purchase from a PREVIOUS presentation must not be
-    // allowed to write into this one — see `presentationGenerationRef`.
-    lastPurchaseOutcomeRef.current = null;
-    presentationGenerationRef.current += 1;
+    // A fresh record: no purchase has happened under it yet, and a purchase
+    // still in flight from a PREVIOUS presentation is bound to that one's
+    // record, never this — see the `purchase` wrapper. Only the "start"
+    // decision reaches here: refusals return above, before anything is
+    // reported (contract rule P1). The handle holds its OWN copy of the
+    // paywall, because by the end `activePaywall` can already be null — that
+    // is exactly the `paywall-disappeared` case.
+    const record: PresentationRecord = {
+      presentation: openPaywallPresentation(observerRef.current, decision.paywall, "present", Platform.OS),
+      resolve: () => {},
+      purchaseOutcome: null,
+      purchasedKey: null,
+      purchasedFrom: null,
+      pending: 0,
+      ended: false,
+      timer: null,
+    };
+    presentationRecordRef.current = record;
     // Authoritative NOW, synchronously — see the ref's doc above. A second
     // `present()` call before React commits reads this value, not the stale
     // pre-commit state, and correctly takes the "already showing" branch.
     activeMomentRef.current = moment;
     return new Promise<PresentResult>((resolve) => {
-      pendingResolveRef.current = resolve;
+      record.resolve = resolve;
       // A new presentation is unacknowledged until the host says otherwise —
       // reset before it starts, or the previous presentation's confirmation
-      // would vouch for this one and disable the recovery.
+      // would vouch for this one and disable the recovery. No exception, not
+      // even a successor taking a Modal that stays visible in the same commit:
+      // only the host knows whether it will render it (an unregistered custom
+      // screen or an element list that fails to parse never does), so the
+      // host acknowledges that case too — see `acknowledgePresentation`.
       setHostAcknowledged(false);
       setActiveMoment(moment);
+      setSurfaceRecord(record);
     });
   }, []);
 
@@ -561,18 +775,11 @@ const PaywallProviderInner = ({
     [present, registerTimeoutMs]
   );
 
-  // Called by PaywallHost (Task 7) from the presented paywall's
-  // `ScreenHost.complete`. Resolves whatever `present()` call is pending and
-  // clears the active moment, hiding the Modal and allowing a new
-  // `present()` to start. Safe to call with nothing pending (no-ops).
-  //
-  // `resolvePresentedOutcome` upgrades a bare "dismissed" to "purchased" (or
-  // "cancelled") when the store actually did something during this
-  // presentation — see its doc for why `dismiss`'s own `{status:"dismissed"}`
-  // isn't treated as an unoverridable explicit answer.
-  const complete = useCallback((result: PresentResult) => {
-    const resolve = pendingResolveRef.current;
-    pendingResolveRef.current = null;
+  // Frees the surface — clears the active moment, hiding the Modal and
+  // allowing a new `present()` — and hands back the record that was on it.
+  const releaseSurface = useCallback((): PresentationRecord | null => {
+    const record = presentationRecordRef.current;
+    presentationRecordRef.current = null;
     // Authoritative NOW, synchronously — same reasoning as `present()`'s
     // assignment above: a `present()` issued from the resolution continuation
     // (`const r = await present("a"); … present("downsell")` — a downsell
@@ -581,15 +788,71 @@ const PaywallProviderInner = ({
     // next commit.
     activeMomentRef.current = null;
     setActiveMoment(null);
+    setSurfaceRecord(null);
     setHostAcknowledged(false);
-    resolve?.(resolvePresentedOutcome(result, lastPurchaseOutcomeRef.current));
+    return record;
   }, []);
+
+  // Called by PaywallHost (Task 7) from the presented paywall's
+  // `ScreenHost.complete`. Resolves whatever `present()` call is pending and
+  // clears the active moment, hiding the Modal and allowing a new
+  // `present()` to start. Safe to call with nothing pending (no-ops).
+  //
+  // The end is reconciled with what the store did during this presentation
+  // (`resolveEndedOutcome`, in `endPresentation`).
+  const complete = useCallback(
+    (result: PresentResult) => {
+      // The RECONCILED outcome (`endPresentation`), so a dismiss the store
+      // upgraded to a purchase is reported as one. Every post-acceptance error
+      // funnels through here too (`host-never-presented`, the host's
+      // parse/render errors) — every one but `paywall-disappeared`, whose effect
+      // below may wait for a purchase first. Ended with the record already off
+      // the surface, so a downsell `present()` issued from the resolution starts
+      // a clean presentation.
+      //
+      // A CLOSE (`dismissed`) with a purchase in flight waits for it, as an
+      // inline step's blur does (owner ruling on #286): the surface is freed
+      // now, and the record ends with the store outcome when it settles. Any
+      // other reported end is the host's explicit answer and ends at once.
+      const record = releaseSurface();
+      if (record && !record.ended && result.status === "dismissed" && shouldWaitForPurchases(record)) {
+        waitForPurchases(record);
+        return;
+      }
+      endPresentation(record, result);
+    },
+    [releaseSurface]
+  );
+
+  // What the context hands the host as `complete`: bound to the record this
+  // render showed. A paywall's action chain can outlive its presentation — a
+  // `{purchase, onSuccess:[dismiss]}` whose purchase settles after the Modal
+  // closed or the paywall disappeared, while a downsell (or the host's
+  // `await present()` continuation) has opened the next one — and its trailing
+  // `dismiss` must not end THAT one. `ScreenRenderer` reads `complete` at call
+  // time, so `PaywallHost` also keys its content per presentation.
+  const completeOnSurface = useCallback(
+    (result: PresentResult) => {
+      if (!surfaceRecord || presentationRecordRef.current !== surfaceRecord) return;
+      complete(result);
+    },
+    [surfaceRecord, complete]
+  );
 
   // Stable (empty deps) like `present`/`complete`: the host wires this straight
   // into a Modal prop, and an identity change per render would churn it.
   const acknowledgePresentation = useCallback(() => {
     setHostAcknowledged(true);
+    // The handle's `shown()` reaches the observer at most once and never
+    // throws, so a second acknowledgement of one presentation is harmless.
+    presentationRecordRef.current?.presentation.shown();
   }, []);
+
+  const observePresentation = useCallback(
+    (paywall: PaywallPresentationSource) =>
+      openPaywallPresentation(observerRef.current, paywall, "paywall_step", Platform.OS),
+    []
+  );
 
   // `activePaywall` was hoisted above `productRefs` — see the comment there
   // (Finding 6, 2026-08-17 final review) for why it is derived from
@@ -601,10 +864,28 @@ const PaywallProviderInner = ({
   // `present()` call with `"error"` for the rest of the app's life.
   // `complete()` always clears `activeMoment` together with resolving the
   // pending promise, so it cannot race with or double-resolve this branch.
+  //
+  // A purchase wins over the disappearance (owner decision on #286) — a host
+  // that sets a user property on purchase changes the query key, which is
+  // exactly this case. The surface is freed either way (the Modal has nothing
+  // to render, and holding `activeMoment` would answer every other
+  // `present()` with `already-presenting`), but the record is not ended yet if
+  // a purchase is in flight: it waits for it, as an inline step waits after a
+  // blur, bounded by `LATE_PURCHASE_TIMEOUT_MS`, then ends with the store's
+  // outcome. One that already settled `purchased` ends it `purchased`. Only
+  // with neither does it end `paywall-disappeared`, at once.
   useEffect(() => {
     if (!activeMoment || activePaywall) return;
-    complete({ status: "error", reason: "paywall-disappeared" });
-  }, [activeMoment, activePaywall, complete]);
+    const record = releaseSurface();
+    if (!record || record.ended) return;
+    if (shouldWaitForPurchases(record)) {
+      waitForPurchases(record);
+      return;
+    }
+    // A purchase that already settled turns this into `purchased`
+    // (`resolveEndedOutcome`).
+    endPresentation(record, { status: "error", reason: "paywall-disappeared" });
+  }, [activeMoment, activePaywall, releaseSurface]);
 
   // The OTHER way a presentation never completes, and the one the guard above
   // structurally cannot catch: `activePaywall` is perfectly non-null — the
@@ -652,10 +933,11 @@ const PaywallProviderInner = ({
       isProviderMounted: true,
       productsStatus: productRuntime.status,
       activePaywall,
-      complete,
+      complete: completeOnSurface,
       acknowledgePresentation,
       customActions,
       customScreens,
+      observePresentation,
     }),
     [
       present,
@@ -665,10 +947,11 @@ const PaywallProviderInner = ({
       catalogStatus,
       productRuntime.status,
       activePaywall,
-      complete,
+      completeOnSurface,
       acknowledgePresentation,
       customActions,
       customScreens,
+      observePresentation,
     ]
   );
 
@@ -712,6 +995,7 @@ export const PaywallProvider = ({
   customScreens = EMPTY_CUSTOM_SCREENS,
   presentAckTimeoutMs = DEFAULT_PRESENT_ACK_TIMEOUT_MS,
   registerTimeoutMs = DEFAULT_REGISTER_TIMEOUT_MS,
+  observer,
 }: PaywallProviderProps) => {
   // Prop wins, else whatever `OnboardingStudio.init()` built. Read during render,
   // so `init()` must run before the first render — at module scope.
@@ -739,6 +1023,7 @@ export const PaywallProvider = ({
         customScreens={customScreens}
         presentAckTimeoutMs={presentAckTimeoutMs}
         registerTimeoutMs={registerTimeoutMs}
+        observer={observer}
       >
         {children}
       </PaywallProviderInner>

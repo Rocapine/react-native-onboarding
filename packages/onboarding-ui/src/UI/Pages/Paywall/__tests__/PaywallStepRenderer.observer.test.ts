@@ -85,6 +85,8 @@ vi.mock("../../../Runtime/ScreenRenderer", () => ({
 
 const { OnboardingProgressContext: HeadlessProgressContext } = await import("@rocapine/react-native-onboarding");
 const { PaywallStepRenderer } = await import("../Renderer");
+// The real headless handle, by source path, for the tests that need its sanitizer.
+const { openPaywallPresentation } = await import("../../../../../../onboarding/src/paywalls/observer");
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -393,5 +395,207 @@ describe("PaywallStepRenderer — late purchase (owner decision: count it)", () 
       ["shown", "pw-a"],
       ["end", "pw-a", { status: "dismissed" }, null],
     ]);
+  });
+});
+
+describe("PaywallStepRenderer — a custom screen's transaction (#287)", () => {
+  const TX = { originalTransactionIdentifier: "2000000123", productId: "com.app.annual.ios" };
+  const fullRecorder = () => {
+    const ends: unknown[][] = [];
+    h.observePresentation = () => ({ shown: () => {}, end: (...args: unknown[]) => void ends.push(args) });
+    return ends;
+  };
+  let complete: (o?: { status?: string; transaction?: unknown }) => void = () => {};
+  const Screen = (props: { complete: typeof complete }) => {
+    complete = props.complete;
+    return null;
+  };
+  const showCustom = async (nav?: ReturnType<typeof focusController>) => {
+    setCatalog(paywall("pw-a", { renderMode: "custom", customScreenId: "s", elements: [] }), { s: Screen });
+    await render(nav);
+  };
+
+  it("forwards complete({ status: purchased, transaction }) to end() and advances", async () => {
+    const ends = fullRecorder();
+    await showCustom();
+    await act(async () => complete({ status: "purchased", transaction: TX }));
+    expect(onContinue).toHaveBeenCalledTimes(1);
+    expect(ends).toEqual([[{ status: "purchased" }, null, null, TX]]);
+  });
+
+  it("drops it with dismissed or cancelled: the gate holds and the end carries none", async () => {
+    for (const status of ["dismissed", "cancelled"]) {
+      const ends = fullRecorder();
+      await showCustom();
+      await act(async () => complete({ status, transaction: TX }));
+      expect(onContinue).not.toHaveBeenCalled();
+      await unmount();
+      expect(ends).toHaveLength(1);
+      expect(ends[0][0]).toEqual({ status });
+      expect(ends[0][3]).toBeUndefined();
+    }
+  });
+
+  it("does nothing with a complete after the step was left, transaction included", async () => {
+    const ends = fullRecorder();
+    const nav = focusController();
+    await showCustom(nav);
+    await nav.blur();
+    await act(async () => complete({ status: "purchased", transaction: TX }));
+    expect(ends).toEqual([[{ status: "dismissed" }, null, null, undefined]]);
+  });
+
+  it("never forwards one from the elements path's ScreenHost.complete", async () => {
+    const ends = fullRecorder();
+    setCatalog(paywall("pw-a"));
+    await render();
+    await act(async () => h.host.complete({ status: "purchased", transaction: TX }));
+    expect(ends).toHaveLength(1);
+    expect(ends[0][3]).toBeUndefined();
+  });
+});
+
+describe("PaywallStepRenderer — round 2 on a custom screen's transaction (#287)", () => {
+  afterEach(() => vi.restoreAllMocks());
+  const TX = { originalTransactionIdentifier: "2000000123", productId: "com.app.annual.ios" };
+  let complete: (o?: unknown) => void = () => {};
+  const Screen = (props: { complete: typeof complete }) => {
+    complete = props.complete;
+    return null;
+  };
+  const showCustom = async (nav?: ReturnType<typeof focusController>) => {
+    setCatalog(paywall("pw-a", { renderMode: "custom", customScreenId: "s", elements: [] }), { s: Screen });
+    await render(nav);
+  };
+  const realObserver = () => {
+    const ends: unknown[] = [];
+    const observer = { start: () => ({ shown: () => {}, end: (o: unknown) => void ends.push(o) }) };
+    h.observePresentation = (p: any) => openPaywallPresentation(observer, p, "paywall_step", "ios");
+    return ends;
+  };
+
+  it("still advances, and ends once without a transaction, when the transaction throws when read", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const revocable = Proxy.revocable({}, {});
+    revocable.revoke();
+    const throwingGetter = Object.defineProperty({ status: "purchased" }, "transaction", {
+      get() {
+        throw new Error("getter bug");
+      },
+    });
+    for (const outcome of [{ status: "purchased", transaction: revocable.proxy }, throwingGetter]) {
+      const ends = realObserver();
+      await showCustom();
+      await act(async () => complete(outcome));
+      expect(onContinue).toHaveBeenCalledTimes(1);
+      expect(ends).toEqual([{ status: "purchased" }]);
+      await unmount();
+      onContinue.mockClear();
+    }
+    expect(warn).toHaveBeenCalled();
+  });
+
+  it("warns once when it drops a transaction passed with a status other than purchased", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    realObserver();
+    await showCustom();
+    await act(async () => complete({ status: "dismissed", transaction: TX }));
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  const perVisit = () => {
+    const ends: Array<[string, unknown[]]> = [];
+    let n = 0;
+    h.observePresentation = () => {
+      const visit = `v${++n}`;
+      return { shown: () => {}, end: (...args: unknown[]) => void ends.push([visit, args]) };
+    };
+    return ends;
+  };
+
+  it("a stale visit-1 purchased while visit 2 is focused advances, with a warning, but neither ends visit 2 nor carries its transaction", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const ends = perVisit();
+    const nav = focusController();
+    await showCustom(nav);
+    const lateFromVisit1 = complete;
+    await nav.blur();
+    await nav.focus();
+    await act(async () => lateFromVisit1({ status: "purchased", transaction: TX }));
+    expect(onContinue).toHaveBeenCalledTimes(1);
+    expect(ends).toEqual([["v1", [{ status: "dismissed" }, null, null, undefined]]]);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).toContain("earlier visit");
+    // The visit-2 screen's own complete still ends visit 2, with its
+    // transaction, but does not advance a second time (round 4).
+    await act(async () => complete({ status: "purchased", transaction: TX }));
+    expect(onContinue).toHaveBeenCalledTimes(1);
+    expect(ends[1]).toEqual(["v2", [{ status: "purchased" }, null, null, TX]]);
+  });
+
+  for (const order of ["stale first", "current first"] as const) {
+    it(`advances once per visit when a stale purchased and visit 2's own land in one tick (${order})`, async () => {
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      const ends = perVisit();
+      const nav = focusController();
+      await showCustom(nav);
+      const lateFromVisit1 = complete;
+      await nav.blur();
+      await nav.focus();
+      const current = complete;
+      await act(async () => {
+        if (order === "stale first") {
+          lateFromVisit1({ status: "purchased" });
+          current({ status: "purchased", transaction: TX });
+        } else {
+          current({ status: "purchased", transaction: TX });
+          lateFromVisit1({ status: "purchased" });
+        }
+      });
+      expect(onContinue).toHaveBeenCalledTimes(1);
+      expect(ends).toEqual([
+        ["v1", [{ status: "dismissed" }, null, null, undefined]],
+        ["v2", [{ status: "purchased" }, null, null, TX]],
+      ]);
+    });
+  }
+
+  it("resets the once-per-visit advance on the next visit", async () => {
+    const ends = perVisit();
+    const nav = focusController();
+    await showCustom(nav);
+    await act(async () => complete({ status: "purchased" }));
+    await nav.blur();
+    await nav.focus();
+    await act(async () => complete({ status: "purchased" }));
+    expect(onContinue).toHaveBeenCalledTimes(2);
+    expect(ends.map(([v]) => v)).toEqual(["v1", "v2"]);
+  });
+
+  it("a stale visit-1 purchased while the step is blurred does nothing", async () => {
+    const ends = perVisit();
+    const nav = focusController();
+    await showCustom(nav);
+    const lateFromVisit1 = complete;
+    await nav.blur();
+    await act(async () => lateFromVisit1({ status: "purchased", transaction: TX }));
+    expect(onContinue).not.toHaveBeenCalled();
+    expect(ends).toEqual([["v1", [{ status: "dismissed" }, null, null, undefined]]]);
+  });
+
+  it("a stale visit-1 dismissed while visit 2 is focused does nothing", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const ends = perVisit();
+    const nav = focusController();
+    await showCustom(nav);
+    const lateFromVisit1 = complete;
+    await nav.blur();
+    await nav.focus();
+    for (const outcome of [{ status: "dismissed", transaction: TX }, { status: "cancelled" }, undefined]) {
+      await act(async () => lateFromVisit1(outcome));
+    }
+    expect(onContinue).not.toHaveBeenCalled();
+    expect(ends).toEqual([["v1", [{ status: "dismissed" }, null, null, undefined]]]);
+    expect(warn).not.toHaveBeenCalled();
   });
 });

@@ -741,3 +741,126 @@ describe("PaywallProvider observer — observePresentation (the inline step's se
     ]);
   });
 });
+
+describe("PaywallProvider observer — complete() carries a custom screen's transaction (#287)", () => {
+  const tx = { originalTransactionIdentifier: "2000000123", productId: "com.app.annual.ios" };
+
+  const presentUpgrade = async (captured: Captured) => {
+    let settled: unknown;
+    await act(async () => {
+      captured.ctx.present("upgrade").then((r) => (settled = r));
+    });
+    await settle();
+    return () => settled;
+  };
+
+  it("forwards it, sanitized, to end() and leaves present()'s result unchanged", async () => {
+    const { observer, calls } = recordingObserver();
+    const { captured } = await mount({ observer });
+    const settled = await presentUpgrade(captured);
+    await act_(() => captured.ctx.complete({ status: "purchased" }, { ...tx, restored: "no", extra: 1 } as any));
+    expect(settled()).toEqual({ status: "purchased" });
+    expect(calls[calls.length - 1]).toEqual(["end", { status: "purchased", transaction: tx }]);
+  });
+
+  it("drops it when the screen reports anything other than purchased", async () => {
+    for (const status of ["dismissed", "cancelled"] as const) {
+      const { observer, calls } = recordingObserver();
+      const { captured } = await mount({ observer });
+      const settled = await presentUpgrade(captured);
+      await act_(() => captured.ctx.complete({ status }, tx));
+      expect(settled()).toEqual({ status });
+      expect(calls[calls.length - 1]).toEqual(["end", { status }]);
+      await act(async () => root!.unmount());
+      root = null;
+    }
+  });
+
+  it("drops it with a cancelled report even when a recorded purchase makes the end purchased", async () => {
+    const { observer, calls } = recordingObserver();
+    const { captured } = await mount({ observer });
+    const settled = await presentUpgrade(captured);
+    await act_(() => captured.runtime!.purchase("annual"));
+    await act_(() => captured.ctx.complete({ status: "cancelled" }, { originalTransactionIdentifier: "2000000123" }));
+    expect(settled()).toEqual({ status: "purchased" });
+    expect(calls[calls.length - 1]).toEqual([
+      "end",
+      { status: "purchased", transaction: { productId: "com.app.annual.ios" } },
+    ]);
+  });
+
+  it("adds the screen's ids to a recorded purchase only when it names the same product", async () => {
+    const { observer, calls } = recordingObserver();
+    const { captured } = await mount({ observer });
+    await presentUpgrade(captured);
+    await act_(() => captured.runtime!.purchase("annual"));
+    await act_(() => captured.ctx.complete({ status: "purchased" }, tx));
+    expect(calls[calls.length - 1]).toEqual(["end", { status: "purchased", transaction: tx }]);
+  });
+
+  it("drops the screen's ids, with a warning, when they name no product and a purchase is recorded", async () => {
+    const { observer, calls } = recordingObserver();
+    const { captured } = await mount({ observer });
+    await presentUpgrade(captured);
+    await act_(() => captured.runtime!.purchase("annual"));
+    vi.mocked(console.warn).mockClear();
+    await act_(() => captured.ctx.complete({ status: "purchased" }, { originalTransactionIdentifier: "2000000123" }));
+    expect(calls[calls.length - 1]).toEqual([
+      "end",
+      { status: "purchased", transaction: { productId: "com.app.annual.ios" } },
+    ]);
+    expect(console.warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("warns once when it drops a transaction reported with a status other than purchased", async () => {
+    const { observer } = recordingObserver();
+    const { captured } = await mount({ observer });
+    await presentUpgrade(captured);
+    vi.mocked(console.warn).mockClear();
+    await act_(() => captured.ctx.complete({ status: "dismissed" }, tx));
+    expect(console.warn).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(console.warn).mock.calls[0][0]).toContain("dismissed");
+  });
+
+  it("still resolves present() and ends once when the transaction throws when read", async () => {
+    const revocable = Proxy.revocable({}, {});
+    revocable.revoke();
+    const throwing = Object.defineProperty({}, "productId", {
+      enumerable: true,
+      get() {
+        throw new Error("getter bug");
+      },
+    });
+    for (const hostile of [revocable.proxy, throwing]) {
+      const { observer, calls } = recordingObserver();
+      const { captured } = await mount({ observer });
+      const settled = await presentUpgrade(captured);
+      await act_(() => captured.ctx.complete({ status: "purchased" }, hostile as any));
+      expect(settled()).toEqual({ status: "purchased" });
+      expect(calls.filter(([n]) => n === "end")).toEqual([["end", { status: "purchased" }]]);
+      expect(captured.ctx.activePaywall).toBeNull();
+      await act(async () => root!.unmount());
+      root = null;
+    }
+  });
+
+  it("is a no-op from a stale complete, transaction included", async () => {
+    const { observer, calls } = recordingObserver();
+    const { captured } = await mount({ observer });
+    await presentUpgrade(captured);
+    const staleComplete = captured.ctx.complete;
+    await act_(() => staleComplete({ status: "dismissed" }));
+    let downsell: unknown;
+    await act(async () => {
+      captured.ctx.present("downsell").then((r) => (downsell = r));
+    });
+    await settle();
+    await act_(() => staleComplete({ status: "purchased" }, tx));
+    expect(downsell).toBeUndefined();
+    expect(captured.ctx.activePaywall?.moment).toBe("downsell");
+    expect(calls.filter(([n]) => n === "end")).toEqual([["end", { status: "dismissed" }]]);
+    await act_(() => captured.ctx.complete({ status: "dismissed" }));
+    expect(downsell).toEqual({ status: "dismissed" });
+    expect(calls[calls.length - 1]).toEqual(["end", { status: "dismissed" }]);
+  });
+});

@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useMemo } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import {
   OnboardingProgressContext as HeadlessProgressContext,
@@ -6,11 +6,13 @@ import {
   usePaywall,
   usePaywallHost,
 } from "@rocapine/react-native-onboarding";
+import type { CustomPaywallScreenProps } from "@rocapine/react-native-onboarding";
 import { PaywallStepTypeSchema, type PaywallStepType } from "./types";
 import type { OnboardingStepType } from "../../types";
 import { resolvePaywallStepDecision } from "./resolvePaywallStepDecision";
 import { shouldAdvanceOnComplete } from "./shouldAdvanceOnComplete";
 import { usePaywallStepObservation } from "./usePaywallStepObservation";
+import { takeTransaction } from "../../Paywall/presentationBinding";
 import { ErrorBoundary, withErrorBoundary } from "../../ErrorBoundary";
 import { OnboardingTemplate } from "../../Templates/OnboardingTemplate";
 import {
@@ -122,7 +124,7 @@ const PaywallStepRendererBase = ({
   // for the whole lifecycle. Declared BEFORE the skip effect below, so a
   // paywall that resolves and then cannot render is started before it is failed.
   const renderable = isCustom ? Boolean(CustomScreen) : Boolean(parsedElements?.success);
-  const observation = usePaywallStepObservation(observePresentation, paywall, {
+  const { beginPurchase, advance, fail, visit, isCurrentVisit, isVisiting, currentVisit } = usePaywallStepObservation(observePresentation, paywall, {
     renderable,
     useFocusEffect: navigation?.useFocusEffect,
   });
@@ -167,7 +169,7 @@ const PaywallStepRendererBase = ({
           `SKIPPING the step so the user is not trapped. Registered ids: ${registered || "(none)"}. ` +
           "Pass the screen via <PaywallProvider customScreens={{ … }} />.",
       );
-      observation.fail("unknown-custom-screen");
+      fail("unknown-custom-screen");
       onContinue();
       return;
     }
@@ -178,7 +180,7 @@ const PaywallStepRendererBase = ({
           "in the authored paywall — fix it in the studio.",
         parsedElements.error,
       );
-      observation.fail("parse-error");
+      fail("parse-error");
       onContinue();
     }
   }, [
@@ -192,7 +194,7 @@ const PaywallStepRendererBase = ({
     customScreens,
     parsedElements,
     onContinue,
-    observation,
+    fail,
   ]);
 
   const setVariableAndSync = useCallback(
@@ -205,20 +207,72 @@ const PaywallStepRendererBase = ({
 
   // THE GATE. `ScreenHost.complete` is how every authored action reports an
   // outcome, so filtering here is what makes "only a purchase advances" true
-  // without tracking purchases anywhere. A custom screen is handed the same
-  // callback, so the gate applies identically to it.
+  // without tracking purchases anywhere. A custom screen gets `completeCustom`
+  // below, the same gate plus its transaction, so the gate applies identically
+  // to it.
   const complete = useCallback(
     (outcome?: CompleteOutcome) => {
       // A custom screen's own `complete({status:"cancelled"})` never passes the
       // gate, but it is the store outcome `present()` would report, so record
       // it before the gate (r1-6). An elements purchase is already recorded by
       // `observedProducts` below; recording it twice is harmless (a settled purchase is never overwritten).
-      if (outcome?.status === "cancelled") observation.beginPurchase()(outcome);
+      if (outcome?.status === "cancelled") beginPurchase()(outcome);
       if (!shouldAdvanceOnComplete(outcome)) return;
-      observation.advance(outcome);
+      // Status only: the elements path never reports a transaction (#287).
+      advance(outcome && { status: outcome.status });
       onContinue();
     },
-    [onContinue, observation],
+    [onContinue, beginPurchase, advance],
+  );
+
+  // A custom screen's `complete`, the only one that may carry the purchase
+  // `transaction` its billing SDK made (#287). Same gate and recording as
+  // `complete` above; the transaction rides on the advance, which forwards it
+  // only with `purchased`. Separate so an authored or custom action on the
+  // elements path cannot report one through the open `CompleteOutcome`.
+  //
+  // BOUND TO ITS VISIT (#287 round 2), as `PaywallProvider` binds the Modal's
+  // `complete` to its presentation: a Stack keeps this step mounted after a
+  // blur, so a screen's async purchase from one visit can call the `complete`
+  // it captured after the user came back. That call never ends the visit on
+  // screen now and never carries its transaction there (it describes a
+  // purchase visit 2 did not show). One exception, so a payer is never
+  // stranded (round 3): a stale `purchased` still advances, but only while the
+  // step is focused, so it never navigates from a screen the user is not on.
+  // Every other stale call does nothing. `takeTransaction` reads the
+  // transaction so a throwing one costs only itself.
+  //
+  // AT MOST ONE `onContinue` PER VISIT on this path (round 4), whichever branch
+  // gets there first: a stale `purchased` and the current visit's own landing
+  // in one tick would otherwise advance a push-based router two steps. The
+  // current visit's call still ends its presentation either way. Keyed by
+  // visit id, so the next visit starts fresh.
+  const advancedOnVisit = useRef<number | null>(null);
+  const completeCustom = useCallback<CustomPaywallScreenProps["complete"]>(
+    (outcome) => {
+      const continueOnce = (v: number) => {
+        if (advancedOnVisit.current === v) return;
+        advancedOnVisit.current = v;
+        onContinue();
+      };
+      if (!isCurrentVisit(visit)) {
+        const now = currentVisit();
+        if (outcome?.status === "purchased" && isVisiting() && advancedOnVisit.current !== now) {
+          console.warn(
+            "[Paywall step] A custom screen reported a purchase from an earlier visit of this step; " +
+              "advancing so the user is not stranded, without reporting it on the visit now on screen.",
+          );
+          continueOnce(now);
+        }
+        return;
+      }
+      const transaction = takeTransaction(outcome);
+      if (outcome?.status === "cancelled") beginPurchase()(outcome);
+      if (!shouldAdvanceOnComplete(outcome)) return;
+      advance(outcome && { status: outcome.status, transaction });
+      continueOnce(visit);
+    },
+    [onContinue, beginPurchase, advance, isCurrentVisit, isVisiting, currentVisit, visit],
   );
 
   // The step's own purchases, recorded so the observer's `end()` reports what
@@ -234,7 +288,7 @@ const PaywallStepRendererBase = ({
       products && {
         ...products,
         purchase: async (key: string) => {
-          const record = observation.beginPurchase();
+          const record = beginPurchase();
           let result: Awaited<ReturnType<typeof products.purchase>>;
           try {
             result = await products.purchase(key);
@@ -249,7 +303,7 @@ const PaywallStepRendererBase = ({
           return result;
         },
       },
-    [products, observation],
+    [products, beginPurchase],
   );
 
   const host: ScreenHost = useMemo(
@@ -306,7 +360,7 @@ const PaywallStepRendererBase = ({
     <ErrorBoundary
       key={paywall.id}
       stepType="PaywallStep"
-      onError={() => observation.fail("render-error")}
+      onError={() => fail("render-error")}
     >
       <OnboardingTemplate
         step={validated as unknown as OnboardingStepType}
@@ -324,7 +378,7 @@ const PaywallStepRendererBase = ({
     return template(
       <CustomScreen
         payload={paywall.customPayload ?? {}}
-        complete={complete}
+        complete={completeCustom}
         paywall={{
           id: paywall.id,
           name: paywall.name,

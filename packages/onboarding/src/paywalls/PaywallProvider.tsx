@@ -40,6 +40,7 @@ import {
   type PaywallObserver,
   type PaywallPresentation,
   type PaywallPresentationSource,
+  type PaywallTransactionInfo,
 } from "./observer";
 
 // Module-scope, private to this file — mirrors `OnboardingProvider.tsx:17-23`.
@@ -136,8 +137,13 @@ export type PaywallContextValue = {
    * action chain finishing late) is a no-op rather than closing whatever is on
    * screen now. Call the `complete` from the CURRENT render; one stashed
    * across presentations does nothing.
+   *
+   * `transaction` is what a custom paywall screen passed to its own
+   * `complete()` (#287): forwarded to the observer's `end()`, sanitized, and
+   * only when `result.status` is `"purchased"`. It never changes what
+   * `present()` resolves. Omit it and nothing changes.
    */
-  complete: (result: PresentResult) => void;
+  complete: (result: PresentResult, transaction?: PaywallTransactionInfo) => void;
   /**
    * Called by the paywall HOST once the CURRENT presentation is actually on
    * screen — never by an ordinary consumer. The provider never acknowledges a
@@ -430,13 +436,18 @@ const waitForPurchases = (record: PresentationRecord) => {
  * `{status:"dismissed"}` isn't treated as an unoverridable explicit answer).
  * Reported before resolving. Idempotent.
  */
-const endPresentation = (record: PresentationRecord | null, result: PresentResult) => {
+const endPresentation = (
+  record: PresentationRecord | null,
+  result: PresentResult,
+  reportedTransaction?: unknown
+) => {
   if (!record || record.ended) return;
   record.ended = true;
   if (record.timer) clearTimeout(record.timer);
   record.timer = null;
   const outcome = resolveEndedOutcome(result, record.purchaseOutcome);
-  record.presentation.end(outcome, record.purchasedKey, record.purchasedFrom);
+  // `outcome`, never the transaction, is what `present()` resolves with.
+  record.presentation.end(outcome, record.purchasedKey, record.purchasedFrom, reportedTransaction);
   record.resolve(outcome);
 };
 
@@ -801,7 +812,7 @@ const PaywallProviderInner = ({
   // The end is reconciled with what the store did during this presentation
   // (`resolveEndedOutcome`, in `endPresentation`).
   const complete = useCallback(
-    (result: PresentResult) => {
+    (result: PresentResult, transaction?: unknown) => {
       // The RECONCILED outcome (`endPresentation`), so a dismiss the store
       // upgraded to a purchase is reported as one. Every post-acceptance error
       // funnels through here too (`host-never-presented`, the host's
@@ -815,11 +826,18 @@ const PaywallProviderInner = ({
       // now, and the record ends with the store outcome when it settles. Any
       // other reported end is the host's explicit answer and ends at once.
       const record = releaseSurface();
+      // A transaction counts only when the screen itself reported `purchased`
+      // (#287): one passed with `cancelled` stays dropped even if a recorded
+      // purchase makes the end `purchased` — the screen tied it to a cancel.
+      const reported = result.status === "purchased" ? transaction : undefined;
+      if (record && !record.ended && transaction !== undefined && reported === undefined) {
+        console.warn(`[paywalls] complete() was given a transaction with status "${result.status}"; it was dropped.`);
+      }
       if (record && !record.ended && result.status === "dismissed" && shouldWaitForPurchases(record)) {
         waitForPurchases(record);
         return;
       }
-      endPresentation(record, result);
+      endPresentation(record, result, reported);
     },
     [releaseSurface]
   );
@@ -832,9 +850,10 @@ const PaywallProviderInner = ({
   // `dismiss` must not end THAT one. `ScreenRenderer` reads `complete` at call
   // time, so `PaywallHost` also keys its content per presentation.
   const completeOnSurface = useCallback(
-    (result: PresentResult) => {
+    (result: PresentResult, transaction?: PaywallTransactionInfo) => {
+      // A stale call returns here, before its transaction reaches anything.
       if (!surfaceRecord || presentationRecordRef.current !== surfaceRecord) return;
-      complete(result);
+      complete(result, transaction);
     },
     [surfaceRecord, complete]
   );

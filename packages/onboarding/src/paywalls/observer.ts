@@ -82,13 +82,21 @@ export type PaywallPresentationSource = {
  * (credited to the variant shown first), but the bought slot's store id is the
  * swapped-in variant's, and that id is what joins to revenue. Omitted, the
  * started paywall is used.
+ *
+ * `reportedTransaction` is the `transaction` a custom paywall screen passed to
+ * `complete()` (#287). Typed `unknown` because it arrives from host code and is
+ * sanitized here (`sanitizePaywallTransaction`), the one place both surfaces
+ * share. The caller passes it only when the screen itself reported
+ * `purchased`; `buildPresentationEnd` documents how it meets a recorded
+ * purchase.
  */
 export type PaywallPresentation = {
   shown(): void;
   end(
     result: Pick<PresentResult, "status" | "reason">,
     purchasedProductKey?: string | null,
-    purchasedFrom?: PaywallPresentationSource | null
+    purchasedFrom?: PaywallPresentationSource | null,
+    reportedTransaction?: unknown
   ): void;
 };
 
@@ -156,19 +164,99 @@ const resolveProductId = (
   return undefined;
 };
 
+const nonEmptyString = (value: unknown): value is string => typeof value === "string" && value.length > 0;
+
+/**
+ * A custom screen's `complete({ transaction })`, reduced to the contract: the
+ * three ids only when they are non-empty strings, `restored` only when it is
+ * exactly `true`, every other field dropped. `undefined` when the input is not
+ * a plain object or nothing survives, so the end carries no `transaction` at
+ * all, exactly as when none was passed.
+ *
+ * Never throws: the value is host data, and a throwing getter or a revoked
+ * `Proxy` (on which even `Array.isArray` throws) must cost only the
+ * transaction, never the end of the presentation it rides on.
+ */
+export const sanitizePaywallTransaction = (value: unknown): PaywallTransactionInfo | undefined => {
+  try {
+    return readTransaction(value);
+  } catch (error) {
+    console.warn("[paywalls] complete()'s transaction could not be read; it was dropped:", error);
+    return undefined;
+  }
+};
+
+const readTransaction = (value: unknown): PaywallTransactionInfo | undefined => {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
+  const raw = value as Record<string, unknown>;
+  const out: PaywallTransactionInfo = {};
+  if (nonEmptyString(raw.originalTransactionIdentifier)) {
+    out.originalTransactionIdentifier = raw.originalTransactionIdentifier;
+  }
+  if (nonEmptyString(raw.purchaseToken)) out.purchaseToken = raw.purchaseToken;
+  if (nonEmptyString(raw.productId)) out.productId = raw.productId;
+  if (raw.restored === true) out.restored = true;
+  return Object.keys(out).length > 0 ? out : undefined;
+};
+
+/**
+ * The end the observer receives.
+ *
+ * A transaction only ever accompanies a `purchased` end (contract rule P8).
+ * Its sources:
+ * - a purchase the SDK recorded (`purchasedProductKey`): `productId` from that
+ *   slot for the running platform;
+ * - a custom screen's reported transaction (#287), sanitized.
+ *
+ * With no recorded purchase, the reported transaction is sent as it is.
+ *
+ * When a purchase IS recorded, the recorded purchase wins: the "first settled
+ * purchase sticks" rule `resolveEndedOutcome` applies to the outcome. The
+ * reported ids are added to it only when they provably describe it, i.e. the
+ * reported `productId` is present and equals the recorded slot's store id for
+ * this platform. `restored` is never added: the SDK's own purchase is a
+ * purchase, and a screen's flag must not relabel it. In every other case (an
+ * absent or different reported `productId`, or a recorded slot with no store
+ * id on this platform) the reported ids are dropped with a warning, and the
+ * end carries the recorded purchase's transaction alone (`{ productId }`, or
+ * none when its slot names nothing here). Pairing one purchase's transaction
+ * id with another's `productId` would corrupt the revenue join.
+ */
 export const buildPresentationEnd = (
   paywall: PaywallPresentationSource,
   result: Pick<PresentResult, "status" | "reason">,
   purchasedProductKey: string | null | undefined,
-  platform: string
+  platform: string,
+  reportedTransaction?: unknown
 ): PaywallPresentationEnd => {
   const end: PaywallPresentationEnd = { status: result.status };
   if (result.reason !== undefined) end.reason = result.reason;
-  // A transaction only ever accompanies `purchased` (contract rule P8).
-  if (result.status === "purchased") {
-    const productId = resolveProductId(paywall, purchasedProductKey, platform);
-    if (productId) end.transaction = { productId };
+  if (result.status !== "purchased") return end;
+  const productId = resolveProductId(paywall, purchasedProductKey, platform);
+  const reported = sanitizePaywallTransaction(reportedTransaction);
+  if (reported && !purchasedProductKey) {
+    end.transaction = reported;
+    return end;
   }
+  if (reported && productId && reported.productId === productId) {
+    const { restored, ...ids } = reported;
+    if (restored) {
+      console.warn(
+        "[paywalls] complete() reported `restored: true` for a purchase this presentation already " +
+          "recorded through the SDK; the flag was dropped and the purchase is reported as one."
+      );
+    }
+    end.transaction = ids;
+    return end;
+  }
+  if (reported) {
+    console.warn(
+      `[paywalls] complete() reported a transaction for ${JSON.stringify(reported.productId ?? null)}, ` +
+        `but this presentation already recorded a purchase of ${JSON.stringify(productId ?? null)}; ` +
+        "the recorded purchase is reported and the screen's transaction ids are dropped."
+    );
+  }
+  if (productId) end.transaction = { productId };
   return end;
 };
 
@@ -200,13 +288,21 @@ export const openPaywallPresentation = (
       shown = true;
       if (handle) guarded("shown", () => handle.shown());
     },
-    end: (result, purchasedProductKey, purchasedFrom) => {
+    end: (result, purchasedProductKey, purchasedFrom, reportedTransaction) => {
       if (ended) return;
       ended = true;
-      if (handle) {
-        const outcome = buildPresentationEnd(purchasedFrom ?? paywall, result, purchasedProductKey, platform);
-        guarded("end", () => handle.end(outcome));
+      if (!handle) return;
+      const source = purchasedFrom ?? paywall;
+      // The sanitizer never throws, but the end must reach the observer
+      // whatever the reported transaction does: fall back to the end without it.
+      let outcome: PaywallPresentationEnd;
+      try {
+        outcome = buildPresentationEnd(source, result, purchasedProductKey, platform, reportedTransaction);
+      } catch (error) {
+        warn("end (its transaction)", error);
+        outcome = buildPresentationEnd(source, result, purchasedProductKey, platform);
       }
+      guarded("end", () => handle.end(outcome));
     },
   };
 };

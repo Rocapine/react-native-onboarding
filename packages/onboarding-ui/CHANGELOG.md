@@ -8,6 +8,27 @@ here.
 ## [Unreleased]
 
 ### Added
+- **A custom paywall screen's `complete({ status, transaction })` reaches the
+  observer** (#287). `PaywallHost` and the inline `Paywall` step hand a custom
+  screen its own `complete`, which forwards `transaction` to the headless
+  provider (the Modal) or to the step's observed presentation (the step); the
+  headless package sanitizes it and sends it to the `observer`'s `end()` only
+  with `status: "purchased"`. The elements path's `ScreenHost.complete` never
+  forwards one. The step's gate is unchanged: a transaction never advances it.
+  A transaction passed with any status but `purchased` is dropped with a
+  warning, and one that throws when read is dropped without stopping the
+  close or the advance. Needs a headless with #287; an older one ignores the
+  transaction.
+- **A `Paywall` step's custom-screen `complete` is bound to its visit**
+  (#287). A Stack keeps the step mounted after a blur. A `complete` the screen
+  captured before the user left and came back no longer ends the visit on
+  screen or carries its transaction there. A stale `{ status: "purchased" }`
+  still advances the step, with a warning, but only while the step is focused,
+  so a payer is never stranded and nothing navigates from a screen the user is
+  not on. Every other stale call does nothing. A custom screen advances the
+  step at most once per visit, so a stale and a current `purchased` in one
+  tick cannot advance it twice. `usePaywallStepObservation` exposes `visit`,
+  `isCurrentVisit(visit)`, `isVisiting()` and `currentVisit()` for it.
 - **A paywall's stale action chain ends at its `purchase`** (#286). When the
   presentation a chain belongs to has left the screen (a `custom` or
   `requestPermission` step resumed after the paywall closed), the `purchase`

@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import type { PaywallTransactionInfo } from "./observer";
 import type { PaywallCustomPayload } from "./types";
 
 /**
@@ -50,8 +51,40 @@ export type CustomPaywallScreenProps = {
    * resolves pending, which means UNCONFIRMED. `PresentResult` describes how a
    * paywall CLOSED, never what the user is entitled to — read entitlement from
    * the billing SDK.
+   *
+   * `transaction` (optional, #287) is the purchase your billing SDK made, so a
+   * `PaywallProvider` `observer` can attribute it to this presentation; the
+   * SDK never sees a purchase a custom screen makes on its own. Pass it with
+   * `{ status: "purchased" }`:
+   * - `originalTransactionIdentifier`: the purchase's store transaction id —
+   *   the iOS StoreKit original transaction id, the Android Play order id
+   *   (`GPA.…`); the value you pass to your analytics' purchase call.
+   * - `purchaseToken`: Android only, the Play purchase token.
+   * - `productId`: the store product id that was bought.
+   * - `restored`: `true` when the purchase only restored existing access, so
+   *   it is not counted as a conversion.
+   *
+   * It is sanitized before the observer sees it: an id that is not a
+   * non-empty string, a `restored` that is not exactly `true`, and any other
+   * field are dropped, and so is a transaction that throws when read. It is
+   * dropped entirely, with a warning, with any status other than
+   * `"purchased"`. When this presentation already recorded a purchase made
+   * through the SDK's own product runtime, that purchase wins: your ids are
+   * added to it only when your `productId` is present and names the same
+   * store product, `restored` is never added, and otherwise your ids are
+   * dropped with a warning. On a `Paywall` step, a `complete` captured during
+   * an earlier visit (the user left and came back) never ends the visit on
+   * screen and never carries its transaction; only its `{ status:
+   * "purchased" }` still advances the step, and only while the step is on
+   * screen, so a payer is never stranded; the step advances at most once per
+   * visit. Any other such call does nothing. It never
+   * changes what `present()` resolves or whether a step advances. Omitted,
+   * everything behaves as before.
    */
-  complete: (outcome?: { status: "purchased" | "dismissed" | "cancelled" }) => void;
+  complete: (outcome?: {
+    status: "purchased" | "dismissed" | "cancelled";
+    transaction?: PaywallTransactionInfo;
+  }) => void;
   /**
    * Which paywall is being shown. `moment` is what resolved it; `id` and
    * `name` are the studio's, for analytics. Enough to report a conversion

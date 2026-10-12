@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   openPaywallPresentation,
+  sanitizePaywallTransaction,
   type PaywallObserver,
   type PaywallPresentationSource,
 } from "../observer";
@@ -234,5 +235,105 @@ describe("openPaywallPresentation — a hostile observer cannot hurt the caller"
     } finally {
       process.off("unhandledRejection", unhandled);
     }
+  });
+});
+
+describe("sanitizePaywallTransaction — what a custom screen may report (#287)", () => {
+  it("keeps non-empty string ids and restored: true", () => {
+    expect(
+      sanitizePaywallTransaction({
+        originalTransactionIdentifier: "2000000123",
+        purchaseToken: "tok",
+        productId: "com.app.annual.ios",
+        restored: true,
+      })
+    ).toEqual({
+      originalTransactionIdentifier: "2000000123",
+      purchaseToken: "tok",
+      productId: "com.app.annual.ios",
+      restored: true,
+    });
+  });
+
+  it("drops non-string and empty ids, a restored that is not true, and unknown fields", () => {
+    expect(
+      sanitizePaywallTransaction({
+        originalTransactionIdentifier: 2000000123,
+        purchaseToken: "",
+        productId: "com.app.annual.ios",
+        restored: "true",
+        price: 9.99,
+      })
+    ).toEqual({ productId: "com.app.annual.ios" });
+    expect(sanitizePaywallTransaction({ productId: "p", restored: false })).toEqual({ productId: "p" });
+    expect(sanitizePaywallTransaction({ productId: "p", restored: 1 })).toEqual({ productId: "p" });
+  });
+
+  it("returns undefined for a non-object, an array, or an object with nothing left", () => {
+    for (const value of [undefined, null, "tx", 42, true, ["a"], {}, { productId: "" }, { restored: false }]) {
+      expect(sanitizePaywallTransaction(value)).toBeUndefined();
+    }
+  });
+});
+
+describe("openPaywallPresentation — a transaction reported by a custom screen (#287)", () => {
+  const reported = { originalTransactionIdentifier: "2000000123", productId: "com.app.annual.ios" };
+
+  it("forwards it, sanitized, with a purchased end", () => {
+    const { observer, calls } = recordingObserver();
+    openPaywallPresentation(observer, PAYWALL, "present", "ios").end({ status: "purchased" }, null, null, {
+      ...reported,
+      restored: "yes",
+      extra: 1,
+    });
+    expect(calls[1]).toEqual(["end", { status: "purchased", transaction: reported }]);
+  });
+
+  it("never forwards it with an end other than purchased", () => {
+    for (const status of ["dismissed", "cancelled", "error"] as const) {
+      const { observer, calls } = recordingObserver();
+      openPaywallPresentation(observer, PAYWALL, "present", "ios").end({ status }, null, null, reported);
+      expect(calls[1]).toEqual(["end", { status }]);
+    }
+  });
+
+  it("omits transaction entirely when nothing survives sanitizing", () => {
+    const { observer, calls } = recordingObserver();
+    openPaywallPresentation(observer, PAYWALL, "present", "ios").end({ status: "purchased" }, null, null, {
+      productId: 1,
+    });
+    expect(calls[1]).toEqual(["end", { status: "purchased" }]);
+  });
+
+  it("with a recorded purchase, keeps the recorded productId and adds the reported ids when the reported productId is absent or equal", () => {
+    for (const extra of [{}, { productId: "com.app.annual.ios" }]) {
+      const { observer, calls } = recordingObserver();
+      openPaywallPresentation(observer, PAYWALL, "present", "ios").end({ status: "purchased" }, "annual", null, {
+        originalTransactionIdentifier: "2000000123",
+        restored: true,
+        ...extra,
+      });
+      expect(calls[1]).toEqual([
+        "end",
+        {
+          status: "purchased",
+          transaction: {
+            originalTransactionIdentifier: "2000000123",
+            restored: true,
+            productId: "com.app.annual.ios",
+          },
+        },
+      ]);
+    }
+  });
+
+  it("with a recorded purchase of a DIFFERENT product, keeps the recorded one alone and drops the reported ids", () => {
+    const { observer, calls } = recordingObserver();
+    openPaywallPresentation(observer, PAYWALL, "present", "ios").end({ status: "purchased" }, "annual", null, {
+      originalTransactionIdentifier: "2000000123",
+      productId: "com.app.monthly",
+    });
+    expect(calls[1]).toEqual(["end", { status: "purchased", transaction: { productId: "com.app.annual.ios" } }]);
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("com.app.monthly"));
   });
 });

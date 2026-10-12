@@ -7,6 +7,26 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 ## [Unreleased]
 
 ### Added
+- **A custom paywall screen can pass its purchase transaction to
+  `complete()`** (#287). `CustomPaywallScreenProps.complete` takes an optional
+  `transaction: { originalTransactionIdentifier?, purchaseToken?, productId?,
+  restored? }`: the purchase's store transaction id (iOS original transaction
+  id, Android Play order id), the Android purchase token, the store product id,
+  and `restored: true` for a purchase that only restored access. Both
+  surfaces, the `PaywallHost` Modal and the inline `Paywall` step, forward it to
+  the `observer`'s `end()`, so a purchase the SDK never saw is attributed to its
+  presentation. Sanitized first: an id that is not a non-empty string, a
+  `restored` that is not exactly `true`, and every other field are dropped, and
+  nothing is sent when nothing survives. Sent only when the screen reports
+  `status: "purchased"`; with any other status it is dropped, even when a
+  recorded purchase makes the end `purchased`. When the presentation already
+  recorded an SDK purchase, that purchase wins: the screen's ids are added to
+  its `productId` only when the screen's `productId` is absent or the same, and
+  dropped (with a warning) when it names another product. A stale `complete`
+  from an ended presentation stays a no-op, transaction included.
+  `usePaywallHost().complete` takes the transaction as an optional second
+  argument. `PresentResult` is unchanged: `present()` never resolves with it.
+  Omitting it behaves exactly as before.
 - **`PaywallProvider` `observer` prop** — an optional `PaywallObserver` told
   about every paywall presentation, so a host can send it to its own analytics
   (#286). `start(info)` runs once `present()` accepts (never for an

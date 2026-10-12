@@ -15,8 +15,12 @@ here.
   a new presentation. A variant swap inside a visit keeps the presentation open,
   as `present()` does. The last store result (`purchased` with the slot, or
   `cancelled`, including a custom screen's `complete({status:"cancelled"})`)
-  upgrades a bare dismissal. Nothing is reported once the step has blurred or
-  unmounted, so a purchase that settles after that is dropped. Against a
+  upgrades a bare dismissal. A purchase still in flight when the step blurs or
+  unmounts is counted: the presentation stays open until it settles and ends
+  with its outcome (bounded at 180 s, the expo-iap adapter's purchase wait, then
+  `dismissed`). Going back to the step meanwhile starts a new presentation that
+  the old purchase never reaches. A purchase made after a variant swap reports
+  the bought variant's store id. Against a
   headless older than `usePaywallHost().observePresentation` it reports nothing
   rather than throwing. The step's crash boundary is now keyed by paywall id,
   so a revalidated variant renders after a crash.

@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import type { PaywallPresentation, PresentErrorReason } from "@rocapine/react-native-onboarding";
+import type {
+  PaywallPresentation,
+  PaywallPresentationSource,
+  PresentErrorReason,
+} from "@rocapine/react-native-onboarding";
 
 /**
  * The inline `Paywall` step's half of `PaywallProvider`'s `observer`
@@ -40,17 +44,31 @@ import type { PaywallPresentation, PresentErrorReason } from "@rocapine/react-na
  *     or the flow was torn down), upgraded to the last store outcome
  *     (`purchased` / `cancelled`) exactly as `present()` upgrades one.
  *
- * NOTHING AFTER THE VISIT. Between blur/unmount and the next focus every call
- * is a no-op. A purchase that settles after the step left is followed in the
- * real runtime by its `onSuccess` `continue` reaching `advance()` through a
- * stale closure; that must not start a presentation nobody saw (r1-2).
+ * A LATE PURCHASE COUNTS (owner decision on #286). If a purchase is in flight
+ * when the step blurs or unmounts, the visit's presentation is DETACHED rather
+ * than ended: it stays open until every purchase pending on it settles, then
+ * ends `dismissed` upgraded to the store outcome, so a purchase that completes
+ * after the user left still ends `purchased` with its key. A purchase that never
+ * settles is bounded by `LATE_PURCHASE_TIMEOUT_MS`, then the presentation ends
+ * `dismissed`. Only blur and unmount wait: the paywall leaving the catalog
+ * ends it at once, as `present()` does.
+ *
+ * NOTHING ELSE AFTER THE VISIT. Between blur/unmount and the next focus every
+ * other call is a no-op. A purchase that settles after the step left is
+ * followed in the real runtime by its `onSuccess` `continue` reaching
+ * `advance()` through the same closure; that must not start a presentation
+ * nobody saw (r1-2). A re-entry while a purchase is pending starts a NEW
+ * presentation; the old purchase's result only ever reaches the presentation
+ * it started on.
  *
  * PURCHASES are tracked like `PaywallProvider`'s own `purchase` wrapper:
  * - the last `purchased`/`cancelled` wins, `pending`/`error` are ignored, and
  *   the key is kept only for `purchased` (`purchaseOutcomeFromResult`);
  * - a generation guard: `beginPurchase()` binds to the presentation open when
- *   the purchase STARTED, and its result is dropped if that presentation has
- *   since ended or been replaced (`shouldRecordPurchaseOutcome`'s race).
+ *   the purchase STARTED, and its result is dropped once that presentation has
+ *   ended (`shouldRecordPurchaseOutcome`'s race). A detached one has not.
+ * - the paywall the purchase was made on goes with the key, so after a variant
+ *   swap the store id reported is the bought variant's, not the first one's.
  *
  * START IS LAZY. A child that throws on the very first render is caught by an
  * error boundary whose `componentDidCatch` runs in the layout phase — BEFORE
@@ -96,6 +114,17 @@ export const resolvePresentedOutcome = <R extends { status: string }>(
 ): R | { status: "purchased" | "cancelled" } =>
   reported.status === "dismissed" && purchaseOutcome ? { status: purchaseOutcome } : reported;
 
+/**
+ * How long a step that was left with a purchase in flight waits for it.
+ * Mirrors `DEFAULT_PURCHASE_TIMEOUT_MS` in
+ * `packages/onboarding/src/products/adapters/expoIap.ts` (not exported, and
+ * mirrored rather than imported for the peer-range reason above): that adapter
+ * answers `pending` after the same wait, counted from the purchase START, so it
+ * settles first and this only ever fires for a provider with no bound of its
+ * own. Counted from the blur, so it is never shorter than the adapter's.
+ */
+export const LATE_PURCHASE_TIMEOUT_MS = 180_000;
+
 const NOOP_PRESENTATION: PaywallPresentation = { shown: () => {}, end: () => {} };
 const NOOP_RECORD = () => {};
 
@@ -106,6 +135,12 @@ type Open = {
   shown: boolean;
   purchaseOutcome: PurchaseOutcome;
   purchasedKey: string | null;
+  /** The paywall the recorded purchase was made on. */
+  purchasedFrom: PaywallPresentationSource | null;
+  /** Purchases begun on this presentation and not yet settled. */
+  pending: number;
+  /** The late-purchase bound, armed when the visit left with `pending > 0`. */
+  timer: ReturnType<typeof setTimeout> | null;
 };
 
 type FocusEffect = (effect: () => void | (() => void)) => void;
@@ -125,7 +160,7 @@ const useMountAsFocus: FocusEffect = (effect) => {
   useEffect(effect, [effect]);
 };
 
-export function usePaywallStepObservation<P extends { id: string }>(
+export function usePaywallStepObservation<P extends PaywallPresentationSource>(
   observePresentation: ((paywall: P) => PaywallPresentation) | undefined,
   paywall: P | null,
   { renderable, useFocusEffect = useMountAsFocus }: PaywallStepObservationOptions,
@@ -161,6 +196,9 @@ export function usePaywallStepObservation<P extends { id: string }>(
       shown: false,
       purchaseOutcome: null,
       purchasedKey: null,
+      purchasedFrom: null,
+      pending: 0,
+      timer: null,
     };
     return open.current;
   }, []);
@@ -174,9 +212,17 @@ export function usePaywallStepObservation<P extends { id: string }>(
   }, [ensure]);
 
   const leave = useCallback(() => {
-    finish(open.current, { status: "dismissed" });
+    const o = open.current;
     open.current = null;
     visiting.current = false;
+    if (!o || o.ended) return;
+    if (o.pending === 0) {
+      finish(o, { status: "dismissed" });
+      return;
+    }
+    // Detached: the purchase still in flight ends it when it settles. Never
+    // cleared by an unmount, or a purchase that never settles would leak it.
+    o.timer ??= setTimeout(() => finish(o, { status: "dismissed" }), LATE_PURCHASE_TIMEOUT_MS);
   }, []);
 
   useFocusEffect(
@@ -215,15 +261,26 @@ export function usePaywallStepObservation<P extends { id: string }>(
       beginPurchase: () => {
         const started = ensure();
         if (!started) return NOOP_RECORD;
+        const on = latestPaywall.current;
+        started.pending += 1;
+        let settled = false;
         return (result) => {
+          if (settled) return;
+          settled = true;
+          started.pending -= 1;
           // The generation guard: only the presentation the purchase started
-          // on, and only while it is still open. Never `ensure()` here — after
-          // the visit that would start a presentation nothing ever ends.
-          if (open.current !== started || started.ended) return;
+          // on, and only while it is still open (a detached one is). Never
+          // `ensure()` here — after the visit that would start a presentation
+          // nothing ever ends.
+          if (started.ended) return;
           const outcome = purchaseOutcomeFromResult(result);
-          if (!outcome) return;
-          started.purchaseOutcome = outcome;
-          started.purchasedKey = outcome === "purchased" ? (result.productKey ?? null) : null;
+          if (outcome) {
+            started.purchaseOutcome = outcome;
+            started.purchasedKey = outcome === "purchased" ? (result.productKey ?? null) : null;
+            started.purchasedFrom = outcome === "purchased" ? on : null;
+          }
+          // Detached and nothing else in flight: the late purchase ends it.
+          if (open.current !== started && started.pending === 0) finish(started, { status: "dismissed" });
         };
       },
       advance: (outcome) => {
@@ -240,6 +297,8 @@ export function usePaywallStepObservation<P extends { id: string }>(
 function finish(o: Open | null, result: StepOutcome) {
   if (!o || o.ended) return;
   o.ended = true;
+  if (o.timer) clearTimeout(o.timer);
+  o.timer = null;
   // A bare `dismissed` takes the store's last outcome, exactly as `present()`'s
   // `complete()` does. Spec §4.6's canonical
   // `{type:"purchase", onSuccess:[{type:"dismiss"}]}` does not advance a step,
@@ -247,5 +306,5 @@ function finish(o: Open | null, result: StepOutcome) {
   // a cancelled purchase followed by leaving reads as `cancelled`, as it does
   // through `present()`.
   const final = resolvePresentedOutcome(result, o.purchaseOutcome);
-  o.presentation.end(final, o.purchasedKey);
+  o.presentation.end(final, o.purchasedKey, o.purchasedFrom);
 }

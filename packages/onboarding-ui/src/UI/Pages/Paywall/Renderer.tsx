@@ -233,7 +233,16 @@ const PaywallStepRendererBase = ({
         ...products,
         purchase: async (key: string) => {
           const record = observation.beginPurchase();
-          const result = await products.purchase(key);
+          let result: Awaited<ReturnType<typeof products.purchase>>;
+          try {
+            result = await products.purchase(key);
+          } catch (error) {
+            // Settle it anyway: a step left with this purchase in flight waits
+            // for it to settle (a late purchase counts), and a rejection is a
+            // settle with no store outcome, which the mirrors map to nothing.
+            record({ status: "error" });
+            throw error;
+          }
           record(result);
           return result;
         },

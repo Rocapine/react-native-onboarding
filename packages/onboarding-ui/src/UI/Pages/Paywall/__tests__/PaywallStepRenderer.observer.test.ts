@@ -333,3 +333,65 @@ describe("PaywallStepRenderer — re-entry through navigation focus (r1-5)", () 
     ]);
   });
 });
+
+describe("PaywallStepRenderer — late purchase (owner decision: count it)", () => {
+  const deferred = <T,>() => {
+    let resolve!: (v: T) => void;
+    let reject!: (e: unknown) => void;
+    const promise = new Promise<T>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    return { promise, resolve, reject };
+  };
+
+  it("ends purchased with the key when a purchase in flight at blur settles afterwards", async () => {
+    const calls = recorder();
+    const nav = focusController();
+    setCatalog(paywall("pw-a"));
+    await render(nav);
+    const store = deferred<{ status: "purchased"; productKey: string }>();
+    purchase.mockImplementationOnce(() => store.promise);
+    let inFlight!: Promise<unknown>;
+    await act(async () => {
+      inFlight = h.host.products.purchase("annual");
+    });
+    await nav.blur();
+    expect(calls).toEqual([
+      ["start", "pw-a"],
+      ["shown", "pw-a"],
+    ]);
+    await act(async () => {
+      store.resolve({ status: "purchased", productKey: "annual" });
+      await inFlight;
+    });
+    expect(calls).toEqual([
+      ["start", "pw-a"],
+      ["shown", "pw-a"],
+      ["end", "pw-a", { status: "purchased" }, "annual"],
+    ]);
+  });
+
+  it("settles a purchase that REJECTS, so a blurred step ends at once instead of waiting out the bound", async () => {
+    const calls = recorder();
+    const nav = focusController();
+    setCatalog(paywall("pw-a"));
+    await render(nav);
+    const store = deferred<never>();
+    purchase.mockImplementationOnce(() => store.promise);
+    let inFlight!: Promise<unknown>;
+    await act(async () => {
+      inFlight = h.host.products.purchase("annual");
+    });
+    await nav.blur();
+    await act(async () => {
+      store.reject(new Error("store unavailable"));
+      await expect(inFlight).rejects.toThrow("store unavailable");
+    });
+    expect(calls).toEqual([
+      ["start", "pw-a"],
+      ["shown", "pw-a"],
+      ["end", "pw-a", { status: "dismissed" }, null],
+    ]);
+  });
+});

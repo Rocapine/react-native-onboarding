@@ -6,6 +6,7 @@ import { createRoot, type Root } from "react-dom/client";
 import type { PaywallObserver } from "../observer";
 import type { PaywallContextValue } from "../PaywallProvider";
 import type { ProductRuntime, ProductProvider, ResolvedProduct } from "../../products/types";
+import type { QueryClient } from "@tanstack/react-query";
 
 /**
  * `PaywallProvider`'s observer wiring, end to end through a real render
@@ -103,30 +104,34 @@ const settle = async () => {
   });
 };
 
-type Captured = { ctx: PaywallContextValue; runtime: ProductRuntime | null };
+type Captured = { ctx: PaywallContextValue; runtime: ProductRuntime | null; queryClient: QueryClient };
 
 /** Mounts a real provider and returns live accessors into its context. */
 const mount = async (props: {
   catalog?: ReturnType<typeof catalogOf>;
   observer?: unknown;
   presentAckTimeoutMs?: number | null;
+  productProvider?: ProductProvider;
 }) => {
   vi.resetModules();
-  const [{ PaywallProvider, PaywallContext }, { ProductRuntimeContext }] = await Promise.all([
+  const [{ PaywallProvider, PaywallContext }, { ProductRuntimeContext }, { useQueryClient }] = await Promise.all([
     import("../PaywallProvider"),
     import("../../products/ProductRuntimeContext"),
+    // After the reset, so it is the instance the provider's QueryClientProvider uses.
+    import("@tanstack/react-query"),
   ]);
   const captured = {} as Captured;
   const Capture = () => {
     captured.ctx = useContext(PaywallContext);
     captured.runtime = useContext(ProductRuntimeContext);
+    captured.queryClient = useQueryClient();
     return null;
   };
   const client = makeClient(props.catalog ?? catalogOf("upgrade", "downsell"));
   const element = (observer: unknown, catalogClient = client) => (
     <PaywallProvider
       client={catalogClient}
-      productProvider={productProvider}
+      productProvider={props.productProvider ?? productProvider}
       observer={observer as PaywallObserver}
       presentAckTimeoutMs={props.presentAckTimeoutMs === undefined ? null : props.presentAckTimeoutMs}
     >
@@ -158,6 +163,17 @@ const presentImmediate = async (captured: Captured, moment: string) => {
     result = await captured.ctx.present(moment);
   });
   return result;
+};
+
+/**
+ * A background revalidation that swaps a moment's variant: same query key, a
+ * fresh catalog (what `getPaywalls.query.ts`'s detached `fetchAndCache` pushes).
+ */
+const revalidate = async (captured: Captured, catalog: unknown) => {
+  await act(async () => {
+    captured.queryClient.setQueriesData({ queryKey: ["paywallCatalog"] }, catalog);
+  });
+  await settle();
 };
 
 const act_ = async (fn: () => void | Promise<unknown>) => {
@@ -345,6 +361,50 @@ describe("PaywallProvider observer — present()", () => {
     await settle();
     expect(first.calls).toEqual([]);
     expect(second.calls.map(([n]) => n)).toEqual(["start"]);
+  });
+});
+
+describe("PaywallProvider observer — present() after a variant swap", () => {
+  const variantB = (products: Array<{ key: string; ios: string; android: string }>) => {
+    const catalog = catalogOf("upgrade", "downsell");
+    catalog.paywalls.upgrade = { ...paywall("upgrade", "pw-upgrade-b"), products };
+    return catalog;
+  };
+
+  it("reports the store id of the variant the purchase was made on, for the same slot key", async () => {
+    const { observer, calls } = recordingObserver();
+    const { captured } = await mount({ observer });
+    let settled: unknown;
+    await act(async () => {
+      captured.ctx.present("upgrade").then((r) => (settled = r));
+    });
+    await settle();
+    await revalidate(captured, variantB([{ key: "annual", ios: "com.app.b.annual.ios", android: "b.android" }]));
+    expect(captured.ctx.activePaywall?.id).toBe("pw-upgrade-b");
+    await act_(() => captured.runtime!.purchase("annual"));
+    await act_(() => captured.ctx.complete({ status: "dismissed" }));
+    expect(settled).toEqual({ status: "purchased" });
+    // Credited to the presentation of the FIRST variant...
+    expect((calls[0][1] as { paywallId: string }).paywallId).toBe("pw-upgrade");
+    // ...with the id of the slot actually bought.
+    expect(calls[calls.length - 1]).toEqual([
+      "end",
+      { status: "purchased", transaction: { productId: "com.app.b.annual.ios" } },
+    ]);
+  });
+
+  it("carries a transaction for a slot only the swapped-in variant has", async () => {
+    const { observer, calls } = recordingObserver();
+    const { captured } = await mount({ observer });
+    await act(async () => void captured.ctx.present("upgrade"));
+    await settle();
+    await revalidate(captured, variantB([{ key: "monthly", ios: "com.app.b.monthly.ios", android: "b.m.android" }]));
+    await act_(() => captured.runtime!.purchase("monthly"));
+    await act_(() => captured.ctx.complete({ status: "dismissed" }));
+    expect(calls[calls.length - 1]).toEqual([
+      "end",
+      { status: "purchased", transaction: { productId: "com.app.b.monthly.ios" } },
+    ]);
   });
 });
 

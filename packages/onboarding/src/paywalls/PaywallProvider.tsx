@@ -484,6 +484,13 @@ const PaywallProviderInner = ({
   // under the SAME generation guard — so the observer's `transaction.productId`
   // can never name a purchase from another presentation.
   const lastPurchasedKeyRef = useRef<string | null>(null);
+  // The paywall that purchase was made ON, read when it STARTED and written
+  // under the same guard. A background revalidation can swap the moment's
+  // variant mid-presentation; the presentation stays credited to the variant
+  // shown first, but the bought slot's store id is this one's.
+  const lastPurchasedFromRef = useRef<PaywallPresentationSource | null>(null);
+  const activePaywallRef = useRef(activePaywall);
+  activePaywallRef.current = activePaywall;
 
   // Monotonic, incremented every time a presentation actually starts (never
   // on the "immediate" no-op branch). Resetting `lastPurchaseOutcomeRef` at
@@ -506,11 +513,13 @@ const PaywallProviderInner = ({
   const purchase = useCallback(
     async (key: string) => {
       const startedInGeneration = presentationGenerationRef.current;
+      const madeOn = activePaywallRef.current;
       const result = await productRuntime.purchase(key);
       const outcome = purchaseOutcomeFromResult(result);
       if (outcome && shouldRecordPurchaseOutcome(startedInGeneration, presentationGenerationRef.current)) {
         lastPurchaseOutcomeRef.current = outcome;
         lastPurchasedKeyRef.current = result.status === "purchased" ? result.productKey : null;
+        lastPurchasedFromRef.current = result.status === "purchased" ? madeOn : null;
       }
       return result;
     },
@@ -584,6 +593,7 @@ const PaywallProviderInner = ({
     // allowed to write into this one — see `presentationGenerationRef`.
     lastPurchaseOutcomeRef.current = null;
     lastPurchasedKeyRef.current = null;
+    lastPurchasedFromRef.current = null;
     presentationGenerationRef.current += 1;
     // Only the "start" decision reaches here: refusals return above, before
     // anything is reported (contract rule P1).
@@ -673,7 +683,7 @@ const PaywallProviderInner = ({
     // before `resolve`, and with the ref already cleared, so a downsell
     // `present()` issued from the resolution starts a clean presentation.
     const outcome = resolvePresentedOutcome(result, lastPurchaseOutcomeRef.current);
-    presentation?.end(outcome, lastPurchasedKeyRef.current);
+    presentation?.end(outcome, lastPurchasedKeyRef.current, lastPurchasedFromRef.current);
     resolve?.(outcome);
   }, []);
 

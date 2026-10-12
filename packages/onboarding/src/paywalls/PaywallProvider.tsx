@@ -130,6 +130,12 @@ export type PaywallContextValue = {
    * Resolve the pending `present()` call and clear the active moment.
    * Call this from the presented paywall's `ScreenHost.complete` (Task 7's
    * `PaywallHost`) — never from an ordinary consumer.
+   *
+   * BOUND to the presentation on screen when it was rendered: its identity
+   * changes once per presentation, and a stale copy (a previous paywall's
+   * action chain finishing late) is a no-op rather than closing whatever is on
+   * screen now. Call the `complete` from the CURRENT render; one stashed
+   * across presentations does nothing.
    */
   complete: (result: PresentResult) => void;
   /**
@@ -525,6 +531,12 @@ const PaywallProviderInner = ({
   // resolver and what the store did during it. One record per accepted
   // `present()`, never reused, so its identity is the purchase race guard below.
   const presentationRecordRef = useRef<PresentationRecord | null>(null);
+  // The same record as STATE, so the context's `complete` can be bound to the
+  // presentation a render showed (see `completeOnSurface`). State, not the
+  // ref: a same-moment re-present in one batch leaves `activeMoment` equal, and
+  // only a new object identity guarantees the context re-renders with B's
+  // `complete` rather than keeping A's.
+  const [surfaceRecord, setSurfaceRecord] = useState<PresentationRecord | null>(null);
   const activePaywallRef = useRef(activePaywall);
   activePaywallRef.current = activePaywall;
 
@@ -661,6 +673,7 @@ const PaywallProviderInner = ({
       // would vouch for this one and disable the recovery.
       setHostAcknowledged(false);
       setActiveMoment(moment);
+      setSurfaceRecord(record);
     });
   }, []);
 
@@ -713,6 +726,7 @@ const PaywallProviderInner = ({
     // next commit.
     activeMomentRef.current = null;
     setActiveMoment(null);
+    setSurfaceRecord(null);
     setHostAcknowledged(false);
     return record;
   }, []);
@@ -746,6 +760,21 @@ const PaywallProviderInner = ({
       endPresentation(record, result);
     },
     [releaseSurface]
+  );
+
+  // What the context hands the host as `complete`: bound to the record this
+  // render showed. A paywall's action chain can outlive its presentation — a
+  // `{purchase, onSuccess:[dismiss]}` whose purchase settles after the Modal
+  // closed or the paywall disappeared, while a downsell (or the host's
+  // `await present()` continuation) has opened the next one — and its trailing
+  // `dismiss` must not end THAT one. `ScreenRenderer` reads `complete` at call
+  // time, so `PaywallHost` also keys its content per presentation.
+  const completeOnSurface = useCallback(
+    (result: PresentResult) => {
+      if (!surfaceRecord || presentationRecordRef.current !== surfaceRecord) return;
+      complete(result);
+    },
+    [surfaceRecord, complete]
   );
 
   // Stable (empty deps) like `present`/`complete`: the host wires this straight
@@ -840,7 +869,7 @@ const PaywallProviderInner = ({
       isProviderMounted: true,
       productsStatus: productRuntime.status,
       activePaywall,
-      complete,
+      complete: completeOnSurface,
       acknowledgePresentation,
       customActions,
       customScreens,
@@ -854,7 +883,7 @@ const PaywallProviderInner = ({
       catalogStatus,
       productRuntime.status,
       activePaywall,
-      complete,
+      completeOnSurface,
       acknowledgePresentation,
       customActions,
       customScreens,

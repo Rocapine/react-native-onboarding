@@ -18,40 +18,7 @@ import {
   resolvePaywallModalDecision,
 } from "./resolvePaywallModalDecision";
 import type { CustomPaywallScreenProps, CustomPaywallScreens } from "./CustomPaywallScreen";
-
-// `usePaywallHost().complete` takes the CLOSED `PresentResult` union
-// (required argument); `ScreenHost.complete` takes the OPEN `CompleteOutcome`
-// (optional argument — a bare `"continue"` action calls it with none at all).
-// This function ONLY does that narrowing — nothing more.
-//
-// The engine itself only ever produces `undefined` (bare `"continue"`) or
-// `{status:"dismissed"}` (the `dismiss` action — see `runActions.ts`) —
-// `dismiss` doesn't know anything about purchase state, so a purchase closed
-// via spec §4.6's `{type:"purchase", onSuccess:[{type:"dismiss"}]}` narrows
-// to `"dismissed"` right here too, unchanged. The "did a purchase actually
-// happen" upgrade to `"purchased"`/`"cancelled"` is NOT this function's job:
-// it happens one level up, in `PaywallProvider`'s `purchase()` wrapper
-// (records the outcome on the presentation the purchase started on, so a
-// stale in-flight purchase from a PREVIOUS presentation never reaches the
-// current one) and its `complete()` (applies `resolvePresentedOutcome`) — both in `present.ts` /
-// `PaywallProvider.tsx`, where the product runtime and the pending
-// `present()` resolver already live. This function still checks the status
-// against the closed set (rather than hardcoding `"dismissed"`) purely so a
-// genuinely explicit status forwards unchanged instead of being clobbered.
-const PRESENT_RESULT_STATUSES: ReadonlySet<PresentResult["status"]> = new Set([
-  "purchased",
-  "dismissed",
-  "cancelled",
-  "error",
-]);
-
-function toPresentResult(outcome?: CompleteOutcome): PresentResult {
-  const status = outcome?.status;
-  if (status && (PRESENT_RESULT_STATUSES as ReadonlySet<string>).has(status)) {
-    return { status: status as PresentResult["status"] };
-  }
-  return { status: "dismissed" };
-}
+import { presentationContentKey, toPresentResult } from "./presentationBinding";
 
 type PaywallContentProps = {
   /** Already parsed by `PaywallHost` — see `resolvePaywallModalDecision`'s doc for why parsing happens OUTSIDE this component's error boundary. */
@@ -271,8 +238,10 @@ export const PaywallHost = ({ customScreens, requestPermission }: PaywallHostPro
 
   // Adapts the engine's open `ScreenHost.complete` (optional CompleteOutcome)
   // into `usePaywallHost().complete`'s closed, required `PresentResult` — see
-  // `toPresentResult` above. `resolvePresent` is itself stable (empty-deps
-  // `useCallback` in `PaywallProvider`), so this wrapper is too.
+  // `toPresentResult` (`presentationBinding.ts`). `resolvePresent` is BOUND to
+  // one presentation by the provider and changes identity once per
+  // presentation, so this wrapper does too; effects keyed on it re-run once per
+  // presentation, harmlessly, since a stale or repeated end is a no-op.
   const complete = useCallback(
     (outcome?: CompleteOutcome) => resolvePresent(toPresentResult(outcome)),
     [resolvePresent]
@@ -381,7 +350,7 @@ export const PaywallHost = ({ customScreens, requestPermission }: PaywallHostPro
       <SafeAreaProvider>
         {decision.type === "show" && activePaywall && (
           <PaywallContent
-            key={activePaywall.id}
+            key={presentationContentKey(activePaywall.id, resolvePresent)}
             elements={decision.elements}
             complete={complete}
             customActions={customActions}
@@ -396,7 +365,7 @@ export const PaywallHost = ({ customScreens, requestPermission }: PaywallHostPro
             free, rather than each host having to reimplement both. */}
         {decision.type === "show-custom" && activePaywall && (
           <CustomPaywallContent
-            key={activePaywall.id}
+            key={presentationContentKey(activePaywall.id, resolvePresent)}
             Screen={decision.Screen}
             payload={decision.payload}
             complete={complete}

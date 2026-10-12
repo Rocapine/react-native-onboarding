@@ -13,7 +13,7 @@ import {
   resolvePresentDecision,
   selectActiveProductRuntime,
   shouldBreakPresentationWedge,
-  resolvePresentedOutcome,
+  resolveEndedOutcome,
   LATE_PURCHASE_TIMEOUT_MS,
   type PurchaseOutcomeDuringPresentation,
 } from "./present";
@@ -358,8 +358,8 @@ interface PaywallProviderInnerProps {
 /**
  * One accepted `present()` presentation, from its start to its single end:
  * the observer handle, the `present()` resolver, and what the store did during
- * it (the last `purchased`/`cancelled` wins, the key and the paywall bought on
- * kept only for `purchased`). `pending` counts purchases begun on it and not
+ * it (a settled `purchased` sticks, with its key and the paywall bought on;
+ * before one, the last `cancelled` is kept). `pending` counts purchases begun on it and not
  * yet settled; `timer` bounds the wait when its paywall disappeared with one in
  * flight.
  */
@@ -376,17 +376,18 @@ type PresentationRecord = {
 
 /**
  * The single end of a `present()` presentation: reports to the observer and
- * resolves `present()` with the same reconciled outcome
- * (`resolvePresentedOutcome` upgrades a bare `dismissed` to what the store did —
- * see its doc for why `dismiss`'s own `{status:"dismissed"}` isn't treated as an
- * unoverridable explicit answer). Reported before resolving. Idempotent.
+ * resolves `present()` with the same reconciled outcome (`resolveEndedOutcome`:
+ * a settled purchase sticks, otherwise `resolvePresentedOutcome` upgrades a bare
+ * `dismissed` to what the store did — see its doc for why `dismiss`'s own
+ * `{status:"dismissed"}` isn't treated as an unoverridable explicit answer).
+ * Reported before resolving. Idempotent.
  */
 const endPresentation = (record: PresentationRecord | null, result: PresentResult) => {
   if (!record || record.ended) return;
   record.ended = true;
   if (record.timer) clearTimeout(record.timer);
   record.timer = null;
-  const outcome = resolvePresentedOutcome(result, record.purchaseOutcome);
+  const outcome = resolveEndedOutcome(result, record.purchaseOutcome);
   record.presentation.end(outcome, record.purchasedKey, record.purchasedFrom);
   record.resolve(outcome);
 };
@@ -548,7 +549,8 @@ const PaywallProviderInner = ({
       if (!record || record.ended) return result;
       record.pending -= 1;
       const outcome = purchaseOutcomeFromResult(result);
-      if (outcome) {
+      // A settled purchase sticks — see `resolveEndedOutcome`.
+      if (outcome && record.purchaseOutcome !== "purchased") {
         record.purchaseOutcome = outcome;
         record.purchasedKey = result.status === "purchased" ? result.productKey : null;
         record.purchasedFrom = result.status === "purchased" ? madeOn : null;
@@ -710,10 +712,8 @@ const PaywallProviderInner = ({
   // clears the active moment, hiding the Modal and allowing a new
   // `present()` to start. Safe to call with nothing pending (no-ops).
   //
-  // `resolvePresentedOutcome` upgrades a bare "dismissed" to "purchased" (or
-  // "cancelled") when the store actually did something during this
-  // presentation — see its doc for why `dismiss`'s own `{status:"dismissed"}`
-  // isn't treated as an unoverridable explicit answer.
+  // The end is reconciled with what the store did during this presentation
+  // (`resolveEndedOutcome`, in `endPresentation`).
   const complete = useCallback(
     (result: PresentResult) => {
       // The RECONCILED outcome (`endPresentation`), so a dismiss the store
@@ -772,12 +772,9 @@ const PaywallProviderInner = ({
       );
       return;
     }
-    endPresentation(
-      record,
-      record.purchaseOutcome === "purchased"
-        ? { status: "purchased" }
-        : { status: "error", reason: "paywall-disappeared" }
-    );
+    // A purchase that already settled turns this into `purchased`
+    // (`resolveEndedOutcome`).
+    endPresentation(record, { status: "error", reason: "paywall-disappeared" });
   }, [activeMoment, activePaywall, releaseSurface]);
 
   // The OTHER way a presentation never completes, and the one the guard above

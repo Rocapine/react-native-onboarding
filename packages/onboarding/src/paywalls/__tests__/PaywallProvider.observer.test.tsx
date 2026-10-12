@@ -576,6 +576,68 @@ describe("PaywallProvider observer — a purchase wins over the paywall disappea
   });
 });
 
+describe("PaywallProvider observer — a settled purchase sticks (owner ruling, round 5)", () => {
+  const deferredStore = () => {
+    const waiting: Array<(r: PurchaseResult) => void> = [];
+    const provider: ProductProvider = {
+      ...productProvider,
+      purchase: () => new Promise<PurchaseResult>((resolve) => void waiting.push(resolve)),
+    };
+    const settleNext = async (result: PurchaseResult) => {
+      await act(async () => {
+        waiting.shift()!(result);
+      });
+      await settle();
+    };
+    return { provider, settleNext };
+  };
+  const withoutUpgrade = () => {
+    const next = makeClient(catalogOf("downsell"));
+    next.projectId = "p2";
+    return next;
+  };
+
+  it("paid, then a second purchase cancelled, then the paywall disappears: register() still sees purchased", async () => {
+    const store = deferredStore();
+    const { observer, calls } = recordingObserver();
+    const { captured, rerender } = await mount({ observer, productProvider: store.provider });
+    let registered: any;
+    await act(async () => {
+      captured.ctx.register("upgrade").then((r) => (registered = r));
+    });
+    await settle();
+    await act(async () => void captured.runtime!.purchase("annual"));
+    await settle();
+    await store.settleNext({ status: "purchased", productKey: "annual" });
+    await act(async () => void captured.runtime!.purchase("annual"));
+    await settle();
+    await store.settleNext({ status: "cancelled" });
+    await rerender(observer, withoutUpgrade());
+    expect(registered).toMatchObject({ ran: true, reason: "purchased", outcome: { status: "purchased" } });
+    expect(calls[calls.length - 1]).toEqual([
+      "end",
+      { status: "purchased", transaction: { productId: "com.app.annual.ios" } },
+    ]);
+  });
+
+  it("a host-reported error after a settled purchase still ends purchased, with its transaction", async () => {
+    const { observer, calls } = recordingObserver();
+    const { captured } = await mount({ observer });
+    let settled: unknown;
+    await act(async () => {
+      captured.ctx.present("upgrade").then((r) => (settled = r));
+    });
+    await settle();
+    await act_(() => captured.runtime!.purchase("annual"));
+    await act_(() => captured.ctx.complete({ status: "error", reason: "render-error" }));
+    expect(settled).toEqual({ status: "purchased" });
+    expect(calls[calls.length - 1]).toEqual([
+      "end",
+      { status: "purchased", transaction: { productId: "com.app.annual.ios" } },
+    ]);
+  });
+});
+
 describe("PaywallProvider observer — observePresentation (the inline step's seam)", () => {
   it("opens a paywall_step presentation through the same observer", async () => {
     const { observer, calls } = recordingObserver();

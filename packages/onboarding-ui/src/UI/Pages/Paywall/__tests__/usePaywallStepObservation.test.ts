@@ -7,6 +7,7 @@ import {
   usePaywallStepObservation,
   purchaseOutcomeFromResult as uiPurchaseOutcomeFromResult,
   resolvePresentedOutcome as uiResolvePresentedOutcome,
+  resolveEndedOutcome as uiResolveEndedOutcome,
   LATE_PURCHASE_TIMEOUT_MS,
   type PaywallStepObservation,
 } from "../usePaywallStepObservation";
@@ -17,6 +18,7 @@ import {
 import {
   purchaseOutcomeFromResult as headlessPurchaseOutcomeFromResult,
   resolvePresentedOutcome as headlessResolvePresentedOutcome,
+  resolveEndedOutcome as headlessResolveEndedOutcome,
 } from "../../../../../../onboarding/src/paywalls/present";
 import { openPaywallPresentation } from "../../../../../../onboarding/src/paywalls/observer";
 import { LATE_PURCHASE_TIMEOUT_MS as HEADLESS_LATE_PURCHASE_TIMEOUT_MS } from "../../../../../../onboarding/src/paywalls/present";
@@ -244,13 +246,31 @@ describe("usePaywallStepObservation — cancelled (parity with present())", () =
     expect(calls[calls.length - 1]).toEqual(["end", "pw-a", { status: "cancelled" }, null]);
   });
 
-  it("lets the LAST store outcome win, as the provider does: purchased then cancelled ends cancelled, with no key", async () => {
+  it("keeps a settled purchase: purchased then cancelled ends purchased, with the key (owner ruling, round 5)", async () => {
+    // Reverses the round-3 "last store outcome wins" test.
     const { observe, calls } = recorder();
     await render(createElement(Probe, { observe, paywall: A }));
     api.beginPurchase()({ status: "purchased", productKey: "annual" });
     api.beginPurchase()({ status: "cancelled" });
     await unmount();
-    expect(calls[calls.length - 1]).toEqual(["end", "pw-a", { status: "cancelled" }, null]);
+    expect(calls[calls.length - 1]).toEqual(["end", "pw-a", { status: "purchased" }, "annual"]);
+  });
+
+  it("keeps the FIRST settled purchase's key when a second purchase also settles purchased", async () => {
+    const { observe, calls } = recorder();
+    await render(createElement(Probe, { observe, paywall: A }));
+    api.beginPurchase()({ status: "purchased", productKey: "annual" });
+    api.beginPurchase()({ status: "purchased", productKey: "monthly" });
+    await unmount();
+    expect(calls[calls.length - 1]).toEqual(["end", "pw-a", { status: "purchased" }, "annual"]);
+  });
+
+  it("ends purchased when a render failure follows a settled purchase", async () => {
+    const { observe, calls } = recorder();
+    await render(createElement(Probe, { observe, paywall: A }));
+    api.beginPurchase()({ status: "purchased", productKey: "annual" });
+    api.fail("render-error");
+    expect(calls[calls.length - 1]).toEqual(["end", "pw-a", { status: "purchased" }, "annual"]);
   });
 
   it("ignores pending and error store results, as the provider does", async () => {
@@ -262,7 +282,7 @@ describe("usePaywallStepObservation — cancelled (parity with present())", () =
     expect(calls[calls.length - 1]).toEqual(["end", "pw-a", { status: "dismissed" }, null]);
   });
 
-  it("mirrors the headless purchaseOutcomeFromResult + resolvePresentedOutcome exactly", () => {
+  it("mirrors the headless purchaseOutcomeFromResult + resolvePresentedOutcome + resolveEndedOutcome exactly", () => {
     const results = [
       { status: "purchased", productKey: "annual" } as const,
       { status: "cancelled" } as const,
@@ -283,6 +303,7 @@ describe("usePaywallStepObservation — cancelled (parity with present())", () =
           expect(uiResolvePresentedOutcome(rep, outcome)).toEqual(
             headlessResolvePresentedOutcome(rep, outcome),
           );
+          expect(uiResolveEndedOutcome(rep, outcome)).toEqual(headlessResolveEndedOutcome(rep, outcome));
         }
       }
     }
@@ -591,17 +612,19 @@ describe("usePaywallStepObservation — late purchase (owner decision: count it)
     }
   });
 
-  it("waits for EVERY pending purchase before ending, and the last store outcome wins", async () => {
+  it("waits for EVERY pending purchase before ending, and a settled purchase is not overturned by a later cancel", async () => {
+    // Round 5 reversed this test's order (owner ruling): it used to settle
+    // `cancelled` first and assert the last outcome wins.
     const { observe, calls } = recorder();
     await render(createElement(Probe, { observe, paywall: A }));
     const first = api.beginPurchase();
     const second = api.beginPurchase();
     await unmount();
-    first({ status: "cancelled" });
+    first({ status: "purchased", productKey: "monthly" });
     // A recorder settles its purchase once, however often it is called.
     first({ status: "cancelled" });
     expect(calls).toEqual([["start", "pw-a"]]);
-    second({ status: "purchased", productKey: "monthly" });
+    second({ status: "cancelled" });
     expect(calls).toEqual([
       ["start", "pw-a"],
       ["end", "pw-a", { status: "purchased" }, "monthly"],
@@ -712,6 +735,20 @@ describe("usePaywallStepObservation — a purchase wins over the paywall disappe
     ]);
     await unmount();
     expect(calls).toHaveLength(2);
+  });
+
+  it("paid, a second purchase in flight, the paywall disappears, the second is cancelled: ends purchased", async () => {
+    const { observe, calls } = recorder();
+    await render(createElement(Probe, { observe, paywall: A }));
+    api.beginPurchase()({ status: "purchased", productKey: "annual" });
+    const second = api.beginPurchase();
+    await render(createElement(Probe, { observe, paywall: null }));
+    expect(calls).toEqual([["start", "pw-a"]]);
+    second({ status: "cancelled" });
+    expect(calls).toEqual([
+      ["start", "pw-a"],
+      ["end", "pw-a", { status: "purchased" }, "annual"],
+    ]);
   });
 
   it("still ends error when the only settled outcome was a cancellation (only purchased wins)", async () => {

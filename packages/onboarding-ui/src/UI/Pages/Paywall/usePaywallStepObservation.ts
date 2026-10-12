@@ -43,8 +43,10 @@ import type {
  *     as `present()` reports it — unless a purchase settled `purchased` on it
  *     (then `purchased`) or is still in flight (then it waits, as below).
  *   - blur or unmount with nothing else ended: `dismissed` (the user went back,
- *     or the flow was torn down), upgraded to the last store outcome
+ *     or the flow was torn down), upgraded to the store outcome
  *     (`purchased` / `cancelled`) exactly as `present()` upgrades one.
+ *   - ANY end after a purchase settled `purchased` is `purchased`, with that
+ *     purchase's key (owner ruling on #286, shared with `present()`).
  *
  * A LATE PURCHASE COUNTS (owner decision on #286). If a purchase is in flight
  * when the step blurs or unmounts, the visit's presentation is DETACHED rather
@@ -65,8 +67,10 @@ import type {
  * it started on.
  *
  * PURCHASES are tracked like `PaywallProvider`'s own `purchase` wrapper:
- * - the last `purchased`/`cancelled` wins, `pending`/`error` are ignored, and
- *   the key is kept only for `purchased` (`purchaseOutcomeFromResult`);
+ * - a settled `purchased` sticks, with its key and paywall: no later store
+ *   result (`cancelled`, a second `purchased`) is recorded over it. Before one,
+ *   the last `cancelled` is kept. `pending`/`error` are ignored
+ *   (`purchaseOutcomeFromResult`);
  * - a generation guard: `beginPurchase()` binds to the presentation open when
  *   the purchase STARTED, and its result is dropped once that presentation has
  *   ended (the provider's record binding). A detached one has not.
@@ -116,6 +120,13 @@ export const resolvePresentedOutcome = <R extends { status: string }>(
   purchaseOutcome: PurchaseOutcome,
 ): R | { status: "purchased" | "cancelled" } =>
   reported.status === "dismissed" && purchaseOutcome ? { status: purchaseOutcome } : reported;
+
+/** Mirror of the headless `resolveEndedOutcome`: a settled purchase sticks. */
+export const resolveEndedOutcome = <R extends { status: string }>(
+  reported: R,
+  purchaseOutcome: PurchaseOutcome,
+): R | { status: "purchased" | "cancelled" } =>
+  purchaseOutcome === "purchased" ? { status: "purchased" } : resolvePresentedOutcome(reported, purchaseOutcome);
 
 /**
  * How long a step that was left with a purchase in flight waits for it.
@@ -273,7 +284,8 @@ export function usePaywallStepObservation<P extends PaywallPresentationSource>(
           // nothing ever ends.
           if (started.ended) return;
           const outcome = purchaseOutcomeFromResult(result);
-          if (outcome) {
+          // A settled purchase sticks: its key and paywall are kept.
+          if (outcome && started.purchaseOutcome !== "purchased") {
             started.purchaseOutcome = outcome;
             started.purchasedKey = outcome === "purchased" ? (result.productKey ?? null) : null;
             started.purchasedFrom = outcome === "purchased" ? on : null;
@@ -311,7 +323,7 @@ function detach(o: Open) {
 function disappear(o: Open | null) {
   if (!o || o.ended) return;
   if (o.pending > 0) detach(o);
-  else if (o.purchaseOutcome === "purchased") finish(o, { status: "purchased" });
+  // A settled purchase turns this into `purchased` (`resolveEndedOutcome`).
   else finish(o, { status: "error", reason: "paywall-disappeared" });
 }
 
@@ -326,6 +338,6 @@ function finish(o: Open | null, result: StepOutcome) {
   // so its end arrives here from unmount, and must not read as a non-conversion;
   // a cancelled purchase followed by leaving reads as `cancelled`, as it does
   // through `present()`.
-  const final = resolvePresentedOutcome(result, o.purchaseOutcome);
+  const final = resolveEndedOutcome(result, o.purchaseOutcome);
   o.presentation.end(final, o.purchasedKey, o.purchasedFrom);
 }

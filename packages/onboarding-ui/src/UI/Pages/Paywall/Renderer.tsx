@@ -212,7 +212,7 @@ const PaywallStepRendererBase = ({
       // A custom screen's own `complete({status:"cancelled"})` never passes the
       // gate, but it is the store outcome `present()` would report, so record
       // it before the gate (r1-6). An elements purchase is already recorded by
-      // `observedProducts` below; recording it twice is harmless (last wins).
+      // `observedProducts` below; recording it twice is harmless (a settled purchase is never overwritten).
       if (outcome?.status === "cancelled") observation.beginPurchase()(outcome);
       if (!shouldAdvanceOnComplete(outcome)) return;
       observation.advance(outcome);

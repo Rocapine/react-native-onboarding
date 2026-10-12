@@ -197,6 +197,21 @@ export const resolvePresentedOutcome = (
   reported.status === "dismissed" && purchaseOutcome ? { status: purchaseOutcome } : reported;
 
 /**
+ * What a presentation ENDS with. A purchase that settled `purchased` during it
+ * sticks (owner ruling on #286): no later report overturns it — a dismissal,
+ * a host's `error` (`render-error`, `paywall-disappeared`), a custom screen's
+ * `cancelled`. The user paid, and `register()` must not deny them. Otherwise
+ * `resolvePresentedOutcome`'s rule. Recording keeps the same rule: once
+ * `purchased`, a later store result (`cancelled`, or a second `purchased`) is
+ * not recorded, so the end keeps the FIRST purchase's key and paywall.
+ */
+export const resolveEndedOutcome = (
+  reported: PresentResult,
+  purchaseOutcome: PurchaseOutcomeDuringPresentation
+): PresentResult =>
+  purchaseOutcome === "purchased" ? { status: "purchased" } : resolvePresentedOutcome(reported, purchaseOutcome);
+
+/**
  * How long a presentation whose paywall left the catalog with a purchase in
  * flight waits for that purchase before ending `dismissed`. Mirrors
  * `DEFAULT_PURCHASE_TIMEOUT_MS` in `../products/adapters/expoIap.ts` (not

@@ -8,6 +8,14 @@ here.
 ## [Unreleased]
 
 ### Added
+- **A custom paywall screen's `complete({ status, transaction })` reaches the
+  observer** (#287). `PaywallHost` and the inline `Paywall` step hand a custom
+  screen its own `complete`, which forwards `transaction` to the headless
+  provider (the Modal) or to the step's observed presentation (the step); the
+  headless package sanitizes it and sends it to the `observer`'s `end()` only
+  with `status: "purchased"`. The elements path's `ScreenHost.complete` never
+  forwards one. The step's gate is unchanged: a transaction never advances it.
+  Needs a headless with #287; an older one ignores the transaction.
 - **A paywall's stale action chain ends at its `purchase`** (#286). When the
   presentation a chain belongs to has left the screen (a `custom` or
   `requestPermission` step resumed after the paywall closed), the `purchase`

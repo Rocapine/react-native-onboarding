@@ -6,6 +6,7 @@ import {
   usePaywall,
   usePaywallHost,
 } from "@rocapine/react-native-onboarding";
+import type { CustomPaywallScreenProps } from "@rocapine/react-native-onboarding";
 import { PaywallStepTypeSchema, type PaywallStepType } from "./types";
 import type { OnboardingStepType } from "../../types";
 import { resolvePaywallStepDecision } from "./resolvePaywallStepDecision";
@@ -205,14 +206,31 @@ const PaywallStepRendererBase = ({
 
   // THE GATE. `ScreenHost.complete` is how every authored action reports an
   // outcome, so filtering here is what makes "only a purchase advances" true
-  // without tracking purchases anywhere. A custom screen is handed the same
-  // callback, so the gate applies identically to it.
+  // without tracking purchases anywhere. A custom screen gets `completeCustom`
+  // below, the same gate plus its transaction, so the gate applies identically
+  // to it.
   const complete = useCallback(
     (outcome?: CompleteOutcome) => {
       // A custom screen's own `complete({status:"cancelled"})` never passes the
       // gate, but it is the store outcome `present()` would report, so record
       // it before the gate (r1-6). An elements purchase is already recorded by
       // `observedProducts` below; recording it twice is harmless (a settled purchase is never overwritten).
+      if (outcome?.status === "cancelled") observation.beginPurchase()(outcome);
+      if (!shouldAdvanceOnComplete(outcome)) return;
+      // Status only: the elements path never reports a transaction (#287).
+      observation.advance(outcome && { status: outcome.status });
+      onContinue();
+    },
+    [onContinue, observation],
+  );
+
+  // A custom screen's `complete`, the only one that may carry the purchase
+  // `transaction` its billing SDK made (#287). Same gate and recording as
+  // `complete` above; the transaction rides on the advance, which forwards it
+  // only with `purchased`. Separate so an authored or custom action on the
+  // elements path cannot report one through the open `CompleteOutcome`.
+  const completeCustom = useCallback<CustomPaywallScreenProps["complete"]>(
+    (outcome) => {
       if (outcome?.status === "cancelled") observation.beginPurchase()(outcome);
       if (!shouldAdvanceOnComplete(outcome)) return;
       observation.advance(outcome);
@@ -324,7 +342,7 @@ const PaywallStepRendererBase = ({
     return template(
       <CustomScreen
         payload={paywall.customPayload ?? {}}
-        complete={complete}
+        complete={completeCustom}
         paywall={{
           id: paywall.id,
           name: paywall.name,

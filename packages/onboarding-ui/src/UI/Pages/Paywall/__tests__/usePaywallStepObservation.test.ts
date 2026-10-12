@@ -858,3 +858,42 @@ describe("usePaywallStepObservation — variant swap then purchase while focused
     ]);
   });
 });
+
+describe("usePaywallStepObservation — a custom screen's transaction (#287)", () => {
+  const TX = { originalTransactionIdentifier: "2000000123", productId: "com.app.annual.ios" };
+  const fullRecorder = () => {
+    const ends: unknown[][] = [];
+    const observe = (_paywall: Paywall): PaywallPresentation => ({
+      shown: () => {},
+      end: (...args) => void ends.push(args),
+    });
+    return { observe, ends };
+  };
+
+  it("passes advance()'s transaction to end() as its fourth argument with a purchased outcome", async () => {
+    const { observe, ends } = fullRecorder();
+    await render(createElement(Probe, { observe, paywall: A }));
+    api.advance({ status: "purchased", transaction: TX });
+    expect(ends).toEqual([[{ status: "purchased" }, null, null, TX]]);
+  });
+
+  it("passes none for an advance without purchased status, or without a transaction", async () => {
+    for (const outcome of [{ transaction: TX }, undefined, { status: "purchased" }]) {
+      const { observe, ends } = fullRecorder();
+      await render(createElement(Probe, { observe, paywall: A }));
+      api.advance(outcome);
+      expect(ends).toHaveLength(1);
+      expect(ends[0][3]).toBeUndefined();
+      await unmount();
+    }
+  });
+
+  it("drops the transaction of an advance after the visit, like the advance itself", async () => {
+    const { observe, ends } = fullRecorder();
+    const nav = focusController();
+    await render(createElement(Probe, { observe, paywall: A, useFocusEffect: nav.useFocusEffect }));
+    await nav.blur();
+    api.advance({ status: "purchased", transaction: TX });
+    expect(ends).toEqual([[{ status: "dismissed" }, null, null, undefined]]);
+  });
+});

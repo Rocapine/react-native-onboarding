@@ -395,3 +395,60 @@ describe("PaywallStepRenderer — late purchase (owner decision: count it)", () 
     ]);
   });
 });
+
+describe("PaywallStepRenderer — a custom screen's transaction (#287)", () => {
+  const TX = { originalTransactionIdentifier: "2000000123", productId: "com.app.annual.ios" };
+  const fullRecorder = () => {
+    const ends: unknown[][] = [];
+    h.observePresentation = () => ({ shown: () => {}, end: (...args: unknown[]) => void ends.push(args) });
+    return ends;
+  };
+  let complete: (o?: { status?: string; transaction?: unknown }) => void = () => {};
+  const Screen = (props: { complete: typeof complete }) => {
+    complete = props.complete;
+    return null;
+  };
+  const showCustom = async (nav?: ReturnType<typeof focusController>) => {
+    setCatalog(paywall("pw-a", { renderMode: "custom", customScreenId: "s", elements: [] }), { s: Screen });
+    await render(nav);
+  };
+
+  it("forwards complete({ status: purchased, transaction }) to end() and advances", async () => {
+    const ends = fullRecorder();
+    await showCustom();
+    await act(async () => complete({ status: "purchased", transaction: TX }));
+    expect(onContinue).toHaveBeenCalledTimes(1);
+    expect(ends).toEqual([[{ status: "purchased" }, null, null, TX]]);
+  });
+
+  it("drops it with dismissed or cancelled: the gate holds and the end carries none", async () => {
+    for (const status of ["dismissed", "cancelled"]) {
+      const ends = fullRecorder();
+      await showCustom();
+      await act(async () => complete({ status, transaction: TX }));
+      expect(onContinue).not.toHaveBeenCalled();
+      await unmount();
+      expect(ends).toHaveLength(1);
+      expect(ends[0][0]).toEqual({ status });
+      expect(ends[0][3]).toBeUndefined();
+    }
+  });
+
+  it("does nothing with a complete after the step was left, transaction included", async () => {
+    const ends = fullRecorder();
+    const nav = focusController();
+    await showCustom(nav);
+    await nav.blur();
+    await act(async () => complete({ status: "purchased", transaction: TX }));
+    expect(ends).toEqual([[{ status: "dismissed" }, null, null, undefined]]);
+  });
+
+  it("never forwards one from the elements path's ScreenHost.complete", async () => {
+    const ends = fullRecorder();
+    setCatalog(paywall("pw-a"));
+    await render();
+    await act(async () => h.host.complete({ status: "purchased", transaction: TX }));
+    expect(ends).toHaveLength(1);
+    expect(ends[0][3]).toBeUndefined();
+  });
+});

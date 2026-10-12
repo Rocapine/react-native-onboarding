@@ -248,6 +248,17 @@ export const PaywallHost = ({ customScreens, requestPermission }: PaywallHostPro
     [resolvePresent]
   );
 
+  // A custom screen's `complete`, which alone may carry the purchase
+  // `transaction` its billing SDK made (#287): forwarded as the provider's
+  // second argument, which sanitizes it and drops it unless the status is
+  // `purchased`. Separate from `complete` above on purpose: `CompleteOutcome`
+  // is open, and an authored action or custom action must not be able to
+  // report a transaction through the elements path.
+  const completeCustom = useCallback<CustomPaywallScreenProps["complete"]>(
+    (outcome) => resolvePresent(toPresentResult(outcome), outcome?.transaction),
+    [resolvePresent]
+  );
+
   // Android hardware back must resolve exactly like the in-content `dismiss`
   // action. `complete` no-ops safely if called with nothing pending, so there
   // is no need to additionally gate this on `activePaywall`.
@@ -379,7 +390,7 @@ export const PaywallHost = ({ customScreens, requestPermission }: PaywallHostPro
             key={presentationContentKey(activePaywall.id, resolvePresent)}
             Screen={decision.Screen}
             payload={decision.payload}
-            complete={complete}
+            complete={completeCustom}
             paywall={{
               id: activePaywall.id,
               name: activePaywall.name,

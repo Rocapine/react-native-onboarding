@@ -95,7 +95,11 @@ export type PaywallStepObservation = {
    * result. Bound to the presentation open at the call.
    */
   beginPurchase(): (result: StepPurchaseResult) => void;
-  advance(outcome: { status?: string } | undefined): void;
+  /**
+   * `outcome.transaction` is a custom screen's (#287): forwarded raw to the
+   * handle's `end()`, which sanitizes it, and only with `status: "purchased"`.
+   */
+  advance(outcome: { status?: string; transaction?: unknown } | undefined): void;
   fail(reason: PresentErrorReason): void;
 };
 
@@ -296,8 +300,15 @@ export function usePaywallStepObservation<P extends PaywallPresentationSource>(
       },
       advance: (outcome) => {
         // The gate only lets through `purchased` or no status (a plain
-        // continue); the latter is `present()`'s bare `dismissed`.
-        finish(ensure(), { status: outcome?.status === "purchased" ? "purchased" : "dismissed" });
+        // continue); the latter is `present()`'s bare `dismissed`. A
+        // transaction counts only with the former (#287). After the visit
+        // `ensure()` is null, so a stale call drops it with the advance.
+        const purchased = outcome?.status === "purchased";
+        finish(
+          ensure(),
+          { status: purchased ? "purchased" : "dismissed" },
+          purchased ? outcome?.transaction : undefined,
+        );
       },
       fail: (reason) => finish(ensure(), { status: "error", reason }),
     }),
@@ -337,7 +348,7 @@ function disappear(o: Open | null) {
   else finish(o, { status: "error", reason: "paywall-disappeared" });
 }
 
-function finish(o: Open | null, result: StepOutcome) {
+function finish(o: Open | null, result: StepOutcome, reportedTransaction?: unknown) {
   if (!o || o.ended) return;
   o.ended = true;
   if (o.timer) clearTimeout(o.timer);
@@ -349,5 +360,5 @@ function finish(o: Open | null, result: StepOutcome) {
   // a cancelled purchase followed by leaving reads as `cancelled`, as it does
   // through `present()`.
   const final = resolveEndedOutcome(result, o.purchaseOutcome);
-  o.presentation.end(final, o.purchasedKey, o.purchasedFrom);
+  o.presentation.end(final, o.purchasedKey, o.purchasedFrom, reportedTransaction);
 }

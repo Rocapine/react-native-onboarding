@@ -5,7 +5,7 @@ here.
 
 ---
 
-## [Unreleased]
+## [1.76.0] - 2026-10-12
 
 ### Added
 - **A custom paywall screen's `complete({ status, transaction })` reaches the
@@ -188,6 +188,8 @@ here.
   on hardware.
 
 ### Changed
+
+- **Peer dependency raised to `@rocapine/react-native-onboarding@^1.76.0`.** The UI package now type-imports headless members that first ship in 1.76.0 (`PaywallPresentation`, `PaywallTransactionInfo`, …); upgrade both packages together.
 
 - **A `"continue"` / `{dismiss}` nested in a `purchase` or `restore` hook now
   ends the whole press** (#196, review round 1 finding 4 / round 2 finding 7).

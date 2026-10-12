@@ -4,7 +4,7 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
-## [Unreleased]
+## [1.76.0] - 2026-10-12
 
 ### Added
 - **A custom paywall screen can pass its purchase transaction to

@@ -737,14 +737,29 @@ describe("usePaywallStepObservation — a purchase wins over the paywall disappe
     expect(calls).toHaveLength(2);
   });
 
-  it("paid, a second purchase in flight, the paywall disappears, the second is cancelled: ends purchased", async () => {
+  it("paid, a second purchase in flight, the paywall disappears: ends purchased at once, the second changes nothing (round 6)", async () => {
+    // Round 5 waited for the second purchase here; nothing it settles to can
+    // change a sticky `purchased`, so round 6 ends at once.
     const { observe, calls } = recorder();
     await render(createElement(Probe, { observe, paywall: A }));
     api.beginPurchase()({ status: "purchased", productKey: "annual" });
     const second = api.beginPurchase();
     await render(createElement(Probe, { observe, paywall: null }));
-    expect(calls).toEqual([["start", "pw-a"]]);
+    expect(calls).toEqual([
+      ["start", "pw-a"],
+      ["end", "pw-a", { status: "purchased" }, "annual"],
+    ]);
     second({ status: "cancelled" });
+    expect(calls).toHaveLength(2);
+  });
+
+  it("paid, a second purchase in flight, the step blurs: ends purchased at once (round 6)", async () => {
+    const { observe, calls } = recorder();
+    const nav = focusController();
+    await render(createElement(Probe, { observe, paywall: A, useFocusEffect: nav.useFocusEffect }));
+    api.beginPurchase()({ status: "purchased", productKey: "annual" });
+    api.beginPurchase();
+    await nav.blur();
     expect(calls).toEqual([
       ["start", "pw-a"],
       ["end", "pw-a", { status: "purchased" }, "annual"],

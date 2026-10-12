@@ -231,7 +231,7 @@ export function usePaywallStepObservation<P extends PaywallPresentationSource>(
     open.current = null;
     visiting.current = false;
     if (!o || o.ended) return;
-    if (o.pending > 0) detach(o);
+    if (shouldWait(o)) detach(o);
     else finish(o, { status: "dismissed" });
   }, []);
 
@@ -310,6 +310,16 @@ export function usePaywallStepObservation<P extends PaywallPresentationSource>(
  * it: the last one to settle ends it. Never cleared by an unmount, or a
  * purchase that never settles would leak it.
  */
+/**
+ * Wait only while a purchase is in flight AND the end is still open: once one
+ * settled `purchased` the end is fixed (`resolveEndedOutcome`), so nothing a
+ * pending one settles to could change it. Mirrors the provider's
+ * `shouldWaitForPurchases`.
+ */
+function shouldWait(o: Open) {
+  return o.pending > 0 && o.purchaseOutcome !== "purchased";
+}
+
 function detach(o: Open) {
   o.timer ??= setTimeout(() => finish(o, { status: "dismissed" }), LATE_PURCHASE_TIMEOUT_MS);
 }
@@ -322,7 +332,7 @@ function detach(o: Open) {
  */
 function disappear(o: Open | null) {
   if (!o || o.ended) return;
-  if (o.pending > 0) detach(o);
+  if (shouldWait(o)) detach(o);
   // A settled purchase turns this into `purchased` (`resolveEndedOutcome`).
   else finish(o, { status: "error", reason: "paywall-disappeared" });
 }

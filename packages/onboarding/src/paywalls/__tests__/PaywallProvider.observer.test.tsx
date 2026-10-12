@@ -669,6 +669,46 @@ describe("PaywallProvider observer — a settled purchase sticks (owner ruling, 
     ]);
   });
 
+  it("a close with a purchase in flight ends at once when one already settled purchased (round 6)", async () => {
+    const store = deferredStore();
+    const { observer, calls } = recordingObserver();
+    const { captured } = await mount({ observer, productProvider: store.provider });
+    let settled: unknown;
+    await act(async () => {
+      captured.ctx.present("upgrade").then((r) => (settled = r));
+    });
+    await settle();
+    await act(async () => void captured.runtime!.purchase("annual"));
+    await settle();
+    await store.settleNext({ status: "purchased", productKey: "annual" });
+    await act(async () => void captured.runtime!.purchase("annual"));
+    await settle();
+    await act_(() => captured.ctx.complete({ status: "dismissed" }));
+    expect(settled).toEqual({ status: "purchased" });
+    expect(calls[calls.length - 1]).toEqual([
+      "end",
+      { status: "purchased", transaction: { productId: "com.app.annual.ios" } },
+    ]);
+  });
+
+  it("a disappearance with a purchase in flight ends at once when one already settled purchased (round 6)", async () => {
+    const store = deferredStore();
+    const { observer } = recordingObserver();
+    const { captured, rerender } = await mount({ observer, productProvider: store.provider });
+    let settled: unknown;
+    await act(async () => {
+      captured.ctx.present("upgrade").then((r) => (settled = r));
+    });
+    await settle();
+    await act(async () => void captured.runtime!.purchase("annual"));
+    await settle();
+    await store.settleNext({ status: "purchased", productKey: "annual" });
+    await act(async () => void captured.runtime!.purchase("annual"));
+    await settle();
+    await rerender(observer, withoutUpgrade());
+    expect(settled).toEqual({ status: "purchased" });
+  });
+
   it("a host-reported error after a settled purchase still ends purchased, with its transaction", async () => {
     const { observer, calls } = recordingObserver();
     const { captured } = await mount({ observer });

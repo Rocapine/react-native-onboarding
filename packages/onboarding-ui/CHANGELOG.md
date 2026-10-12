@@ -24,7 +24,8 @@ here.
   already settled, as `present()` now does; with neither it ends
   `paywall-disappeared` at once. Once a purchase settles `purchased`, the
   presentation ends `purchased` with that key whatever follows (a later
-  cancelled purchase, a render failure, the paywall disappearing). A purchase
+  cancelled purchase, a render failure, the paywall disappearing), and a blur
+  or disappearance no longer waits for a second purchase in flight. A purchase
   made after a variant swap reports the bought variant's store id.
 - **`PaywallHost` keys its content per presentation** (#286), with the
   presentation-bound `complete` from the headless, so a paywall's action chain

@@ -51,6 +51,22 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   the paywall that replaced it. A host rendering its own modal must call the
   `complete` from the current render; one stashed across presentations now
   does nothing, and the paywall it should have closed stays up.
+- **A paywall's `purchase` is bound to its presentation too** (#286). The
+  product runtime `PaywallProvider` publishes binds `purchase` to the
+  presentation on screen when it was rendered. A purchase requested through a
+  presentation that has since left (a stale action chain, e.g. a `custom` or
+  `requestPermission` step followed by `purchase`, resuming after the paywall
+  closed) does not open the store and resolves `{ status: "cancelled" }`,
+  recording nothing on the presentation now showing. Logged with a warning.
+- **A paywall presented in the same render as one closing is acknowledged**
+  (#286). When `complete()` releases an acknowledged paywall and `present()`
+  opens the next one before React commits (an `await present()` continuation,
+  or the same moment again), the Modal never re-fires `onShow`; that
+  presentation is now acknowledged and reported `shown` at once, instead of
+  being torn down by the acknowledgement timeout as `host-never-presented`.
+- A close or disappearance with a purchase in flight no longer waits when a
+  purchase has already settled `purchased`: the end is fixed, so it ends
+  `purchased` at once.
 
 - **`requestPermission` ButtonAction** — ask the OS for a permission and branch
   on the answer within the SAME press (#196). An eighth `ButtonAction` member:

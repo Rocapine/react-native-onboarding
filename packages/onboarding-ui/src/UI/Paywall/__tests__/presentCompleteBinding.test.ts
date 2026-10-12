@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { act, createElement, useCallback, useContext, useRef } from "react";
+import { act, createElement, useCallback, useContext, useEffect, useRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import type { RenderContext } from "../../Runtime/elements/shared";
 import type { ButtonAction } from "../../Runtime/elements/actions";
@@ -79,7 +79,7 @@ const settle = async () => {
   });
 };
 
-const mount = async () => {
+const mount = async (options: { presentAckTimeoutMs?: number | null } = {}) => {
   vi.resetModules();
   const [{ PaywallProvider, PaywallContext }, { ProductRuntimeContext }, { runActions }, binding] =
     await Promise.all([
@@ -112,7 +112,18 @@ const mount = async () => {
     restore: async () => ({ status: "nothing_to_restore" }),
   };
   const slow = deferred<void>();
-  const live: { host?: any; ctx?: RenderContext; close?: () => void } = {};
+  const live: { host?: any; ctx?: RenderContext; close?: () => void; refuseShow?: boolean } = {};
+  const observed: string[] = [];
+  const observer = {
+    start: (info: { moment: string }) => {
+      observed.push(`start ${info.moment}`);
+      return {
+        shown: () => void observed.push(`shown ${info.moment}`),
+        end: (o: { status: string; reason?: string }) =>
+          void observed.push(`end ${info.moment} ${o.status}${o.reason ? ` ${o.reason}` : ""}`),
+      };
+    },
+  };
 
   // ScreenRenderer's stash, verbatim in shape: `completeRef.current` is read
   // when an action calls `onContinue`, not when it was rendered.
@@ -137,6 +148,15 @@ const mount = async () => {
     const host = useContext(PaywallContext) as any;
     const products = useContext(ProductRuntimeContext);
     live.host = host;
+    // The RN Modal's `onShow`: fires when `visible` goes false → true, never
+    // when it stays true across two presentations in one commit.
+    const visible = Boolean(host.activePaywall);
+    const ackRef = useRef(host.acknowledgePresentation);
+    ackRef.current = host.acknowledgePresentation;
+    useEffect(() => {
+      // `refuseShow` models iOS refusing to present: no `onShow` at all.
+      if (visible && !live.refuseShow) ackRef.current();
+    }, [visible]);
     const resolvePresent = host.complete;
     const complete = useCallback(
       (outcome?: CompleteOutcome) => resolvePresent(binding.toPresentResult(outcome)),
@@ -154,7 +174,8 @@ const mount = async () => {
     createElement(PaywallProvider, {
       client,
       productProvider: productProvider as any,
-      presentAckTimeoutMs: null,
+      presentAckTimeoutMs: options.presentAckTimeoutMs === undefined ? null : options.presentAckTimeoutMs,
+      observer,
       children: createElement(Host),
     });
   container = document.createElement("div");
@@ -164,6 +185,8 @@ const mount = async () => {
   await settle();
   return {
     live,
+    observed,
+    storePurchases: () => purchases.length,
     slow,
     /** Runs an authored action list on the content currently shown, without awaiting it. */
     press: async (actions: ButtonAction[]) => {
@@ -269,5 +292,93 @@ describe("present(): complete() is bound to the presentation it was rendered for
     await t.press([{ type: "dismiss" } as ButtonAction]);
     expect(first).toEqual({ status: "dismissed" });
     expect(t.live.host.activePaywall).toBeNull();
+  });
+
+  it("a stale chain from A does not open the store, and records nothing on B (round 6)", async () => {
+    const t = await mount();
+    let second: unknown;
+    await t.present("upgrade", () => void t.live.host.present("downsell").then((r: unknown) => (second = r)));
+    await t.press([{ type: "custom", function: "slow" } as ButtonAction, ...BUY_THEN_DISMISS]);
+    // Closed with nothing in flight: A ends at once and B opens.
+    await act(async () => t.live.close!());
+    await settle();
+    expect(t.live.host.activePaywall?.moment).toBe("downsell");
+    // A's chain resumes and reaches its `purchase`.
+    await act(async () => t.slow.resolve());
+    await settle();
+    expect(t.storePurchases()).toBe(0);
+    expect(t.live.host.activePaywall?.moment).toBe("downsell");
+    // B closes with its own dismiss and owes nothing to A's purchase.
+    await t.press([{ type: "dismiss" } as ButtonAction]);
+    expect(second).toEqual({ status: "dismissed" });
+  });
+});
+
+describe("present(): a presentation that takes a still-visible surface is acknowledged (round 6)", () => {
+  const ACK_MS = 40;
+  const wait = async (ms: number) => {
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, ms));
+    });
+    await settle();
+  };
+
+  it("a same-moment re-present in one batch is shown and never torn down by the ack timeout", async () => {
+    const t = await mount({ presentAckTimeoutMs: ACK_MS });
+    let second: unknown;
+    await t.present("upgrade", () => void t.live.host.present("upgrade").then((r: unknown) => (second = r)));
+    expect(t.observed).toEqual(["start upgrade", "shown upgrade"]);
+    await act(async () => t.live.close!());
+    await settle();
+    await wait(ACK_MS * 3);
+    expect(second).toBeUndefined();
+    expect(t.live.host.activePaywall?.moment).toBe("upgrade");
+    expect(t.observed).toEqual([
+      "start upgrade",
+      "shown upgrade",
+      "end upgrade dismissed",
+      "start upgrade",
+      "shown upgrade",
+    ]);
+  });
+
+  it("so is a downsell opened by the `await present()` continuation in the same batch", async () => {
+    const t = await mount({ presentAckTimeoutMs: ACK_MS });
+    let second: unknown;
+    await t.present("upgrade", () => void t.live.host.present("downsell").then((r: unknown) => (second = r)));
+    await act(async () => t.live.close!());
+    await settle();
+    await wait(ACK_MS * 3);
+    expect(second).toBeUndefined();
+    expect(t.live.host.activePaywall?.moment).toBe("downsell");
+    expect(t.observed.slice(-2)).toEqual(["start downsell", "shown downsell"]);
+  });
+
+  it("a later present in its own commit is still acknowledged through onShow, as before", async () => {
+    const t = await mount({ presentAckTimeoutMs: ACK_MS });
+    // Acknowledged once, closed, and a LATER present (its own commit) that the
+    // modeled Modal does show: control for the carry-over above.
+    let first: unknown;
+    await t.present("upgrade", (r) => (first = r));
+    await act(async () => t.live.close!());
+    await settle();
+    expect(first).toEqual({ status: "dismissed" });
+    let next: unknown;
+    await t.present("downsell", (r) => (next = r));
+    await wait(ACK_MS * 3);
+    expect(next).toBeUndefined();
+    expect(t.observed.slice(-2)).toEqual(["start downsell", "shown downsell"]);
+  });
+
+  it("still abandons a presentation the platform refuses after a commit gap: the carry-over is per commit", async () => {
+    const t = await mount({ presentAckTimeoutMs: ACK_MS });
+    await t.present("upgrade");
+    await act(async () => t.live.close!());
+    await settle();
+    t.live.refuseShow = true;
+    let next: unknown;
+    await t.present("downsell", (r) => (next = r));
+    await wait(ACK_MS * 3);
+    expect(next).toEqual({ status: "error", reason: "host-never-presented" });
   });
 });

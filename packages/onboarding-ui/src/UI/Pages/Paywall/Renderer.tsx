@@ -224,9 +224,11 @@ const PaywallStepRendererBase = ({
   // The step's own purchases, recorded so the observer's `end()` reports what
   // the store did (`purchased` with the slot, or `cancelled`). Wraps the runtime
   // rather than reading the provider's per-`present()` tracking, which a step is
-  // not part of. `beginPurchase` runs BEFORE the await, so a result that settles
-  // after the paywall was swapped or the step unmounted is dropped — the
-  // provider's `shouldRecordPurchaseOutcome` rule.
+  // not part of. `beginPurchase` runs BEFORE the await, binding the result to
+  // the presentation open when the purchase started (the provider's
+  // `shouldRecordPurchaseOutcome` rule): a result that settles after the step
+  // blurred or unmounted still ends THAT presentation (a late purchase counts),
+  // and never reaches a later one.
   const observedProducts = useMemo(
     () =>
       products && {

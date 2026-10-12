@@ -31,9 +31,9 @@ import type { CustomPaywallScreenProps, CustomPaywallScreens } from "./CustomPay
 // to `"dismissed"` right here too, unchanged. The "did a purchase actually
 // happen" upgrade to `"purchased"`/`"cancelled"` is NOT this function's job:
 // it happens one level up, in `PaywallProvider`'s `purchase()` wrapper
-// (records the outcome, race-guarded against a stale in-flight purchase from
-// a PREVIOUS presentation — see `shouldRecordPurchaseOutcome`) and its
-// `complete()` (applies `resolvePresentedOutcome`) — both in `present.ts` /
+// (records the outcome on the presentation the purchase started on, so a
+// stale in-flight purchase from a PREVIOUS presentation never reaches the
+// current one) and its `complete()` (applies `resolvePresentedOutcome`) — both in `present.ts` /
 // `PaywallProvider.tsx`, where the product runtime and the pending
 // `present()` resolver already live. This function still checks the status
 // against the closed set (rather than hardcoding `"dismissed"`) purely so a

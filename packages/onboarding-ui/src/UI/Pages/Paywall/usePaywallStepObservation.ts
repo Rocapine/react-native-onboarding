@@ -69,7 +69,7 @@ import type {
  *   the key is kept only for `purchased` (`purchaseOutcomeFromResult`);
  * - a generation guard: `beginPurchase()` binds to the presentation open when
  *   the purchase STARTED, and its result is dropped once that presentation has
- *   ended (`shouldRecordPurchaseOutcome`'s race). A detached one has not.
+ *   ended (the provider's record binding). A detached one has not.
  * - the paywall the purchase was made on goes with the key, so after a variant
  *   swap the store id reported is the bought variant's, not the first one's.
  *
@@ -119,9 +119,10 @@ export const resolvePresentedOutcome = <R extends { status: string }>(
 
 /**
  * How long a step that was left with a purchase in flight waits for it.
- * Mirrors `DEFAULT_PURCHASE_TIMEOUT_MS` in
- * `packages/onboarding/src/products/adapters/expoIap.ts` (not exported, and
- * mirrored rather than imported for the peer-range reason above): that adapter
+ * Mirrors the headless `LATE_PURCHASE_TIMEOUT_MS` (`paywalls/present.ts`, the
+ * same wait for `present()`) and `DEFAULT_PURCHASE_TIMEOUT_MS` in
+ * `packages/onboarding/src/products/adapters/expoIap.ts`, mirrored rather than
+ * imported for the peer-range reason above and held equal by the test: that adapter
  * answers `pending` after the same wait, counted from the purchase START, so it
  * settles first and this only ever fires for a provider with no bound of its
  * own. Counted from the blur, so it is never shorter than the adapter's.
@@ -310,7 +311,7 @@ function detach(o: Open) {
 function disappear(o: Open | null) {
   if (!o || o.ended) return;
   if (o.pending > 0) detach(o);
-  else if (o.purchaseOutcome === "purchased") finish(o, { status: "dismissed" });
+  else if (o.purchaseOutcome === "purchased") finish(o, { status: "purchased" });
   else finish(o, { status: "error", reason: "paywall-disappeared" });
 }
 

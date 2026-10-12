@@ -19,7 +19,10 @@ here.
   unmounts is counted: the presentation stays open until it settles and ends
   with its outcome (bounded at 180 s, the expo-iap adapter's purchase wait, then
   `dismissed`). Going back to the step meanwhile starts a new presentation that
-  the old purchase never reaches. A purchase made after a variant swap reports
+  the old purchase never reaches. The paywall leaving the catalog mid-step
+  waits for a purchase in flight the same way, and ends `purchased` if one
+  already settled, as `present()` now does; with neither it ends
+  `paywall-disappeared` at once. A purchase made after a variant swap reports
   the bought variant's store id. Against a
   headless older than `usePaywallHost().observePresentation` it reports nothing
   rather than throwing. The step's crash boundary is now keyed by paywall id,

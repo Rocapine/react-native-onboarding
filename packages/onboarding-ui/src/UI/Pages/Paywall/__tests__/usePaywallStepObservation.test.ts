@@ -19,6 +19,7 @@ import {
   resolvePresentedOutcome as headlessResolvePresentedOutcome,
 } from "../../../../../../onboarding/src/paywalls/present";
 import { openPaywallPresentation } from "../../../../../../onboarding/src/paywalls/observer";
+import { LATE_PURCHASE_TIMEOUT_MS as HEADLESS_LATE_PURCHASE_TIMEOUT_MS } from "../../../../../../onboarding/src/paywalls/present";
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -605,6 +606,10 @@ describe("usePaywallStepObservation — late purchase (owner decision: count it)
       ["start", "pw-a"],
       ["end", "pw-a", { status: "purchased" }, "monthly"],
     ]);
+  });
+
+  it("waits exactly as long as present() does (the headless LATE_PURCHASE_TIMEOUT_MS)", () => {
+    expect(LATE_PURCHASE_TIMEOUT_MS).toBe(HEADLESS_LATE_PURCHASE_TIMEOUT_MS);
   });
 
   it("ends dismissed after LATE_PURCHASE_TIMEOUT_MS when the pending purchase never settles, and ignores it after", async () => {

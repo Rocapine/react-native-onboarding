@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   PaywallPresentation,
   PaywallPresentationSource,
@@ -101,6 +101,16 @@ export type PaywallStepObservation = {
    */
   advance(outcome: { status?: string; transaction?: unknown } | undefined): void;
   fail(reason: PresentErrorReason): void;
+  /**
+   * The visit this render belongs to (#287 round 2). Changes once a visit
+   * ends (blur or unmount), which re-renders the step, so a callback bound at
+   * render to `visit` can tell, at call time, whether its visit is still on
+   * screen: `isCurrentVisit(visit)`. The other members keep their identity
+   * across visits.
+   */
+  visit: number;
+  /** True only for the visit on screen now; false after its blur or unmount. */
+  isCurrentVisit(visit: number): boolean;
 };
 
 /** Structural `PurchaseResult`: only the fields read here. */
@@ -197,6 +207,10 @@ export function usePaywallStepObservation<P extends PaywallPresentationSource>(
   // Between focus and blur/unmount. True from the first render, so the lazy
   // start in a first-render `componentDidCatch` (before any effect) works.
   const visiting = useRef(true);
+  // One id per visit, bumped when a visit ends. State as well as a ref: the
+  // re-render hands bound callbacks (a custom screen's `complete`) the new id.
+  const visitRef = useRef(0);
+  const [visit, setVisit] = useState(0);
 
   // The presentation for this visit, started if need be. Null while there is
   // nothing to show or the step is not being visited.
@@ -233,6 +247,10 @@ export function usePaywallStepObservation<P extends PaywallPresentationSource>(
   const leave = useCallback(() => {
     const o = open.current;
     open.current = null;
+    if (visiting.current) {
+      visitRef.current += 1;
+      setVisit(visitRef.current);
+    }
     visiting.current = false;
     if (!o || o.ended) return;
     if (shouldWait(o)) detach(o);
@@ -270,8 +288,9 @@ export function usePaywallStepObservation<P extends PaywallPresentationSource>(
     return leave;
   }, [leave]);
 
-  return useMemo<PaywallStepObservation>(
+  const stable = useMemo<Omit<PaywallStepObservation, "visit">>(
     () => ({
+      isCurrentVisit: (v) => visiting.current && v === visitRef.current,
       beginPurchase: () => {
         const started = ensure();
         if (!started) return NOOP_RECORD;
@@ -301,8 +320,11 @@ export function usePaywallStepObservation<P extends PaywallPresentationSource>(
       advance: (outcome) => {
         // The gate only lets through `purchased` or no status (a plain
         // continue); the latter is `present()`'s bare `dismissed`. A
-        // transaction counts only with the former (#287). After the visit
-        // `ensure()` is null, so a stale call drops it with the advance.
+        // transaction counts only with the former (#287). Between a blur and
+        // the next focus `ensure()` is null, so a call then does nothing; a
+        // call bound to an EARLIER visit that lands after the refocus is the
+        // caller's to refuse (`isCurrentVisit`), as the step's custom-screen
+        // `complete` does.
         const purchased = outcome?.status === "purchased";
         finish(
           ensure(),
@@ -314,6 +336,7 @@ export function usePaywallStepObservation<P extends PaywallPresentationSource>(
     }),
     [ensure],
   );
+  return useMemo(() => ({ ...stable, visit }), [stable, visit]);
 }
 
 /**

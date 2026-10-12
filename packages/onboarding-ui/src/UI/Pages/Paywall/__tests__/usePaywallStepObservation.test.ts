@@ -897,3 +897,36 @@ describe("usePaywallStepObservation — a custom screen's transaction (#287)", (
     expect(ends).toEqual([[{ status: "dismissed" }, null, null, undefined]]);
   });
 });
+
+describe("usePaywallStepObservation — visit binding (#287 round 2)", () => {
+  it("a visit ends at blur: isCurrentVisit is false for it after, and true for the next visit once focused", async () => {
+    const { observe } = recorder();
+    const nav = focusController();
+    await render(createElement(Probe, { observe, paywall: A, useFocusEffect: nav.useFocusEffect }));
+    const first = api.visit;
+    expect(api.isCurrentVisit(first)).toBe(true);
+    await nav.blur();
+    expect(api.isCurrentVisit(first)).toBe(false);
+    const second = api.visit;
+    expect(second).not.toBe(first);
+    expect(api.isCurrentVisit(second)).toBe(false); // not focused yet
+    await nav.focus();
+    expect(api.isCurrentVisit(second)).toBe(true);
+    expect(api.isCurrentVisit(first)).toBe(false);
+  });
+
+  it("keeps advance, fail and beginPurchase stable across visits", async () => {
+    const { observe } = recorder();
+    const nav = focusController();
+    await render(createElement(Probe, { observe, paywall: A, useFocusEffect: nav.useFocusEffect }));
+    const { advance, fail, beginPurchase, isCurrentVisit } = api;
+    await nav.blur();
+    await nav.focus();
+    expect([api.advance, api.fail, api.beginPurchase, api.isCurrentVisit]).toEqual([
+      advance,
+      fail,
+      beginPurchase,
+      isCurrentVisit,
+    ]);
+  });
+});

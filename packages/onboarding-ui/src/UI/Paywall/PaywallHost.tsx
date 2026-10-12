@@ -6,7 +6,11 @@ import {
   usePaywall,
   useProductRuntime,
 } from "@rocapine/react-native-onboarding";
-import type { ComposableVariableEntry, PresentResult } from "@rocapine/react-native-onboarding";
+import type {
+  ComposableVariableEntry,
+  PaywallTransactionInfo,
+  PresentResult,
+} from "@rocapine/react-native-onboarding";
 import { ScreenElementsSchema, type UIElement } from "../Runtime/types";
 import { ScreenRenderer } from "../Runtime/ScreenRenderer";
 import type { ScreenHost, CompleteOutcome } from "../Runtime/ScreenHost";
@@ -18,7 +22,7 @@ import {
   resolvePaywallModalDecision,
 } from "./resolvePaywallModalDecision";
 import type { CustomPaywallScreenProps, CustomPaywallScreens } from "./CustomPaywallScreen";
-import { presentationContentKey, toPresentResult } from "./presentationBinding";
+import { presentationContentKey, takeTransaction, toPresentResult } from "./presentationBinding";
 import { useSurfaceAcknowledgement } from "./useSurfaceAcknowledgement";
 
 type PaywallContentProps = {
@@ -255,7 +259,8 @@ export const PaywallHost = ({ customScreens, requestPermission }: PaywallHostPro
   // is open, and an authored action or custom action must not be able to
   // report a transaction through the elements path.
   const completeCustom = useCallback<CustomPaywallScreenProps["complete"]>(
-    (outcome) => resolvePresent(toPresentResult(outcome), outcome?.transaction),
+    (outcome) =>
+      resolvePresent(toPresentResult(outcome), takeTransaction(outcome) as PaywallTransactionInfo | undefined),
     [resolvePresent]
   );
 

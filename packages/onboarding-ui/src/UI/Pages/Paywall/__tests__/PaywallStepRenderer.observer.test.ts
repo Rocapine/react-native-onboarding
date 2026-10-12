@@ -85,6 +85,8 @@ vi.mock("../../../Runtime/ScreenRenderer", () => ({
 
 const { OnboardingProgressContext: HeadlessProgressContext } = await import("@rocapine/react-native-onboarding");
 const { PaywallStepRenderer } = await import("../Renderer");
+// The real headless handle, by source path, for the tests that need its sanitizer.
+const { openPaywallPresentation } = await import("../../../../../../onboarding/src/paywalls/observer");
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -450,5 +452,75 @@ describe("PaywallStepRenderer — a custom screen's transaction (#287)", () => {
     await act(async () => h.host.complete({ status: "purchased", transaction: TX }));
     expect(ends).toHaveLength(1);
     expect(ends[0][3]).toBeUndefined();
+  });
+});
+
+describe("PaywallStepRenderer — round 2 on a custom screen's transaction (#287)", () => {
+  afterEach(() => vi.restoreAllMocks());
+  const TX = { originalTransactionIdentifier: "2000000123", productId: "com.app.annual.ios" };
+  let complete: (o?: unknown) => void = () => {};
+  const Screen = (props: { complete: typeof complete }) => {
+    complete = props.complete;
+    return null;
+  };
+  const showCustom = async (nav?: ReturnType<typeof focusController>) => {
+    setCatalog(paywall("pw-a", { renderMode: "custom", customScreenId: "s", elements: [] }), { s: Screen });
+    await render(nav);
+  };
+  const realObserver = () => {
+    const ends: unknown[] = [];
+    const observer = { start: () => ({ shown: () => {}, end: (o: unknown) => void ends.push(o) }) };
+    h.observePresentation = (p: any) => openPaywallPresentation(observer, p, "paywall_step", "ios");
+    return ends;
+  };
+
+  it("still advances, and ends once without a transaction, when the transaction throws when read", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const revocable = Proxy.revocable({}, {});
+    revocable.revoke();
+    const throwingGetter = Object.defineProperty({ status: "purchased" }, "transaction", {
+      get() {
+        throw new Error("getter bug");
+      },
+    });
+    for (const outcome of [{ status: "purchased", transaction: revocable.proxy }, throwingGetter]) {
+      const ends = realObserver();
+      await showCustom();
+      await act(async () => complete(outcome));
+      expect(onContinue).toHaveBeenCalledTimes(1);
+      expect(ends).toEqual([{ status: "purchased" }]);
+      await unmount();
+      onContinue.mockClear();
+    }
+    expect(warn).toHaveBeenCalled();
+  });
+
+  it("warns once when it drops a transaction passed with a status other than purchased", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    realObserver();
+    await showCustom();
+    await act(async () => complete({ status: "dismissed", transaction: TX }));
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("binds complete to its visit: a late visit-1 call after blur and refocus neither ends visit 2 nor carries its transaction", async () => {
+    const ends: Array<[string, unknown[]]> = [];
+    let n = 0;
+    h.observePresentation = () => {
+      const visit = `v${++n}`;
+      return { shown: () => {}, end: (...args: unknown[]) => void ends.push([visit, args]) };
+    };
+    const nav = focusController();
+    await showCustom(nav);
+    const lateFromVisit1 = complete;
+    await nav.blur();
+    await nav.focus();
+    await act(async () => lateFromVisit1({ status: "purchased", transaction: TX }));
+    expect(onContinue).not.toHaveBeenCalled();
+    expect(ends).toEqual([["v1", [{ status: "dismissed" }, null, null, undefined]]]);
+    // The visit-2 screen's own complete still works.
+    await act(async () => complete({ status: "purchased", transaction: TX }));
+    expect(onContinue).toHaveBeenCalledTimes(1);
+    expect(ends[1]).toEqual(["v2", [{ status: "purchased" }, null, null, TX]]);
   });
 });

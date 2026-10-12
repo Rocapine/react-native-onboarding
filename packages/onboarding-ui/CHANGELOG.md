@@ -15,7 +15,15 @@ here.
   headless package sanitizes it and sends it to the `observer`'s `end()` only
   with `status: "purchased"`. The elements path's `ScreenHost.complete` never
   forwards one. The step's gate is unchanged: a transaction never advances it.
-  Needs a headless with #287; an older one ignores the transaction.
+  A transaction passed with any status but `purchased` is dropped with a
+  warning, and one that throws when read is dropped without stopping the
+  close or the advance. Needs a headless with #287; an older one ignores the
+  transaction.
+- **A `Paywall` step's custom-screen `complete` is bound to its visit**
+  (#287). A Stack keeps the step mounted after a blur; a `complete` the screen
+  captured before the user left and came back now does nothing, instead of
+  ending (and advancing past) the visit on screen. `usePaywallStepObservation`
+  exposes `visit` and `isCurrentVisit(visit)` for it.
 - **A paywall's stale action chain ends at its `purchase`** (#286). When the
   presentation a chain belongs to has left the screen (a `custom` or
   `requestPermission` step resumed after the paywall closed), the `purchase`

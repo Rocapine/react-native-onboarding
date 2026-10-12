@@ -112,4 +112,24 @@ describe("PaywallHost: a custom screen's transaction (#287)", () => {
     await act(async () => h.screenHost.complete({ status: "purchased", transaction: TX }));
     expect(completed.map((args) => args[1])).toEqual([undefined]);
   });
+
+  it("still resolves when reading the transaction throws, and passes none", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const completed = await show(custom);
+    const outcome = Object.defineProperty({ status: "purchased" }, "transaction", {
+      get() {
+        throw new Error("getter bug");
+      },
+    });
+    await act(async () => h.screenProps.complete(outcome));
+    expect(completed).toEqual([[{ status: "purchased" }, undefined]]);
+  });
+
+  it("drops a transaction passed with any status but purchased, with one warning", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const completed = await show(custom);
+    await act(async () => h.screenProps.complete({ status: "cancelled", transaction: TX }));
+    expect(completed).toEqual([[{ status: "cancelled" }, undefined]]);
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
 });

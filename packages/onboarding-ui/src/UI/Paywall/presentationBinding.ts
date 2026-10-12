@@ -35,6 +35,32 @@ export function toPresentResult(outcome?: CompleteOutcome): PresentResult {
   return { status: "dismissed" };
 }
 
+/**
+ * The `transaction` a custom screen passed to `complete()` (#287), read so it
+ * can never cost the presentation: a throwing getter yields `undefined`, and so
+ * does any status but `purchased` (with a warning, since the screen meant to
+ * report something). Returned raw: the headless handle sanitizes it. Shared by
+ * `PaywallHost` and the inline `Paywall` step.
+ */
+export function takeTransaction(outcome: unknown): unknown {
+  let status: unknown;
+  let transaction: unknown;
+  try {
+    if (typeof outcome !== "object" || outcome === null) return undefined;
+    transaction = (outcome as { transaction?: unknown }).transaction;
+    status = (outcome as { status?: unknown }).status;
+  } catch (error) {
+    console.warn("[paywalls] complete()'s transaction could not be read; it was dropped:", error);
+    return undefined;
+  }
+  if (transaction === undefined) return undefined;
+  if (status !== "purchased") {
+    console.warn(`[paywalls] complete() was given a transaction with status "${String(status)}"; it was dropped.`);
+    return undefined;
+  }
+  return transaction;
+}
+
 const presentationIds = new WeakMap<object, number>();
 let lastPresentationId = 0;
 

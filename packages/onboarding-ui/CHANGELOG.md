@@ -5,7 +5,7 @@ here.
 
 ---
 
-## [Unreleased]
+## [1.76.0] - 2026-10-12
 
 ### Added
 - **A custom paywall screen's `complete({ status, transaction })` reaches the

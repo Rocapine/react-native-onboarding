@@ -132,6 +132,24 @@ describe("openPaywallPresentation — the outcome handed to end()", () => {
     ]);
   });
 
+  it("resolves productId against the paywall the purchase was made on, when it differs from the one started", () => {
+    // A variant swap keeps one presentation (started on PAYWALL) but the user
+    // bought on the variant shown after it, whose slot has its own store id.
+    const swapped: PaywallPresentationSource = {
+      ...PAYWALL,
+      id: "pw-2",
+      products: [{ key: "annual", ios: "com.app.annual.b" }],
+    };
+    const { observer, calls } = recordingObserver();
+    openPaywallPresentation(observer, PAYWALL, "paywall_step", "ios").end(
+      { status: "purchased" },
+      "annual",
+      swapped
+    );
+    expect(calls[0]).toEqual(["start", expect.objectContaining({ paywallId: "pw-1" })]);
+    expect(calls[1]).toEqual(["end", { status: "purchased", transaction: { productId: "com.app.annual.b" } }]);
+  });
+
   it("omits transaction entirely when no id resolves (unknown key, empty platform slot, web, no key)", () => {
     for (const [key, platform] of [
       ["nope", "ios"],

@@ -16,7 +16,9 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   An elements-mode purchase carries `transaction.productId`, the purchased
   slot's id for the running platform. The inline `Paywall` step reports through
   the same observer with `surface: "paywall_step"`, via the new
-  `usePaywallHost().observePresentation`. The types are copied verbatim from
+  `usePaywallHost().observePresentation`, whose handle's `end()` takes the
+  paywall a purchase was made on, so a step's purchase after a variant swap
+  reports that variant's store id. The types are copied verbatim from
   rocalytics-sdk's `src/paywall/observer.ts`, whose tracker satisfies them
   structurally. Every observer call is guarded: a throw, a rejection, or a
   `start()` returning no handle never changes what `present()` resolves.

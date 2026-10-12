@@ -76,10 +76,20 @@ export type PaywallPresentationSource = {
  * went through, and builds the observer's `PaywallPresentationEnd` itself — so
  * the transaction rules (only with `purchased`, `productId` from the slot for
  * the running platform) live here and not in each surface.
+ *
+ * `purchasedFrom` is the paywall the purchase was made ON, when that is not the
+ * one the presentation started with: a variant swap keeps one presentation open
+ * (credited to the variant shown first), but the bought slot's store id is the
+ * swapped-in variant's, and that id is what joins to revenue. Omitted, the
+ * started paywall is used.
  */
 export type PaywallPresentation = {
   shown(): void;
-  end(result: Pick<PresentResult, "status" | "reason">, purchasedProductKey?: string | null): void;
+  end(
+    result: Pick<PresentResult, "status" | "reason">,
+    purchasedProductKey?: string | null,
+    purchasedFrom?: PaywallPresentationSource | null
+  ): void;
 };
 
 export const NOOP_PAYWALL_PRESENTATION: PaywallPresentation = Object.freeze({
@@ -190,11 +200,11 @@ export const openPaywallPresentation = (
       shown = true;
       if (handle) guarded("shown", () => handle.shown());
     },
-    end: (result, purchasedProductKey) => {
+    end: (result, purchasedProductKey, purchasedFrom) => {
       if (ended) return;
       ended = true;
       if (handle) {
-        const outcome = buildPresentationEnd(paywall, result, purchasedProductKey, platform);
+        const outcome = buildPresentationEnd(purchasedFrom ?? paywall, result, purchasedProductKey, platform);
         guarded("end", () => handle.end(outcome));
       }
     },

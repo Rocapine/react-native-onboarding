@@ -76,7 +76,8 @@ export type CustomPaywallScreenProps = {
    * an earlier visit (the user left and came back) never ends the visit on
    * screen and never carries its transaction; only its `{ status:
    * "purchased" }` still advances the step, and only while the step is on
-   * screen, so a payer is never stranded. Any other such call does nothing. It never
+   * screen, so a payer is never stranded; the step advances at most once per
+   * visit. Any other such call does nothing. It never
    * changes what `present()` resolves or whether a step advances. Omitted,
    * everything behaves as before.
    */

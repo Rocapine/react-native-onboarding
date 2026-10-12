@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useMemo } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import {
   OnboardingProgressContext as HeadlessProgressContext,
@@ -124,7 +124,7 @@ const PaywallStepRendererBase = ({
   // for the whole lifecycle. Declared BEFORE the skip effect below, so a
   // paywall that resolves and then cannot render is started before it is failed.
   const renderable = isCustom ? Boolean(CustomScreen) : Boolean(parsedElements?.success);
-  const { beginPurchase, advance, fail, visit, isCurrentVisit, isVisiting } = usePaywallStepObservation(observePresentation, paywall, {
+  const { beginPurchase, advance, fail, visit, isCurrentVisit, isVisiting, currentVisit } = usePaywallStepObservation(observePresentation, paywall, {
     renderable,
     useFocusEffect: navigation?.useFocusEffect,
   });
@@ -241,15 +241,28 @@ const PaywallStepRendererBase = ({
   // step is focused, so it never navigates from a screen the user is not on.
   // Every other stale call does nothing. `takeTransaction` reads the
   // transaction so a throwing one costs only itself.
+  //
+  // AT MOST ONE `onContinue` PER VISIT on this path (round 4), whichever branch
+  // gets there first: a stale `purchased` and the current visit's own landing
+  // in one tick would otherwise advance a push-based router two steps. The
+  // current visit's call still ends its presentation either way. Keyed by
+  // visit id, so the next visit starts fresh.
+  const advancedOnVisit = useRef<number | null>(null);
   const completeCustom = useCallback<CustomPaywallScreenProps["complete"]>(
     (outcome) => {
+      const continueOnce = (v: number) => {
+        if (advancedOnVisit.current === v) return;
+        advancedOnVisit.current = v;
+        onContinue();
+      };
       if (!isCurrentVisit(visit)) {
-        if (outcome?.status === "purchased" && isVisiting()) {
+        const now = currentVisit();
+        if (outcome?.status === "purchased" && isVisiting() && advancedOnVisit.current !== now) {
           console.warn(
             "[Paywall step] A custom screen reported a purchase from an earlier visit of this step; " +
               "advancing so the user is not stranded, without reporting it on the visit now on screen.",
           );
-          onContinue();
+          continueOnce(now);
         }
         return;
       }
@@ -257,9 +270,9 @@ const PaywallStepRendererBase = ({
       if (outcome?.status === "cancelled") beginPurchase()(outcome);
       if (!shouldAdvanceOnComplete(outcome)) return;
       advance(outcome && { status: outcome.status, transaction });
-      onContinue();
+      continueOnce(visit);
     },
-    [onContinue, beginPurchase, advance, isCurrentVisit, isVisiting, visit],
+    [onContinue, beginPurchase, advance, isCurrentVisit, isVisiting, currentVisit, visit],
   );
 
   // The step's own purchases, recorded so the observer's `end()` reports what

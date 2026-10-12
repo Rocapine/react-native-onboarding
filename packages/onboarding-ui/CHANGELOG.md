@@ -25,8 +25,10 @@ here.
   screen or carries its transaction there. A stale `{ status: "purchased" }`
   still advances the step, with a warning, but only while the step is focused,
   so a payer is never stranded and nothing navigates from a screen the user is
-  not on. Every other stale call does nothing. `usePaywallStepObservation`
-  exposes `visit`, `isCurrentVisit(visit)` and `isVisiting()` for it.
+  not on. Every other stale call does nothing. A custom screen advances the
+  step at most once per visit, so a stale and a current `purchased` in one
+  tick cannot advance it twice. `usePaywallStepObservation` exposes `visit`,
+  `isCurrentVisit(visit)`, `isVisiting()` and `currentVisit()` for it.
 - **A paywall's stale action chain ends at its `purchase`** (#286). When the
   presentation a chain belongs to has left the screen (a `custom` or
   `requestPermission` step resumed after the paywall closed), the `purchase`

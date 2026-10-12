@@ -526,10 +526,50 @@ describe("PaywallStepRenderer — round 2 on a custom screen's transaction (#287
     expect(ends).toEqual([["v1", [{ status: "dismissed" }, null, null, undefined]]]);
     expect(warn).toHaveBeenCalledTimes(1);
     expect(String(warn.mock.calls[0][0])).toContain("earlier visit");
-    // The visit-2 screen's own complete still ends visit 2, with its transaction.
+    // The visit-2 screen's own complete still ends visit 2, with its
+    // transaction, but does not advance a second time (round 4).
     await act(async () => complete({ status: "purchased", transaction: TX }));
-    expect(onContinue).toHaveBeenCalledTimes(2);
+    expect(onContinue).toHaveBeenCalledTimes(1);
     expect(ends[1]).toEqual(["v2", [{ status: "purchased" }, null, null, TX]]);
+  });
+
+  for (const order of ["stale first", "current first"] as const) {
+    it(`advances once per visit when a stale purchased and visit 2's own land in one tick (${order})`, async () => {
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      const ends = perVisit();
+      const nav = focusController();
+      await showCustom(nav);
+      const lateFromVisit1 = complete;
+      await nav.blur();
+      await nav.focus();
+      const current = complete;
+      await act(async () => {
+        if (order === "stale first") {
+          lateFromVisit1({ status: "purchased" });
+          current({ status: "purchased", transaction: TX });
+        } else {
+          current({ status: "purchased", transaction: TX });
+          lateFromVisit1({ status: "purchased" });
+        }
+      });
+      expect(onContinue).toHaveBeenCalledTimes(1);
+      expect(ends).toEqual([
+        ["v1", [{ status: "dismissed" }, null, null, undefined]],
+        ["v2", [{ status: "purchased" }, null, null, TX]],
+      ]);
+    });
+  }
+
+  it("resets the once-per-visit advance on the next visit", async () => {
+    const ends = perVisit();
+    const nav = focusController();
+    await showCustom(nav);
+    await act(async () => complete({ status: "purchased" }));
+    await nav.blur();
+    await nav.focus();
+    await act(async () => complete({ status: "purchased" }));
+    expect(onContinue).toHaveBeenCalledTimes(2);
+    expect(ends.map(([v]) => v)).toEqual(["v1", "v2"]);
   });
 
   it("a stale visit-1 purchased while the step is blurred does nothing", async () => {

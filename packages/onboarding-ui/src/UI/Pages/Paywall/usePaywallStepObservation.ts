@@ -113,6 +113,8 @@ export type PaywallStepObservation = {
   isCurrentVisit(visit: number): boolean;
   /** True while the step is focused (some visit is on screen), whichever visit it is. */
   isVisiting(): boolean;
+  /** The id of the latest visit, read at call time (a bound `visit` may be older). */
+  currentVisit(): number;
 };
 
 /** Structural `PurchaseResult`: only the fields read here. */
@@ -294,6 +296,7 @@ export function usePaywallStepObservation<P extends PaywallPresentationSource>(
     () => ({
       isCurrentVisit: (v) => visiting.current && v === visitRef.current,
       isVisiting: () => visiting.current,
+      currentVisit: () => visitRef.current,
       beginPurchase: () => {
         const started = ensure();
         if (!started) return NOOP_RECORD;

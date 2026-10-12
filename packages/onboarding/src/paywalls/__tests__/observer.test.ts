@@ -305,25 +305,55 @@ describe("openPaywallPresentation — a transaction reported by a custom screen 
     expect(calls[1]).toEqual(["end", { status: "purchased" }]);
   });
 
-  it("with a recorded purchase, keeps the recorded productId and adds the reported ids when the reported productId is absent or equal", () => {
-    for (const extra of [{}, { productId: "com.app.annual.ios" }]) {
+  it("with a recorded purchase, adds the reported ids only when the reported productId is present and equal", () => {
+    const { observer, calls } = recordingObserver();
+    openPaywallPresentation(observer, PAYWALL, "present", "ios").end({ status: "purchased" }, "annual", null, {
+      originalTransactionIdentifier: "2000000123",
+      productId: "com.app.annual.ios",
+    });
+    expect(calls[1]).toEqual([
+      "end",
+      { status: "purchased", transaction: { originalTransactionIdentifier: "2000000123", productId: "com.app.annual.ios" } },
+    ]);
+    expect(console.warn).not.toHaveBeenCalled();
+  });
+
+  it("with a recorded purchase, drops reported ids that name no productId, with a warning", () => {
+    const { observer, calls } = recordingObserver();
+    openPaywallPresentation(observer, PAYWALL, "present", "ios").end({ status: "purchased" }, "annual", null, {
+      originalTransactionIdentifier: "2000000123",
+    });
+    expect(calls[1]).toEqual(["end", { status: "purchased", transaction: { productId: "com.app.annual.ios" } }]);
+    expect(console.warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("never merges restored onto a recorded purchase, even for the same product", () => {
+    const { observer, calls } = recordingObserver();
+    openPaywallPresentation(observer, PAYWALL, "present", "ios").end({ status: "purchased" }, "annual", null, {
+      originalTransactionIdentifier: "2000000123",
+      productId: "com.app.annual.ios",
+      restored: true,
+    });
+    expect(calls[1]).toEqual([
+      "end",
+      { status: "purchased", transaction: { originalTransactionIdentifier: "2000000123", productId: "com.app.annual.ios" } },
+    ]);
+    expect(console.warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("with a recorded purchase that resolves no store id here, drops the reported ids rather than replace it", () => {
+    for (const reportedTx of [{ originalTransactionIdentifier: "2000000123" }, { productId: "com.app.other" }]) {
+      vi.mocked(console.warn).mockClear();
       const { observer, calls } = recordingObserver();
-      openPaywallPresentation(observer, PAYWALL, "present", "ios").end({ status: "purchased" }, "annual", null, {
-        originalTransactionIdentifier: "2000000123",
-        restored: true,
-        ...extra,
-      });
-      expect(calls[1]).toEqual([
-        "end",
-        {
-          status: "purchased",
-          transaction: {
-            originalTransactionIdentifier: "2000000123",
-            restored: true,
-            productId: "com.app.annual.ios",
-          },
-        },
-      ]);
+      // `monthly` has no android id: a purchase is recorded, but names nothing on this platform.
+      openPaywallPresentation(observer, PAYWALL, "present", "android").end(
+        { status: "purchased" },
+        "monthly",
+        null,
+        reportedTx
+      );
+      expect(calls[1]).toEqual(["end", { status: "purchased" }]);
+      expect(console.warn).toHaveBeenCalledTimes(1);
     }
   });
 
@@ -335,5 +365,37 @@ describe("openPaywallPresentation — a transaction reported by a custom screen 
     });
     expect(calls[1]).toEqual(["end", { status: "purchased", transaction: { productId: "com.app.annual.ios" } }]);
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("com.app.monthly"));
+  });
+});
+
+describe("openPaywallPresentation — a hostile reported transaction costs only the transaction (#287 round 2)", () => {
+  const hostile = () => {
+    const revocable = Proxy.revocable({}, {});
+    revocable.revoke();
+    return [
+      revocable.proxy,
+      Object.defineProperty({}, "originalTransactionIdentifier", {
+        enumerable: true,
+        get() {
+          throw new Error("getter bug");
+        },
+      }),
+    ];
+  };
+
+  it("sanitizes a throwing getter or a revoked proxy to undefined", () => {
+    for (const value of hostile()) expect(sanitizePaywallTransaction(value)).toBeUndefined();
+  });
+
+  it("still reaches the observer exactly once, without a transaction", () => {
+    for (const value of hostile()) {
+      const { observer, calls } = recordingObserver();
+      const p = openPaywallPresentation(observer, PAYWALL, "present", "ios");
+      expect(() => p.end({ status: "purchased" }, "annual", null, value)).not.toThrow();
+      p.end({ status: "dismissed" });
+      expect(calls.slice(1)).toEqual([
+        ["end", { status: "purchased", transaction: { productId: "com.app.annual.ios" } }],
+      ]);
+    }
   });
 });

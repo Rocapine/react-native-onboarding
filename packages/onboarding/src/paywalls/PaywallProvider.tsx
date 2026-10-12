@@ -826,14 +826,18 @@ const PaywallProviderInner = ({
       // now, and the record ends with the store outcome when it settles. Any
       // other reported end is the host's explicit answer and ends at once.
       const record = releaseSurface();
+      // A transaction counts only when the screen itself reported `purchased`
+      // (#287): one passed with `cancelled` stays dropped even if a recorded
+      // purchase makes the end `purchased` — the screen tied it to a cancel.
+      const reported = result.status === "purchased" ? transaction : undefined;
+      if (record && !record.ended && transaction !== undefined && reported === undefined) {
+        console.warn(`[paywalls] complete() was given a transaction with status "${result.status}"; it was dropped.`);
+      }
       if (record && !record.ended && result.status === "dismissed" && shouldWaitForPurchases(record)) {
         waitForPurchases(record);
         return;
       }
-      // A transaction counts only when the screen itself reported `purchased`
-      // (#287): one passed with `cancelled` stays dropped even if a recorded
-      // purchase makes the end `purchased` — the screen tied it to a cancel.
-      endPresentation(record, result, result.status === "purchased" ? transaction : undefined);
+      endPresentation(record, result, reported);
     },
     [releaseSurface]
   );

@@ -66,11 +66,16 @@ export type CustomPaywallScreenProps = {
    *
    * It is sanitized before the observer sees it: an id that is not a
    * non-empty string, a `restored` that is not exactly `true`, and any other
-   * field are dropped. It is dropped entirely with any status other than
-   * `"purchased"`, and when this presentation already recorded an SDK
-   * purchase of a different product (that purchase is reported instead). It
-   * never changes what `present()` resolves or whether a step advances.
-   * Omitted, everything behaves as before.
+   * field are dropped, and so is a transaction that throws when read. It is
+   * dropped entirely, with a warning, with any status other than
+   * `"purchased"`. When this presentation already recorded a purchase made
+   * through the SDK's own product runtime, that purchase wins: your ids are
+   * added to it only when your `productId` is present and names the same
+   * store product, `restored` is never added, and otherwise your ids are
+   * dropped with a warning. On a `Paywall` step, a `complete` captured during
+   * an earlier visit (the user left and came back) does nothing. It never
+   * changes what `present()` resolves or whether a step advances. Omitted,
+   * everything behaves as before.
    */
   complete: (outcome?: {
     status: "purchased" | "dismissed" | "cancelled";

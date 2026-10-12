@@ -17,13 +17,18 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   the `observer`'s `end()`, so a purchase the SDK never saw is attributed to its
   presentation. Sanitized first: an id that is not a non-empty string, a
   `restored` that is not exactly `true`, and every other field are dropped, and
-  nothing is sent when nothing survives. Sent only when the screen reports
-  `status: "purchased"`; with any other status it is dropped, even when a
-  recorded purchase makes the end `purchased`. When the presentation already
-  recorded an SDK purchase, that purchase wins: the screen's ids are added to
-  its `productId` only when the screen's `productId` is absent or the same, and
-  dropped (with a warning) when it names another product. A stale `complete`
-  from an ended presentation stays a no-op, transaction included.
+  nothing is sent when nothing survives; a transaction that throws when read (a
+  throwing getter, a revoked `Proxy`) is dropped and never stops the end, so
+  the observer still gets it once and `present()` still resolves. Sent only
+  when the screen reports `status: "purchased"`; with any other status it is
+  dropped with a warning, even when a recorded purchase makes the end
+  `purchased`. When the presentation already recorded an SDK purchase, that
+  purchase wins: the screen's ids are added to it only when the screen's
+  `productId` is present and equals the recorded slot's store id, `restored` is
+  never added, and in every other case (no `productId`, a different one, or a
+  recorded slot with no store id on this platform) the screen's ids are dropped
+  with a warning. A stale `complete` from an ended presentation stays a no-op,
+  transaction included.
   `usePaywallHost().complete` takes the transaction as an optional second
   argument. `PresentResult` is unchanged: `present()` never resolves with it.
   Omitting it behaves exactly as before.

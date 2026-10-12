@@ -245,7 +245,7 @@ const result = await present("onboarding_end");
 | `host-never-presented` | the platform refused. With `PaywallHost` this means something else was already presenting; with your own modal, that you never called `acknowledgePresentation` |
 | `parse-error` | authored data is invalid — fix it in the studio, the app cannot |
 | `render-error` | the element tree threw |
-| `paywall-disappeared` | a studio publish removed the moment mid-presentation |
+| `paywall-disappeared` | the moment left the catalog mid-presentation (a studio publish, or a catalog re-key such as a user property set on purchase) with no purchase made on it. A purchase wins: one that settled resolves `"purchased"`, and one in flight is waited for (up to 180 s) and resolves with its outcome |
 
 Gate a "fall back to another engine" decision on `catalogStatus === "ready"`, **not** on `catalog !== null`. A catalog served from disk while a fresh fetch is in flight reports `"revalidating"`, and a moment missing from it may simply not have arrived yet.
 

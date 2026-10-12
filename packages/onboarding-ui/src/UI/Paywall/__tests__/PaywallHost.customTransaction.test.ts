@@ -125,11 +125,13 @@ describe("PaywallHost: a custom screen's transaction (#287)", () => {
     expect(completed).toEqual([[{ status: "purchased" }, undefined]]);
   });
 
-  it("drops a transaction passed with any status but purchased, with one warning", async () => {
+  it("leaves a non-purchased transaction to the provider, which drops and warns only for a live call", async () => {
+    // The bound `complete` ignores a stale call silently, so warning here would
+    // warn for calls that change nothing (round 3).
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const completed = await show(custom);
     await act(async () => h.screenProps.complete({ status: "cancelled", transaction: TX }));
-    expect(completed).toEqual([[{ status: "cancelled" }, undefined]]);
-    expect(warn).toHaveBeenCalledTimes(1);
+    expect(completed).toEqual([[{ status: "cancelled" }, TX]]);
+    expect(warn).not.toHaveBeenCalled();
   });
 });

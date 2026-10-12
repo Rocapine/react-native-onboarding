@@ -111,6 +111,8 @@ export type PaywallStepObservation = {
   visit: number;
   /** True only for the visit on screen now; false after its blur or unmount. */
   isCurrentVisit(visit: number): boolean;
+  /** True while the step is focused (some visit is on screen), whichever visit it is. */
+  isVisiting(): boolean;
 };
 
 /** Structural `PurchaseResult`: only the fields read here. */
@@ -291,6 +293,7 @@ export function usePaywallStepObservation<P extends PaywallPresentationSource>(
   const stable = useMemo<Omit<PaywallStepObservation, "visit">>(
     () => ({
       isCurrentVisit: (v) => visiting.current && v === visitRef.current,
+      isVisiting: () => visiting.current,
       beginPurchase: () => {
         const started = ensure();
         if (!started) return NOOP_RECORD;

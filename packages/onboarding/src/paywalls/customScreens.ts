@@ -73,7 +73,10 @@ export type CustomPaywallScreenProps = {
    * added to it only when your `productId` is present and names the same
    * store product, `restored` is never added, and otherwise your ids are
    * dropped with a warning. On a `Paywall` step, a `complete` captured during
-   * an earlier visit (the user left and came back) does nothing. It never
+   * an earlier visit (the user left and came back) never ends the visit on
+   * screen and never carries its transaction; only its `{ status:
+   * "purchased" }` still advances the step, and only while the step is on
+   * screen, so a payer is never stranded. Any other such call does nothing. It never
    * changes what `present()` resolves or whether a step advances. Omitted,
    * everything behaves as before.
    */

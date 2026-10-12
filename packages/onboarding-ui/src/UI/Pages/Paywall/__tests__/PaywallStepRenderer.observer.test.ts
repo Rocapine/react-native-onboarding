@@ -503,24 +503,59 @@ describe("PaywallStepRenderer — round 2 on a custom screen's transaction (#287
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
-  it("binds complete to its visit: a late visit-1 call after blur and refocus neither ends visit 2 nor carries its transaction", async () => {
+  const perVisit = () => {
     const ends: Array<[string, unknown[]]> = [];
     let n = 0;
     h.observePresentation = () => {
       const visit = `v${++n}`;
       return { shown: () => {}, end: (...args: unknown[]) => void ends.push([visit, args]) };
     };
+    return ends;
+  };
+
+  it("a stale visit-1 purchased while visit 2 is focused advances, with a warning, but neither ends visit 2 nor carries its transaction", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const ends = perVisit();
     const nav = focusController();
     await showCustom(nav);
     const lateFromVisit1 = complete;
     await nav.blur();
     await nav.focus();
     await act(async () => lateFromVisit1({ status: "purchased", transaction: TX }));
+    expect(onContinue).toHaveBeenCalledTimes(1);
+    expect(ends).toEqual([["v1", [{ status: "dismissed" }, null, null, undefined]]]);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).toContain("earlier visit");
+    // The visit-2 screen's own complete still ends visit 2, with its transaction.
+    await act(async () => complete({ status: "purchased", transaction: TX }));
+    expect(onContinue).toHaveBeenCalledTimes(2);
+    expect(ends[1]).toEqual(["v2", [{ status: "purchased" }, null, null, TX]]);
+  });
+
+  it("a stale visit-1 purchased while the step is blurred does nothing", async () => {
+    const ends = perVisit();
+    const nav = focusController();
+    await showCustom(nav);
+    const lateFromVisit1 = complete;
+    await nav.blur();
+    await act(async () => lateFromVisit1({ status: "purchased", transaction: TX }));
     expect(onContinue).not.toHaveBeenCalled();
     expect(ends).toEqual([["v1", [{ status: "dismissed" }, null, null, undefined]]]);
-    // The visit-2 screen's own complete still works.
-    await act(async () => complete({ status: "purchased", transaction: TX }));
-    expect(onContinue).toHaveBeenCalledTimes(1);
-    expect(ends[1]).toEqual(["v2", [{ status: "purchased" }, null, null, TX]]);
+  });
+
+  it("a stale visit-1 dismissed while visit 2 is focused does nothing", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const ends = perVisit();
+    const nav = focusController();
+    await showCustom(nav);
+    const lateFromVisit1 = complete;
+    await nav.blur();
+    await nav.focus();
+    for (const outcome of [{ status: "dismissed", transaction: TX }, { status: "cancelled" }, undefined]) {
+      await act(async () => lateFromVisit1(outcome));
+    }
+    expect(onContinue).not.toHaveBeenCalled();
+    expect(ends).toEqual([["v1", [{ status: "dismissed" }, null, null, undefined]]]);
+    expect(warn).not.toHaveBeenCalled();
   });
 });

@@ -22,7 +22,7 @@ import {
   resolvePaywallModalDecision,
 } from "./resolvePaywallModalDecision";
 import type { CustomPaywallScreenProps, CustomPaywallScreens } from "./CustomPaywallScreen";
-import { presentationContentKey, takeTransaction, toPresentResult } from "./presentationBinding";
+import { presentationContentKey, readTransaction, toPresentResult } from "./presentationBinding";
 import { useSurfaceAcknowledgement } from "./useSurfaceAcknowledgement";
 
 type PaywallContentProps = {
@@ -260,7 +260,7 @@ export const PaywallHost = ({ customScreens, requestPermission }: PaywallHostPro
   // report a transaction through the elements path.
   const completeCustom = useCallback<CustomPaywallScreenProps["complete"]>(
     (outcome) =>
-      resolvePresent(toPresentResult(outcome), takeTransaction(outcome) as PaywallTransactionInfo | undefined),
+      resolvePresent(toPresentResult(outcome), readTransaction(outcome) as PaywallTransactionInfo | undefined),
     [resolvePresent]
   );
 

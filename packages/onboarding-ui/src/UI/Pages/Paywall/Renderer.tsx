@@ -124,7 +124,7 @@ const PaywallStepRendererBase = ({
   // for the whole lifecycle. Declared BEFORE the skip effect below, so a
   // paywall that resolves and then cannot render is started before it is failed.
   const renderable = isCustom ? Boolean(CustomScreen) : Boolean(parsedElements?.success);
-  const { beginPurchase, advance, fail, visit, isCurrentVisit } = usePaywallStepObservation(observePresentation, paywall, {
+  const { beginPurchase, advance, fail, visit, isCurrentVisit, isVisiting } = usePaywallStepObservation(observePresentation, paywall, {
     renderable,
     useFocusEffect: navigation?.useFocusEffect,
   });
@@ -234,20 +234,32 @@ const PaywallStepRendererBase = ({
   // BOUND TO ITS VISIT (#287 round 2), as `PaywallProvider` binds the Modal's
   // `complete` to its presentation: a Stack keeps this step mounted after a
   // blur, so a screen's async purchase from one visit can call the `complete`
-  // it captured after the user came back. That call does nothing, status and
-  // transaction alike, rather than ending (and advancing) the visit on screen
-  // now. `takeTransaction` reads the transaction so a throwing one costs only
-  // itself.
+  // it captured after the user came back. That call never ends the visit on
+  // screen now and never carries its transaction there (it describes a
+  // purchase visit 2 did not show). One exception, so a payer is never
+  // stranded (round 3): a stale `purchased` still advances, but only while the
+  // step is focused, so it never navigates from a screen the user is not on.
+  // Every other stale call does nothing. `takeTransaction` reads the
+  // transaction so a throwing one costs only itself.
   const completeCustom = useCallback<CustomPaywallScreenProps["complete"]>(
     (outcome) => {
-      if (!isCurrentVisit(visit)) return;
+      if (!isCurrentVisit(visit)) {
+        if (outcome?.status === "purchased" && isVisiting()) {
+          console.warn(
+            "[Paywall step] A custom screen reported a purchase from an earlier visit of this step; " +
+              "advancing so the user is not stranded, without reporting it on the visit now on screen.",
+          );
+          onContinue();
+        }
+        return;
+      }
       const transaction = takeTransaction(outcome);
       if (outcome?.status === "cancelled") beginPurchase()(outcome);
       if (!shouldAdvanceOnComplete(outcome)) return;
       advance(outcome && { status: outcome.status, transaction });
       onContinue();
     },
-    [onContinue, beginPurchase, advance, isCurrentVisit, visit],
+    [onContinue, beginPurchase, advance, isCurrentVisit, isVisiting, visit],
   );
 
   // The step's own purchases, recorded so the observer's `end()` reports what

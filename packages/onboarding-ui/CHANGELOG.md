@@ -20,10 +20,13 @@ here.
   close or the advance. Needs a headless with #287; an older one ignores the
   transaction.
 - **A `Paywall` step's custom-screen `complete` is bound to its visit**
-  (#287). A Stack keeps the step mounted after a blur; a `complete` the screen
-  captured before the user left and came back now does nothing, instead of
-  ending (and advancing past) the visit on screen. `usePaywallStepObservation`
-  exposes `visit` and `isCurrentVisit(visit)` for it.
+  (#287). A Stack keeps the step mounted after a blur. A `complete` the screen
+  captured before the user left and came back no longer ends the visit on
+  screen or carries its transaction there. A stale `{ status: "purchased" }`
+  still advances the step, with a warning, but only while the step is focused,
+  so a payer is never stranded and nothing navigates from a screen the user is
+  not on. Every other stale call does nothing. `usePaywallStepObservation`
+  exposes `visit`, `isCurrentVisit(visit)` and `isVisiting()` for it.
 - **A paywall's stale action chain ends at its `purchase`** (#286). When the
   presentation a chain belongs to has left the screen (a `custom` or
   `requestPermission` step resumed after the paywall closed), the `purchase`

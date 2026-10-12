@@ -2,12 +2,14 @@ import { useMemo, useRef, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
+  OnboardingStudio,
   OnboardingStudioClient,
   PaywallProvider,
   usePaywall,
   stubProductProvider,
   type Paywall,
   type PaywallCatalog,
+  type PaywallObserver,
   type ProductProvider,
   type ProductRef,
 } from '@rocapine/react-native-onboarding';
@@ -67,9 +69,37 @@ type DemoProductMode = 'success' | 'fail';
 type DemoPurchaseMode = 'success' | 'slow';
 const SLOW_PURCHASE_DELAY_MS = 6000;
 
+// A third switch: re-key the catalog when a purchase STARTS, the way a host
+// that sets a user property on purchase does. The audience params change, so
+// the paywall catalog is fetched under a new key and the paywall on screen
+// disappears while the purchase is in flight. With the slow purchase this
+// shows the provider waiting for it and still reporting `purchased`.
+const REKEY_PROPERTY = 'example_paywall_rekey';
+let rekeyCount = 0;
+
+// A demo `PaywallObserver`: records what `PaywallProvider` reports for each
+// presentation (start, shown, end with its status, reason and transaction) so
+// a person running the example can see it. A real app would forward these to
+// its own analytics instead.
+const createDemoObserver = (log: (line: string) => void): PaywallObserver => ({
+  start: (info) => {
+    log(`start ${info.surface} paywall=${info.paywallId}`);
+    return {
+      shown: () => log('shown'),
+      end: (outcome) =>
+        log(
+          `end ${outcome.status}` +
+            (outcome.reason ? ` reason=${outcome.reason}` : '') +
+            (outcome.transaction ? ` transaction=${JSON.stringify(outcome.transaction)}` : ''),
+        ),
+    };
+  },
+});
+
 const createDemoProductProvider = (
   getProductMode: () => DemoProductMode,
-  getPurchaseMode: () => DemoPurchaseMode
+  getPurchaseMode: () => DemoPurchaseMode,
+  getRekeyOnPurchase: () => boolean
 ): ProductProvider => {
   const base = stubProductProvider(PRODUCT_CATALOG);
   return {
@@ -80,6 +110,9 @@ const createDemoProductProvider = (
       return base.getProducts(refs);
     },
     async purchase(product) {
+      if (getRekeyOnPurchase()) {
+        OnboardingStudio.setUserProperty(REKEY_PROPERTY, ++rekeyCount);
+      }
       if (getPurchaseMode() === 'slow') {
         await new Promise((resolve) => setTimeout(resolve, SLOW_PURCHASE_DELAY_MS));
       }
@@ -254,7 +287,7 @@ client.getPaywalls = async () => ({
   headers: { 'ONBS-Audience-Id': null, 'ONBS-Paywall-Ids': PLACEMENT },
 });
 
-function PaywallExampleScreen() {
+function PaywallExampleScreen({ events }: { events: string[] }) {
   const router = useRouter();
   const { present, isReady } = usePaywall();
   const [lastResult, setLastResult] = useState<string | null>(null);
@@ -283,6 +316,17 @@ function PaywallExampleScreen() {
         <Text style={styles.result}>present() resolved: "{lastResult}"</Text>
       )}
 
+      {events.length > 0 && (
+        <View style={styles.events}>
+          <Text style={styles.eventsLabel}>Observer (latest last):</Text>
+          {events.map((line, i) => (
+            <Text key={i} style={styles.eventLine}>
+              {line}
+            </Text>
+          ))}
+        </View>
+      )}
+
       <Pressable style={styles.backButton} onPress={() => router.back()}>
         <Text style={styles.backButtonText}>‹</Text>
       </Pressable>
@@ -308,16 +352,31 @@ export default function PaywallExample() {
   // mount, which is the only thing that re-runs the fetch.
   const [productMode, setProductMode] = useState<DemoProductMode>('success');
   const purchaseMode = useRef<DemoPurchaseMode>('success');
+  const rekeyOnPurchase = useRef(false);
   const [, forceRender] = useState(0);
+  const [events, setEvents] = useState<string[]>([]);
 
   const provider = useMemo(
-    () => createDemoProductProvider(() => productMode, () => purchaseMode.current),
+    () =>
+      createDemoProductProvider(
+        () => productMode,
+        () => purchaseMode.current,
+        () => rekeyOnPurchase.current
+      ),
     [productMode]
+  );
+  const observer = useMemo(
+    () =>
+      createDemoObserver((line) => {
+        console.log('[paywall observer]', line);
+        setEvents((previous) => [...previous, line].slice(-6));
+      }),
+    []
   );
 
   return (
-    <PaywallProvider key={productMode} client={client} productProvider={provider}>
-      <PaywallExampleScreen />
+    <PaywallProvider key={productMode} client={client} productProvider={provider} observer={observer}>
+      <PaywallExampleScreen events={events} />
       <View style={styles.demoToggles}>
         <Text style={styles.demoTogglesLabel}>
           Demo modes — the failure and in-flight branches are unreachable without these
@@ -341,6 +400,17 @@ export default function PaywallExample() {
         >
           <Text style={styles.demoToggleText}>
             Purchase: {purchaseMode.current === 'slow' ? `slow (${SLOW_PURCHASE_DELAY_MS / 1000}s)` : 'instant'}
+          </Text>
+        </Pressable>
+        <Pressable
+          style={styles.demoToggle}
+          onPress={() => {
+            rekeyOnPurchase.current = !rekeyOnPurchase.current;
+            forceRender((n) => n + 1);
+          }}
+        >
+          <Text style={styles.demoToggleText}>
+            On purchase: {rekeyOnPurchase.current ? 're-key catalog (paywall disappears)' : 'nothing'}
           </Text>
         </Pressable>
       </View>
@@ -411,6 +481,19 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: '400',
     lineHeight: 32,
+  },
+  events: {
+    alignSelf: 'stretch',
+    gap: 2,
+  },
+  eventsLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    opacity: 0.7,
+  },
+  eventLine: {
+    fontSize: 11,
+    fontFamily: 'Courier',
   },
   demoToggles: {
     position: 'absolute',

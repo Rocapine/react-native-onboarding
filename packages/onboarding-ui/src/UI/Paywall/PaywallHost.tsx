@@ -19,6 +19,7 @@ import {
 } from "./resolvePaywallModalDecision";
 import type { CustomPaywallScreenProps, CustomPaywallScreens } from "./CustomPaywallScreen";
 import { presentationContentKey, toPresentResult } from "./presentationBinding";
+import { useSurfaceAcknowledgement } from "./useSurfaceAcknowledgement";
 
 type PaywallContentProps = {
   /** Already parsed by `PaywallHost` — see `resolvePaywallModalDecision`'s doc for why parsing happens OUTSIDE this component's error boundary. */
@@ -330,9 +331,16 @@ export const PaywallHost = ({ customScreens, requestPermission }: PaywallHostPro
     resolvePresent({ status: "error", reason: "unknown-custom-screen" });
   }, [decision, resolvePresent, activePaywall, effectiveScreens]);
 
+  // Computed once and handed to both the Modal and the acknowledgement: the
+  // swap acknowledgement must see exactly what the Modal shows, so a successor
+  // the host will not render (an unregistered custom screen, a parse failure)
+  // is never reported on screen.
+  const visible = decision.type === "show" || decision.type === "show-custom";
+  const onShow = useSurfaceAcknowledgement(visible, resolvePresent, acknowledgePresentation);
+
   return (
     <Modal
-      visible={decision.type === "show" || decision.type === "show-custom"}
+      visible={visible}
       animationType="slide"
       presentationStyle="fullScreen"
       transparent={false}
@@ -344,8 +352,10 @@ export const PaywallHost = ({ customScreens, requestPermission }: PaywallHostPro
       // `presentation: "modal"` route, a StoreKit alert) — and without this
       // signal that refusal wedged every later present() call for the life of
       // the process. onShow never fires when the platform refuses, which is
-      // exactly what makes it the right signal.
-      onShow={acknowledgePresentation}
+      // exactly what makes it the right signal. A presentation that takes this
+      // Modal while it stays visible gets no second `onShow`; the hook above
+      // acknowledges that one, and only when the Modal had been confirmed.
+      onShow={onShow}
     >
       <SafeAreaProvider>
         {decision.type === "show" && activePaywall && (

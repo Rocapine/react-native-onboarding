@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Platform } from "react-native";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { OnboardingStudioClient } from "../OnboardingStudioClient";
@@ -139,12 +139,30 @@ export type PaywallContextValue = {
    */
   complete: (result: PresentResult) => void;
   /**
-   * Called by the paywall HOST once the paywall is actually on screen (the UI
-   * host wires this to its Modal's `onShow`) — never by an ordinary consumer.
+   * Called by the paywall HOST once the CURRENT presentation is actually on
+   * screen — never by an ordinary consumer. The provider never acknowledges a
+   * presentation on its own: only the host knows what it renders.
+   *
+   * The contract for a host of its own (the UI package's `PaywallHost` meets
+   * it already):
+   * - Call it from the Modal's `onShow`, which fires when the Modal appears
+   *   and never when the platform refuses to present.
+   * - Call it again when a new presentation takes a Modal you kept mounted
+   *   and `visible` (the previous one ended and the next started in the same
+   *   commit, e.g. an `await present("a")` continuation): `onShow` does not
+   *   fire twice, and without the call that paywall is abandoned after
+   *   `presentAckTimeoutMs` as `host-never-presented`. Only do so if `onShow`
+   *   had confirmed that Modal and it has stayed visible since.
+   * - Never call it for a presentation you will not render (a custom screen
+   *   you do not have, elements that fail to parse): it would report a paywall
+   *   nobody saw as shown, and disable the recovery below.
+   * - A Modal re-keyed per presentation needs none of the above: each one
+   *   mounts afresh and fires its own `onShow`.
    *
    * Without it a presentation the platform silently refused is
    * indistinguishable from one the user is reading, and the refused case wedges
    * the surface permanently. See `shouldBreakPresentationWedge` in `present.ts`.
+   * Calling it twice for one presentation is harmless.
    */
   acknowledgePresentation: () => void;
   /** Forwarded into the presented paywall's `ScreenHost.customActions`. */
@@ -378,8 +396,6 @@ type PresentationRecord = {
   pending: number;
   ended: boolean;
   timer: ReturnType<typeof setTimeout> | null;
-  /** The host confirmed it on screen (`acknowledgePresentation`). */
-  shown: boolean;
 };
 
 /**
@@ -548,12 +564,6 @@ const PaywallProviderInner = ({
   // only a new object identity guarantees the context re-renders with B's
   // `complete` rather than keeping A's.
   const [surfaceRecord, setSurfaceRecord] = useState<PresentationRecord | null>(null);
-  // Set by `complete()` when the presentation it released was on screen, read
-  // by a `present()` landing before the next commit; cleared by every commit.
-  const surfaceStillShownRef = useRef(false);
-  useLayoutEffect(() => {
-    surfaceStillShownRef.current = false;
-  });
   const activePaywallRef = useRef(activePaywall);
   activePaywallRef.current = activePaywall;
 
@@ -703,22 +713,8 @@ const PaywallProviderInner = ({
       pending: 0,
       ended: false,
       timer: null,
-      shown: false,
     };
     presentationRecordRef.current = record;
-    // A presentation that takes the surface in the SAME commit as an
-    // acknowledged one left it (the canonical `await present("a")` → downsell
-    // continuation, or the same moment again) never gets an `onShow`: the
-    // Modal's `visible` never toggles. The paywall is on screen, so it is
-    // acknowledged here, or the wedge timer below would tear down a paywall
-    // the user is reading. Only `complete()` arms this, and only for a
-    // presentation the host had confirmed; any commit in between clears it.
-    const takesVisibleSurface = surfaceStillShownRef.current;
-    surfaceStillShownRef.current = false;
-    if (takesVisibleSurface) {
-      record.shown = true;
-      record.presentation.shown();
-    }
     // Authoritative NOW, synchronously — see the ref's doc above. A second
     // `present()` call before React commits reads this value, not the stale
     // pre-commit state, and correctly takes the "already showing" branch.
@@ -727,9 +723,12 @@ const PaywallProviderInner = ({
       record.resolve = resolve;
       // A new presentation is unacknowledged until the host says otherwise —
       // reset before it starts, or the previous presentation's confirmation
-      // would vouch for this one and disable the recovery. The one exception
-      // is the still-visible surface above.
-      setHostAcknowledged(takesVisibleSurface);
+      // would vouch for this one and disable the recovery. No exception, not
+      // even a successor taking a Modal that stays visible in the same commit:
+      // only the host knows whether it will render it (an unregistered custom
+      // screen or an element list that fails to parse never does), so the
+      // host acknowledges that case too — see `acknowledgePresentation`.
+      setHostAcknowledged(false);
       setActiveMoment(moment);
       setSurfaceRecord(record);
     });
@@ -811,8 +810,6 @@ const PaywallProviderInner = ({
       // now, and the record ends with the store outcome when it settles. Any
       // other reported end is the host's explicit answer and ends at once.
       const record = releaseSurface();
-      // Read by the next `present()`, if it lands before the next commit.
-      surfaceStillShownRef.current = Boolean(record?.shown);
       if (record && !record.ended && result.status === "dismissed" && shouldWaitForPurchases(record)) {
         waitForPurchases(record);
         return;
@@ -841,10 +838,9 @@ const PaywallProviderInner = ({
   // into a Modal prop, and an identity change per render would churn it.
   const acknowledgePresentation = useCallback(() => {
     setHostAcknowledged(true);
-    const record = presentationRecordRef.current;
-    if (!record) return;
-    record.shown = true;
-    record.presentation.shown();
+    // The handle's `shown()` reaches the observer at most once and never
+    // throws, so a second acknowledgement of one presentation is harmless.
+    presentationRecordRef.current?.presentation.shown();
   }, []);
 
   const observePresentation = useCallback(

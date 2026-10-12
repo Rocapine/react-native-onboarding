@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { act, createElement, useCallback, useContext, useEffect, useRef } from "react";
+import { act, createElement, useCallback, useContext, useEffect, useMemo, useRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import type { RenderContext } from "../../Runtime/elements/shared";
 import type { ButtonAction } from "../../Runtime/elements/actions";
@@ -14,10 +14,14 @@ import type { CompleteOutcome } from "../../Runtime/ScreenHost";
  * What is REAL here: the headless `PaywallProvider` (imported by source path,
  * the `usePaywallStepObservation.test.ts` precedent), its purchase-tracking
  * product runtime, the engine's `runActions`, `toPresentResult` and
- * `presentationContentKey` (the `PaywallHost` wrapper and content key). What is
- * MODELED, because this package's tests render no React Native tree: the
- * `Modal`, and `ScreenRenderer`'s ref-stash of `complete` (`completeRef`, read at
- * call time by `ctx.onContinue`), reproduced line for line in `Content` below.
+ * `presentationContentKey` (the `PaywallHost` wrapper and content key),
+ * `resolvePaywallModalDecision` (what the Modal's `visible` is computed from)
+ * and `useSurfaceAcknowledgement` (its `onShow` plus the swap acknowledgement).
+ * What is MODELED, because this package's tests render no React Native tree:
+ * the `Modal` itself (`onShow` fires when `visible` goes false → true, and not
+ * when the platform refuses), `PaywallHost`'s two error effects, and
+ * `ScreenRenderer`'s ref-stash of `complete` (`completeRef`, read at call time
+ * by `ctx.onContinue`), reproduced line for line in `Content` below.
  */
 
 vi.mock("@react-native-async-storage/async-storage", () => {
@@ -39,13 +43,16 @@ vi.mock("react-native", () => ({
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 
+// `broken` fails the (stubbed) element parse; `unregistered` is a custom
+// screen nobody registered. Neither ever makes the Modal visible.
 const paywall = (moment: string) => ({
   id: `pw-${moment}`,
   name: moment,
   moment,
   audienceId: 7,
   audienceName: "everyone",
-  elements: [],
+  elements: moment === "broken" ? "not-an-element-list" : [],
+  ...(moment === "unregistered" ? { renderMode: "custom" as const, customScreenId: "nope" } : {}),
   billing: "store" as const,
   products: [{ key: "annual", ios: "com.app.annual.ios", android: "com.app.annual.android" }],
   configuration: null,
@@ -79,15 +86,29 @@ const settle = async () => {
   });
 };
 
-const mount = async (options: { presentAckTimeoutMs?: number | null } = {}) => {
+const mount = async (
+  options: {
+    presentAckTimeoutMs?: number | null;
+    /** `false` models a host that wires `onShow` alone, with no swap acknowledgement. */
+    swapAck?: boolean;
+  } = {}
+) => {
   vi.resetModules();
-  const [{ PaywallProvider, PaywallContext }, { ProductRuntimeContext }, { runActions }, binding] =
-    await Promise.all([
-      import("../../../../../onboarding/src/paywalls/PaywallProvider"),
-      import("../../../../../onboarding/src/products/ProductRuntimeContext"),
-      import("../../Runtime/elements/runActions"),
-      import("../presentationBinding"),
-    ]);
+  const [
+    { PaywallProvider, PaywallContext },
+    { ProductRuntimeContext },
+    { runActions },
+    binding,
+    { resolvePaywallModalDecision },
+    { useSurfaceAcknowledgement },
+  ] = await Promise.all([
+    import("../../../../../onboarding/src/paywalls/PaywallProvider"),
+    import("../../../../../onboarding/src/products/ProductRuntimeContext"),
+    import("../../Runtime/elements/runActions"),
+    import("../presentationBinding"),
+    import("../resolvePaywallModalDecision"),
+    import("../useSurfaceAcknowledgement"),
+  ]);
   const purchases: Array<Deferred<any>> = [];
   const productProvider = {
     getProducts: async (refs: Array<{ key: string }>) =>
@@ -159,28 +180,50 @@ const mount = async (options: { presentAckTimeoutMs?: number | null } = {}) => {
     } as unknown as RenderContext;
     return null;
   };
-  // PaywallHost's wiring: the `complete` wrapper, `handleRequestClose`, and the
-  // content key.
+  const NO_SCREENS = {};
+  const parse = (elements: unknown) =>
+    Array.isArray(elements)
+      ? ({ success: true, data: elements } as const)
+      : ({ success: false, error: "not a list" } as const);
+  const noop = () => {};
+  // PaywallHost's wiring: the decision, the Modal's `visible`, its `onShow`,
+  // the two error effects, the `complete` wrapper, `handleRequestClose`, and
+  // the content key.
   const Host = () => {
     const host = useContext(PaywallContext) as any;
     const products = useContext(ProductRuntimeContext);
     live.host = host;
+    const resolvePresent = host.complete;
+    const decision = useMemo(
+      () => resolvePaywallModalDecision(host.activePaywall, parse, NO_SCREENS),
+      [host.activePaywall]
+    );
+    const visible = decision.type === "show" || decision.type === "show-custom";
+    const hookOnShow = useSurfaceAcknowledgement(
+      visible,
+      resolvePresent,
+      options.swapAck === false ? noop : host.acknowledgePresentation
+    );
+    const onShow = options.swapAck === false ? host.acknowledgePresentation : hookOnShow;
     // The RN Modal's `onShow`: fires when `visible` goes false → true, never
     // when it stays true across two presentations in one commit.
-    const visible = Boolean(host.activePaywall);
-    const ackRef = useRef(host.acknowledgePresentation);
-    ackRef.current = host.acknowledgePresentation;
+    const onShowRef = useRef(onShow);
+    onShowRef.current = onShow;
     useEffect(() => {
       // `refuseShow` models iOS refusing to present: no `onShow` at all.
-      if (visible && !live.refuseShow) ackRef.current();
+      if (visible && !live.refuseShow) onShowRef.current();
     }, [visible]);
-    const resolvePresent = host.complete;
+    useEffect(() => {
+      if (decision.type === "parse-error") resolvePresent({ status: "error", reason: "parse-error" });
+      if (decision.type === "unknown-custom-screen")
+        resolvePresent({ status: "error", reason: "unknown-custom-screen" });
+    }, [decision, resolvePresent]);
     const complete = useCallback(
       (outcome?: CompleteOutcome) => resolvePresent(binding.toPresentResult(outcome)),
       [resolvePresent]
     );
     live.close = () => complete({ status: "dismissed" });
-    if (!host.activePaywall) return null;
+    if (!visible) return null;
     return createElement(Content, {
       key: binding.presentationContentKey(host.activePaywall.id, resolvePresent),
       complete,
@@ -199,7 +242,9 @@ const mount = async (options: { presentAckTimeoutMs?: number | null } = {}) => {
   container = document.createElement("div");
   document.body.appendChild(container);
   root = createRoot(container);
-  await act(async () => root!.render(element(makeClient(catalogOf("upgrade", "downsell")))));
+  await act(async () =>
+    root!.render(element(makeClient(catalogOf("upgrade", "downsell", "broken", "unregistered", "fallback"))))
+  );
   await settle();
   return {
     live,
@@ -369,7 +414,11 @@ describe("present(): a purchase refused because its presentation ended runs no b
   it("with B on screen, a purchase nested in A's branch ends A's whole chain, outer siblings included", async () => {
     const t = await mount();
     await t.present("upgrade", () => void t.live.host.present("downsell"));
-    await t.press([{ ...SLOW, onResolve: [BUY_WITH_EVERY_BRANCH, SPY] } as ButtonAction, SPY, DOWNSELL]);
+    await t.press([
+      { type: "custom", function: "slow", onResolve: [BUY_WITH_EVERY_BRANCH, SPY] } as ButtonAction,
+      SPY,
+      DOWNSELL,
+    ]);
     await act(async () => t.live.close!());
     await settle();
     expect(t.live.host.activePaywall?.moment).toBe("downsell");
@@ -468,5 +517,66 @@ describe("present(): a presentation that takes a still-visible surface is acknow
     await t.present("downsell", (r) => (next = r));
     await wait(ACK_MS * 3);
     expect(next).toEqual({ status: "error", reason: "host-never-presented" });
+  });
+});
+
+describe("present(): only the host acknowledges, and never a presentation it will not render (round 7)", () => {
+  const ACK_MS = 40;
+  const wait = async (ms: number) => {
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, ms));
+    });
+    await settle();
+  };
+
+  for (const [moment, reason] of [
+    ["broken", "parse-error"],
+    ["unregistered", "unknown-custom-screen"],
+  ] as const) {
+    it(`a same-commit successor that ends ${reason} is never reported shown, and a refused fallback is abandoned`, async () => {
+      const t = await mount({ presentAckTimeoutMs: ACK_MS });
+      let failed: unknown;
+      let fallback: unknown;
+      await t.present("upgrade", () =>
+        void t.live.host.present(moment).then((r: unknown) => {
+          failed = r;
+          // The platform refuses the fallback: no `onShow` will ever come.
+          t.live.refuseShow = true;
+          void t.live.host.present("fallback").then((f: unknown) => (fallback = f));
+        })
+      );
+      await act(async () => t.live.close!());
+      await settle();
+      expect(failed).toEqual({ status: "error", reason });
+      expect(t.observed).toContain(`end ${moment} error ${reason}`);
+      expect(t.observed).not.toContain(`shown ${moment}`);
+      expect(t.observed).not.toContain("shown fallback");
+      await wait(ACK_MS * 3);
+      expect(fallback).toEqual({ status: "error", reason: "host-never-presented" });
+    });
+  }
+
+  it("the provider alone never acknowledges: with a host that wires onShow only, a same-commit successor is abandoned", async () => {
+    const t = await mount({ presentAckTimeoutMs: ACK_MS, swapAck: false });
+    let second: unknown;
+    await t.present("upgrade", () => void t.live.host.present("downsell").then((r: unknown) => (second = r)));
+    await act(async () => t.live.close!());
+    await settle();
+    expect(t.observed).not.toContain("shown downsell");
+    await wait(ACK_MS * 3);
+    expect(second).toEqual({ status: "error", reason: "host-never-presented" });
+  });
+
+  it("a successor taking a surface that was never confirmed (refused) is not acknowledged either", async () => {
+    const t = await mount({ presentAckTimeoutMs: ACK_MS });
+    t.live.refuseShow = true;
+    let second: unknown;
+    await t.present("upgrade", () => void t.live.host.present("downsell").then((r: unknown) => (second = r)));
+    // `upgrade` is abandoned by the timeout; its continuation re-presents in the
+    // same commit, over a Modal the platform never showed.
+    await wait(ACK_MS * 3);
+    expect(t.observed).not.toContain("shown downsell");
+    await wait(ACK_MS * 3);
+    expect(second).toEqual({ status: "error", reason: "host-never-presented" });
   });
 });

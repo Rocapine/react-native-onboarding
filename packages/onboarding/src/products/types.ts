@@ -122,4 +122,17 @@ export type ProductRuntime = {
   purchasing: boolean;
   purchase: (key: string) => Promise<PurchaseResult>;
   restore: () => Promise<RestoreResult>;
+  /**
+   * `true` once the paywall presentation this runtime was published for has
+   * left the screen. Only `PaywallProvider` sets it, on the runtime it
+   * publishes while a `present()` paywall is showing; absent everywhere else,
+   * which means "never ended".
+   *
+   * A `purchase` through an ended runtime is refused: the store is not opened
+   * and it resolves `{ status: "cancelled" }`. The action engine checks this
+   * BEFORE calling `purchase` and ends the whole action chain instead, so a
+   * paywall's stale chain runs none of `onSuccess`/`onCancel`/`onError`/
+   * `onPending` and no action after it.
+   */
+  presentationEnded?: () => boolean;
 };

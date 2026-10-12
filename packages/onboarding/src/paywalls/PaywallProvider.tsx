@@ -586,6 +586,9 @@ const PaywallProviderInner = ({
       // action chain resuming after its paywall closed, e.g. a `custom` or
       // `requestPermission` step followed by `purchase` — never opens the
       // store over whatever is showing now, and records nothing anywhere.
+      // The action engine never gets here for a stale chain (it checks
+      // `presentationEnded` first and ends the chain); this `cancelled` is for
+      // a direct caller, such as a custom screen.
       if (record && presentationRecordRef.current !== record) {
         console.warn(
           "[paywalls] A purchase was requested by a paywall that is no longer on screen; " +
@@ -617,8 +620,17 @@ const PaywallProviderInner = ({
   // The runtime every renderer reads, its `purchase` bound to the record on
   // the surface when it was rendered (null with no `present()` showing, which
   // records nothing: the inline step tracks its own).
+  //
+  // `presentationEnded` is the same test `purchaseOn` refuses on, built from
+  // the same captured record, so the action engine's check and the refusal
+  // cannot disagree: a stale chain stops at its `purchase` instead of reading
+  // the refusal's `cancelled` as the user's and running `onCancel`.
   const productRuntimeWithPurchaseTracking = useMemo(
-    () => ({ ...productRuntime, purchase: (key: string) => purchaseOn(surfaceRecord, key) }),
+    () => ({
+      ...productRuntime,
+      purchase: (key: string) => purchaseOn(surfaceRecord, key),
+      presentationEnded: () => surfaceRecord !== null && presentationRecordRef.current !== surfaceRecord,
+    }),
     [productRuntime, purchaseOn, surfaceRecord]
   );
 

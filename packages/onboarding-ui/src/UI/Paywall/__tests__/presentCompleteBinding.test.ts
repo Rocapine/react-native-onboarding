@@ -113,6 +113,10 @@ const mount = async (options: { presentAckTimeoutMs?: number | null } = {}) => {
   };
   const slow = deferred<void>();
   const live: { host?: any; ctx?: RenderContext; close?: () => void; refuseShow?: boolean } = {};
+  // What a stale chain must never reach: `PaywallHost`'s `presentPaywall`
+  // (an unbound `void present(...)`) and a host `custom` action.
+  const presentPaywallCalls: string[] = [];
+  let spyCalls = 0;
   const observed: string[] = [];
   const observer = {
     start: (info: { moment: string }) => {
@@ -127,7 +131,15 @@ const mount = async (options: { presentAckTimeoutMs?: number | null } = {}) => {
 
   // ScreenRenderer's stash, verbatim in shape: `completeRef.current` is read
   // when an action calls `onContinue`, not when it was rendered.
-  const Content = ({ complete, products }: { complete: (o?: CompleteOutcome) => void; products: any }) => {
+  const Content = ({
+    complete,
+    products,
+    present,
+  }: {
+    complete: (o?: CompleteOutcome) => void;
+    products: any;
+    present: (moment: string) => Promise<unknown>;
+  }) => {
     const completeRef = useRef(complete);
     completeRef.current = complete;
     const onContinue = useCallback((outcome?: CompleteOutcome) => completeRef.current(outcome), []);
@@ -136,8 +148,13 @@ const mount = async (options: { presentAckTimeoutMs?: number | null } = {}) => {
       getVariables: () => ({}),
       setVariable: () => {},
       onContinue,
-      customActions: { slow: () => slow.promise },
+      customActions: { slow: () => slow.promise, spy: () => void spyCalls++ },
       products,
+      // PaywallHost's `presentPaywall`, verbatim in shape.
+      presentPaywall: (moment: string) => {
+        presentPaywallCalls.push(moment);
+        void present(moment);
+      },
       renderChildren: () => null,
     } as unknown as RenderContext;
     return null;
@@ -168,6 +185,7 @@ const mount = async (options: { presentAckTimeoutMs?: number | null } = {}) => {
       key: binding.presentationContentKey(host.activePaywall.id, resolvePresent),
       complete,
       products,
+      present: host.present,
     });
   };
   const element = (client: any) =>
@@ -187,6 +205,8 @@ const mount = async (options: { presentAckTimeoutMs?: number | null } = {}) => {
     live,
     observed,
     storePurchases: () => purchases.length,
+    presentPaywallCalls,
+    spyCalls: () => spyCalls,
     slow,
     /** Runs an authored action list on the content currently shown, without awaiting it. */
     press: async (actions: ButtonAction[]) => {
@@ -311,6 +331,74 @@ describe("present(): complete() is bound to the presentation it was rendered for
     // B closes with its own dismiss and owes nothing to A's purchase.
     await t.press([{ type: "dismiss" } as ButtonAction]);
     expect(second).toEqual({ status: "dismissed" });
+  });
+});
+
+describe("present(): a purchase refused because its presentation ended runs no branch (round 7)", () => {
+  const SPY = { type: "custom", function: "spy" } as ButtonAction;
+  const DOWNSELL = { type: "presentPaywall", placement: "downsell" } as ButtonAction;
+  const SLOW = { type: "custom", function: "slow" } as ButtonAction;
+  const BUY_WITH_EVERY_BRANCH = {
+    type: "purchase",
+    product: "annual",
+    onSuccess: [SPY, DOWNSELL],
+    onCancel: [DOWNSELL, SPY],
+    onError: [DOWNSELL, SPY],
+    onPending: [DOWNSELL, SPY],
+  } as ButtonAction;
+
+  it("closed with nothing on screen: no onCancel, no trailing sibling, no downsell nobody asked for", async () => {
+    const t = await mount();
+    let first: unknown;
+    await t.present("upgrade", (r) => (first = r));
+    await t.press([SLOW, BUY_WITH_EVERY_BRANCH, SPY, DOWNSELL]);
+    await act(async () => t.live.close!());
+    await settle();
+    expect(first).toEqual({ status: "dismissed" });
+    expect(t.live.host.activePaywall).toBeNull();
+
+    await act(async () => t.slow.resolve());
+    await settle();
+    expect(t.storePurchases()).toBe(0);
+    expect(t.presentPaywallCalls).toEqual([]);
+    expect(t.spyCalls()).toBe(0);
+    expect(t.live.host.activePaywall).toBeNull();
+    expect(t.observed).not.toContain("start downsell");
+  });
+
+  it("with B on screen, a purchase nested in A's branch ends A's whole chain, outer siblings included", async () => {
+    const t = await mount();
+    await t.present("upgrade", () => void t.live.host.present("downsell"));
+    await t.press([{ ...SLOW, onResolve: [BUY_WITH_EVERY_BRANCH, SPY] } as ButtonAction, SPY, DOWNSELL]);
+    await act(async () => t.live.close!());
+    await settle();
+    expect(t.live.host.activePaywall?.moment).toBe("downsell");
+
+    await act(async () => t.slow.resolve());
+    await settle();
+    expect(t.storePurchases()).toBe(0);
+    expect(t.presentPaywallCalls).toEqual([]);
+    expect(t.spyCalls()).toBe(0);
+    expect(t.live.host.activePaywall?.moment).toBe("downsell");
+  });
+
+  it("a purchase on the presentation still showing runs its branch as before (control)", async () => {
+    const t = await mount();
+    await t.present("upgrade");
+    await t.press([BUY_WITH_EVERY_BRANCH]);
+    await t.settlePurchase({ status: "cancelled" });
+    expect(t.presentPaywallCalls).toEqual(["downsell"]);
+    expect(t.spyCalls()).toBe(1);
+  });
+
+  it("a purchase that STARTED on screen and settles after the close still runs onSuccess", async () => {
+    const t = await mount();
+    await t.present("upgrade");
+    await t.press([BUY_WITH_EVERY_BRANCH]);
+    await act(async () => t.live.close!());
+    await settle();
+    await t.settlePurchase({ status: "purchased", productKey: "annual" });
+    expect(t.spyCalls()).toBe(1);
   });
 });
 

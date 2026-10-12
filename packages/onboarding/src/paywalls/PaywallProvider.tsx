@@ -151,8 +151,13 @@ export type PaywallContextValue = {
    *   and `visible` (the previous one ended and the next started in the same
    *   commit, e.g. an `await present("a")` continuation): `onShow` does not
    *   fire twice, and without the call that paywall is abandoned after
-   *   `presentAckTimeoutMs` as `host-never-presented`. Only do so if `onShow`
-   *   had confirmed that Modal and it has stayed visible since.
+   *   `presentAckTimeoutMs` as `host-never-presented`. Only do so if an
+   *   `onShow` arrived while the Modal was visible, during its current
+   *   visible stretch.
+   * - Ignore an `onShow` that arrives while your Modal is hidden. iOS emits it
+   *   from the present completion with no visibility check, so a paywall that
+   *   ended before its slide-in finished delivers it late. Acting on it (or
+   *   counting it as confirmation) vouches for a presentation nobody saw.
    * - Never call it for a presentation you will not render (a custom screen
    *   you do not have, elements that fail to parse): it would report a paywall
    *   nobody saw as shown, and disable the recovery below.

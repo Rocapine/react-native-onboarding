@@ -71,8 +71,11 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   Modal's `onShow`; acknowledge again when a new presentation takes a Modal
   kept mounted and `visible` across the swap (an `await present()`
   continuation, or the same moment again, in the same commit), because
-  `onShow` does not fire twice, but only if `onShow` had confirmed that Modal;
-  and never acknowledge a presentation the host will not render. A host of its
+  `onShow` does not fire twice, but only if an `onShow` arrived during the
+  Modal's current visible stretch; ignore an `onShow` that arrives while the
+  Modal is hidden (iOS delivers one late for a paywall that ended before its
+  slide-in finished); and never acknowledge a presentation the host will not
+  render. A host of its
   own that wires `onShow` alone keeps working, but a same-commit successor is
   abandoned after `presentAckTimeoutMs` as `host-never-presented`. A Modal
   re-keyed per presentation fires `onShow` each time and needs nothing more.

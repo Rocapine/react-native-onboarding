@@ -20,7 +20,10 @@ here.
   render as one closing** (#286). The Modal stays `visible`, so `onShow` does
   not fire again; `PaywallHost` acknowledges the new presentation itself, but
   only when it renders it (not an unregistered custom screen, not elements
-  that fail to parse) and only when `onShow` had confirmed the Modal. A
+  that fail to parse) and only when an `onShow` arrived during the Modal's
+  current visible stretch. An `onShow` that arrives while the Modal is hidden
+  (iOS delivers one late for a paywall that ended before its slide-in
+  finished) is ignored, so it cannot vouch for the next presentation. A
   successor over a Modal the platform refused stays unacknowledged, so the
   wedge recovery still applies.
 

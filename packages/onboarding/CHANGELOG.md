@@ -58,12 +58,24 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   `requestPermission` step followed by `purchase`, resuming after the paywall
   closed) does not open the store and resolves `{ status: "cancelled" }`,
   recording nothing on the presentation now showing. Logged with a warning.
-- **A paywall presented in the same render as one closing is acknowledged**
-  (#286). When `complete()` releases an acknowledged paywall and `present()`
-  opens the next one before React commits (an `await present()` continuation,
-  or the same moment again), the Modal never re-fires `onShow`; that
-  presentation is now acknowledged and reported `shown` at once, instead of
-  being torn down by the acknowledgement timeout as `host-never-presented`.
+- **`ProductRuntime.presentationEnded?: () => boolean`** (#286). Additive and
+  optional: `true` once the paywall presentation a runtime was published for
+  has left the screen, the same test the bound `purchase` refuses on. The UI
+  package's action engine checks it before a `purchase` and ends a stale
+  action chain there, so the refusal's `cancelled` never runs `onCancel` (or
+  any other branch, or any action after it). Absent on every other runtime,
+  which means "never ended".
+- **Only the host acknowledges a presentation** (#286). The provider never
+  calls `shown()` or acknowledges on its own. A host's contract, in the
+  `usePaywallHost().acknowledgePresentation` JSDoc: acknowledge from the
+  Modal's `onShow`; acknowledge again when a new presentation takes a Modal
+  kept mounted and `visible` across the swap (an `await present()`
+  continuation, or the same moment again, in the same commit), because
+  `onShow` does not fire twice, but only if `onShow` had confirmed that Modal;
+  and never acknowledge a presentation the host will not render. A host of its
+  own that wires `onShow` alone keeps working, but a same-commit successor is
+  abandoned after `presentAckTimeoutMs` as `host-never-presented`. A Modal
+  re-keyed per presentation fires `onShow` each time and needs nothing more.
 - A close or disappearance with a purchase in flight no longer waits when a
   purchase has already settled `purchased`: the end is fixed, so it ends
   `purchased` at once.

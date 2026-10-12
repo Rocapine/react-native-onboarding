@@ -8,6 +8,21 @@ here.
 ## [Unreleased]
 
 ### Added
+- **A paywall's stale action chain ends at its `purchase`** (#286). When the
+  presentation a chain belongs to has left the screen (a `custom` or
+  `requestPermission` step resumed after the paywall closed), the `purchase`
+  action is skipped and the rest of the chain dropped, enclosing lists
+  included: no `onSuccess`/`onCancel`/`onError`/`onPending`, so an `onCancel`
+  holding `presentPaywall` cannot open a downsell nobody asked for. Read from
+  the headless `ProductRuntime.presentationEnded`; a purchase that started on
+  screen and settles after the close still runs its branch.
+- **`PaywallHost` acknowledges a paywall that takes its Modal in the same
+  render as one closing** (#286). The Modal stays `visible`, so `onShow` does
+  not fire again; `PaywallHost` acknowledges the new presentation itself, but
+  only when it renders it (not an unregistered custom screen, not elements
+  that fail to parse) and only when `onShow` had confirmed the Modal. A
+  successor over a Modal the platform refused stays unacknowledged, so the
+  wedge recovery still applies.
 
 - **Inline `Paywall` step reports to `PaywallProvider`'s `observer`** (#286),
   as `surface: "paywall_step"`. One presentation per focused visit, read through

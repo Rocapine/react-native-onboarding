@@ -212,7 +212,7 @@ describe("usePaywallStepObservation — end", () => {
 
   it("keeps ONE presentation when the moment's variant swaps mid-step, as present() does (r1-1)", async () => {
     // `PaywallProvider` ends a presentation only when its paywall becomes null
-    // (`PaywallProvider.tsx:703-706`); a different id under the same moment
+    // (its paywall-disappeared effect); a different id under the same moment
     // leaves it open. A step visit is one presentation for the same reason.
     const { observe, calls } = recorder();
     await render(createElement(Probe, { observe, paywall: A }));
@@ -678,18 +678,97 @@ describe("usePaywallStepObservation — late purchase (owner decision: count it)
     expect(calls[calls.length - 1]).toEqual(["end", "pw-a#1", { status: "cancelled" }, null]);
   });
 
-  it("ends a presentation whose paywall disappears at once, pending purchase or not (only blur/unmount wait)", async () => {
+  it("ends a presentation whose paywall disappears at once when no purchase settled or is pending", async () => {
     const { observe, calls } = recorder();
     await render(createElement(Probe, { observe, paywall: A }));
-    const record = api.beginPurchase();
     await render(createElement(Probe, { observe, paywall: null }));
     expect(calls).toEqual([
       ["start", "pw-a"],
       ["end", "pw-a", { status: "error", reason: "paywall-disappeared" }, null],
     ]);
+    await unmount();
+    expect(calls).toHaveLength(2);
+  });
+});
+
+describe("usePaywallStepObservation — a purchase wins over the paywall disappearing (owner decision)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("ends purchased with its key when a purchase SETTLED before the paywall disappeared", async () => {
+    const { observe, calls } = recorder();
+    await render(createElement(Probe, { observe, paywall: A }));
+    api.beginPurchase()({ status: "purchased", productKey: "annual" });
+    await render(createElement(Probe, { observe, paywall: null }));
+    expect(calls).toEqual([
+      ["start", "pw-a"],
+      ["end", "pw-a", { status: "purchased" }, "annual"],
+    ]);
+    await unmount();
+    expect(calls).toHaveLength(2);
+  });
+
+  it("still ends error when the only settled outcome was a cancellation (only purchased wins)", async () => {
+    const { observe, calls } = recorder();
+    await render(createElement(Probe, { observe, paywall: A }));
+    api.beginPurchase()({ status: "cancelled" });
+    await render(createElement(Probe, { observe, paywall: null }));
+    expect(calls).toEqual([
+      ["start", "pw-a"],
+      ["end", "pw-a", { status: "error", reason: "paywall-disappeared" }, null],
+    ]);
+  });
+
+  it("keeps the presentation open while a purchase is in flight, then ends with the store outcome", async () => {
+    const { observe, calls } = recorder();
+    await render(createElement(Probe, { observe, paywall: A }));
+    const record = api.beginPurchase();
+    await render(createElement(Probe, { observe, paywall: null }));
+    expect(calls).toEqual([["start", "pw-a"]]);
+    record({ status: "purchased", productKey: "annual" });
+    // The runtime's onSuccess `continue` follows; there is no paywall to start.
+    api.advance(undefined);
+    expect(calls).toEqual([
+      ["start", "pw-a"],
+      ["end", "pw-a", { status: "purchased" }, "annual"],
+    ]);
+    await unmount();
+    expect(calls).toHaveLength(2);
+  });
+
+  it("ends dismissed after LATE_PURCHASE_TIMEOUT_MS when the purchase in flight never settles", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const { observe, calls } = recorder();
+    await render(createElement(Probe, { observe, paywall: A }));
+    const record = api.beginPurchase();
+    await render(createElement(Probe, { observe, paywall: null }));
+    vi.advanceTimersByTime(LATE_PURCHASE_TIMEOUT_MS - 1);
+    expect(calls).toEqual([["start", "pw-a"]]);
+    vi.advanceTimersByTime(1);
+    expect(calls).toEqual([
+      ["start", "pw-a"],
+      ["end", "pw-a", { status: "dismissed" }, null],
+    ]);
     record({ status: "purchased", productKey: "annual" });
     await unmount();
     expect(calls).toHaveLength(2);
+  });
+
+  it("never crosses the waiting presentation with the one a returning paywall starts", async () => {
+    const { observe, calls } = recorder();
+    await render(createElement(Probe, { observe, paywall: A }));
+    const record = api.beginPurchase();
+    await render(createElement(Probe, { observe, paywall: null }));
+    await render(createElement(Probe, { observe, paywall: B }));
+    expect(calls).toEqual([
+      ["start", "pw-a"],
+      ["start", "pw-b"],
+    ]);
+    record({ status: "purchased", productKey: "annual" });
+    expect(calls[calls.length - 1]).toEqual(["end", "pw-a", { status: "purchased" }, "annual"]);
+    await unmount();
+    expect(calls[calls.length - 1]).toEqual(["end", "pw-b", { status: "dismissed" }, null]);
   });
 });
 

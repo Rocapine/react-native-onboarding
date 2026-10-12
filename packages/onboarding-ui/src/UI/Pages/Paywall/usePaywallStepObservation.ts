@@ -19,11 +19,12 @@ import type {
  * push-based Stack keeps an advanced step MOUNTED and shows it again on back,
  * and `present()` opens a fresh presentation for every showing (r1-5). Inside a
  * visit the presentation is keyed on the moment, not on the paywall id: a
- * revalidation that swaps the moment's variant keeps it open, exactly as
- * `PaywallProvider` does — it ends one only when its paywall becomes null
- * (`PaywallProvider.tsx:703-706`), so a purchase in flight across a swap is
- * still reported (r1-1). The info passed to `start()` is the paywall as it was
- * at start, the provider's choice too. An ENDED presentation is not reused for
+ * revalidation that swaps the moment's variant keeps it open, as `present()`
+ * does (`PaywallProvider` reacts only to its paywall becoming null), so a
+ * purchase in flight across a swap is still reported (r1-1). The info passed to
+ * `start()` is the paywall as it was at start, the provider's choice too; the
+ * store id a purchase reports is the variant it was made on, on both surfaces.
+ * An ENDED presentation is not reused for
  * a different paywall: after a render crash, a revalidated variant renders (the
  * boundary is keyed by id) and can be bought, so it starts its own.
  *
@@ -39,7 +40,8 @@ import type {
  *   - `fail(reason)`: a resolved paywall that cannot render (`parse-error`,
  *     `unknown-custom-screen`, `render-error`).
  *   - the paywall leaving the catalog mid-step: `error` / `paywall-disappeared`,
- *     as `present()` reports it.
+ *     as `present()` reports it — unless a purchase settled `purchased` on it
+ *     (then `purchased`) or is still in flight (then it waits, as below).
  *   - blur or unmount with nothing else ended: `dismissed` (the user went back,
  *     or the flow was torn down), upgraded to the last store outcome
  *     (`purchased` / `cancelled`) exactly as `present()` upgrades one.
@@ -50,8 +52,9 @@ import type {
  * ends `dismissed` upgraded to the store outcome, so a purchase that completes
  * after the user left still ends `purchased` with its key. A purchase that never
  * settles is bounded by `LATE_PURCHASE_TIMEOUT_MS`, then the presentation ends
- * `dismissed`. Only blur and unmount wait: the paywall leaving the catalog
- * ends it at once, as `present()` does.
+ * `dismissed`. The paywall leaving the catalog waits the same way, and a
+ * purchase that already settled `purchased` wins over it: the conversion is
+ * never reported as an error (owner decision on #286, shared with `present()`).
  *
  * NOTHING ELSE AFTER THE VISIT. Between blur/unmount and the next focus every
  * other call is a no-op. A purchase that settles after the step left is
@@ -216,13 +219,8 @@ export function usePaywallStepObservation<P extends PaywallPresentationSource>(
     open.current = null;
     visiting.current = false;
     if (!o || o.ended) return;
-    if (o.pending === 0) {
-      finish(o, { status: "dismissed" });
-      return;
-    }
-    // Detached: the purchase still in flight ends it when it settles. Never
-    // cleared by an unmount, or a purchase that never settles would leak it.
-    o.timer ??= setTimeout(() => finish(o, { status: "dismissed" }), LATE_PURCHASE_TIMEOUT_MS);
+    if (o.pending > 0) detach(o);
+    else finish(o, { status: "dismissed" });
   }, []);
 
   useFocusEffect(
@@ -240,7 +238,7 @@ export function usePaywallStepObservation<P extends PaywallPresentationSource>(
       ensure();
       return;
     }
-    finish(open.current, { status: "error", reason: "paywall-disappeared" });
+    disappear(open.current);
     open.current = null;
   }, [id, ensure]);
 
@@ -292,6 +290,28 @@ export function usePaywallStepObservation<P extends PaywallPresentationSource>(
     }),
     [ensure],
   );
+}
+
+/**
+ * Leaves `o` open, no longer the visit's, for the purchases still in flight on
+ * it: the last one to settle ends it. Never cleared by an unmount, or a
+ * purchase that never settles would leak it.
+ */
+function detach(o: Open) {
+  o.timer ??= setTimeout(() => finish(o, { status: "dismissed" }), LATE_PURCHASE_TIMEOUT_MS);
+}
+
+/**
+ * The paywall left the catalog under an open presentation. A purchase wins
+ * over that (owner decision on #286): one in flight is waited for as a blur
+ * waits, one that settled `purchased` ends it `purchased`. Only with neither is
+ * it `paywall-disappeared`, at once. A settled `cancelled` alone does not win.
+ */
+function disappear(o: Open | null) {
+  if (!o || o.ended) return;
+  if (o.pending > 0) detach(o);
+  else if (o.purchaseOutcome === "purchased") finish(o, { status: "dismissed" });
+  else finish(o, { status: "error", reason: "paywall-disappeared" });
 }
 
 function finish(o: Open | null, result: StepOutcome) {

@@ -151,10 +151,7 @@ here.
   and the gate holds on the one where they do not.
 
   **A terminal action nested in a hook now ends the whole press.** Also review
-  round 1 (finding 4), and see `### Changed
-
-- **Peer dependency raised to `@rocapine/react-native-onboarding@^1.76.0`.** The UI package now type-imports headless members that first ship in 1.76.0 (`PaywallPresentation`, `PaywallTransactionInfo`, …); upgrade both packages together.
- below — this alters
+  round 1 (finding 4), and see `### Changed` below — this alters
   `purchase`/`restore` for payloads already published. `runActions` returns
   whether the press completed the screen and every recursion propagates it, so
   `[{requestPermission, onGranted:["continue"]}, "continue"]` — a defensive
@@ -191,6 +188,8 @@ here.
   on hardware.
 
 ### Changed
+
+- **Peer dependency raised to `@rocapine/react-native-onboarding@^1.76.0`.** The UI package now type-imports headless members that first ship in 1.76.0 (`PaywallPresentation`, `PaywallTransactionInfo`, …); upgrade both packages together.
 
 - **A `"continue"` / `{dismiss}` nested in a `purchase` or `restore` hook now
   ends the whole press** (#196, review round 1 finding 4 / round 2 finding 7).

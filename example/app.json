@@ -52,7 +52,8 @@
       "expo-image",
       "expo-video",
       "expo-status-bar",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "./plugins/withMinPodsDeploymentTarget"
     ],
     "experiments": {
       "typedRoutes": true,

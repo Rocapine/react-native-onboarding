@@ -382,6 +382,16 @@ type PresentationRecord = {
  * `{status:"dismissed"}` isn't treated as an unoverridable explicit answer).
  * Reported before resolving. Idempotent.
  */
+/**
+ * Keeps an off-surface record open for the purchases still in flight on it:
+ * the purchase wrapper ends it when the last one settles, or this bound does,
+ * `dismissed`. Never cleared by an unmount, so a purchase that never settles
+ * cannot leak it.
+ */
+const waitForPurchases = (record: PresentationRecord) => {
+  record.timer ??= setTimeout(() => endPresentation(record, { status: "dismissed" }), LATE_PURCHASE_TIMEOUT_MS);
+};
+
 const endPresentation = (record: PresentationRecord | null, result: PresentResult) => {
   if (!record || record.ended) return;
   record.ended = true;
@@ -555,8 +565,8 @@ const PaywallProviderInner = ({
         record.purchasedKey = result.status === "purchased" ? result.productKey : null;
         record.purchasedFrom = result.status === "purchased" ? madeOn : null;
       }
-      // Off screen (its paywall disappeared) and nothing else in flight: this
-      // was the purchase it was waiting for.
+      // Off screen (closed, or its paywall disappeared) and nothing else in
+      // flight: this was the purchase it was waiting for.
       if (record.pending === 0 && presentationRecordRef.current !== record) {
         endPresentation(record, { status: "dismissed" });
       }
@@ -723,7 +733,17 @@ const PaywallProviderInner = ({
       // below may wait for a purchase first. Ended with the record already off
       // the surface, so a downsell `present()` issued from the resolution starts
       // a clean presentation.
-      endPresentation(releaseSurface(), result);
+      //
+      // A CLOSE (`dismissed`) with a purchase in flight waits for it, as an
+      // inline step's blur does (owner ruling on #286): the surface is freed
+      // now, and the record ends with the store outcome when it settles. Any
+      // other reported end is the host's explicit answer and ends at once.
+      const record = releaseSurface();
+      if (record && !record.ended && result.status === "dismissed" && record.pending > 0) {
+        waitForPurchases(record);
+        return;
+      }
+      endPresentation(record, result);
     },
     [releaseSurface]
   );
@@ -766,10 +786,7 @@ const PaywallProviderInner = ({
     const record = releaseSurface();
     if (!record || record.ended) return;
     if (record.pending > 0) {
-      record.timer ??= setTimeout(
-        () => endPresentation(record, { status: "dismissed" }),
-        LATE_PURCHASE_TIMEOUT_MS
-      );
+      waitForPurchases(record);
       return;
     }
     // A purchase that already settled turns this into `purchased`

@@ -512,9 +512,58 @@ describe("PaywallProvider observer — a purchase wins over the paywall disappea
     expect(settled).toEqual({ status: "dismissed" });
   });
 
-  it("drops a purchase that settles after its presentation was DISMISSED, and never credits it to the next", async () => {
-    // The race the old generation counter guarded: A's purchase is in flight,
-    // the user dismisses A, B is presented, then A's purchase settles.
+  it("waits for a purchase in flight when the Modal is CLOSED, then resolves with the store outcome (owner ruling, round 5)", async () => {
+    // Reverses the round-4 test that asserted the late purchase was dropped.
+    const store = deferredStore();
+    const { observer, calls } = recordingObserver();
+    const { captured } = await mount({ observer, productProvider: store.provider });
+    let first: unknown;
+    await act(async () => {
+      captured.ctx.present("upgrade").then((r) => (first = r));
+    });
+    await settle();
+    await act(async () => void captured.runtime!.purchase("annual"));
+    await settle();
+    await act_(() => captured.ctx.complete({ status: "dismissed" }));
+    expect(first).toBeUndefined();
+    expect(calls.map(([n]) => n)).toEqual(["start"]);
+    // The surface is freed meanwhile.
+    expect(captured.ctx.activePaywall).toBeNull();
+    await store.settleNext({ status: "purchased", productKey: "annual" });
+    expect(first).toEqual({ status: "purchased" });
+    expect(calls[1]).toEqual([
+      "end",
+      { status: "purchased", transaction: { productId: "com.app.annual.ios" } },
+    ]);
+  });
+
+  it("ends a closed presentation dismissed after LATE_PURCHASE_TIMEOUT_MS when its purchase never settles", async () => {
+    const store = deferredStore();
+    const { observer, calls } = recordingObserver();
+    const { captured } = await mount({ observer, productProvider: store.provider });
+    let first: unknown;
+    await act(async () => {
+      captured.ctx.present("upgrade").then((r) => (first = r));
+    });
+    await settle();
+    await act(async () => void captured.runtime!.purchase("annual"));
+    await settle();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    await act(async () => captured.ctx.complete({ status: "dismissed" }));
+    await act(async () => {
+      vi.advanceTimersByTime(LATE_PURCHASE_TIMEOUT_MS - 1);
+    });
+    expect(first).toBeUndefined();
+    await act(async () => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(first).toEqual({ status: "dismissed" });
+    expect(calls[1]).toEqual(["end", { status: "dismissed" }]);
+  });
+
+  it("drops a purchase that settles after its presentation ENDED, and never credits it to the next", async () => {
+    // The race the old generation counter guarded. A non-dismissal end (here a
+    // host render error) does not wait, so A has ended when its purchase settles.
     const store = deferredStore();
     const { observer, calls } = recordingObserver();
     const { captured } = await mount({ observer, productProvider: store.provider });
@@ -526,8 +575,8 @@ describe("PaywallProvider observer — a purchase wins over the paywall disappea
     await settle();
     await act(async () => void captured.runtime!.purchase("annual"));
     await settle();
-    await act_(() => captured.ctx.complete({ status: "dismissed" }));
-    expect(first).toEqual({ status: "dismissed" });
+    await act_(() => captured.ctx.complete({ status: "error", reason: "render-error" }));
+    expect(first).toEqual({ status: "error", reason: "render-error" });
     await act(async () => {
       captured.ctx.present("downsell").then((r) => (second = r));
     });
@@ -536,7 +585,7 @@ describe("PaywallProvider observer — a purchase wins over the paywall disappea
     await act_(() => captured.ctx.complete({ status: "dismissed" }));
     expect(second).toEqual({ status: "dismissed" });
     expect(calls.filter(([n]) => n === "end")).toEqual([
-      ["end", { status: "dismissed" }],
+      ["end", { status: "error", reason: "render-error" }],
       ["end", { status: "dismissed" }],
     ]);
   });

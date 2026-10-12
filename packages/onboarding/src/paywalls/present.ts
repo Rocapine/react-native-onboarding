@@ -197,25 +197,16 @@ export const resolvePresentedOutcome = (
   reported.status === "dismissed" && purchaseOutcome ? { status: purchaseOutcome } : reported;
 
 /**
- * Guards the purchase-outcome WRITE against a race that resetting the ref at
- * `present()`'s start does not, by itself, prevent: paywall A is showing,
- * `purchase()` is in flight; the user dismisses A (nothing tracked yet, so A
- * correctly resolves `"dismissed"`); paywall B is presented, resetting the
- * tracked outcome; THEN A's stale promise finally settles and would write
- * `"purchased"` into what is now B's tracker — B later reports a purchase
- * the user never made on it. `purchase()` must capture the current
- * generation BEFORE awaiting the store and compare it against the current
- * generation again after — only an unchanged generation means the write is
- * still for the presentation that started it.
- *
- * A monotonic counter, not the moment string: the same moment can
- * legitimately be presented twice in a row, and a string comparison would
- * let a stale write from the FIRST of those two land in the second.
+ * How long a presentation whose paywall left the catalog with a purchase in
+ * flight waits for that purchase before ending `dismissed`. Mirrors
+ * `DEFAULT_PURCHASE_TIMEOUT_MS` in `../products/adapters/expoIap.ts` (not
+ * imported: that module pulls in the adapter's own imports), which answers
+ * `pending` after the same wait counted from the purchase START, so it settles
+ * first and this only fires for a provider with no bound of its own. The UI's
+ * inline step has the same constant (`usePaywallStepObservation.ts`), held
+ * equal by its test.
  */
-export const shouldRecordPurchaseOutcome = (
-  startedInGeneration: number,
-  currentGeneration: number
-): boolean => startedInGeneration === currentGeneration;
+export const LATE_PURCHASE_TIMEOUT_MS = 180_000;
 
 /**
  * Which of the two resolved product runtimes to publish.

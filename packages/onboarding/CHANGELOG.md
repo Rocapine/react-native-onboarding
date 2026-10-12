@@ -17,11 +17,21 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   slot's id for the running platform. The inline `Paywall` step reports through
   the same observer with `surface: "paywall_step"`, via the new
   `usePaywallHost().observePresentation`, whose handle's `end()` takes the
-  paywall a purchase was made on, so a step's purchase after a variant swap
-  reports that variant's store id. The types are copied verbatim from
+  paywall a purchase was made on, so a purchase after a background
+  revalidation swapped the moment's variant reports that variant's store id, on
+  both surfaces. The types are copied verbatim from
   rocalytics-sdk's `src/paywall/observer.ts`, whose tracker satisfies them
   structurally. Every observer call is guarded: a throw, a rejection, or a
   `start()` returning no handle never changes what `present()` resolves.
+- **A purchase wins over a paywall that disappears mid-presentation** (#286).
+  Behaviour change for `present()`, not only the observer: if a purchase
+  settled `purchased` before the moment left the catalog (a studio publish, or
+  a query-key change such as a host setting a user property on purchase),
+  `present()` now resolves `purchased`, not `error` / `paywall-disappeared`. A
+  purchase still in flight is waited for, bounded at 180 s (the expo-iap
+  adapter's purchase wait), then `dismissed`; the Modal closes and other
+  `present()` calls work meanwhile. With no purchase, it still resolves
+  `paywall-disappeared` at once.
 
 - **`requestPermission` ButtonAction** — ask the OS for a permission and branch
   on the answer within the SAME press (#196). An eighth `ButtonAction` member:

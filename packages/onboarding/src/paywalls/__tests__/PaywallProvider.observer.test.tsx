@@ -5,7 +5,8 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import type { PaywallObserver } from "../observer";
 import type { PaywallContextValue } from "../PaywallProvider";
-import type { ProductRuntime, ProductProvider, ResolvedProduct } from "../../products/types";
+import type { ProductRuntime, ProductProvider, PurchaseResult, ResolvedProduct } from "../../products/types";
+import { LATE_PURCHASE_TIMEOUT_MS } from "../present";
 import type { QueryClient } from "@tanstack/react-query";
 
 /**
@@ -147,11 +148,12 @@ const mount = async (props: {
   await settle();
   return {
     captured,
-    rerender: async (observer: unknown, catalogClient?: any) => {
+    /** `{ settle: false }` under fake timers: `settle()` waits on a real `setTimeout`. */
+    rerender: async (observer: unknown, catalogClient?: any, options?: { settle?: boolean }) => {
       await act(async () => {
         root!.render(element(observer, catalogClient));
       });
-      await settle();
+      if (options?.settle !== false) await settle();
     },
   };
 };
@@ -405,6 +407,172 @@ describe("PaywallProvider observer — present() after a variant swap", () => {
       "end",
       { status: "purchased", transaction: { productId: "com.app.b.monthly.ios" } },
     ]);
+  });
+});
+
+describe("PaywallProvider observer — a purchase wins over the paywall disappearing (owner decision)", () => {
+  /** A store whose purchases settle only when the test says so. */
+  const deferredStore = () => {
+    const waiting: Array<(r: PurchaseResult) => void> = [];
+    const provider: ProductProvider = {
+      ...productProvider,
+      purchase: () => new Promise<PurchaseResult>((resolve) => void waiting.push(resolve)),
+    };
+    const settleNext = async (result: PurchaseResult) => {
+      await act(async () => {
+        waiting.shift()!(result);
+      });
+      await settle();
+    };
+    return { provider, settleNext, waiting };
+  };
+
+  /** A different query key whose catalog lacks "upgrade": `data` goes undefined, then lacks it. */
+  const withoutUpgrade = () => {
+    const next = makeClient(catalogOf("downsell"));
+    next.projectId = "p2";
+    return next;
+  };
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("ends purchased with its key when a purchase SETTLED before the paywall disappeared", async () => {
+    const { observer, calls } = recordingObserver();
+    const { captured, rerender } = await mount({ observer });
+    let settled: unknown;
+    await act(async () => {
+      captured.ctx.present("upgrade").then((r) => (settled = r));
+    });
+    await settle();
+    await act_(() => captured.ctx.acknowledgePresentation());
+    await act_(() => captured.runtime!.purchase("annual"));
+    await rerender(observer, withoutUpgrade());
+    expect(settled).toEqual({ status: "purchased" });
+    expect(calls.map(([n]) => n)).toEqual(["start", "shown", "end"]);
+    expect(calls[2]).toEqual([
+      "end",
+      { status: "purchased", transaction: { productId: "com.app.annual.ios" } },
+    ]);
+  });
+
+  it("waits for a purchase in flight, then ends and resolves with the store outcome", async () => {
+    const store = deferredStore();
+    const { observer, calls } = recordingObserver();
+    const { captured, rerender } = await mount({ observer, productProvider: store.provider });
+    let settled: unknown;
+    await act(async () => {
+      captured.ctx.present("upgrade").then((r) => (settled = r));
+    });
+    await settle();
+    await act(async () => void captured.runtime!.purchase("annual"));
+    await settle();
+    expect(store.waiting).toHaveLength(1);
+    await rerender(observer, withoutUpgrade());
+    expect(settled).toBeUndefined();
+    expect(calls.map(([n]) => n)).toEqual(["start"]);
+    // The surface is free meanwhile: nothing is left holding `activeMoment`.
+    expect(captured.ctx.activePaywall).toBeNull();
+    await store.settleNext({ status: "purchased", productKey: "annual" });
+    expect(settled).toEqual({ status: "purchased" });
+    expect(calls).toEqual([
+      ["start", expect.objectContaining({ paywallId: "pw-upgrade" })],
+      ["end", { status: "purchased", transaction: { productId: "com.app.annual.ios" } }],
+    ]);
+  });
+
+  it("ends dismissed after LATE_PURCHASE_TIMEOUT_MS when the purchase in flight never settles", async () => {
+    const store = deferredStore();
+    const { observer, calls } = recordingObserver();
+    const { captured, rerender } = await mount({ observer, productProvider: store.provider });
+    let settled: unknown;
+    await act(async () => {
+      captured.ctx.present("upgrade").then((r) => (settled = r));
+    });
+    await settle();
+    await act(async () => void captured.runtime!.purchase("annual"));
+    await settle();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    await rerender(observer, withoutUpgrade(), { settle: false });
+    await act(async () => {
+      vi.advanceTimersByTime(LATE_PURCHASE_TIMEOUT_MS - 1);
+    });
+    expect(settled).toBeUndefined();
+    expect(calls.map(([n]) => n)).toEqual(["start"]);
+    await act(async () => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(settled).toEqual({ status: "dismissed" });
+    expect(calls[1]).toEqual(["end", { status: "dismissed" }]);
+    vi.useRealTimers();
+    // A purchase settling after the bound changes nothing.
+    await store.settleNext({ status: "purchased", productKey: "annual" });
+    expect(calls).toHaveLength(2);
+    expect(settled).toEqual({ status: "dismissed" });
+  });
+
+  it("drops a purchase that settles after its presentation was DISMISSED, and never credits it to the next", async () => {
+    // The race the old generation counter guarded: A's purchase is in flight,
+    // the user dismisses A, B is presented, then A's purchase settles.
+    const store = deferredStore();
+    const { observer, calls } = recordingObserver();
+    const { captured } = await mount({ observer, productProvider: store.provider });
+    let first: unknown;
+    let second: unknown;
+    await act(async () => {
+      captured.ctx.present("upgrade").then((r) => (first = r));
+    });
+    await settle();
+    await act(async () => void captured.runtime!.purchase("annual"));
+    await settle();
+    await act_(() => captured.ctx.complete({ status: "dismissed" }));
+    expect(first).toEqual({ status: "dismissed" });
+    await act(async () => {
+      captured.ctx.present("downsell").then((r) => (second = r));
+    });
+    await settle();
+    await store.settleNext({ status: "purchased", productKey: "annual" });
+    await act_(() => captured.ctx.complete({ status: "dismissed" }));
+    expect(second).toEqual({ status: "dismissed" });
+    expect(calls.filter(([n]) => n === "end")).toEqual([
+      ["end", { status: "dismissed" }],
+      ["end", { status: "dismissed" }],
+    ]);
+  });
+
+  it("lets a downsell present() run while it waits, and never crosses the two presentations", async () => {
+    const store = deferredStore();
+    const { observer, calls } = recordingObserver();
+    const { captured, rerender } = await mount({ observer, productProvider: store.provider });
+    let first: unknown;
+    let second: unknown;
+    await act(async () => {
+      captured.ctx.present("upgrade").then((r) => (first = r));
+    });
+    await settle();
+    await act(async () => void captured.runtime!.purchase("annual"));
+    await settle();
+    await rerender(observer, withoutUpgrade());
+    await act(async () => {
+      captured.ctx.present("downsell").then((r) => (second = r));
+    });
+    await settle();
+    expect(captured.ctx.activePaywall?.moment).toBe("downsell");
+    expect(calls.map(([n]) => n)).toEqual(["start", "start"]);
+
+    await store.settleNext({ status: "purchased", productKey: "annual" });
+    expect(first).toEqual({ status: "purchased" });
+    expect(second).toBeUndefined();
+    expect(calls[2]).toEqual([
+      "end",
+      { status: "purchased", transaction: { productId: "com.app.annual.ios" } },
+    ]);
+    // The downsell is still showing, and its end owes nothing to the old purchase.
+    expect(captured.ctx.activePaywall?.moment).toBe("downsell");
+    await act_(() => captured.ctx.complete({ status: "dismissed" }));
+    expect(second).toEqual({ status: "dismissed" });
+    expect(calls[3]).toEqual(["end", { status: "dismissed" }]);
   });
 });
 

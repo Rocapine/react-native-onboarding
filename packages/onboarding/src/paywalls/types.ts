@@ -205,7 +205,9 @@ export interface GetPaywallsResponseHeaders {
  *   (iOS will not present over an already-presenting view controller — another
  *   Modal, a `presentation: "modal"` route, a StoreKit alert).
  * - `paywall-disappeared` — the moment vanished from the catalog while it
- *   was on screen (a studio publish, or a query-key change mid-presentation).
+ *   was on screen (a studio publish, or a query-key change mid-presentation)
+ *   and no purchase was made on it. A purchase wins: one that settled
+ *   `purchased` resolves `purchased`, and one still in flight is waited for.
  * - `unknown-custom-screen` — the paywall is `renderMode: "custom"` and names
  *   a `customScreenId` this host did not register (or names none at all), so
  *   there was nothing to render and the Modal was never opened. Deliberately

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useLayoutEffect, useRef } from "react";
 
 /**
  * The paywall host's half of `usePaywallHost().acknowledgePresentation`: it
@@ -17,9 +17,19 @@ import { useCallback, useEffect, useRef } from "react";
  *  - the Modal is `visible` in this commit, i.e. the host IS rendering the
  *    new presentation (an unregistered custom screen or an element list that
  *    fails to parse hides it, and must never be reported shown), and
- *  - the surface was confirmed by `onShow` and has stayed visible since. A
- *    Modal the platform refused never fired `onShow`, so a successor over it
- *    stays unacknowledged and the provider's wedge recovery still applies.
+ *  - the surface was confirmed by an `onShow` received during its CURRENT
+ *    visible stretch. A Modal the platform refused never fired `onShow`, so a
+ *    successor over it stays unacknowledged and the provider's wedge recovery
+ *    still applies.
+ *
+ * An `onShow` received while the last committed `visible` is `false` is
+ * ignored outright: no acknowledgement, no confirmation. iOS emits `onShow`
+ * from the present completion with no visibility check, and `PaywallHost`
+ * keeps its Modal mounted while hidden, so a paywall that ended before its
+ * slide-in finished still delivers its `onShow` late. Counted, it would vouch
+ * for whatever is presented next and cancel that one's wedge recovery.
+ * Visibility is tracked in a LAYOUT effect, so it is current before any native
+ * event for the commit can be handled.
  *
  * `visible` must be the value passed to the Modal itself. `presentation` is
  * any value whose identity changes once per presentation: `PaywallHost` passes
@@ -31,21 +41,27 @@ export const useSurfaceAcknowledgement = (
   presentation: unknown,
   acknowledge: () => void
 ): (() => void) => {
-  // `onShow` fired for the Modal as it is now, and it has not been hidden since.
+  // An `onShow` arrived during the current visible stretch.
   const confirmedRef = useRef(false);
+  // The last COMMITTED `visible`, not the one being rendered.
+  const visibleRef = useRef(false);
   const lastPresentationRef = useRef(presentation);
 
   const onShow = useCallback(() => {
+    // Late, for a showing that already ended: confirms nothing.
+    if (!visibleRef.current) return;
     confirmedRef.current = true;
     acknowledge();
   }, [acknowledge]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const swapped = lastPresentationRef.current !== presentation;
+    const wasVisible = visibleRef.current;
     lastPresentationRef.current = presentation;
-    if (!visible) {
-      // Hidden: the next showing is a new `onShow`, and until then nothing
-      // vouches for the surface.
+    visibleRef.current = visible;
+    // Hidden, or a new visible stretch starting: only an `onShow` received
+    // from here on vouches for the surface.
+    if (!visible || !wasVisible) {
       confirmedRef.current = false;
       return;
     }

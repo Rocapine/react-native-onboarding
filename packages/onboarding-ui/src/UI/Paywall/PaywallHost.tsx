@@ -354,7 +354,8 @@ export const PaywallHost = ({ customScreens, requestPermission }: PaywallHostPro
       // the process. onShow never fires when the platform refuses, which is
       // exactly what makes it the right signal. A presentation that takes this
       // Modal while it stays visible gets no second `onShow`; the hook above
-      // acknowledges that one, and only when the Modal had been confirmed.
+      // acknowledges that one, and only when an `onShow` arrived during the
+      // Modal's current visible stretch; a late `onShow` while hidden is ignored.
       onShow={onShow}
     >
       <SafeAreaProvider>

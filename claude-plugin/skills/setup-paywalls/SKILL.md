@@ -89,8 +89,14 @@ or, with no vendor in the path:
 
 ```tsx
 import { expoIapProductProvider } from "@rocapine/react-native-onboarding";
-const provider = expoIapProductProvider();
+const provider = expoIapProductProvider(undefined, {
+  // Grant a purchase no purchase() call is waiting for, then return true so
+  // the transaction is finished. Return false to leave it for next launch.
+  onUnclaimedPurchase: async (purchase) => grantEntitlement(purchase), // your own: true once granted
+});
 ```
+
+**Pass `onUnclaimedPurchase` with `expoIapProductProvider`.** An iOS **Ask to Buy** purchase resolves `purchase()` with `"pending"` (StoreKit answers `.pending` until a parent approves), and the approved transaction arrives later, with no caller waiting. So does a verdict that lands after `purchaseTimeoutMs`, and a Play slow-payment purchase once it clears. `onUnclaimedPurchase` is the only place those can be granted; it also receives launch replays and promoted purchases. Without it, such a purchase is charged and acknowledged but never granted by the paywall flow (the provider warns once).
 
 Both resolve a product ref by platform — `ios` on iOS, `android` on Android — and **silently drop a ref whose id for that platform is missing**. That failure is nearly invisible: the paywall still presents and `isReady` still turns true, but every `product.<key>.*` variable renders empty and `purchase()` fails. If prices are blank, check the studio's product catalog before suspecting the wiring.
 
@@ -299,14 +305,14 @@ Three things to tell the user explicitly, because none is visible from the call 
 - **Don't** call `present()` before `isReady` and expect no spinner — that flag is what "no spinner" means.
 - **Don't** hand-roll the modal without wiring `acknowledgePresentation`. `PaywallHost` does it for you; skip it in a custom host and the failure is silent and permanent.
 - **Don't** render a price you computed yourself. Interpolate `{{product.<key>.price}}` so the store's own formatting and currency are used.
-- **Don't** treat `purchase()` returning `"pending"` as failure. It is the normal outcome on the Stripe path, and a real one under `expoIapProductProvider` — Play's slow-payment purchases arrive unpaid, and it reports them `"pending"` rather than entitling a user whose money has not moved.
+- **Don't** treat `purchase()` returning `"pending"` as failure. It is the normal outcome on the Stripe path, and a real one under `expoIapProductProvider` — an iOS Ask to Buy purchase awaits a parent's approval, and Play's slow-payment purchases arrive unpaid; it reports both `"pending"` rather than entitling a user whose money has not moved.
 - **Don't** hardcode moment keys the studio does not have. `unknown-moment` is the single most common wiring bug.
 
 ## Wire `onPending` — Stripe needs it, and a store button should have it
 
 **A Stripe Payment Link purchase always resolves `"pending"`**, never `"purchased"`: `purchase()` opens the link, the browser takes over, and nothing is confirmed yet. So the authored buy button must declare `onPending`, or tapping it runs nothing and the user returns from Safari to an untouched screen.
 
-**`expoIapProductProvider` can resolve `"pending"` too**, so do not read it as Stripe-only. It reports it for a Play purchase delivered with `purchaseState: "pending"` — the slow-payment path, where the user has committed but the money has not moved — and when the store returns no verdict before the wait elapses. Neither is a purchase, and neither may grant access. `revenueCatProductProvider` never returns `"pending"` (it maps everything to purchased/cancelled/error), so a RevenueCat-only paywall can omit the branch.
+**`expoIapProductProvider` can resolve `"pending"` too**, so do not read it as Stripe-only. It reports it for an iOS **Ask to Buy** purchase awaiting approval (openiap's `deferred-payment`), for a Play purchase delivered with `purchaseState: "pending"` — the slow-payment path, where the user has committed but the money has not moved — and when the store returns no verdict before the wait elapses. None of these is a purchase, and none may grant access. If one completes later, it arrives through `onUnclaimedPurchase`, not through `onSuccess`. `revenueCatProductProvider` never returns `"pending"` (it maps everything to purchased/cancelled/error), so a RevenueCat-only paywall can omit the branch.
 
 ```json
 {

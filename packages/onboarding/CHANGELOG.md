@@ -4,6 +4,46 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [Unreleased]
+### Fixed
+- **`expoIapProductProvider`: an Ask to Buy purchase resolves `"pending"`, not
+  `"error"`** (#337). openiap reports StoreKit's `.pending` purchase result as
+  the error code `deferred-payment`, and the adapter only recognised the
+  cancellation codes, so the paywall ran `onError` for a purchase still
+  awaiting approval. `deferred-payment`, `pending`, and the pre-4.x
+  `E_DEFERRED_PAYMENT` / `E_PENDING` now resolve `{ status: "pending" }`, from
+  the error listener and from a `requestPurchase` rejection alike, so the
+  purchase action's `onPending` branch runs instead.
+- **`expoIapProductProvider`: a purchase that completes after its
+  `purchase()` call returned now reaches `onUnclaimedPurchase`** (#337). The
+  approved Ask to Buy transaction, a verdict landing after
+  `purchaseTimeoutMs`, and a Play slow-payment purchase that cleared after
+  `"pending"` all arrive with no caller waiting. They were finished silently,
+  so the user was charged and nothing granted the purchase. They are now
+  handed to `onUnclaimedPurchase` and finished only when it returns `true`,
+  the same contract as a launch replay. A delivery whose caller is still
+  waiting is unchanged: it is answered `"purchased"` and never shown to the
+  host, and a second copy of it (openiap both emits a transaction and returns
+  it from `requestPurchase`) is treated as a replay, not offered to the host.
+  The answer is now decided when the transaction arrives rather than after it
+  is acknowledged, so a slow `finishTransaction` can no longer turn a finished
+  purchase into a `"pending"` answer.
+
+### Changed
+- **Hosts passing `onUnclaimedPurchase` to `expoIapProductProvider` now see
+  more transactions.** Any completed transaction with no live caller is
+  offered, including later transactions for a product this process already
+  bought (for example, a renewal arriving on the update stream). Those were
+  previously finished without asking. Return `true` only once entitlement is
+  granted; a throw is treated as `false`.
+- **Without `onUnclaimedPurchase`, behaviour is unchanged** but no longer
+  silent: a dispatched product's transaction that arrives after its
+  `purchase()` returned is still finished, and the provider now warns once
+  that nothing granted it. Pass `onUnclaimedPurchase`; it is the only place
+  an approved Ask to Buy purchase can be granted.
+
+---
+
 ## [1.77.0] - 2026-10-16
 ### Potentially breaking
 - **`appVersion`, `build`, `sdkVersion` and `environment` are now SDK-owned

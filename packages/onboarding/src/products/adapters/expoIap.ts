@@ -222,8 +222,8 @@ const asError = (e: unknown): Error => {
  * `requestPurchase` (`OpenIapStoreKitModule.swift`), so it reaches this adapter
  * both on the error listener and as the `requestPurchase` rejection, with the
  * code `"deferred-payment"` (`ErrorCode.DeferredPayment`, `build/types.js` in
- * expo-iap 4.x through 6.x). openiap-google raises the same code for a pending
- * Amazon Appstore purchase. `"pending"` (`ErrorCode.Pending`) is declared
+ * expo-iap 4.x through 6.x). One of openiap-google's non-Play backends raises
+ * the same code for a pending purchase. `"pending"` (`ErrorCode.Pending`) is declared
  * alongside it, and the screaming-snake pair is the same two codes on peers
  * before 4.x. Reading any of them as an error ran the paywall's `onError` for a
  * purchase that may still be approved and charged.
@@ -371,7 +371,26 @@ export const expoIapProductProvider = (
   /** Only iOS publishes a consumable discriminator; see `getProducts`. */
   const consumableBySku = new Map<string, boolean>();
 
-  const finish = async (purchase: any, isConsumable: boolean) => {
+  /**
+   * Acknowledgements in flight, per transaction id. A second copy of a
+   * transaction (iOS emits it AND returns it; Android replays buffered events)
+   * can land while the first acknowledgement is still a native round-trip
+   * away, before `finishedTxIds` records it. It joins that attempt instead of
+   * starting a second one, which Play would reject.
+   */
+  const finishing = new Map<string, Promise<void>>();
+
+  const finish = (purchase: any, isConsumable: boolean): Promise<void> => {
+    const tx = txIdOf(purchase);
+    const inFlight = tx ? finishing.get(tx) : undefined;
+    if (inFlight) return inFlight;
+    const attempt = finishOnce(purchase, isConsumable);
+    if (!tx) return attempt;
+    finishing.set(tx, attempt);
+    return attempt.finally(() => finishing.delete(tx));
+  };
+
+  const finishOnce = async (purchase: any, isConsumable: boolean) => {
     const M = required();
     const tx = txIdOf(purchase);
     if (tx && finishedTxIds.has(tx)) return;

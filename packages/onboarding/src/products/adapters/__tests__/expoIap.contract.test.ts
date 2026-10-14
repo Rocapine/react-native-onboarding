@@ -856,6 +856,29 @@ describe("expoIapProductProvider — a dispatched purchase nobody is waiting for
     expect(await provider.purchase(product)).toEqual({ status: "purchased", productKey: "yearly" });
   });
 
+  it("acknowledges a transaction once while a second copy lands mid-acknowledgement", async () => {
+    // A real acknowledgement is a native round-trip. The returned copy of a
+    // transaction the listener already delivered arrives while it is in flight,
+    // and a second acknowledge on Play fails and leaves it queued forever.
+    const M = makeExpoIap5({ catalog: [iosYearly], platform });
+    const realFinish = M.finishTransaction.bind(M);
+    (M as any).finishTransaction = async (args: any) => {
+      await new Promise((r) => setTimeout(r, 30));
+      return realFinish(args);
+    };
+    (M as any).requestPurchase = async (args: any) => {
+      M.calls.requestPurchase.push(args);
+      const tx = { id: "tx-both", productId: "pro_yearly", purchaseState: "purchased" as const };
+      M.emitUpdated(tx);
+      return tx;
+    };
+    const provider = expoIapProductProvider(M);
+    const [product] = await provider.getProducts([YEARLY_IOS]);
+    expect(await provider.purchase(product)).toEqual({ status: "purchased", productKey: "yearly" });
+    await new Promise((r) => setTimeout(r, 60));
+    expect(M.calls.finishTransaction).toHaveLength(1);
+  });
+
   describe("with no onUnclaimedPurchase", () => {
     it("still finishes the dispatched purchase, and says the host was never told", async () => {
       // Kept from before #337: the sku was dispatched by this process, so it is

@@ -212,8 +212,30 @@ const asError = (e: unknown): Error => {
   return error;
 };
 
+/**
+ * A purchase the store accepted but has not charged yet: StoreKit's `.pending`
+ * result, which is Ask to Buy (a parent must approve) or a purchase awaiting
+ * another approval step.
+ *
+ * openiap-apple does not report that as a result. It throws
+ * `PurchaseError.make(code: .deferredPayment)` from the `.pending` branch of
+ * `requestPurchase` (`OpenIapStoreKitModule.swift`), so it reaches this adapter
+ * both on the error listener and as the `requestPurchase` rejection, with the
+ * code `"deferred-payment"` (`ErrorCode.DeferredPayment`, `build/types.js` in
+ * expo-iap 4.x through 6.x). openiap-google raises the same code for a pending
+ * Amazon Appstore purchase. `"pending"` (`ErrorCode.Pending`) is declared
+ * alongside it, and the screaming-snake pair is the same two codes on peers
+ * before 4.x. Reading any of them as an error ran the paywall's `onError` for a
+ * purchase that may still be approved and charged.
+ */
+const PENDING_CODES = new Set(["deferred-payment", "pending", "E_DEFERRED_PAYMENT", "E_PENDING"]);
+
 const failureFor = (e: any): PurchaseResult =>
-  isCancellation(e) ? { status: "cancelled" } : { status: "error", error: asError(e) };
+  isCancellation(e)
+    ? { status: "cancelled" }
+    : PENDING_CODES.has(String(e?.code))
+      ? { status: "pending" }
+      : { status: "error", error: asError(e) };
 
 /** What `getProducts` remembers per ref so `purchase` can dispatch correctly. */
 type ResolvedMeta = {
@@ -240,24 +262,39 @@ export type ExpoIapProviderOptions = {
    * store sheet — Ask to Buy, an SCA step-up, or adding a card inside the sheet
    * routinely exceed the default — so this bounds only how long the CALLER
    * waits. It does not end the transaction: the provider's listeners stay
-   * attached, and a verdict arriving after the timeout is still acknowledged.
-   * It resolves `"pending"`, never `"purchased"`.
+   * attached, and a verdict arriving after the timeout is handed to
+   * `onUnclaimedPurchase` (or, with no handler, still acknowledged). It
+   * resolves `"pending"`, never `"purchased"`.
    */
   purchaseTimeoutMs?: number;
   /**
-   * Honour a transaction this process never asked for, so it can be finished.
+   * Honour a purchase no `purchase()` call is waiting for, so it can be
+   * granted and finished. **Pass it** if you use this provider on a paywall.
    *
-   * StoreKit re-delivers an unfinished transaction on **every launch**, and a
-   * purchase can also arrive from an Ask to Buy approval, a promoted product,
-   * or a pending Play purchase that cleared while the app was closed. None of
-   * those has a caller waiting, and finishing one blind would take the money
-   * while granting nothing — destroying the very replay that lets the app
-   * recover. So the host decides: return `true` once entitlement is granted and
-   * the transaction is finished; return `false` (or leave this unset) and it is
-   * left alone to be re-delivered next launch.
+   * Called for every completed transaction that arrives with no caller
+   * waiting on its product:
+   *   - a replay: StoreKit re-delivers an unfinished transaction on **every
+   *     launch**, and a pending Play purchase can clear while the app is closed;
+   *   - a promoted product, bought from the store page;
+   *   - a purchase this provider dispatched whose `purchase()` already
+   *     resolved `"pending"`: an **Ask to Buy** purchase approved later (StoreKit
+   *     answers `.pending` first, so `purchase()` resolves `"pending"` and the
+   *     approved transaction arrives afterwards), a verdict landing after
+   *     `purchaseTimeoutMs`, or a Play slow-payment purchase that cleared. The
+   *     paywall's `onPending` branch has already run for these, so this
+   *     callback is the only place they can be granted.
    *
-   * A purchase this provider DISPATCHED in this process never comes here — the
-   * caller was told about it, so acknowledging it needs no second opinion.
+   * Finishing one blind would take the money while granting nothing, so the
+   * host decides: return `true` once entitlement is granted and the
+   * transaction may be finished; return `false` and it is left unfinished to be
+   * re-delivered next launch. A throw is treated as `false`.
+   *
+   * A transaction answered `"purchased"` to its caller never comes here.
+   *
+   * Left unset: a transaction this process never dispatched is left unfinished
+   * (with a warning), and one it did dispatch is finished (with a warning) —
+   * so an approved Ask to Buy purchase is charged and acknowledged but never
+   * granted by the paywall flow.
    */
   onUnclaimedPurchase?: (purchase: any) => boolean | Promise<boolean>;
 };
@@ -308,14 +345,29 @@ export const expoIapProductProvider = (
   // subscription sees each transaction exactly once instead.
   // ---------------------------------------------------------------------------
   let subscriptions: { remove?(): void }[] | null = null;
-  /** Skus this process asked to buy. A delivery for one of these is ours. */
+  /**
+   * Skus this process asked to buy. Consulted only when there is no
+   * `onUnclaimedPurchase`, to keep finishing a dispatched purchase whose caller
+   * has already been answered. Routing is by LIVE WAITER, not by this set, so a
+   * stale entry cannot answer a later purchase; it holds one entry per sku ever
+   * bought, which is bounded by the catalog.
+   */
   const dispatchedSkus = new Set<string>();
   /** Transaction ids already acknowledged, so no delivery finishes twice. */
   const finishedTxIds = new Set<string>();
   /** Acknowledgements that threw, retried on the next store round-trip. */
   const unfinished = new Map<string, { purchase: any; isConsumable: boolean }>();
+  /**
+   * Transactions answered `"purchased"` to a waiting caller. A later copy of
+   * one is a replay to acknowledge, never the host's to decide — even when its
+   * acknowledgement failed and it is not in `finishedTxIds` yet.
+   */
+  const answeredTxIds = new Set<string>();
+  /** Transactions the host is deciding right now, so a copy is not offered twice. */
+  const offeredTxIds = new Set<string>();
   const waiters = new Set<Waiter>();
   let warnedUnclaimed = false;
+  let warnedDispatchedUnclaimed = false;
   /** Only iOS publishes a consumable discriminator; see `getProducts`. */
   const consumableBySku = new Map<string, boolean>();
 
@@ -353,18 +405,18 @@ export const expoIapProductProvider = (
     }
   };
 
-  /** Hand a result to the one caller waiting on this transaction's sku, if any. */
-  const answer = (purchase: any, result: PurchaseResult) => {
+  /** The caller still waiting on this delivery's sku, if there is one. */
+  const liveWaiterFor = (purchase: any): Waiter | undefined => {
     for (const w of waiters) {
-      if (w.settled || !deliversFor(purchase, w.sku)) continue;
-      w.answer(result.status === "purchased" ? { ...result, productKey: w.productKey } : result);
-      return;
+      if (!w.settled && deliversFor(purchase, w.sku)) return w;
     }
+    return undefined;
   };
 
   const handleUpdated = async (purchase: any) => {
     const sku: string | undefined = purchase?.productId;
     const isConsumable = (sku != null && consumableBySku.get(sku)) || false;
+    const tx = txIdOf(purchase);
 
     // Play's slow-payment path: the user has committed but the money has not
     // moved, and Android cannot acknowledge it anyway (no `purchaseToken` yet,
@@ -372,24 +424,70 @@ export const expoIapProductProvider = (
     // Play emits `purchased` for the SAME transaction once it clears. Treating
     // this as terminal is what left a cleared purchase unfinished.
     if (purchase?.purchaseState === "pending") {
-      answer(purchase, { status: "pending" });
+      liveWaiterFor(purchase)?.answer({ status: "pending" });
       return;
     }
 
-    if (sku != null && dispatchedSkus.has(sku)) {
+    // A copy of a transaction already dealt with. iOS hands one transaction
+    // over twice (openiap EMITS it and RETURNS it from `requestPurchase`), and
+    // Android replays buffered events. Its caller has been answered, or the
+    // host has granted it, so the only thing left to do is the acknowledgement
+    // — a no-op once it has succeeded, a retry if it failed.
+    if (tx && (finishedTxIds.has(tx) || answeredTxIds.has(tx))) {
       await finish(purchase, isConsumable);
-      // `productKey` is filled in by `answer` from the waiting caller's ref.
-      answer(purchase, { status: "purchased", productKey: "" });
       return;
     }
 
-    // Nobody here asked for this one: a replay from a previous process, an Ask
-    // to Buy approval, a promoted product. Only the host knows whether it has
-    // been honoured, so only the host can authorise finishing it.
-    if (options.onUnclaimedPurchase) {
-      if (await options.onUnclaimedPurchase(purchase)) await finish(purchase, isConsumable);
+    // Ownership is decided NOW, before any await. Answering after the
+    // acknowledgement round-trip let the timeout fire in between: the caller
+    // was told "pending" for a purchase that had just been finished.
+    const waiter = liveWaiterFor(purchase);
+    if (waiter) {
+      if (tx) answeredTxIds.add(tx);
+      waiter.answer({ status: "purchased", productKey: waiter.productKey });
+      await finish(purchase, isConsumable);
       return;
     }
+
+    // Nobody is waiting on this one. It may be a replay from a previous
+    // process or a promoted product, but it may equally be a purchase THIS
+    // process dispatched whose caller has already been answered: an Ask to Buy
+    // purchase approved after `"pending"`, a verdict landing after the
+    // timeout, or a Play purchase that cleared after `"pending"`. In every
+    // case no caller will grant it, so only the host can — and only the host
+    // can authorise finishing it.
+    if (options.onUnclaimedPurchase) {
+      if (tx && offeredTxIds.has(tx)) return; // the host is already deciding this one
+      if (tx) offeredTxIds.add(tx);
+      try {
+        if (await options.onUnclaimedPurchase(purchase)) await finish(purchase, isConsumable);
+      } catch (e) {
+        console.warn(
+          `expoIapProductProvider: onUnclaimedPurchase threw for "${sku}" — the transaction is ` +
+            `left unfinished. ${String(e)}`
+        );
+      } finally {
+        if (tx) offeredTxIds.delete(tx);
+      }
+      return;
+    }
+
+    // No host handler. A purchase this process dispatched is still finished, as
+    // it was before #337, so it is not re-delivered on every launch — but no
+    // caller is left to grant it, so say so once.
+    if (sku != null && dispatchedSkus.has(sku)) {
+      if (!warnedDispatchedUnclaimed) {
+        warnedDispatchedUnclaimed = true;
+        console.warn(
+          `expoIapProductProvider: the store delivered "${sku}" after its purchase() call had ` +
+            `already returned (an approved Ask to Buy purchase, or a verdict after "pending"). ` +
+            `It is finished, but nothing grants it. Pass onUnclaimedPurchase to grant it.`
+        );
+      }
+      await finish(purchase, isConsumable);
+      return;
+    }
+
     if (!warnedUnclaimed) {
       warnedUnclaimed = true;
       console.warn(
@@ -697,9 +795,9 @@ export const expoIapProductProvider = (
         return waiter.settled ?? failureFor(e);
       } finally {
         if (timer) clearTimeout(timer);
-        // Only the ANSWER slot closes here. The listeners stay attached and the
-        // sku stays in `dispatchedSkus`, so a verdict arriving after this call
-        // has returned is still acknowledged.
+        // Only the ANSWER slot closes here. The listeners stay attached, so a
+        // verdict arriving after this call has returned still reaches
+        // `onUnclaimedPurchase` (or, with none, is still acknowledged).
         waiters.delete(waiter);
       }
     },

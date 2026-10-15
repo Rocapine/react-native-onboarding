@@ -35,9 +35,8 @@ import {
   ProgressBar,
 } from "@rocapine/react-native-onboarding";
 
-const client = new OnboardingStudioClient("your-project-id", {
-  appVersion: "1.0.0",
-});
+// appVersion and build are read from expo-application when it is installed.
+const client = new OnboardingStudioClient("your-project-id", {});
 
 export default function RootLayout() {
   return (

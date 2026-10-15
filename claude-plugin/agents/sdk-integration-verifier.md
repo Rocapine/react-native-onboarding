@@ -51,7 +51,7 @@ You are the Rocapine SDK Integration Verifier. You inspect a target Expo/React N
 
 Two objects, and conflating them is the most common failure:
 
-- **`OnboardingStudioClient`** constructed once at **module scope** (not inside a component — a fresh client per render refetches). Project config lives here: `new OnboardingStudioClient(projectId, { appVersion, isSandbox, baseUrl, fallbackOnboarding, timeout, cacheKey })`.
+- **`OnboardingStudioClient`** constructed once at **module scope** (not inside a component — a fresh client per render refetches). Project config lives here: `new OnboardingStudioClient(projectId, { isSandbox, environment, baseUrl, fallbackOnboarding, timeout, cacheKey })`. `appVersion` and `build` are read from `expo-application` when installed; a hard-coded `appVersion` (a literal, or `?? "1.0.0"`) is ⚠, because it hides the version users actually run.
 - **`OnboardingProvider`** mounted at app root (`app/_layout.tsx`, or `App.tsx` for bare RN). Its only props are `client`, `locale`, `customAudienceParams`, `customActions`, `fontsFallback`, `navigation`, `onComplete`.
 
 ❌ if you find `projectId`, `platform`, `appVersion`, `draft`, `theme`, `lightTheme`, `darkTheme` or `initialColorScheme` passed to `OnboardingProvider` — none are props, so every one is silently ignored. Config belongs on the client; theme belongs on `ThemeProvider`.
@@ -106,7 +106,7 @@ Run probe from `../skills/onboarding-best-practices/references/inspect-target-ap
 
 ## Client + provider
 ✅ OnboardingProvider mounted (app/_layout.tsx:18)
-❌ projectId/appVersion/draft passed to OnboardingProvider (app/_layout.tsx:21-24) — not props, silently ignored. Move to `new OnboardingStudioClient(projectId, { appVersion, isSandbox })` at module scope.
+❌ projectId/appVersion/draft passed to OnboardingProvider (app/_layout.tsx:21-24) — not props, silently ignored. Move to `new OnboardingStudioClient(projectId, { isSandbox })` at module scope.
 ⚠️ onComplete not set (app/_layout.tsx:18) but step 7 branches to "__END__" — completeOnboarding() will warn and stall.
 
 ## Error boundary

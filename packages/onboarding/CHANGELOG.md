@@ -4,6 +4,34 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [Unreleased]
+### Added
+- **Every request now says which app build made it.** `getSteps` and
+  `getPaywalls` send `appVersion` and `build` (the new `build` option, else
+  `expo-application`'s native version and build number when that optional peer
+  is installed), `sdkVersion` (this package's version) and `environment` (a new
+  option; defaults to `sandbox`, `development` or `production`, normalized to
+  `[a-z0-9_-]`, at most 32 characters). Audience rules can target them.
+  `expo-application` is a new **optional** peer dependency: without it the SDK
+  still bundles and runs, and simply sends the host's values, if any.
+### Changed
+- **Cached payloads are scoped by app version and build.** The cache key now
+  includes the request identity, so a new build no longer reads the previous
+  build's cached onboarding or paywall catalog. Every cache key changes once:
+  the first launch after updating fetches from the network instead of serving
+  the cache.
+- SDK-owned query params are written with `URLSearchParams.set`, so a
+  same-named audience param can no longer shadow them.
+- `build`, `sdkVersion` and `environment` are reserved user-property names. A
+  host already passing one of them in `customAudienceParams` now has it dropped
+  with a warning, and the SDK's value is sent instead.
+- The README and plugin setup skills no longer tell a host to hard-code
+  `appVersion` (`"1.0.0"`, or `Constants.expoConfig?.version ?? "1.0.0"`). A host
+  value still wins over `expo-application`, so an app that keeps passing a fixed
+  one keeps reporting that fixed value.
+
+---
+
 ## [1.76.0] - 2026-10-12
 
 ### Added

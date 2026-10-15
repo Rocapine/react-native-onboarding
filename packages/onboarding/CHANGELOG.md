@@ -15,21 +15,27 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   `expo-application` is a new **optional** peer dependency: without it the SDK
   still bundles and runs, and simply sends the host's values, if any.
 ### Changed
-- **Cached payloads are scoped by app version and build.** The cache key now
-  includes the request identity, so a new build no longer reads the previous
-  build's cached onboarding or paywall catalog. Every cache key changes once:
-  the first launch after updating fetches from the network instead of serving
-  the cache.
 - SDK-owned query params are written with `URLSearchParams.set`, so a
-  same-named audience param can no longer shadow them. A user `appVersion` or
-  `build` is removed even when the SDK has no value of its own to send.
-- `build`, `sdkVersion` and `environment` are reserved user-property names. A
-  host already passing one of them in `customAudienceParams` now has it dropped
-  with a warning, and the SDK's value (or, for `build`, none) is sent instead.
+  same-named audience param can no longer shadow them.
 - The README and plugin setup skills no longer tell a host to hard-code
   `appVersion` (`"1.0.0"`, or `Constants.expoConfig?.version ?? "1.0.0"`). A host
   value still wins over `expo-application`, so an app that keeps passing a fixed
   one keeps reporting that fixed value.
+### Potentially breaking
+- **`appVersion`, `build`, `sdkVersion` and `environment` are now SDK-owned
+  names on every request.** `build`, `sdkVersion` and `environment` join
+  `appVersion` as reserved user-property names. What happens to a value a host
+  already uses under one of those four names:
+  - in `customAudienceParams`, or written with `setUserProperty` /
+    `setUserProperties`: refused with a warning;
+  - already persisted in the user-property store from an earlier version: kept
+    on disk, but never sent. `sdkVersion` and `environment` always carry the
+    SDK's value; `appVersion` and `build` carry the host option or the
+    `expo-application` value, and are removed from the request when there is
+    neither.
+
+  An audience rule that matched on a host-supplied value under one of these
+  names now sees the SDK's value instead, or no value.
 
 ---
 

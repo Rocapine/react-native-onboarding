@@ -30,8 +30,10 @@ export class OnboardingStudioClient {
   /**
    * `appVersion`, `build`, `sdkVersion`, `environment`: the params this SDK
    * adds to every request (see `requestIdentity.ts`). Memoized: none of them
-   * can change while the process runs. Also hashed into the cache keys, so a
-   * new build never reads the previous build's cached payload.
+   * can change while the process runs. Deliberately NOT part of any cache key:
+   * a key that changed with every app update would leave a user who is offline
+   * right after updating with no cached payload, and would stop a custom
+   * `cacheKey` from pinning content across updates.
    */
   identityParams(): Record<string, string> {
     if (!this.identity) {

@@ -22,10 +22,8 @@
  * That needed volatile params to trigger, which was rare while params were a
  * static prop. The user-property store makes volatile params normal, so the key
  * carries a hash of the resolved params (`userProperties/serialize.ts`'s
- * `paramsHash`). The client's request identity (appVersion, build, sdkVersion,
- * environment) is hashed in as well, so each build of an app gets its own
- * entry; that changes every key once, on the first launch after the SDK or the
- * app is updated. An EMPTY hash still yields the legacy key byte-for-byte.
+ * `paramsHash`). An EMPTY hash yields the legacy key byte-for-byte, so shipping
+ * this does not invalidate existing installs.
  *
  * Every key these helpers can produce starts with one of the two prefixes below,
  * which is what lets `OnboardingStudioClient.clearCache` find them all by

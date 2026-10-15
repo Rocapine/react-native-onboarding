@@ -204,14 +204,18 @@ Each onboarding and paywall request sends, besides your audience params:
   reduced to `a-z`, `0-9`, `_` and `-`, at most 32 characters.
 
 They are ordinary query params, so an audience rule can target them, for
-example `environment == "staging"` or a build range. They are also part of the
-cache key, so a new build never reuses the previous build's cached payload.
+example `environment == "staging"` or a build range.
 
 ### Relationship to `customAudienceParams`
 
 The prop still works and is not deprecated. Treat it as the **static** baseline
 (build-time facts like an `onboardingId`) and the store as the **runtime** half.
 Where both define a key, **the store wins**.
+
+Neither can set `appVersion`, `build`, `sdkVersion` or `environment`: since the
+SDK sends them itself, a value under one of those names in either source is
+dropped (see [Reserved names](#reserved-names)), and an audience rule on them
+sees the SDK's value.
 
 ---
 

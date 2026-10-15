@@ -211,10 +211,10 @@ In onboarding-studio, update:
 
 ## Publishing Workflow
 
-**One release, one version number, five files.** Both packages, the plugin manifest (`claude-plugin/.claude-plugin/plugin.json`, which tracks the SDK version), and both package CHANGELOGs all carry it. `npm run check:versions` asserts they agree, runs in CI, and gates every publish.
+**One release, one version number, seven files.** Both packages, the `SDK_VERSION` constant the client sends as `sdkVersion` (`packages/onboarding/src/version.ts`), the plugin manifest (`claude-plugin/.claude-plugin/plugin.json`, which tracks the SDK version), both package CHANGELOGs and the lockfile all carry it. `npm run check:versions` asserts they agree, runs in CI, and gates every publish.
 
 ```bash
-# 1. Bump — use the skill; it edits and stages all five files
+# 1. Bump — use the skill; it edits and stages all seven files
 /bump-version [patch|minor|major]
 
 # 2. Publish both packages together

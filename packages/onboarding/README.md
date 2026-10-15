@@ -184,7 +184,8 @@ lexicographic, so `"10"` is *not* greater than `"9"`:
 ### Reserved names
 
 These are refused with a warning, because the SDK puts them on the request
-querystring itself and its own value replaces yours:
+querystring itself: its own value is sent instead of yours, or, for
+`appVersion` and `build` when it has none, nothing is:
 
 `projectId`, `platform`, `appVersion`, `build`, `sdkVersion`, `environment`,
 `draft`, `locale`, `omitNulls`, `moment`, `now`

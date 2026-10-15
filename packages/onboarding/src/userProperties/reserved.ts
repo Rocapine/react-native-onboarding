@@ -10,7 +10,8 @@
  * `platform`, the request identity (`appVersion`, `build`, `sdkVersion`,
  * `environment` — see `requestIdentity.ts`), `draft`, `locale`, `omitNulls`.
  * The client adds user params FIRST, then writes its own with
- * `URLSearchParams.set`, which replaces any same-named user param:
+ * `URLSearchParams.set`, which replaces any same-named user param (and removes
+ * a user `appVersion`/`build` when it has none of its own to send):
  *
  *     Object.entries(userDefinedParams).forEach(([k, v]) => urlParams.append(k, v));
  *     urlParams.set("projectId", this.projectId);

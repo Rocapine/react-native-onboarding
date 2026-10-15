@@ -21,10 +21,11 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   the first launch after updating fetches from the network instead of serving
   the cache.
 - SDK-owned query params are written with `URLSearchParams.set`, so a
-  same-named audience param can no longer shadow them.
+  same-named audience param can no longer shadow them. A user `appVersion` or
+  `build` is removed even when the SDK has no value of its own to send.
 - `build`, `sdkVersion` and `environment` are reserved user-property names. A
   host already passing one of them in `customAudienceParams` now has it dropped
-  with a warning, and the SDK's value is sent instead.
+  with a warning, and the SDK's value (or, for `build`, none) is sent instead.
 - The README and plugin setup skills no longer tell a host to hard-code
   `appVersion` (`"1.0.0"`, or `Constants.expoConfig?.version ?? "1.0.0"`). A host
   value still wins over `expo-application`, so an app that keeps passing a fixed

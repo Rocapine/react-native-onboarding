@@ -40,6 +40,21 @@ export class OnboardingStudioClient {
     return this.identity;
   }
 
+  /**
+   * Writes the identity onto a querystring that already holds the user params.
+   * `appVersion` and `build` are removed first, because the identity omits them
+   * when neither the host nor `expo-application` has a value, and `set` alone
+   * would then leave a same-named user param on the wire (a property persisted
+   * before these names were reserved is re-read without a reserved-key check).
+   */
+  private writeIdentity(urlParams: URLSearchParams): void {
+    urlParams.delete("appVersion");
+    urlParams.delete("build");
+    for (const [key, value] of Object.entries(this.identityParams())) {
+      urlParams.set(key, value);
+    }
+  }
+
   constructor(projectId: string, options: OnboardingStudioClientOptions) {
     console.info("OnboardingStudioClient init: projectId ", projectId);
     this.projectId = projectId;
@@ -100,9 +115,7 @@ export class OnboardingStudioClient {
     // value would lose to a same-named user param added above.
     urlParams.set("projectId", this.projectId);
     urlParams.set("platform", Platform.OS);
-    for (const [key, value] of Object.entries(this.identityParams())) {
-      urlParams.set(key, value);
-    }
+    this.writeIdentity(urlParams);
 
     if (isSandbox) {
       urlParams.set("draft", "true");
@@ -190,9 +203,7 @@ export class OnboardingStudioClient {
     // SDK-owned keys use `set`, never `append` (see getSteps).
     urlParams.set("projectId", this.projectId);
     urlParams.set("platform", Platform.OS);
-    for (const [key, value] of Object.entries(this.identityParams())) {
-      urlParams.set(key, value);
-    }
+    this.writeIdentity(urlParams);
 
     if (isSandbox) {
       urlParams.set("draft", "true");

@@ -99,4 +99,17 @@ describe.each(Object.entries(fetches))("%s request identity", (_name, fetchWith)
     expect(sent().getAll("projectId")).toEqual(["proj-1"]);
     expect(sent().get("plan")).toBe("pro");
   });
+
+  it("a user appVersion or build never reaches the wire, even when the SDK has none to send", async () => {
+    // A property persisted before these names were reserved is re-read from
+    // disk without a reserved-key check, so it can still arrive here.
+    await fetchWith(new OnboardingStudioClient("proj-1", {}), {
+      appVersion: "from-user",
+      build: "from-user",
+      plan: "pro",
+    });
+    expect(sent().has("appVersion")).toBe(false);
+    expect(sent().has("build")).toBe(false);
+    expect(sent().get("plan")).toBe("pro");
+  });
 });

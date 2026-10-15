@@ -26,6 +26,7 @@ import {
   DEFAULT_PAYWALLS_CACHE_KEY,
 } from "../../infra/queries/cacheKey";
 import { getPaywallsQuery } from "../getPaywalls.query";
+import { paramsHash } from "../../userProperties/serialize";
 import type { PaywallCatalog } from "../types";
 
 const CACHE_KEY = "rocapine-paywalls-studio";
@@ -351,5 +352,39 @@ describe("OnboardingStudioClient.clearCache", () => {
     await client.clearCache();
 
     expect(multiRemove).toHaveBeenCalledWith([scoped]);
+  });
+});
+
+describe("getPaywallsQuery cache key and request identity", () => {
+  beforeEach(() => {
+    getItem.mockReset();
+    setItem.mockReset();
+    getItem.mockResolvedValue(null);
+    setItem.mockResolvedValue(undefined);
+  });
+
+  const withIdentity = (identity: Record<string, string>) => {
+    const client = makeClient({ isSandbox: false, data: catalog });
+    client.identityParams = () => identity;
+    return client;
+  };
+
+  it("a new build gets its own catalog cache entry", async () => {
+    await run(withIdentity({ appVersion: "2.3.0", build: "45", sdkVersion: "1.77.0", environment: "production" }));
+    await run(withIdentity({ appVersion: "2.3.0", build: "46", sdkVersion: "1.77.0", environment: "production" }));
+    const keys = setItem.mock.calls.map(([key]) => key);
+    expect(keys).toHaveLength(2);
+    expect(keys[0]).not.toBe(keys[1]);
+    expect(keys[0]).toBe(
+      getPaywallsCacheKey(
+        undefined,
+        paramsHash({ appVersion: "2.3.0", build: "45", sdkVersion: "1.77.0", environment: "production" }),
+      ),
+    );
+  });
+
+  it("no identity and no params keeps the legacy key", async () => {
+    await run(withIdentity({}));
+    expect(setItem).toHaveBeenCalledWith(CACHE_KEY, JSON.stringify(catalog));
   });
 });

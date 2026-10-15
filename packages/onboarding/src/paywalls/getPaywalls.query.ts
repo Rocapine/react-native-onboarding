@@ -61,9 +61,15 @@ export const getPaywallsQuery = (
       // makes `catalogStatus: "revalidating"` mean "a genuine freshness refresh"
       // rather than "this catalog may have been resolved under other params",
       // which `register()`'s decision relies on.
+      // The request identity is included for the same reason as in
+      // getOnboardingQuery: a new build must not read the previous build's
+      // catalog first.
       const cacheKey = getPaywallsCacheKey(
         client.options.cacheKey,
-        paramsHash(customAudienceParams as Record<string, string>),
+        paramsHash({
+          ...(customAudienceParams as Record<string, string>),
+          ...(client.identityParams?.() ?? {}),
+        }),
       );
 
       // Fetches the live catalog, caches it, and pushes it into the query

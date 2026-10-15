@@ -23,6 +23,7 @@ import {
   DEFAULT_ONBOARDING_CACHE_KEY,
 } from "../infra/queries/cacheKey";
 import { getOnboardingQuery } from "../infra/queries/getOnboarding.query";
+import { paramsHash } from "../userProperties/serialize";
 
 const CACHE_KEY = "rocapine-onboarding-studio";
 const CUSTOM_KEY = "v2";
@@ -207,5 +208,39 @@ describe("OnboardingStudioClient.clearCache", () => {
     await expect(client.clearCache()).resolves.toBeUndefined();
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
+  });
+});
+
+describe("cache key and request identity", () => {
+  beforeEach(() => {
+    getItem.mockReset();
+    setItem.mockReset();
+    getItem.mockResolvedValue(null);
+    setItem.mockResolvedValue(undefined);
+  });
+
+  const withIdentity = (identity: Record<string, string>) => {
+    const client = makeClient({ isSandbox: false, onboardingId: "real", data: realOnboarding });
+    client.identityParams = () => identity;
+    return client;
+  };
+
+  it("a new build gets its own cache entry", async () => {
+    await run(withIdentity({ appVersion: "2.3.0", build: "45", sdkVersion: "1.77.0", environment: "production" }));
+    await run(withIdentity({ appVersion: "2.3.0", build: "46", sdkVersion: "1.77.0", environment: "production" }));
+    const keys = setItem.mock.calls.map(([key]) => key);
+    expect(keys).toHaveLength(2);
+    expect(keys[0]).not.toBe(keys[1]);
+    expect(keys[0]).toBe(
+      getOnboardingCacheKey(
+        undefined,
+        paramsHash({ appVersion: "2.3.0", build: "45", sdkVersion: "1.77.0", environment: "production" }),
+      ),
+    );
+  });
+
+  it("no identity and no params keeps the legacy key", async () => {
+    await run(withIdentity({}));
+    expect(setItem).toHaveBeenCalledWith(CACHE_KEY, JSON.stringify(realOnboarding));
   });
 });

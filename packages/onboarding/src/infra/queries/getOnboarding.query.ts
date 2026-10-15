@@ -27,13 +27,21 @@ export const getOnboardingQuery = <StepType extends BaseStepType>(
       // with NO background revalidation, so a pinned version survives across
       // launches. The default key keeps stale-while-revalidate.
       const hasCustomKey = Boolean(client.options.cacheKey);
-      // Scoped by the resolved audience params — see `cacheKey.ts`. The provider
-      // hands these over already serialized to strings
+      // Scoped by the resolved audience params AND the request identity
+      // (appVersion, build, sdkVersion, environment) — see `cacheKey.ts`. The
+      // provider hands the params over already serialized to strings
       // (`userProperties/effectiveParams.ts`), so the hash sees the same bytes
-      // that go on the querystring.
+      // that go on the querystring; the identity is spread last because the
+      // client's `set` makes it win on the wire too. The identity is what makes
+      // a new build miss the previous build's payload instead of serving it
+      // first. Called optionally because test doubles and hand-rolled clients
+      // may not implement it; an empty identity keeps the legacy key.
       const cacheKey = getOnboardingCacheKey(
         client.options.cacheKey,
-        paramsHash(customAudienceParams as Record<string, string>),
+        paramsHash({
+          ...(customAudienceParams as Record<string, string>),
+          ...(client.identityParams?.() ?? {}),
+        }),
       );
 
       // Fetches the live payload, pushes it to the provider, and caches it —

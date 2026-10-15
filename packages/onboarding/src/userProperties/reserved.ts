@@ -6,30 +6,33 @@
  * `RESERVED_AUDIENCE_VARS`, which strips them because they are server-owned (a
  * client supplying `now` is self-selecting into a time-gated audience).
  *
- * The other six close a collision that is live today and merely unreachable,
- * because nobody hand-writes these names into `customAudienceParams`. The
- * client appends user params FIRST, then its own:
+ * The others are the params the client writes on every request: `projectId`,
+ * `platform`, the request identity (`appVersion`, `build`, `sdkVersion`,
+ * `environment` — see `requestIdentity.ts`), `draft`, `locale`, `omitNulls`.
+ * The client adds user params FIRST, then writes its own with
+ * `URLSearchParams.set`, which replaces any same-named user param:
  *
  *     Object.entries(userDefinedParams).forEach(([k, v]) => urlParams.append(k, v));
- *     urlParams.append("projectId", this.projectId);
+ *     urlParams.set("projectId", this.projectId);
  *
- * `URLSearchParams.append` permits duplicates, and the two server-side readers
- * disagree about which one wins: `url.searchParams.get("projectId")` returns the
- * FIRST occurrence (the user's value — so the request resolves the wrong
- * project, or 400s), while `Object.fromEntries(...)` is last-wins (so the
- * json-logic data still holds the real one). The result is a failed or
- * cross-project request with no diagnostic pointing at the property that caused
- * it.
+ * It used to `append` them, and the server's two readers disagree about which
+ * duplicate wins: `url.searchParams.get("projectId")` returns the FIRST
+ * occurrence (the user's value — so the request resolved the wrong project, or
+ * 400ed), while `Object.fromEntries(...)` is last-wins. `set` closes that on the
+ * wire, but a user property that silently loses to the SDK's value is still a
+ * bug in the host, so this is where it gets refused.
  *
  * A store whose whole purpose is to let a host name keys freely makes that a
- * plausible accident, so this is where it gets refused. Refusing — rather than
- * prefixing or escaping — keeps the wire format unchanged and puts the warning
- * at the call site responsible.
+ * plausible accident. Refusing — rather than prefixing or escaping — keeps the
+ * wire format unchanged and puts the warning at the call site responsible.
  */
 export const RESERVED_USER_PROPERTY_KEYS = [
   "projectId",
   "platform",
   "appVersion",
+  "build",
+  "sdkVersion",
+  "environment",
   "draft",
   "locale",
   "omitNulls",

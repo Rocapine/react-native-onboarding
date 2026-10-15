@@ -19,7 +19,24 @@ export type BaseStepType = {
 export type OnboardingStudioClientOptions<
   StepType extends BaseStepType = BaseStepType
 > = {
+  /**
+   * The app's version, e.g. "2.3.0". Optional: when omitted the SDK reads it
+   * from `expo-application` if that package is installed. Pass it only to
+   * override what the device reports.
+   */
   appVersion?: string;
+  /**
+   * The app's build number, e.g. "45". Same precedence as `appVersion`: this
+   * option, else `expo-application`, else not sent.
+   */
+  build?: string;
+  /**
+   * Free text naming where this build runs, e.g. "staging". Defaults to
+   * "sandbox" when `isSandbox`, "development" under `__DEV__`, else
+   * "production". Lower-cased, reduced to `[a-z0-9_-]` and cut to 32
+   * characters before it is sent. An audience rule can target it.
+   */
+  environment?: string;
   isSandbox?: boolean;
   baseUrl?: string;
   fallbackOnboarding?: Onboarding<StepType>;

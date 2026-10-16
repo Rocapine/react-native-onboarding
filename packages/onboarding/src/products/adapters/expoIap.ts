@@ -292,7 +292,10 @@ export type ExpoIapProviderOptions = {
    * it at launch, and Play refunds a purchase left unacknowledged for three
    * days, so return `false` only for a purchase you will not grant.
    *
-   * A transaction answered `"purchased"` to its caller never comes here.
+   * A transaction answered `"purchased"` to its caller in this process never
+   * comes here. That memory does not survive a restart: if its acknowledgement
+   * failed and the app was killed before the retry, the next launch's replay
+   * does come here, so grant idempotently (by transaction id).
    *
    * Left unset: a transaction this process never dispatched is left unfinished
    * (with a warning), and one it did dispatch is finished (with a warning) —
@@ -517,8 +520,8 @@ export const expoIapProductProvider = (
       if (!warnedDispatchedUnclaimed) {
         warnedDispatchedUnclaimed = true;
         console.warn(
-          `expoIapProductProvider: the store delivered "${sku}" after its purchase() call had ` +
-            `already returned (an approved Ask to Buy purchase, or a verdict after "pending"). ` +
+          `expoIapProductProvider: the store delivered "${sku}" with no purchase() call waiting ` +
+            `for it (for example an approved Ask to Buy purchase, or a verdict after "pending"). ` +
             `It is finished, but nothing grants it. Pass onUnclaimedPurchase to grant it.`
         );
       }

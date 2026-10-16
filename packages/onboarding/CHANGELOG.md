@@ -37,10 +37,12 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   `onUnclaimedPurchase` a second time.
 
 ### Changed
-- **`expoIapProductProvider`: `purchase()` resolves `"purchased"` before
-  `finishTransaction` settles**, for every host. The acknowledgement still
-  runs, and a failed one is retried on the next store call, but a host that
-  reads unfinished transactions straight after `"purchased"` may still see it.
+- **`expoIapProductProvider` answers the caller before acknowledging**, for
+  every host. On the listener path `purchase()` can resolve `"purchased"`
+  before `finishTransaction` settles, so a host that reads unfinished
+  transactions straight after `"purchased"` may still see it. When iOS returns
+  the transaction from `requestPurchase` directly, `purchase()` still waits for
+  the acknowledgement, as before.
 - **Hosts passing `onUnclaimedPurchase` to `expoIapProductProvider` now see
   more transactions.** Any completed transaction with no live caller is
   offered, including later transactions for a product this process already

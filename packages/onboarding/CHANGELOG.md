@@ -4,7 +4,23 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
-## [Unreleased]
+## [1.77.0] - 2026-10-16
+### Potentially breaking
+- **`appVersion`, `build`, `sdkVersion` and `environment` are now SDK-owned
+  names on every request.** `build`, `sdkVersion` and `environment` join
+  `appVersion` as reserved user-property names. What happens to a value a host
+  already uses under one of those four names:
+  - in `customAudienceParams`, or written with `setUserProperty` /
+    `setUserProperties`: refused with a warning;
+  - already persisted in the user-property store from an earlier version: kept
+    on disk, but never sent. `sdkVersion` and `environment` always carry the
+    SDK's value; `appVersion` and `build` carry the host option or the
+    `expo-application` value, and are removed from the request when there is
+    neither.
+
+  An audience rule that matched on a host-supplied value under one of these
+  names now sees the SDK's value instead, or no value.
+
 ### Added
 - **Every request now says which app build made it.** `getSteps` and
   `getPaywalls` send `appVersion` and `build` (the new `build` option, else
@@ -21,21 +37,6 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   `appVersion` (`"1.0.0"`, or `Constants.expoConfig?.version ?? "1.0.0"`). A host
   value still wins over `expo-application`, so an app that keeps passing a fixed
   one keeps reporting that fixed value.
-### Potentially breaking
-- **`appVersion`, `build`, `sdkVersion` and `environment` are now SDK-owned
-  names on every request.** `build`, `sdkVersion` and `environment` join
-  `appVersion` as reserved user-property names. What happens to a value a host
-  already uses under one of those four names:
-  - in `customAudienceParams`, or written with `setUserProperty` /
-    `setUserProperties`: refused with a warning;
-  - already persisted in the user-property store from an earlier version: kept
-    on disk, but never sent. `sdkVersion` and `environment` always carry the
-    SDK's value; `appVersion` and `build` carry the host option or the
-    `expo-application` value, and are removed from the request when there is
-    neither.
-
-  An audience rule that matched on a host-supplied value under one of these
-  names now sees the SDK's value instead, or no value.
 
 ---
 

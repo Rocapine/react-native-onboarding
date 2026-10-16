@@ -28,6 +28,11 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   The answer is now decided when the transaction arrives rather than after it
   is acknowledged, so a slow `finishTransaction` can no longer turn a finished
   purchase into a `"pending"` answer.
+- **`expoIapProductProvider` acknowledges each transaction once** (#337). A
+  second copy of a transaction (openiap both emits it and returns it from
+  `requestPurchase`) could land while the first `finishTransaction` was still
+  in flight and start a second acknowledgement, which Play rejects. It now
+  joins the acknowledgement already in flight.
 
 ### Changed
 - **Hosts passing `onUnclaimedPurchase` to `expoIapProductProvider` now see

@@ -822,6 +822,32 @@ describe("expoIapProductProvider — a dispatched purchase nobody is waiting for
     expect(unclaimed).toHaveBeenCalledTimes(1);
   });
 
+  it("does not hand the host again a granted transaction whose acknowledgement failed", async () => {
+    // The host granted it; only the acknowledgement is outstanding. A replay
+    // must retry the acknowledgement, not ask the host to grant it twice.
+    rn.Platform.OS = "android"; // no iOS listener dedupe, so the replay reaches the adapter
+    let broken = true;
+    const unclaimed = vi.fn().mockReturnValue(true);
+    const M = makeExpoIap5({
+      catalog: [playYearly],
+      platform,
+      onDispatch: (sku) => ({ id: "tx-1", productId: sku, purchaseState: "pending" }),
+      finishFails: () => broken,
+    });
+    const provider = expoIapProductProvider(M, { onUnclaimedPurchase: unclaimed });
+    const [product] = await provider.getProducts([YEARLY_PLAY]);
+    await provider.purchase(product);
+
+    const cleared = { id: "tx-1", productId: "pro_yearly", purchaseState: "purchased" as const };
+    M.emitUpdated(cleared);
+    await settle();
+    broken = false;
+    M.emitUpdated(cleared); // a buffered replay of the same transaction
+    await settle();
+    expect(unclaimed).toHaveBeenCalledTimes(1);
+    expect(M.calls.finishTransaction.filter((c: any) => c.purchase.id === "tx-1")).toHaveLength(2);
+  });
+
   it("answers a later purchase of the same sku itself, not through the host", async () => {
     const unclaimed = vi.fn().mockReturnValue(true);
     let ask = true;

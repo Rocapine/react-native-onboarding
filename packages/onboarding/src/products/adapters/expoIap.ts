@@ -451,8 +451,15 @@ export const expoIapProductProvider = (
     // over twice (openiap EMITS it and RETURNS it from `requestPurchase`), and
     // Android replays buffered events. Its caller has been answered, or the
     // host has granted it, so the only thing left to do is the acknowledgement
-    // — a no-op once it has succeeded, a retry if it failed.
-    if (tx && (finishedTxIds.has(tx) || answeredTxIds.has(tx))) {
+    // — a no-op once it has succeeded, a retry if it failed. `unfinished` and
+    // `finishing` cover a host-granted transaction: its acknowledgement failed
+    // or is in flight, and asking the host again would grant it twice.
+    // `answeredTxIds` still matters on a peer with no `finishTransaction`,
+    // where `finishOnce` records nothing.
+    if (
+      tx &&
+      (finishedTxIds.has(tx) || answeredTxIds.has(tx) || unfinished.has(tx) || finishing.has(tx))
+    ) {
       await finish(purchase, isConsumable);
       return;
     }

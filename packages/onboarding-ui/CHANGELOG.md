@@ -5,6 +5,16 @@ here.
 
 ---
 
+## [1.77.0] - 2026-10-16
+### Notes
+- No UI changes. Version moves in lockstep with
+  `@rocapine/react-native-onboarding`, which now sends `appVersion`, `build`,
+  `sdkVersion` and `environment` on every request and reserves those four
+  names. See that package's changelog, including its "Potentially breaking"
+  note.
+
+---
+
 ## [1.76.0] - 2026-10-12
 
 ### Added

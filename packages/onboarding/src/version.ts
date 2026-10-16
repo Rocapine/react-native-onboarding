@@ -6,4 +6,4 @@
  * the file. `npm run check:versions` fails when this disagrees with
  * `package.json`, and the `bump-version` skill updates it.
  */
-export const SDK_VERSION = "1.76.0";
+export const SDK_VERSION = "1.77.0";

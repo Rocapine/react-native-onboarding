@@ -8,10 +8,11 @@ argument-hint: "[patch|minor|major]"
 Bump both `@rocapine/react-native-onboarding` and `@rocapine/react-native-onboarding-ui` to a new version, write changelog entries for both, and create a commit.
 
 Both packages always share the same version number — **and so does the Claude Code
-plugin manifest.** Six files carry that number and all six move together:
+plugin manifest.** Seven files carry that number and all seven move together:
 
 ```
 packages/onboarding/package.json              ← the version is computed from here
+packages/onboarding/src/version.ts            ← SDK_VERSION, sent on every request as sdkVersion
 packages/onboarding-ui/package.json
 claude-plugin/.claude-plugin/plugin.json      ← historically the one that got left behind
 packages/onboarding/CHANGELOG.md
@@ -19,7 +20,7 @@ packages/onboarding-ui/CHANGELOG.md
 package-lock.json                             ← npm records both workspace versions
 ```
 
-`npm run check:versions` asserts all six agree — seven readings, since the lockfile
+`npm run check:versions` asserts all seven agree — eight readings, since the lockfile
 states each workspace separately — and runs in CI, so a half-done release fails the
 build rather than shipping a plugin that advertises a version it was never tested
 against.
@@ -111,12 +112,13 @@ Call this `NEW_VERSION`.
 
 ## Step 4 — Update package.json + plugin.json, then regenerate the lockfile
 
-Edit **all three** files — only the `"version"` field:
+Edit **all four** files — only the version value:
 - `packages/onboarding/package.json`
 - `packages/onboarding-ui/package.json`
 - `claude-plugin/.claude-plugin/plugin.json`
+- `packages/onboarding/src/version.ts` (the `SDK_VERSION` string)
 
-Set `"version": "<NEW_VERSION>"` in each. The Claude Code plugin always tracks the SDK version it was tested against.
+Set `"version": "<NEW_VERSION>"` in each JSON file, and `SDK_VERSION = "<NEW_VERSION>"` in `version.ts`. The Claude Code plugin always tracks the SDK version it was tested against.
 
 Then regenerate the lockfile, so its record of the two workspaces follows:
 
@@ -169,7 +171,7 @@ history. Do not recreate the file.
 
 ## Step 6 — Verify, then commit
 
-Prove the six agree before committing. This is not ceremony: the previous version
+Prove the seven agree before committing. This is not ceremony: the previous version
 of this skill edited `plugin.json` in step 4 and then staged four files that did
 not include it, so the edit was made and dropped on every release, which is how the
 plugin came to advertise a version it had never been tested against.
@@ -178,9 +180,10 @@ plugin came to advertise a version it had never been tested against.
 npm run check:versions
 ```
 
-Stage all **six** files:
+Stage all **seven** files:
 ```bash
 git add packages/onboarding/package.json packages/onboarding-ui/package.json \
+        packages/onboarding/src/version.ts \
         claude-plugin/.claude-plugin/plugin.json \
         packages/onboarding/CHANGELOG.md packages/onboarding-ui/CHANGELOG.md \
         package-lock.json
@@ -221,7 +224,7 @@ Print:
 
 ```
 Bumped: x.y.z → NEW_VERSION (BUMP_TYPE)
-Files:  6 staged (2 packages, plugin manifest, 2 changelogs, lockfile)
+Files:  7 staged (2 packages, SDK_VERSION, plugin manifest, 2 changelogs, lockfile)
 Checks: npm run check:versions ✓
 Commit: <sha or "done">
 Next:   npm run publish:all  (when ready to publish)

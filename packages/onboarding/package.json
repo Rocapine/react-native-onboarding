@@ -39,6 +39,7 @@
     "vitest": "^4.1.5"
   },
   "peerDependencies": {
+    "expo-application": "*",
     "expo-font": "*",
     "expo-image": "*",
     "expo-router": ">=3.0.0",
@@ -46,6 +47,9 @@
     "react-native": "*"
   },
   "peerDependenciesMeta": {
+    "expo-application": {
+      "optional": true
+    },
     "expo-font": {
       "optional": true
     },

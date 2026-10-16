@@ -4,6 +4,41 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [Unreleased]
+### Added
+- **Every request now says which app build made it.** `getSteps` and
+  `getPaywalls` send `appVersion` and `build` (the new `build` option, else
+  `expo-application`'s native version and build number when that optional peer
+  is installed), `sdkVersion` (this package's version) and `environment` (a new
+  option; defaults to `sandbox`, `development` or `production`, normalized to
+  `[a-z0-9_-]`, at most 32 characters). Audience rules can target them.
+  `expo-application` is a new **optional** peer dependency: without it the SDK
+  still bundles and runs, and simply sends the host's values, if any.
+### Changed
+- SDK-owned query params are written with `URLSearchParams.set`, so a
+  same-named audience param can no longer shadow them.
+- The README and plugin setup skills no longer tell a host to hard-code
+  `appVersion` (`"1.0.0"`, or `Constants.expoConfig?.version ?? "1.0.0"`). A host
+  value still wins over `expo-application`, so an app that keeps passing a fixed
+  one keeps reporting that fixed value.
+### Potentially breaking
+- **`appVersion`, `build`, `sdkVersion` and `environment` are now SDK-owned
+  names on every request.** `build`, `sdkVersion` and `environment` join
+  `appVersion` as reserved user-property names. What happens to a value a host
+  already uses under one of those four names:
+  - in `customAudienceParams`, or written with `setUserProperty` /
+    `setUserProperties`: refused with a warning;
+  - already persisted in the user-property store from an earlier version: kept
+    on disk, but never sent. `sdkVersion` and `environment` always carry the
+    SDK's value; `appVersion` and `build` carry the host option or the
+    `expo-application` value, and are removed from the request when there is
+    neither.
+
+  An audience rule that matched on a host-supplied value under one of these
+  names now sees the SDK's value instead, or no value.
+
+---
+
 ## [1.76.0] - 2026-10-12
 
 ### Added

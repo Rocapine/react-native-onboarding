@@ -353,3 +353,33 @@ describe("OnboardingStudioClient.clearCache", () => {
     expect(multiRemove).toHaveBeenCalledWith([scoped]);
   });
 });
+
+describe("getPaywallsQuery cache key and request identity", () => {
+  beforeEach(() => {
+    getItem.mockReset();
+    setItem.mockReset();
+    getItem.mockResolvedValue(null);
+    setItem.mockResolvedValue(undefined);
+  });
+
+  // The SDK's own identity is sent on the request but must NOT enter the cache
+  // key: a key that changed with every app update would leave a returning user
+  // who is offline right after updating with no cached catalog, and would stop a
+  // custom `cacheKey` from pinning content across updates.
+  const withIdentity = (client: any, identity: Record<string, string>) => {
+    client.identityParams = () => identity;
+    return client;
+  };
+
+  it("same cache key across builds when only the SDK-derived identity changes", async () => {
+    await run(withIdentity(makeClient({ isSandbox: false, data: catalog }), { appVersion: "2.3.0", build: "45", sdkVersion: "1.77.0", environment: "production" }));
+    await run(withIdentity(makeClient({ isSandbox: false, data: catalog }), { appVersion: "2.4.0", build: "46", sdkVersion: "1.78.0", environment: "production" }));
+    const keys = setItem.mock.calls.map(([key]) => key);
+    expect(keys).toEqual([CACHE_KEY, CACHE_KEY]);
+  });
+
+  it("custom cacheKey is unaffected by identity", async () => {
+    await run(withIdentity(makeClient({ isSandbox: false, cacheKey: CUSTOM_KEY, data: catalog }), { appVersion: "2.3.0", build: "45", sdkVersion: "1.77.0", environment: "production" }));
+    expect(setItem).toHaveBeenCalledWith(CUSTOM_CACHE_KEY, JSON.stringify(catalog));
+  });
+});

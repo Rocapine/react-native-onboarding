@@ -30,6 +30,7 @@ Required peers: `react`, `react-native` (already present in any RN app). Everyth
 
 | Optional peer | Needed for |
 |---|---|
+| `expo-application` | reporting the app's version and build on every request without passing them |
 | `expo-font` | loading locally bundled font files |
 | `expo-image` | WebP/AVIF decode + asset preloading |
 | `expo-router` | the default navigation adapter (back button + per-step focus effect) |
@@ -42,11 +43,9 @@ On **1.74.0+** call `OnboardingStudio.init` **once at module scope**, not inside
 
 ```tsx
 import { OnboardingStudio } from "@rocapine/react-native-onboarding";
-import Constants from "expo-constants";
 
 OnboardingStudio.init({
   projectId: process.env.EXPO_PUBLIC_ROCAPINE_PROJECT_ID!,
-  appVersion: Constants.expoConfig?.version ?? "1.0.0",
   isSandbox: __DEV__,        // preview unpublished draft steps
   timeout: 10000,
   userProperties: { plan: "free" },   // optional; see User properties below
@@ -60,12 +59,12 @@ OnboardingStudio.init({
 ```tsx
 import { OnboardingStudioClient } from "@rocapine/react-native-onboarding";
 
-const client = new OnboardingStudioClient(projectId, { appVersion, isSandbox: __DEV__ });
+const client = new OnboardingStudioClient(projectId, { isSandbox: __DEV__ });
 ```
 
 Every option below is accepted by both forms. `OnboardingStudioClientOptions` — all optional:
 
-- `appVersion` — sent as a targeting param.
+- `appVersion`, `build` — read from `expo-application` when installed; pass them only to override. Do not hard-code them: a fixed value hides the version users actually run. `environment` — free text, defaults to sandbox / development / production. All sent as targeting params, together with `sdkVersion`.
 - `isSandbox` — serves the draft instead of the published deployment. Also always fetches fresh (ignores `cacheKey`).
 - `baseUrl` — override the edge-function origin.
 - `fallbackOnboarding` — an `Onboarding` object served if the fetch fails. `onboardingExample` is exported from the package for this.
@@ -128,7 +127,7 @@ OnboardingStudio.reset();  // forget the user, on logout
 - Values are `string | number | boolean`, and reach filters as strings — a filter comparing against a number coerces fine, one comparing against a string is lexicographic (`"10" > "9"` is false).
 - **Persisted and hydrated before the first fetch**, so a returning user is targeted correctly on the first launch-frame with no host code. A first-ever install has nothing to hydrate — seed it in `init` (`init({ projectId, userProperties: { plan: "free" } })`), which runs before anything renders, and even that launch is targeted correctly.
 - **A change applies to the NEXT serve, never retroactively.** The onboarding is served once, when `OnboardingProvider` mounts, and that payload is frozen for the presentation: a `setUserProperty` (or a `customAudienceParams` change) during the flow does not refetch, re-key, swap the onboarding or blank the screen — it is picked up on the next mount or launch. Write a property the moment you compute it, even mid-onboarding — but anything **this** serve must target on has to be set before the provider mounts; a property that resolves asynchronously during startup and lands after mount targets the next serve, with no error. `reset()` follows the same rule. A paywall is served at `register`/`present`, so it follows the store until that call. To re-serve an onboarding with the current properties, remount the provider (a `key`) — a full teardown, so at a flow boundary.
-- Refused names, because the SDK puts them on the querystring itself: `projectId`, `platform`, `appVersion`, `draft`, `locale`, `omitNulls`, `moment`, `now`.
+- Refused names, because the SDK puts them on the querystring itself: `projectId`, `platform`, `appVersion`, `build`, `sdkVersion`, `environment`, `draft`, `locale`, `omitNulls`, `moment`, `now`.
 - The provider holds its query until hydration completes, which is one AsyncStorage read. Set `fontsFallback` and that frame is covered.
 
 **Wire `onComplete`.** The terminal branch calls `completeOnboarding()`; if no handler is set the SDK logs a warning and nothing advances, leaving the user stranded on the last screen.

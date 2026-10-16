@@ -42,7 +42,6 @@ import {
 // Once, at module scope — before anything renders.
 OnboardingStudio.init({
   projectId: "your-project-id",
-  appVersion: "1.0.0",
 });
 
 export default function RootLayout() {
@@ -185,16 +184,38 @@ lexicographic, so `"10"` is *not* greater than `"9"`:
 ### Reserved names
 
 These are refused with a warning, because the SDK puts them on the request
-querystring itself and a duplicate silently breaks the request:
+querystring itself: its own value is sent instead of yours, or, for
+`appVersion` and `build` when it has none, nothing is:
 
-`projectId`, `platform`, `appVersion`, `draft`, `locale`, `omitNulls`, `moment`,
-`now`
+`projectId`, `platform`, `appVersion`, `build`, `sdkVersion`, `environment`,
+`draft`, `locale`, `omitNulls`, `moment`, `now`
+
+### What every request carries
+
+Each onboarding and paywall request sends, besides your audience params:
+
+- `appVersion` and `build`: the options of the same name if you pass them,
+  else read from `expo-application` when it is installed (an optional peer
+  dependency), else not sent. Do not hard-code them: a fixed value hides the
+  version your users actually run.
+- `sdkVersion`: this package's version.
+- `environment`: the `environment` option, else `"sandbox"` in sandbox mode,
+  `"development"` under `__DEV__`, `"production"` otherwise. Lower-cased,
+  reduced to `a-z`, `0-9`, `_` and `-`, at most 32 characters.
+
+They are ordinary query params, so an audience rule can target them, for
+example `environment == "staging"` or a build range.
 
 ### Relationship to `customAudienceParams`
 
 The prop still works and is not deprecated. Treat it as the **static** baseline
 (build-time facts like an `onboardingId`) and the store as the **runtime** half.
 Where both define a key, **the store wins**.
+
+Neither can set `appVersion`, `build`, `sdkVersion` or `environment`: since the
+SDK sends them itself, a value under one of those names in either source is
+dropped (see [Reserved names](#reserved-names)), and an audience rule on them
+sees the SDK's value.
 
 ---
 
@@ -359,6 +380,11 @@ Install these only if you're using the specific screen types:
 | **Picker**                 | `@react-native-picker/picker` | `npx expo install @react-native-picker/picker` |
 | **Ratings**                | `expo-store-review`           | `npx expo install expo-store-review`           |
 | **Commitment** (signature) | `@shopify/react-native-skia`  | `npx expo install @shopify/react-native-skia`  |
+
+`expo-application` (`npx expo install expo-application`) is optional too, and not
+tied to a screen type: with it installed, the SDK reports your app's version and
+build on every request without you passing them (see
+[What every request carries](#what-every-request-carries)).
 
 ---
 

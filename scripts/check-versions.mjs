@@ -10,9 +10,10 @@
 // and then staged four files that didn't include it, so the edit was made and
 // silently dropped every time. A check is cheaper than remembering.
 //
-// In scope: the two published packages, the Claude Code plugin manifest, the top
-// entry of each package CHANGELOG, and the lockfile's record of both workspace
-// versions. The lockfile is here because it is the mirror nothing pointed at: npm
+// In scope: the two published packages, the `SDK_VERSION` constant the headless
+// client sends as `sdkVersion` (`packages/onboarding/src/version.ts`), the Claude
+// Code plugin manifest, the top entry of each package CHANGELOG, and the
+// lockfile's record of both workspace versions. The lockfile is here because it is the mirror nothing pointed at: npm
 // writes each workspace's version into `package-lock.json`, the release skill
 // listed five files and staged five, and `npm ci` does NOT catch the omission —
 // it resolves a workspace by path, not by version, so a lock reading 1.74.1 for a
@@ -55,8 +56,15 @@ function topChangelogVersion(path) {
   return null;
 }
 
+/** The SDK_VERSION constant the client sends as `sdkVersion`. */
+function sdkVersionConstant(path) {
+  const m = /SDK_VERSION\s*=\s*"([^"]+)"/.exec(read(path));
+  return m ? m[1] : null;
+}
+
 const sources = [
   ["packages/onboarding/package.json", version("packages/onboarding/package.json")],
+  ["packages/onboarding/src/version.ts (SDK_VERSION)", sdkVersionConstant("packages/onboarding/src/version.ts")],
   ["packages/onboarding-ui/package.json", version("packages/onboarding-ui/package.json")],
   ["claude-plugin/.claude-plugin/plugin.json", version("claude-plugin/.claude-plugin/plugin.json")],
   ["packages/onboarding/CHANGELOG.md (top entry)", topChangelogVersion("packages/onboarding/CHANGELOG.md")],
@@ -76,8 +84,9 @@ if (distinct.length !== 1 || distinct[0] == null) {
   console.error("*** Version identities disagree.");
   console.error("");
   console.error("A release sets all of these to the same number. If you bumped the packages,");
-  console.error("the plugin manifest, both CHANGELOG top entries and the lockfile move with");
-  console.error("them — the `bump-version` skill does this, and stages all six files.");
+  console.error("src/version.ts, the plugin manifest, both CHANGELOG top entries and the");
+  console.error("lockfile move with them — the `bump-version` skill does this, and stages all");
+  console.error("seven files.");
   console.error("");
   console.error("If only the two package-lock.json rows disagree, you edited the versions but");
   console.error("did not regenerate the lock:");

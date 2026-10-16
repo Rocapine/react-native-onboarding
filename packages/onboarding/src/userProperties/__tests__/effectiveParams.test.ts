@@ -14,8 +14,8 @@ describe("resolveEffectiveParams", () => {
   });
 
   it("serializes both sides to strings", () => {
-    expect(resolveEffectiveParams({ build: 42 }, { days: 3, trial: true })).toEqual({
-      build: "42",
+    expect(resolveEffectiveParams({ level: 42 }, { days: 3, trial: true })).toEqual({
+      level: "42",
       days: "3",
       trial: "true",
     });

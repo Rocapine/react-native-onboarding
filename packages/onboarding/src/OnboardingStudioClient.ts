@@ -19,11 +19,43 @@ import {
 } from "./paywalls/types";
 
 import { Platform } from "react-native";
+import { readNativeAppInfo, resolveRequestIdentity } from "./requestIdentity";
 
 export class OnboardingStudioClient {
   private baseUrl: string;
   public projectId: string;
   public options: OnboardingStudioClientOptions;
+  private identity?: Record<string, string>;
+
+  /**
+   * `appVersion`, `build`, `sdkVersion`, `environment`: the params this SDK
+   * adds to every request (see `requestIdentity.ts`). Memoized: none of them
+   * can change while the process runs. Deliberately NOT part of any cache key:
+   * a key that changed with every app update would leave a user who is offline
+   * right after updating with no cached payload, and would stop a custom
+   * `cacheKey` from pinning content across updates.
+   */
+  identityParams(): Record<string, string> {
+    if (!this.identity) {
+      this.identity = resolveRequestIdentity(this.options, readNativeAppInfo());
+    }
+    return this.identity;
+  }
+
+  /**
+   * Writes the identity onto a querystring that already holds the user params.
+   * `appVersion` and `build` are removed first, because the identity omits them
+   * when neither the host nor `expo-application` has a value, and `set` alone
+   * would then leave a same-named user param on the wire (a property persisted
+   * before these names were reserved is re-read without a reserved-key check).
+   */
+  private writeIdentity(urlParams: URLSearchParams): void {
+    urlParams.delete("appVersion");
+    urlParams.delete("build");
+    for (const [key, value] of Object.entries(this.identityParams())) {
+      urlParams.set(key, value);
+    }
+  }
 
   constructor(projectId: string, options: OnboardingStudioClientOptions) {
     console.info("OnboardingStudioClient init: projectId ", projectId);
@@ -80,21 +112,20 @@ export class OnboardingStudioClient {
       });
     }
 
-    urlParams.append("projectId", this.projectId);
-    urlParams.append("platform", Platform.OS);
-
-    const appVersion = this.options.appVersion; // TODO get the version from the expo app
-    if (appVersion) {
-      urlParams.append("appVersion", appVersion);
-    }
+    // SDK-owned keys use `set`, never `append`: the server reads each with
+    // `searchParams.get`, which returns the FIRST occurrence, so an appended
+    // value would lose to a same-named user param added above.
+    urlParams.set("projectId", this.projectId);
+    urlParams.set("platform", Platform.OS);
+    this.writeIdentity(urlParams);
 
     if (isSandbox) {
-      urlParams.append("draft", "true");
+      urlParams.set("draft", "true");
     }
 
     // Add onboardingOptions to URL
     if (onboardingOptions?.locale) {
-      urlParams.append("locale", onboardingOptions.locale);
+      urlParams.set("locale", onboardingOptions.locale);
     }
 
     const url = `${this.baseUrl}/get-onboarding-steps?${urlParams.toString()}`;
@@ -171,27 +202,24 @@ export class OnboardingStudioClient {
       });
     }
 
-    urlParams.append("projectId", this.projectId);
-    urlParams.append("platform", Platform.OS);
-
-    const appVersion = this.options.appVersion; // TODO get the version from the expo app
-    if (appVersion) {
-      urlParams.append("appVersion", appVersion);
-    }
+    // SDK-owned keys use `set`, never `append` (see getSteps).
+    urlParams.set("projectId", this.projectId);
+    urlParams.set("platform", Platform.OS);
+    this.writeIdentity(urlParams);
 
     if (isSandbox) {
-      urlParams.append("draft", "true");
+      urlParams.set("draft", "true");
     }
 
     // Add paywallOptions to URL
     if (paywallOptions?.locale) {
-      urlParams.append("locale", paywallOptions.locale);
+      urlParams.set("locale", paywallOptions.locale);
     }
 
     // Narrows the response to a single paywall. Omitted unless explicitly
     // requested — see the method doc above.
     if (paywallOptions?.moment) {
-      urlParams.append("moment", paywallOptions.moment);
+      urlParams.set("moment", paywallOptions.moment);
     }
 
     // Deliberately NOT sending spec §6.1's `omitNulls=true`: it's a

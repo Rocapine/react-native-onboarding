@@ -463,6 +463,15 @@ export const expoIapProductProvider = (
       tx &&
       (finishedTxIds.has(tx) || answeredTxIds.has(tx) || unfinished.has(tx) || finishing.has(tx))
     ) {
+      // Still answer a caller waiting on this sku: buying an owned product
+      // again hands back the same transaction, and that caller is otherwise
+      // left to time out. The copy of a transaction its own caller was already
+      // answered for finds that waiter settled, so nothing is answered twice.
+      const waiting = liveWaiterFor(purchase);
+      if (waiting) {
+        answeredTxIds.add(tx);
+        waiting.answer({ status: "purchased", productKey: waiting.productKey });
+      }
       await finish(purchase, isConsumable);
       return;
     }

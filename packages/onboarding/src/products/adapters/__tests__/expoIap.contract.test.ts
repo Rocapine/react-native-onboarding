@@ -848,6 +848,35 @@ describe("expoIapProductProvider — a dispatched purchase nobody is waiting for
     expect(M.calls.finishTransaction.filter((c: any) => c.purchase.id === "tx-1")).toHaveLength(2);
   });
 
+  // Buying an owned product again hands back the SAME transaction. It is
+  // already acknowledged, but the new caller is waiting and must be answered.
+  it("answers a re-purchase that returns the finished transaction directly (ios)", async () => {
+    const M = makeExpoIap5({ catalog: [iosYearly], platform });
+    (M as any).requestPurchase = async (args: any) => {
+      M.calls.requestPurchase.push(args);
+      return { id: "tx-owned", productId: "pro_yearly", purchaseState: "purchased" as const };
+    };
+    const provider = expoIapProductProvider(M, { purchaseTimeoutMs: 50 });
+    const [product] = await provider.getProducts([YEARLY_IOS]);
+    expect(await provider.purchase(product)).toEqual({ status: "purchased", productKey: "yearly" });
+    expect(await provider.purchase(product)).toEqual({ status: "purchased", productKey: "yearly" });
+    expect(M.calls.finishTransaction).toHaveLength(1);
+  });
+
+  it("answers a re-purchase whose finished transaction is delivered again (android)", async () => {
+    rn.Platform.OS = "android";
+    const M = makeExpoIap5({
+      catalog: [playYearly],
+      platform,
+      onDispatch: (sku) => ({ id: "tx-owned", productId: sku, purchaseState: "purchased" }),
+    });
+    const provider = expoIapProductProvider(M, { purchaseTimeoutMs: 50 });
+    const [product] = await provider.getProducts([YEARLY_PLAY]);
+    expect(await provider.purchase(product)).toEqual({ status: "purchased", productKey: "yearly" });
+    expect(await provider.purchase(product)).toEqual({ status: "purchased", productKey: "yearly" });
+    expect(M.calls.finishTransaction).toHaveLength(1);
+  });
+
   it("answers a later purchase of the same sku itself, not through the host", async () => {
     const unclaimed = vi.fn().mockReturnValue(true);
     let ask = true;

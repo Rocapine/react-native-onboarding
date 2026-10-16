@@ -32,17 +32,25 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   second copy of a transaction (openiap both emits it and returns it from
   `requestPurchase`) could land while the first `finishTransaction` was still
   in flight and start a second acknowledgement, which Play rejects. It now
-  joins the acknowledgement already in flight.
+  joins the acknowledgement already in flight. A transaction the host granted
+  whose acknowledgement failed is retried on its next copy, never offered to
+  `onUnclaimedPurchase` a second time.
 
 ### Changed
+- **`expoIapProductProvider`: `purchase()` resolves `"purchased"` before
+  `finishTransaction` settles**, for every host. The acknowledgement still
+  runs, and a failed one is retried on the next store call, but a host that
+  reads unfinished transactions straight after `"purchased"` may still see it.
 - **Hosts passing `onUnclaimedPurchase` to `expoIapProductProvider` now see
   more transactions.** Any completed transaction with no live caller is
   offered, including later transactions for a product this process already
   bought (for example, a renewal arriving on the update stream). Those were
   previously finished without asking. Return `true` only once entitlement is
-  granted; a throw is treated as `false`.
-- **Without `onUnclaimedPurchase`, behaviour is unchanged** but no longer
-  silent: a dispatched product's transaction that arrives after its
+  granted; a throw is treated as `false`. A declined transaction is left
+  unfinished: iOS re-delivers it next launch, but on Android this provider
+  does not re-query it, and Play refunds it after three days unacknowledged.
+- **Without `onUnclaimedPurchase`, a late transaction is still finished** but
+  no longer silently: a dispatched product's transaction that arrives after its
   `purchase()` returned is still finished, and the provider now warns once
   that nothing granted it. Pass `onUnclaimedPurchase`; it is the only place
   an approved Ask to Buy purchase can be granted.

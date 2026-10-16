@@ -91,7 +91,8 @@ or, with no vendor in the path:
 import { expoIapProductProvider } from "@rocapine/react-native-onboarding";
 const provider = expoIapProductProvider(undefined, {
   // Grant a purchase no purchase() call is waiting for, then return true so
-  // the transaction is finished. Return false to leave it for next launch.
+  // the transaction is finished. Return false to leave it unfinished: iOS
+  // re-delivers it next launch; Play refunds it after 3 days unacknowledged.
   onUnclaimedPurchase: async (purchase) => grantEntitlement(purchase), // your own: true once granted
 });
 ```

@@ -286,8 +286,11 @@ export type ExpoIapProviderOptions = {
    *
    * Finishing one blind would take the money while granting nothing, so the
    * host decides: return `true` once entitlement is granted and the
-   * transaction may be finished; return `false` and it is left unfinished to be
-   * re-delivered next launch. A throw is treated as `false`.
+   * transaction may be finished; return `false` and it is left unfinished. A
+   * throw is treated as `false`. On iOS, StoreKit re-delivers an unfinished
+   * transaction on the next launch. On Android this provider does not re-query
+   * it at launch, and Play refunds a purchase left unacknowledged for three
+   * days, so return `false` only for a purchase you will not grant.
    *
    * A transaction answered `"purchased"` to its caller never comes here.
    *

@@ -646,3 +646,308 @@ describe("expoIapProductProvider — a catalog that did not resolve", () => {
     expect(M.calls.requestPurchase[0].type).toBe("subs");
   });
 });
+
+describe("expoIapProductProvider — Ask to Buy resolves pending, not error (#337)", () => {
+  // openiap-apple maps StoreKit's `.pending` purchase result to
+  // `ErrorCode.DeferredPayment` ("deferred-payment"), reporting it on the
+  // error listener and rejecting `requestPurchase` with it. It is not a
+  // failure: the purchase awaits approval, so the paywall's `onPending` branch
+  // must run, not `onError`.
+  it("maps deferred-payment delivered through the error listener", async () => {
+    const M = makeExpoIap5({
+      catalog: [iosYearly],
+      platform,
+      onDispatch: (sku) => ({
+        error: { code: "deferred-payment", message: "Payment is pending approval", productId: sku },
+      }),
+    });
+    const provider = expoIapProductProvider(M);
+    const [product] = await provider.getProducts([YEARLY_IOS]);
+    expect(await provider.purchase(product)).toEqual({ status: "pending" });
+  });
+
+  it("maps a deferred-payment rejection from requestPurchase", async () => {
+    const M = makeExpoIap5({ catalog: [iosYearly], platform });
+    (M as any).requestPurchase = async () => {
+      throw Object.assign(new Error("Payment is pending approval"), { code: "deferred-payment" });
+    };
+    const provider = expoIapProductProvider(M);
+    const [product] = await provider.getProducts([YEARLY_IOS]);
+    expect(await provider.purchase(product)).toEqual({ status: "pending" });
+  });
+
+  it.each(["pending", "E_DEFERRED_PAYMENT", "E_PENDING"])(
+    "maps the %s code to pending as well",
+    async (code) => {
+      const M = makeExpoIap5({
+        catalog: [iosYearly],
+        platform,
+        onDispatch: (sku) => ({ error: { code, productId: sku } }),
+      });
+      const provider = expoIapProductProvider(M);
+      const [product] = await provider.getProducts([YEARLY_IOS]);
+      expect(await provider.purchase(product)).toEqual({ status: "pending" });
+    }
+  );
+});
+
+describe("expoIapProductProvider — a dispatched purchase nobody is waiting for (#337)", () => {
+  /** An Ask to Buy purchase: StoreKit answers `.pending`, approval comes later. */
+  const deferred = () =>
+    makeExpoIap5({
+      catalog: [iosYearly],
+      platform,
+      onDispatch: (sku) => ({ error: { code: "deferred-payment", productId: sku } }),
+    });
+
+  it("hands the approved deferred purchase to the host, and finishes it once granted", async () => {
+    const unclaimed = vi.fn().mockResolvedValue(true);
+    const M = deferred();
+    const provider = expoIapProductProvider(M, { onUnclaimedPurchase: unclaimed });
+    const [product] = await provider.getProducts([YEARLY_IOS]);
+    expect(await provider.purchase(product)).toEqual({ status: "pending" });
+
+    // The parent approves; the transaction arrives on Transaction.updates.
+    M.emitUpdated({ id: "tx-approved", productId: "pro_yearly", purchaseState: "purchased" });
+    await settle();
+    expect(unclaimed).toHaveBeenCalledTimes(1);
+    expect(unclaimed.mock.calls[0][0]).toMatchObject({ id: "tx-approved" });
+    expect(M.calls.finishTransaction.map((c: any) => c.purchase.id)).toEqual(["tx-approved"]);
+  });
+
+  it("leaves the approved purchase unfinished when the host declines it", async () => {
+    const unclaimed = vi.fn().mockReturnValue(false);
+    const M = deferred();
+    const provider = expoIapProductProvider(M, { onUnclaimedPurchase: unclaimed });
+    const [product] = await provider.getProducts([YEARLY_IOS]);
+    await provider.purchase(product);
+
+    M.emitUpdated({ id: "tx-approved", productId: "pro_yearly", purchaseState: "purchased" });
+    await settle();
+    expect(unclaimed).toHaveBeenCalledTimes(1);
+    expect(M.calls.finishTransaction).toHaveLength(0);
+  });
+
+  it("hands a verdict that lands after the timeout to the host", async () => {
+    const unclaimed = vi.fn().mockReturnValue(true);
+    const M = makeExpoIap5({ catalog: [iosYearly], platform, onDispatch: () => null });
+    const provider = expoIapProductProvider(M, {
+      purchaseTimeoutMs: 10,
+      onUnclaimedPurchase: unclaimed,
+    });
+    const [product] = await provider.getProducts([YEARLY_IOS]);
+    expect(await provider.purchase(product)).toEqual({ status: "pending" });
+
+    M.emitUpdated({ id: "tx-late", productId: "pro_yearly", purchaseState: "purchased" });
+    await settle();
+    expect(unclaimed).toHaveBeenCalledTimes(1);
+    expect(M.calls.finishTransaction.map((c: any) => c.purchase.id)).toEqual(["tx-late"]);
+  });
+
+  it("hands a Play purchase that clears after answering pending to the host", async () => {
+    rn.Platform.OS = "android";
+    const unclaimed = vi.fn().mockReturnValue(true);
+    const M = makeExpoIap5({
+      catalog: [playYearly],
+      platform,
+      onDispatch: (sku) => ({ id: "tx-1", productId: sku, purchaseState: "pending" }),
+    });
+    const provider = expoIapProductProvider(M, { onUnclaimedPurchase: unclaimed });
+    const [product] = await provider.getProducts([YEARLY_PLAY]);
+    expect(await provider.purchase(product)).toEqual({ status: "pending" });
+    expect(unclaimed).not.toHaveBeenCalled(); // an unpaid purchase is nobody's to grant
+
+    M.emitUpdated({ id: "tx-1", productId: "pro_yearly", purchaseState: "purchased" });
+    await settle();
+    expect(unclaimed).toHaveBeenCalledTimes(1);
+    expect(M.calls.finishTransaction).toHaveLength(1);
+  });
+
+  it("does not hand the host a transaction already answered to its caller", async () => {
+    // openiap-apple both EMITS the transaction and RETURNS it from
+    // requestPurchase, and the adapter routes both copies. The second copy has
+    // no live waiter, but the caller was told "purchased": it is a replay.
+    const unclaimed = vi.fn().mockReturnValue(true);
+    const M = makeExpoIap5({ catalog: [iosYearly], platform });
+    (M as any).requestPurchase = async (args: any) => {
+      M.calls.requestPurchase.push(args);
+      const tx = { id: "tx-both", productId: "pro_yearly", purchaseState: "purchased" as const };
+      M.emitUpdated(tx);
+      return tx;
+    };
+    const provider = expoIapProductProvider(M, { onUnclaimedPurchase: unclaimed });
+    const [product] = await provider.getProducts([YEARLY_IOS]);
+    expect(await provider.purchase(product)).toEqual({ status: "purchased", productKey: "yearly" });
+    await settle();
+    expect(unclaimed).not.toHaveBeenCalled();
+    expect(M.calls.finishTransaction).toHaveLength(1);
+  });
+
+  it("does not hand the host a replay whose acknowledgement failed", async () => {
+    // A failed finish leaves the id out of the finished set; it is still the
+    // caller's transaction, queued for retry, not the host's to decide.
+    let broken = true;
+    const unclaimed = vi.fn().mockReturnValue(true);
+    rn.Platform.OS = "android"; // no iOS listener dedupe: the buffered replay arrives
+    const M = makeExpoIap5({ catalog: [playYearly], platform, finishFails: () => broken });
+    const provider = expoIapProductProvider(M, { onUnclaimedPurchase: unclaimed });
+    const [product] = await provider.getProducts([YEARLY_PLAY]);
+    expect(await provider.purchase(product)).toEqual({ status: "purchased", productKey: "yearly" });
+
+    broken = false;
+    M.emitUpdated({ id: "tx-pro_yearly-1", productId: "pro_yearly", purchaseState: "purchased" });
+    await settle();
+    expect(unclaimed).not.toHaveBeenCalled();
+    expect(M.calls.finishTransaction.filter((c: any) => c.purchase.id === "tx-pro_yearly-1")).toHaveLength(2);
+  });
+
+  it("never finishes a host-granted transaction twice", async () => {
+    rn.Platform.OS = "android"; // no iOS listener dedupe, so the replay reaches the adapter
+    const unclaimed = vi.fn().mockReturnValue(true);
+    const M = makeExpoIap5({
+      catalog: [playYearly],
+      platform,
+      onDispatch: (sku) => ({ id: "tx-1", productId: sku, purchaseState: "pending" }),
+    });
+    const provider = expoIapProductProvider(M, { onUnclaimedPurchase: unclaimed });
+    const [product] = await provider.getProducts([YEARLY_PLAY]);
+    await provider.purchase(product);
+
+    const cleared = { id: "tx-1", productId: "pro_yearly", purchaseState: "purchased" as const };
+    M.emitUpdated(cleared);
+    await settle();
+    M.emitUpdated(cleared); // a buffered replay of the same transaction
+    await settle();
+    expect(M.calls.finishTransaction).toHaveLength(1);
+    expect(unclaimed).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not hand the host again a granted transaction whose acknowledgement failed", async () => {
+    // The host granted it; only the acknowledgement is outstanding. A replay
+    // must retry the acknowledgement, not ask the host to grant it twice.
+    rn.Platform.OS = "android"; // no iOS listener dedupe, so the replay reaches the adapter
+    let broken = true;
+    const unclaimed = vi.fn().mockReturnValue(true);
+    const M = makeExpoIap5({
+      catalog: [playYearly],
+      platform,
+      onDispatch: (sku) => ({ id: "tx-1", productId: sku, purchaseState: "pending" }),
+      finishFails: () => broken,
+    });
+    const provider = expoIapProductProvider(M, { onUnclaimedPurchase: unclaimed });
+    const [product] = await provider.getProducts([YEARLY_PLAY]);
+    await provider.purchase(product);
+
+    const cleared = { id: "tx-1", productId: "pro_yearly", purchaseState: "purchased" as const };
+    M.emitUpdated(cleared);
+    await settle();
+    broken = false;
+    M.emitUpdated(cleared); // a buffered replay of the same transaction
+    await settle();
+    expect(unclaimed).toHaveBeenCalledTimes(1);
+    expect(M.calls.finishTransaction.filter((c: any) => c.purchase.id === "tx-1")).toHaveLength(2);
+  });
+
+  // Buying an owned product again hands back the SAME transaction. It is
+  // already acknowledged, but the new caller is waiting and must be answered.
+  it("answers a re-purchase that returns the finished transaction directly (ios)", async () => {
+    const M = makeExpoIap5({ catalog: [iosYearly], platform });
+    (M as any).requestPurchase = async (args: any) => {
+      M.calls.requestPurchase.push(args);
+      return { id: "tx-owned", productId: "pro_yearly", purchaseState: "purchased" as const };
+    };
+    const provider = expoIapProductProvider(M, { purchaseTimeoutMs: 50 });
+    const [product] = await provider.getProducts([YEARLY_IOS]);
+    expect(await provider.purchase(product)).toEqual({ status: "purchased", productKey: "yearly" });
+    expect(await provider.purchase(product)).toEqual({ status: "purchased", productKey: "yearly" });
+    expect(M.calls.finishTransaction).toHaveLength(1);
+  });
+
+  it("answers a re-purchase whose finished transaction is delivered again (android)", async () => {
+    rn.Platform.OS = "android";
+    const M = makeExpoIap5({
+      catalog: [playYearly],
+      platform,
+      onDispatch: (sku) => ({ id: "tx-owned", productId: sku, purchaseState: "purchased" }),
+    });
+    const provider = expoIapProductProvider(M, { purchaseTimeoutMs: 50 });
+    const [product] = await provider.getProducts([YEARLY_PLAY]);
+    expect(await provider.purchase(product)).toEqual({ status: "purchased", productKey: "yearly" });
+    expect(await provider.purchase(product)).toEqual({ status: "purchased", productKey: "yearly" });
+    expect(M.calls.finishTransaction).toHaveLength(1);
+  });
+
+  it("answers a later purchase of the same sku itself, not through the host", async () => {
+    const unclaimed = vi.fn().mockReturnValue(true);
+    let ask = true;
+    const M = makeExpoIap5({
+      catalog: [iosYearly],
+      platform,
+      onDispatch: (sku) =>
+        ask ? { error: { code: "deferred-payment", productId: sku } } : { id: "tx-again", productId: sku },
+    });
+    const provider = expoIapProductProvider(M, { onUnclaimedPurchase: unclaimed });
+    const [product] = await provider.getProducts([YEARLY_IOS]);
+    expect(await provider.purchase(product)).toEqual({ status: "pending" });
+
+    ask = false;
+    expect(await provider.purchase(product)).toEqual({ status: "purchased", productKey: "yearly" });
+    expect(unclaimed).not.toHaveBeenCalled();
+    expect(M.calls.finishTransaction.map((c: any) => c.purchase.id)).toEqual(["tx-again"]);
+  });
+
+  it("answers purchased even when acknowledging outlasts the wait", async () => {
+    // Ownership is decided when the transaction arrives, not after the
+    // acknowledgement round-trip: a timeout firing during `finishTransaction`
+    // used to drop the caller's answer, so a finished purchase read "pending".
+    const M = makeExpoIap5({ catalog: [iosYearly], platform });
+    const realFinish = M.finishTransaction.bind(M);
+    (M as any).finishTransaction = async (args: any) => {
+      await new Promise((r) => setTimeout(r, 30));
+      return realFinish(args);
+    };
+    const provider = expoIapProductProvider(M, { purchaseTimeoutMs: 10 });
+    const [product] = await provider.getProducts([YEARLY_IOS]);
+    expect(await provider.purchase(product)).toEqual({ status: "purchased", productKey: "yearly" });
+  });
+
+  it("acknowledges a transaction once while a second copy lands mid-acknowledgement", async () => {
+    // A real acknowledgement is a native round-trip. The returned copy of a
+    // transaction the listener already delivered arrives while it is in flight,
+    // and a second acknowledge on Play fails and leaves it queued forever.
+    const M = makeExpoIap5({ catalog: [iosYearly], platform });
+    const realFinish = M.finishTransaction.bind(M);
+    (M as any).finishTransaction = async (args: any) => {
+      await new Promise((r) => setTimeout(r, 30));
+      return realFinish(args);
+    };
+    (M as any).requestPurchase = async (args: any) => {
+      M.calls.requestPurchase.push(args);
+      const tx = { id: "tx-both", productId: "pro_yearly", purchaseState: "purchased" as const };
+      M.emitUpdated(tx);
+      return tx;
+    };
+    const provider = expoIapProductProvider(M);
+    const [product] = await provider.getProducts([YEARLY_IOS]);
+    expect(await provider.purchase(product)).toEqual({ status: "purchased", productKey: "yearly" });
+    await new Promise((r) => setTimeout(r, 60));
+    expect(M.calls.finishTransaction).toHaveLength(1);
+  });
+
+  describe("with no onUnclaimedPurchase", () => {
+    it("still finishes the dispatched purchase, and says the host was never told", async () => {
+      // Kept from before #337: the sku was dispatched by this process, so it is
+      // acknowledged rather than left to replay. It is no longer silent.
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const M = deferred();
+      const provider = expoIapProductProvider(M);
+      const [product] = await provider.getProducts([YEARLY_IOS]);
+      expect(await provider.purchase(product)).toEqual({ status: "pending" });
+
+      M.emitUpdated({ id: "tx-approved", productId: "pro_yearly", purchaseState: "purchased" });
+      await settle();
+      expect(M.calls.finishTransaction.map((c: any) => c.purchase.id)).toEqual(["tx-approved"]);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining("onUnclaimedPurchase"));
+    });
+  });
+});

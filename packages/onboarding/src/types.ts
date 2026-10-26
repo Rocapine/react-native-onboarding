@@ -70,12 +70,11 @@ export interface OnboardingMetadata {
   locale?: string;
   draft?: boolean;
   /**
-   * Experiment the served onboarding belongs to, when the audience splits
-   * traffic between variants. Absent when the server does not send it.
+   * Which variant of the onboarding this user was served. The parent (main)
+   * onboarding reports the reserved key `"main"`. `null` or absent means the
+   * server sent no variant information (e.g. an older server).
    */
-  experimentId?: string;
-  /** Which variant (arm) of `experimentId` this user received. */
-  variantKey?: string;
+  variantKey?: string | null;
   /**
    * Id of the published deployment that was served. `null` for a draft
    * (sandbox) payload, which has no deployment; absent when the server does

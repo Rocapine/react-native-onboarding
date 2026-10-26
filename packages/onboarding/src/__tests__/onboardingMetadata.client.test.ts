@@ -28,7 +28,7 @@ const getMetadata = async (metadata: Record<string, unknown>) => {
   return data.metadata;
 };
 
-describe("OnboardingMetadata experiment and deployment identity", () => {
+describe("OnboardingMetadata variant and deployment identity", () => {
   beforeEach(() => {
     vi.spyOn(console, "info").mockImplementation(() => {});
   });
@@ -38,32 +38,31 @@ describe("OnboardingMetadata experiment and deployment identity", () => {
     vi.restoreAllMocks();
   });
 
-  it("types the three fields as optional, deploymentId nullable", () => {
-    expectTypeOf<OnboardingMetadata["experimentId"]>().toEqualTypeOf<string | undefined>();
-    expectTypeOf<OnboardingMetadata["variantKey"]>().toEqualTypeOf<string | undefined>();
+  it("types variantKey and deploymentId as optional and nullable, with no experimentId", () => {
+    expectTypeOf<OnboardingMetadata["variantKey"]>().toEqualTypeOf<string | null | undefined>();
     expectTypeOf<OnboardingMetadata["deploymentId"]>().toEqualTypeOf<number | null | undefined>();
+    expectTypeOf<OnboardingMetadata>().not.toHaveProperty("experimentId");
   });
 
-  it("surfaces experimentId, variantKey and deploymentId from the payload through getSteps", async () => {
-    const metadata = await getMetadata({
-      id: "onb-1",
-      experimentId: "exp-1",
-      variantKey: "b",
-      deploymentId: 42,
-    });
-    expect(metadata.experimentId).toBe("exp-1");
+  it("surfaces variantKey and deploymentId from the payload through getSteps", async () => {
+    const metadata = await getMetadata({ id: "onb-1", variantKey: "b", deploymentId: 42 });
     expect(metadata.variantKey).toBe("b");
     expect(metadata.deploymentId).toBe(42);
   });
 
-  it("keeps a draft's null deploymentId null", async () => {
-    const metadata = await getMetadata({ id: "onb-1", draft: true, deploymentId: null });
+  it("passes the reserved main variantKey through unchanged", async () => {
+    const metadata = await getMetadata({ id: "onb-1", variantKey: "main", deploymentId: 7 });
+    expect(metadata.variantKey).toBe("main");
+  });
+
+  it("keeps null variantKey and deploymentId null", async () => {
+    const metadata = await getMetadata({ id: "onb-1", draft: true, variantKey: null, deploymentId: null });
+    expect(metadata.variantKey).toBeNull();
     expect(metadata.deploymentId).toBeNull();
   });
 
   it("reads the fields as undefined on a payload that does not carry them", async () => {
     const metadata = await getMetadata({ id: "onb-1", audienceId: "7" });
-    expect(metadata.experimentId).toBeUndefined();
     expect(metadata.variantKey).toBeUndefined();
     expect(metadata.deploymentId).toBeUndefined();
   });

@@ -6,11 +6,13 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ## [Unreleased]
 ### Added
-- **`OnboardingMetadata` carries `experimentId`, `variantKey` and `deploymentId`**
-  (#234). All three are optional and typed only: `getSteps` already passes the
+- **`OnboardingMetadata` carries `variantKey` and `deploymentId`** (#234).
+  Both are optional, nullable and typed only: `getSteps` already passes the
   server's `metadata` through untouched, so a payload that carries them now
   reaches `useOnboardingStep().onboardingMetadata` and `onComplete`'s
   `metadata` typed, and a payload that does not reads them as `undefined`.
+  `variantKey` names the variant served; the parent onboarding reports the
+  reserved `"main"`, and `null`/absent means no variant information.
   `deploymentId` is `null` on a draft (sandbox) payload, which has no
   deployment. No runtime change.
 

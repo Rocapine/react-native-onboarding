@@ -384,11 +384,11 @@ describe("getPaywallsQuery cache key and request identity", () => {
   });
 });
 
-// #235: each resolved paywall carries its own experiment identity, PER MOMENT
+// #235: each resolved paywall carries its own variant identity, PER MOMENT
 // (like `audienceId`). The values are the server's; the SDK passes them through
 // untouched — `null` stays `null`, and a field an older `get-paywalls` never
 // sent stays absent.
-describe("Paywall experiment identity (experimentId / variantKey / deploymentId)", () => {
+describe("Paywall variant identity (variantKey / deploymentId)", () => {
   const base = {
     name: "pw",
     audienceId: 1,
@@ -405,7 +405,6 @@ describe("Paywall experiment identity (experimentId / variantKey / deploymentId)
         ...base,
         id: "pw-a",
         moment: "onboarding_end",
-        experimentId: "exp-1",
         variantKey: "b",
         deploymentId: 42,
       },
@@ -413,8 +412,8 @@ describe("Paywall experiment identity (experimentId / variantKey / deploymentId)
         ...base,
         id: "pw-b",
         moment: "settings_upgrade",
-        experimentId: null,
-        variantKey: null,
+        // The parent paywall reports the reserved key.
+        variantKey: "main",
         deploymentId: 7,
       },
       // An older `get-paywalls` that predates the fields.
@@ -425,13 +424,12 @@ describe("Paywall experiment identity (experimentId / variantKey / deploymentId)
 
   const expectArms = (data: PaywallCatalog) => {
     const { onboarding_end, settings_upgrade, legacy } = data.paywalls;
-    expect([onboarding_end.experimentId, onboarding_end.variantKey, onboarding_end.deploymentId]).toEqual(["exp-1", "b", 42]);
-    expect([settings_upgrade.experimentId, settings_upgrade.variantKey, settings_upgrade.deploymentId]).toEqual([null, null, 7]);
-    expect([legacy.experimentId, legacy.variantKey, legacy.deploymentId]).toEqual([undefined, undefined, undefined]);
+    expect([onboarding_end.variantKey, onboarding_end.deploymentId]).toEqual(["b", 42]);
+    expect([settings_upgrade.variantKey, settings_upgrade.deploymentId]).toEqual(["main", 7]);
+    expect([legacy.variantKey, legacy.deploymentId]).toEqual([undefined, undefined]);
   };
 
   it("is declared on the resolved Paywall type, optional and nullable", () => {
-    expectTypeOf<Paywall["experimentId"]>().toEqualTypeOf<string | null | undefined>();
     expectTypeOf<Paywall["variantKey"]>().toEqualTypeOf<string | null | undefined>();
     expectTypeOf<Paywall["deploymentId"]>().toEqualTypeOf<number | null | undefined>();
   });

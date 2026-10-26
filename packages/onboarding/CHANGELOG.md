@@ -5,6 +5,13 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 ---
 
 ## [Unreleased]
+### Added
+- **Resolved `Paywall`: `experimentId`, `variantKey`, `deploymentId`** (#235).
+  Optional and nullable (`string | null`, `string | null`, `number | null`),
+  resolved per moment like `audienceId`, so two moments in one catalog can
+  carry different values. Passed through from `get-paywalls` untouched; absent
+  when the server predates them. Type-only: no runtime behaviour changes.
+
 ### Fixed
 - **`expoIapProductProvider`: an Ask to Buy purchase resolves `"pending"`, not
   `"error"`** (#337). openiap reports StoreKit's `.pending` purchase result as

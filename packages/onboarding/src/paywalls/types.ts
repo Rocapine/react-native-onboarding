@@ -23,6 +23,24 @@ export type Paywall = {
   moment: string;
   audienceId: number | null;
   audienceName: string | null;
+  /**
+   * Which experiment, which arm of it, and which published deployment this
+   * moment resolved to. Resolved PER MOMENT, for the same reason as
+   * `audienceId` above: a paywall can be an arm of an experiment in one moment
+   * and unused in another, so two entries in one catalog can carry different
+   * values.
+   *
+   * Passed through exactly as `get-paywalls` sends them; the SDK neither reads
+   * nor normalizes them. `null` means the server resolved the moment and it is
+   * not in an experiment (or has no deployment). ABSENT (`undefined`) means the
+   * server predates these fields — a device on a new SDK can be talking to an
+   * older `get-paywalls`. Treat both as "no experiment".
+   */
+  experimentId?: string | null;
+  /** See `experimentId`. */
+  variantKey?: string | null;
+  /** See `experimentId`. */
+  deploymentId?: number | null;
   /** UIElement[] — parsed by the UI adapter (Task 7's `ScreenElementsSchema`), not here. */
   elements: unknown[];
   /**

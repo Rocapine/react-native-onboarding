@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, expectTypeOf, vi, beforeEach, afterEach } from "vitest";
 
 // react-native is mocked so OnboardingStudioClient (which reads `Platform.OS`)
 // loads under Node — same stub `getOnboarding.query.test.ts` uses.
@@ -26,7 +26,7 @@ import {
   DEFAULT_PAYWALLS_CACHE_KEY,
 } from "../../infra/queries/cacheKey";
 import { getPaywallsQuery } from "../getPaywalls.query";
-import type { PaywallCatalog } from "../types";
+import type { Paywall, PaywallCatalog } from "../types";
 
 const CACHE_KEY = "rocapine-paywalls-studio";
 const CUSTOM_KEY = "v2";
@@ -381,5 +381,78 @@ describe("getPaywallsQuery cache key and request identity", () => {
   it("custom cacheKey is unaffected by identity", async () => {
     await run(withIdentity(makeClient({ isSandbox: false, cacheKey: CUSTOM_KEY, data: catalog }), { appVersion: "2.3.0", build: "45", sdkVersion: "1.77.0", environment: "production" }));
     expect(setItem).toHaveBeenCalledWith(CUSTOM_CACHE_KEY, JSON.stringify(catalog));
+  });
+});
+
+// #235: each resolved paywall carries its own experiment identity, PER MOMENT
+// (like `audienceId`). The values are the server's; the SDK passes them through
+// untouched — `null` stays `null`, and a field an older `get-paywalls` never
+// sent stays absent.
+describe("Paywall experiment identity (experimentId / variantKey / deploymentId)", () => {
+  const base = {
+    name: "pw",
+    audienceId: 1,
+    audienceName: "default",
+    elements: [],
+    billing: "store" as const,
+    products: [],
+    configuration: null,
+  };
+  const twoArms: PaywallCatalog = {
+    metadata: { locale: "en", draft: false },
+    paywalls: {
+      onboarding_end: {
+        ...base,
+        id: "pw-a",
+        moment: "onboarding_end",
+        experimentId: "exp-1",
+        variantKey: "b",
+        deploymentId: 42,
+      },
+      settings_upgrade: {
+        ...base,
+        id: "pw-b",
+        moment: "settings_upgrade",
+        experimentId: null,
+        variantKey: null,
+        deploymentId: 7,
+      },
+      // An older `get-paywalls` that predates the fields.
+      legacy: { ...base, id: "pw-c", moment: "legacy" },
+    },
+    fonts: null,
+  };
+
+  const expectArms = (data: PaywallCatalog) => {
+    const { onboarding_end, settings_upgrade, legacy } = data.paywalls;
+    expect([onboarding_end.experimentId, onboarding_end.variantKey, onboarding_end.deploymentId]).toEqual(["exp-1", "b", 42]);
+    expect([settings_upgrade.experimentId, settings_upgrade.variantKey, settings_upgrade.deploymentId]).toEqual([null, null, 7]);
+    expect([legacy.experimentId, legacy.variantKey, legacy.deploymentId]).toEqual([undefined, undefined, undefined]);
+  };
+
+  it("is declared on the resolved Paywall type, optional and nullable", () => {
+    expectTypeOf<Paywall["experimentId"]>().toEqualTypeOf<string | null | undefined>();
+    expectTypeOf<Paywall["variantKey"]>().toEqualTypeOf<string | null | undefined>();
+    expectTypeOf<Paywall["deploymentId"]>().toEqualTypeOf<number | null | undefined>();
+  });
+
+  it("getPaywalls passes each moment's own values through, absent stays undefined", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(fakeResponse(JSON.parse(JSON.stringify(twoArms))));
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const { data } = await new OnboardingStudioClient("proj-1", {}).getPaywalls();
+      expectArms(data);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("survives the production cache round-trip (served from AsyncStorage)", async () => {
+    getItem.mockReset();
+    setItem.mockReset();
+    setItem.mockResolvedValue(undefined);
+    getItem.mockResolvedValue(JSON.stringify(twoArms));
+    const data = await run(makeClient({ isSandbox: false, cacheKey: CUSTOM_KEY, data: catalog }));
+    expectArms(data);
   });
 });

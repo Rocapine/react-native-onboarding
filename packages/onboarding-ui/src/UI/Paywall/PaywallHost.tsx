@@ -401,6 +401,8 @@ export const PaywallHost = ({ customScreens, requestPermission }: PaywallHostPro
               name: activePaywall.name,
               moment: activePaywall.moment,
               customScreenId: decision.customScreenId,
+              variantKey: activePaywall.variantKey,
+              deploymentId: activePaywall.deploymentId,
             }}
             onError={handleRenderError}
           />

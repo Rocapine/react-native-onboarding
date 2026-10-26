@@ -10,8 +10,9 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   nullable (`string | null`, `number | null`), resolved per moment like
   `audienceId`, so two moments in one catalog can carry different values. The
   parent paywall reports the reserved `variantKey: "main"`. Passed through from
-  `get-paywalls` untouched; absent when the server predates them. Type-only: no
-  runtime behaviour changes.
+  `get-paywalls` untouched; `null` and absent are equivalent (no variant or
+  deployment information). `CustomPaywallScreenProps.paywall` carries the same
+  two fields, so a custom paywall screen sees them too.
 
 ### Fixed
 - **`expoIapProductProvider`: an Ask to Buy purchase resolves `"pending"`, not

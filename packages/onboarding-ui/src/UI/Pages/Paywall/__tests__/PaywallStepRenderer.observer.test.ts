@@ -599,3 +599,20 @@ describe("PaywallStepRenderer — round 2 on a custom screen's transaction (#287
     expect(warn).not.toHaveBeenCalled();
   });
 });
+
+describe("PaywallStepRenderer — custom screen sees the moment's variant identity (#235)", () => {
+  it("passes variantKey and deploymentId through on the paywall prop", async () => {
+    let seen: Record<string, unknown> | null = null;
+    const Screen = (props: { paywall: Record<string, unknown> }) => {
+      seen = props.paywall;
+      return null;
+    };
+    recorder();
+    setCatalog(
+      paywall("pw-a", { renderMode: "custom", customScreenId: "s", elements: [], variantKey: "main", deploymentId: 7 }),
+      { s: Screen },
+    );
+    await render();
+    expect(seen).toEqual({ id: "pw-a", name: "pw-a", moment: "m", customScreenId: "s", variantKey: "main", deploymentId: 7 });
+  });
+});

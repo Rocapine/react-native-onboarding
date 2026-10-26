@@ -27,6 +27,7 @@ import {
 } from "../../infra/queries/cacheKey";
 import { getPaywallsQuery } from "../getPaywalls.query";
 import type { Paywall, PaywallCatalog } from "../types";
+import type { CustomPaywallScreenProps } from "../customScreens";
 
 const CACHE_KEY = "rocapine-paywalls-studio";
 const CUSTOM_KEY = "v2";
@@ -432,6 +433,9 @@ describe("Paywall variant identity (variantKey / deploymentId)", () => {
   it("is declared on the resolved Paywall type, optional and nullable", () => {
     expectTypeOf<Paywall["variantKey"]>().toEqualTypeOf<string | null | undefined>();
     expectTypeOf<Paywall["deploymentId"]>().toEqualTypeOf<number | null | undefined>();
+    // A custom paywall screen gets the same two fields, same types.
+    expectTypeOf<CustomPaywallScreenProps["paywall"]["variantKey"]>().toEqualTypeOf<string | null | undefined>();
+    expectTypeOf<CustomPaywallScreenProps["paywall"]["deploymentId"]>().toEqualTypeOf<number | null | undefined>();
   });
 
   it("getPaywalls passes each moment's own values through, absent stays undefined", async () => {

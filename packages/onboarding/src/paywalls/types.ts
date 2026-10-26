@@ -29,19 +29,21 @@ export type Paywall = {
    * while another serves the parent paywall, so two entries in one catalog can
    * carry different values.
    *
-   * The parent paywall itself reports the reserved key `"main"`; any other
-   * value names a variant of it.
+   * The parent paywall itself reports the reserved key `"main"` (the same
+   * value as the `MAIN_VARIANT_KEY` constant the onboarding metadata uses);
+   * any other value names a variant of it.
    *
    * Passed through exactly as `get-paywalls` sends it; the SDK neither reads
-   * nor normalizes it. `null` means the server sent no variant for this
-   * moment. ABSENT (`undefined`) means the server predates the field — a
-   * device on a new SDK can be talking to an older `get-paywalls`.
+   * nor normalizes it. `null` and ABSENT (`undefined`) are equivalent: both
+   * mean "no variant information". Absent is what an older `get-paywalls`
+   * that predates the field produces — a device on a new SDK can be talking
+   * to one — so a consumer must not treat the two differently.
    */
   variantKey?: string | null;
   /**
    * Which published deployment this moment's paywall was served from. Same
-   * per-moment and pass-through rules as `variantKey`: `null` when the server
-   * has no deployment to report, absent when it predates the field.
+   * per-moment and pass-through rules as `variantKey`, and the same
+   * equivalence: `null` and absent both mean "no deployment information".
    */
   deploymentId?: number | null;
   /** UIElement[] — parsed by the UI adapter (Task 7's `ScreenElementsSchema`), not here. */

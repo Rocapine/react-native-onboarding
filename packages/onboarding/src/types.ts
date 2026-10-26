@@ -61,6 +61,12 @@ export type UserDefinedParams = {
   [key: string]: string;
 };
 
+/**
+ * Reserved `OnboardingMetadata.variantKey` reported by the parent (main)
+ * onboarding, as opposed to one of its variants.
+ */
+export const MAIN_VARIANT_KEY = "main" as const;
+
 export interface OnboardingMetadata {
   id: string;
   name?: string;
@@ -71,8 +77,10 @@ export interface OnboardingMetadata {
   draft?: boolean;
   /**
    * Which variant of the onboarding this user was served. The parent (main)
-   * onboarding reports the reserved key `"main"`. `null` or absent means the
-   * server sent no variant information (e.g. an older server).
+   * onboarding reports the reserved key `MAIN_VARIANT_KEY` (`"main"`).
+   * `null` and absent mean the same thing — the server sent no variant
+   * information (e.g. an older server) — and hosts should treat them
+   * identically (e.g. `metadata.variantKey ?? undefined`).
    */
   variantKey?: string | null;
   /**

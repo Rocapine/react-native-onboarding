@@ -12,7 +12,7 @@ vi.mock("@react-native-async-storage/async-storage", () => ({
 }));
 
 import { OnboardingStudioClient } from "../OnboardingStudioClient";
-import type { OnboardingMetadata } from "../types";
+import { MAIN_VARIANT_KEY, type OnboardingMetadata } from "../types";
 
 const fakeResponse = (body: unknown) => ({
   ok: true,
@@ -50,9 +50,16 @@ describe("OnboardingMetadata variant and deployment identity", () => {
     expect(metadata.deploymentId).toBe(42);
   });
 
+  it("exports the reserved main variant key as a literal from the package index", () => {
+    expect(MAIN_VARIANT_KEY).toBe("main");
+    expectTypeOf(MAIN_VARIANT_KEY).toEqualTypeOf<"main">();
+    // Type-only: proves the public entry point re-exports it without loading it.
+    expectTypeOf<(typeof import("../index"))["MAIN_VARIANT_KEY"]>().toEqualTypeOf<"main">();
+  });
+
   it("passes the reserved main variantKey through unchanged", async () => {
-    const metadata = await getMetadata({ id: "onb-1", variantKey: "main", deploymentId: 7 });
-    expect(metadata.variantKey).toBe("main");
+    const metadata = await getMetadata({ id: "onb-1", variantKey: MAIN_VARIANT_KEY, deploymentId: 7 });
+    expect(metadata.variantKey).toBe(MAIN_VARIANT_KEY);
   });
 
   it("keeps null variantKey and deploymentId null", async () => {

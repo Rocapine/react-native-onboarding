@@ -382,6 +382,9 @@ interface OnboardingStepMetadata {
   audienceOrder?: number;
   locale?: string;
   draft?: boolean;
+  experimentId?: string;
+  variantKey?: string;
+  deploymentId?: number | null;
 }
 ```
 
@@ -394,6 +397,9 @@ interface OnboardingStepMetadata {
 | `audienceOrder` | `number?` | Audience priority order |
 | `locale` | `string?` | Locale of the onboarding |
 | `draft` | `boolean?` | Whether this is a draft version |
+| `experimentId` | `string?` | Experiment the served onboarding belongs to, when traffic is split between variants |
+| `variantKey` | `string?` | Which variant of `experimentId` the user received |
+| `deploymentId` | `number \| null?` | Published deployment that was served; `null` for a draft payload |
 
 ---
 

@@ -5,6 +5,15 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 ---
 
 ## [Unreleased]
+### Added
+- **`OnboardingMetadata` carries `experimentId`, `variantKey` and `deploymentId`**
+  (#234). All three are optional and typed only: `getSteps` already passes the
+  server's `metadata` through untouched, so a payload that carries them now
+  reaches `useOnboardingStep().onboardingMetadata` and `onComplete`'s
+  `metadata` typed, and a payload that does not reads them as `undefined`.
+  `deploymentId` is `null` on a draft (sandbox) payload, which has no
+  deployment. No runtime change.
+
 ### Fixed
 - **`expoIapProductProvider`: an Ask to Buy purchase resolves `"pending"`, not
   `"error"`** (#337). openiap reports StoreKit's `.pending` purchase result as

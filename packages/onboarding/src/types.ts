@@ -69,6 +69,19 @@ export interface OnboardingMetadata {
   audienceOrder?: number;
   locale?: string;
   draft?: boolean;
+  /**
+   * Experiment the served onboarding belongs to, when the audience splits
+   * traffic between variants. Absent when the server does not send it.
+   */
+  experimentId?: string;
+  /** Which variant (arm) of `experimentId` this user received. */
+  variantKey?: string;
+  /**
+   * Id of the published deployment that was served. `null` for a draft
+   * (sandbox) payload, which has no deployment; absent when the server does
+   * not send it.
+   */
+  deploymentId?: number | null;
 }
 
 /**

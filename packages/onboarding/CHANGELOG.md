@@ -23,6 +23,13 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   `get-paywalls` untouched; `null` and absent are equivalent (no variant or
   deployment information). `CustomPaywallScreenProps.paywall` carries the same
   two fields, so a custom paywall screen sees them too.
+- **`PaywallObserver.start()` reports the served arm** (#237):
+  `PaywallPresentationInfo.variantKey` and `deploymentId` (a decimal string,
+  the contract's type) are now filled from the served paywall, on both
+  `present()` and the inline `Paywall` step. A purchase or dismiss ends the
+  presentation `start()` opened, so it is attributed to the same arm. Both are
+  left unset (never empty or `"none"`) when the server sent no `variantKey`,
+  so an app on an older server sees no new property.
 - **Every `getSteps` and `getPaywalls` request carries a stable
   `assignmentId`** (#236), so the server can keep a person in the same variant
   across launches. Resolved per request: the new `assignmentId` client option

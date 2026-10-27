@@ -38,6 +38,43 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+describe("openPaywallPresentation — the served arm on start() (#237)", () => {
+  const startInfo = (extra: Partial<PaywallPresentationSource>) => {
+    const { observer, calls } = recordingObserver();
+    openPaywallPresentation(observer, { ...PAYWALL, ...extra }, "present", "ios");
+    return calls[0][1] as Record<string, unknown>;
+  };
+
+  it("carries a served variant's key, and its deploymentId as a decimal string", () => {
+    expect(startInfo({ variantKey: "b", deploymentId: 42 })).toMatchObject({ variantKey: "b", deploymentId: "42" });
+  });
+
+  it("carries the reserved main key for the parent paywall", () => {
+    expect(startInfo({ variantKey: "main", deploymentId: 7 })).toMatchObject({ variantKey: "main", deploymentId: "7" });
+  });
+
+  it("keeps a deploymentId of 0 rather than treating it as absent", () => {
+    expect(startInfo({ variantKey: "b", deploymentId: 0 })).toMatchObject({ deploymentId: "0" });
+  });
+
+  it("carries the key alone when the server sent no deploymentId", () => {
+    const info = startInfo({ variantKey: "b", deploymentId: null });
+    expect(info.variantKey).toBe("b");
+    expect(Object.keys(info)).not.toContain("deploymentId");
+  });
+
+  it.each([
+    ["an older server (both absent)", {}],
+    ["a null variantKey", { variantKey: null, deploymentId: null }],
+    ["an empty variantKey", { variantKey: "", deploymentId: 42 }],
+    ["a deploymentId with no variantKey", { deploymentId: 42 }],
+  ])("sets neither key for %s", (_label, extra) => {
+    const info = startInfo(extra as Partial<PaywallPresentationSource>);
+    expect(Object.keys(info)).not.toContain("variantKey");
+    expect(Object.keys(info)).not.toContain("deploymentId");
+  });
+});
+
 describe("openPaywallPresentation — the info handed to start()", () => {
   it("stringifies audienceId, defaults renderMode to elements, and names the surface", () => {
     const { observer, calls } = recordingObserver();

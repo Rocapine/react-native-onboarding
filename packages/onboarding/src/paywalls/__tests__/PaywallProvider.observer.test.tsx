@@ -742,6 +742,57 @@ describe("PaywallProvider observer — observePresentation (the inline step's se
   });
 });
 
+describe("PaywallProvider observer — the served arm reaches start() on both surfaces (#237)", () => {
+  const armedCatalog = (arm: Record<string, unknown>) => {
+    const catalog = catalogOf("upgrade");
+    Object.assign(catalog.paywalls.upgrade, arm);
+    return catalog;
+  };
+  const presentStart = async (arm: Record<string, unknown>) => {
+    const { observer, calls } = recordingObserver();
+    const { captured } = await mount({ observer, catalog: armedCatalog(arm) });
+    await act(async () => void captured.ctx.present("upgrade"));
+    await settle();
+    await act_(() => captured.ctx.complete({ status: "dismissed" }));
+    return calls[0];
+  };
+  const stepStart = async (arm: Record<string, unknown>) => {
+    const { observer, calls } = recordingObserver();
+    const { captured } = await mount({ observer });
+    captured.ctx.observePresentation({ ...paywall("upgrade"), ...arm });
+    return calls[0];
+  };
+
+  it.each([
+    ["present()", presentStart],
+    ["the paywall step", stepStart],
+  ])("%s reports a served variant", async (_label, start) => {
+    expect(await start({ variantKey: "b", deploymentId: 42 })).toEqual([
+      "start",
+      expect.objectContaining({ variantKey: "b", deploymentId: "42" }),
+    ]);
+  });
+
+  it.each([
+    ["present()", presentStart],
+    ["the paywall step", stepStart],
+  ])("%s reports the parent paywall as main", async (_label, start) => {
+    expect(await start({ variantKey: "main", deploymentId: 7 })).toEqual([
+      "start",
+      expect.objectContaining({ variantKey: "main", deploymentId: "7" }),
+    ]);
+  });
+
+  it.each([
+    ["present()", presentStart],
+    ["the paywall step", stepStart],
+  ])("%s adds no property for an older server", async (_label, start) => {
+    const [, info] = (await start({})) as [string, Record<string, unknown>];
+    expect(Object.keys(info)).not.toContain("variantKey");
+    expect(Object.keys(info)).not.toContain("deploymentId");
+  });
+});
+
 describe("PaywallProvider observer — complete() carries a custom screen's transaction (#287)", () => {
   const tx = { originalTransactionIdentifier: "2000000123", productId: "com.app.annual.ios" };
 

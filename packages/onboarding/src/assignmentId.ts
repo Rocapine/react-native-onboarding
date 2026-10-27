@@ -48,6 +48,7 @@ export const HOST_ASSIGNMENT_ID_TIMEOUT_MS = 2000;
 export type AssignmentIdStorage = {
   getItem: (key: string) => Promise<string | null>;
   setItem: (key: string, value: string) => Promise<void>;
+  removeItem: (key: string) => Promise<void>;
 };
 
 const nonEmpty = (v: unknown): string | undefined =>
@@ -63,20 +64,99 @@ const generateUuidV4 = (): string => {
   });
 };
 
-export type InstallationIdStore = { get: () => Promise<string | undefined> };
+/**
+ * Bound on how long a CALLER waits for each queued operation. The queue itself
+ * still waits for the real storage call, so ordering holds even when it hangs.
+ */
+export const STORAGE_OP_TIMEOUT_MS = HOST_ASSIGNMENT_ID_TIMEOUT_MS;
+
+export type InstallationIdStore = {
+  /**
+   * The current clear() generation. Take it BEFORE any await that precedes
+   * `get(token)` (e.g. a host getter), so a `clear()` in between is seen.
+   */
+  token: () => number;
+  /**
+   * The installation id, or `undefined`. With a `token` older than the last
+   * `clear()`, returns `undefined` without reading or writing storage.
+   */
+  get: (token?: number) => Promise<string | undefined>;
+  /**
+   * Removes the stored id and forgets the in-memory one, so a later request
+   * mints a new id. Rejects if the removal fails or the caller's wait for it
+   * exceeds `STORAGE_OP_TIMEOUT_MS` (the removal itself still runs, in order).
+   */
+  clear: () => Promise<void>;
+};
 
 /**
  * One in-flight resolution per store, so `getSteps` and `getPaywalls` fired
  * together on a first launch share one generated id and write it once. A
  * failure is not memoized: the next request retries.
+ *
+ * `clear()` must win against a load already in flight, or the id it removes
+ * comes back. Two mechanisms:
+ * - every storage operation runs on ONE queue, so a removal is ordered after
+ *   any write already started, and a load started after `clear()` runs after
+ *   the removal (and is therefore never deleted by it);
+ * - an `epoch` bumped by `clear()`: a load that began before it neither writes
+ *   nor returns an id, so the request in flight sends nothing. Callers that
+ *   await something first (`resolveAssignmentId` awaits the host getter) take
+ *   the epoch as a `token()` up front and pass it to `get(token)`.
+ *
+ * The caller's wait on each queued operation is bounded by
+ * `STORAGE_OP_TIMEOUT_MS`, counted from when it was queued. On expiry the
+ * caller's promise rejects (`clear()` rejects; `get()` fails closed with
+ * `undefined`). A write or removal still holds the queue until the real call
+ * settles, so a removal can never overtake a write in flight; callers behind a
+ * hung write or removal fail closed at their own bound. A load abandoned BEFORE
+ * it issued `setItem` releases the queue at once, since it can no longer write:
+ * a hung read does not stall the rest of the process.
+ *
+ * A timed-out load is marked abandoned, and checks that right before minting
+ * and right before writing: a timed-out request never mints. (A write that had
+ * already started when the bound fired cannot be recalled; it lands, in order,
+ * ahead of any later removal.)
  */
 export const createInstallationIdStore = (
   storage: AssignmentIdStorage,
   generate: () => string = generateUuidV4,
 ): InstallationIdStore => {
   let pending: Promise<string | undefined> | null = null;
+  let epoch = 0;
+  let queue: Promise<unknown> = Promise.resolve();
 
-  const load = async (): Promise<string | undefined> => {
+  /**
+   * Runs `op` after every earlier operation has settled; the returned promise
+   * only bounds how long the caller waits. When the caller gives up,
+   * `onTimeout` runs, and if it returns `true` the queue is released at once:
+   * the op promises it will issue no further storage writes, so a later
+   * operation may safely start while it is still pending. Otherwise the queue
+   * keeps waiting for the real call (a write or removal must stay ordered).
+   */
+  const enqueue = <T>(op: () => Promise<T>, onTimeout?: () => boolean): Promise<T> => {
+    const real = queue.then(op);
+    let release!: () => void;
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    queue = Promise.race([real.catch(() => {}), released]);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    return Promise.race([
+      real,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          if (onTimeout?.()) release();
+          reject(new Error(`[assignment-id] storage operation timed out after ${STORAGE_OP_TIMEOUT_MS}ms`));
+        }, STORAGE_OP_TIMEOUT_MS);
+      }),
+    ]).finally(() => clearTimeout(timer));
+  };
+
+  /** `writing` flips, synchronously, the moment the load issues `setItem`. */
+  type LoadState = { abandoned: boolean; writing: boolean };
+
+  const load = async (startedAt: number, state: LoadState): Promise<string | undefined> => {
     let stored: string | null;
     try {
       stored = await storage.getItem(ASSIGNMENT_ID_STORAGE_KEY);
@@ -85,9 +165,14 @@ export const createInstallationIdStore = (
       console.warn("[assignment-id] Failed to read the installation id; omitting it:", error);
       return undefined;
     }
+    if (epoch !== startedAt) return undefined; // cleared meanwhile: do not mint
     const existing = nonEmpty(stored);
     if (existing) return existing;
+    // The caller timed out: never mint (and so never write). Nothing async lies
+    // between here and `setItem`, so this is also the last check before it.
+    if (state.abandoned) return undefined;
     const fresh = generate();
+    state.writing = true; // same tick as the check above and the call below
     try {
       await storage.setItem(ASSIGNMENT_ID_STORAGE_KEY, fresh);
     } catch (error) {
@@ -99,14 +184,38 @@ export const createInstallationIdStore = (
   };
 
   return {
-    get: () => {
+    token: () => epoch,
+    get: (token) => {
+      // Cleared since the caller started: no load, no write.
+      if (token !== undefined && token !== epoch) return Promise.resolve(undefined);
       if (!pending) {
-        pending = load().then((id) => {
+        const startedAt = epoch;
+        const settle = (id: string | undefined) => {
+          // Cleared while loading: `clear()` already dropped this memo.
+          if (epoch !== startedAt) return undefined;
           if (!id) pending = null;
           return id;
+        };
+        const state: LoadState = { abandoned: false, writing: false };
+        pending = enqueue(
+          () => load(startedAt, state),
+          () => {
+            state.abandoned = true;
+            // Not yet writing: the abandoned load will never write now, so the
+            // queue need not wait for its read. A write in flight still holds it.
+            return !state.writing;
+          },
+        ).then(settle, (error) => {
+          console.warn("[assignment-id] Loading the installation id failed; omitting it:", error);
+          return settle(undefined);
         });
       }
       return pending;
+    },
+    clear: () => {
+      epoch++;
+      pending = null;
+      return enqueue(() => storage.removeItem(ASSIGNMENT_ID_STORAGE_KEY));
     },
   };
 };
@@ -148,11 +257,13 @@ const readHostValue = async (option: AssignmentIdOption): Promise<string | false
  */
 export const resolveAssignmentId = async (
   option: AssignmentIdOption,
-  installation: InstallationIdStore,
+  installation: Pick<InstallationIdStore, "get" | "token">,
 ): Promise<string | undefined> => {
+  // Before the host getter's await: a clear() while it runs must be seen.
+  const token = installation.token();
   const host = await readHostValue(option);
   if (host === false) return undefined;
-  return host ?? installation.get();
+  return host ?? installation.get(token);
 };
 
 let installationIdStore = createInstallationIdStore(AsyncStorage);

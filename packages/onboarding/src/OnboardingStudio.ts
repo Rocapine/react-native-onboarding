@@ -1,6 +1,7 @@
 import { OnboardingStudioClient } from "./OnboardingStudioClient";
 import type { OnboardingStudioClientOptions } from "./types";
 import { userPropertyStore } from "./userProperties/store";
+import { getInstallationIdStore, type InstallationIdStore } from "./assignmentId";
 import type { UserPropertyStore } from "./userProperties/store";
 import type {
   UserProperties,
@@ -53,6 +54,18 @@ export type OnboardingStudioFacade = {
    * not changed — `getClient()?.clearCache()` is right there if both are wanted.
    */
   reset: () => void;
+  /**
+   * Deletes the stored installation id sent as `assignmentId`
+   * (`rocapine-assignment-id`) and forgets it in memory; a request already
+   * resolving it sends none. Works before `init`. The next request without a
+   * host id mints a NEW id, so on consent withdrawal also make the
+   * `assignmentId` option return `false`. Rejects if the removal fails or is
+   * still waiting after 2s.
+   *
+   * Separate from `reset()` on purpose: logging out must not move an install
+   * to another variant.
+   */
+  clearAssignmentId: () => Promise<void>;
 };
 
 /** Stable signature of a config, for the idempotency check in `init`. */
@@ -72,7 +85,11 @@ const configSignature = (projectId: string, options: Record<string, unknown>): s
  * `usePaywall()`, where that state is reachable and where a call cannot be made
  * before a provider exists.
  */
-export const createOnboardingStudio = (store: UserPropertyStore): OnboardingStudioFacade => {
+export const createOnboardingStudio = (
+  store: UserPropertyStore,
+  // A getter, not the store: tests swap the process-wide store between cases.
+  installation: () => InstallationIdStore = getInstallationIdStore,
+): OnboardingStudioFacade => {
   let client: OnboardingStudioClient | null = null;
   let signature: string | null = null;
 
@@ -118,6 +135,7 @@ export const createOnboardingStudio = (store: UserPropertyStore): OnboardingStud
     removeUserProperty: (key) => store.remove(key),
     getUserProperties: () => store.get(),
     reset: () => store.reset(),
+    clearAssignmentId: () => installation().clear(),
   };
 };
 

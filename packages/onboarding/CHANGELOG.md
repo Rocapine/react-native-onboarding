@@ -37,14 +37,27 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   consent). A getter that throws, rejects or takes over 2s fails closed the
   same way. With RevenueCat, `Purchases.configure()` must run before the first
   request.
-- **`timeout` is now end-to-end** for `getSteps` and `getPaywalls`: it covers
-  resolving the request identity (including the `assignmentId` getter) as well
-  as the fetch, so `fallbackOnboarding` arrives on time. A request whose budget
-  ran out while the id resolved is not sent afterwards.
   `assignmentId` is now a reserved user property key. It is not part of any
   cache key. Servers that do not read it ignore it. Changing the id (anonymous
   to identified) can move a person to another variant once; see the API
   reference.
+- **`timeout` is now end-to-end** for `getSteps` and `getPaywalls`: it covers
+  resolving the request identity (including the `assignmentId` getter) as well
+  as the fetch, so `fallbackOnboarding` arrives on time. A request whose budget
+  ran out while the id resolved is not sent afterwards.
+- **`OnboardingStudio.clearAssignmentId()` / `client.clearAssignmentId()`**
+  (#236) delete the stored `rocapine-assignment-id` and forget the in-memory
+  id, so a later request mints a new one (e.g. after consent is withdrawn,
+  together with a getter returning `false`). A request already resolving the
+  id sends none, even while its `assignmentId` getter is still pending, and a
+  first-launch id still being written is not brought back. Rejects if the
+  removal fails or is still waiting after 2s. The caller's wait on each queued
+  operation is bounded the same way, but operations still run strictly in
+  order, so a removal never overtakes a write in flight. A request stuck behind
+  a hung write or removal omits the id at its own 2s bound, which counts
+  against `timeout`. A hung read does not block later requests. A timed-out
+  request never mints, unless its write was already in flight (that write
+  still lands, ahead of any later removal). `reset()` does not call it.
 
 ### Fixed
 - **`expoIapProductProvider`: an Ask to Buy purchase resolves `"pending"`, not

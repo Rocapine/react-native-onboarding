@@ -376,7 +376,30 @@ OnboardingStudio.init({
 ```
 
 An installation id written before an opt-out stays on disk. It is not sent while
-the opt-out applies.
+the opt-out applies. To delete it, call `clearAssignmentId()`:
+
+```typescript
+// Consent withdrawn: stop sending an id, then delete the stored one.
+setConsented(false); // your getter now returns false
+await OnboardingStudio.clearAssignmentId(); // or client.clearAssignmentId()
+```
+
+`clearAssignmentId()` removes `rocapine-assignment-id` from AsyncStorage and
+forgets the id in memory. It works before `init`. A request that is already
+resolving the id when you call it sends none, even if your getter is still
+pending, and a first-launch id still being written is not brought back. It
+rejects if the removal fails, or if it is still waiting after 2 seconds. Each
+queued storage operation is bounded this way, but only for the caller. The
+operations still run strictly one after another, so a removal never overtakes a
+write already in flight. While a write or removal hangs, the requests queued
+behind it wait 2 seconds each and then send no `assignmentId`. That wait counts
+against `options.timeout`, which covers the whole request. A read that hangs
+does not block later requests. A timed-out request never mints an id, unless its
+write was already in flight. That write lands before any later removal. Make the getter
+return `false` first: otherwise the next request without a host id mints a
+**new** installation id, which can put the person in a different variant. Use
+that deliberately if you want a fresh assignment. `OnboardingStudio.reset()` does
+not call it, so logging out does not move anyone to another variant.
 
 :::caution Changing the id can change the variant
 The server picks the variant from the id. If the id a person sends changes, for
@@ -396,6 +419,16 @@ const { steps, headers } = await client.getSteps({
   locale: "en",
   onboardingId: "abc-123",
 });
+```
+
+**clearAssignmentId()**
+
+Deletes the stored installation id sent as `assignmentId`. Same effect as
+`OnboardingStudio.clearAssignmentId()`, because the id is shared by the whole
+process. See [Privacy and opting out](#privacy-and-opting-out).
+
+```typescript
+await client.clearAssignmentId();
 ```
 
 **clearCache()**

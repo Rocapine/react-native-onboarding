@@ -15,6 +15,9 @@ const memoryStorage = (initial: Record<string, string> = {}) => {
     setItem: vi.fn(async (k: string, v: string) => {
       data[k] = v;
     }),
+    removeItem: vi.fn(async (k: string) => {
+      delete data[k];
+    }),
   } satisfies AssignmentIdStorage;
   return { data, storage };
 };
@@ -95,7 +98,7 @@ describe("installation id store", () => {
 });
 
 describe("resolveAssignmentId", () => {
-  const installation = (id: string | undefined) => ({ get: vi.fn(async () => id) });
+  const installation = (id: string | undefined) => ({ token: () => 0, get: vi.fn(async () => id) });
 
   it("no override: the installation id", async () => {
     expect(await resolveAssignmentId(undefined, installation("inst"))).toBe("inst");

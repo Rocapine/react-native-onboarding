@@ -47,6 +47,10 @@ export type OnboardingStudioClientOptions<
    * installation id it generates once and persists. Absent from the request
    * when neither is available.
    *
+   * `false` (or a getter returning `false`) opts out: nothing is sent, and the
+   * installation id is never read, created or written. Use it until the user
+   * has consented. `null` and `""` are not an opt-out.
+   *
    * Changing the value (e.g. anonymous → identified on login) can move the
    * person to another variant, once.
    */

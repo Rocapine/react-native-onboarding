@@ -130,6 +130,24 @@ describe("resolveAssignmentId", () => {
     expect(await resolveAssignmentId(() => value, installation("inst"))).toBe("inst");
   });
 
+  it("false opts out: absent, and the installation id is never read, created or written", async () => {
+    const inst = installation("inst");
+    expect(await resolveAssignmentId(false, inst)).toBeUndefined();
+    expect(await resolveAssignmentId(() => false, inst)).toBeUndefined();
+    expect(await resolveAssignmentId(async () => false as const, inst)).toBeUndefined();
+    expect(inst.get).not.toHaveBeenCalled();
+  });
+
+  it("a getter can opt out per request (e.g. until consent) and opt back in", async () => {
+    let consented = false;
+    const inst = installation("inst");
+    const getter = () => (consented ? undefined : false);
+    expect(await resolveAssignmentId(getter, inst)).toBeUndefined();
+    expect(inst.get).not.toHaveBeenCalled();
+    consented = true;
+    expect(await resolveAssignmentId(getter, inst)).toBe("inst");
+  });
+
   it("a throwing or rejecting getter falls through to the installation id", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const boom = () => {

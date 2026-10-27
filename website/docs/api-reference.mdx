@@ -263,7 +263,7 @@ new OnboardingStudioClient(
   projectId: string,
   options?: {
     appVersion?: string;
-    assignmentId?: string | (() => string | null | undefined | Promise<string | null | undefined>);
+    assignmentId?: string | false | (() => string | false | null | undefined | Promise<string | false | null | undefined>);
     isSandbox?: boolean;
     baseUrl?: string;
     fallbackOnboarding?: Onboarding;
@@ -279,7 +279,7 @@ new OnboardingStudioClient(
 |-------|------|---------|-------------|
 | `projectId` | `string` | **Required** | Your Rocapine project ID |
 | `options.appVersion` | `string` | - | Your app version (sent to the CMS for version targeting) |
-| `options.assignmentId` | `string \| () => string \| Promise<string>` | Installation id | Stable per-person id sent with every request so a person keeps the same variant across launches. A getter is called on every request. See [Sticky variant assignment](#sticky-variant-assignment). |
+| `options.assignmentId` | `string \| false \| () => string \| false \| Promise<…>` | Installation id | Stable per-person id sent with every request so a person keeps the same variant across launches. A getter is called on every request. `false` opts out. See [Sticky variant assignment](#sticky-variant-assignment). |
 | `options.isSandbox` | `boolean` | `false` | Enable sandbox/draft mode (always fetches fresh, never caches) |
 | `options.baseUrl` | `string` | Rocapine prod | Override the CMS endpoint (testing/self-host) |
 | `options.fallbackOnboarding` | `Onboarding` | - | Payload returned on fetch failure (never cached) |
@@ -301,8 +301,8 @@ The SDK resolves it per request, in this order:
 3. **Nothing**: if storage cannot be read or written, the param is omitted rather
    than sent with an id the next launch would not repeat.
 
-A host value that is empty, throws, or takes longer than 2 seconds falls back to
-the installation id for that request.
+A host value that is empty (`""`, `null`, `undefined`), throws, or takes longer
+than 2 seconds falls back to the installation id for that request.
 
 To assign by your RevenueCat App User ID (stable across devices once the user is
 identified):
@@ -318,6 +318,39 @@ OnboardingStudio.init({
 
 `Purchases.configure()` must have run before the first request. If it has not,
 the getter throws and that request uses the installation id instead.
+
+The SDK never reads RevenueCat on its own: the getter is the only way to use the
+RevenueCat App User ID. Detecting it automatically would make the id depend on
+whether RevenueCat was configured before the first request, so the same install
+could send different ids on different launches.
+
+##### Privacy and opting out
+
+What is stored, and when: on the first `getSteps` or `getPaywalls` request
+without a host id, the SDK writes one random UUID to AsyncStorage under
+`rocapine-assignment-id`, and sends it as `assignmentId` on that request and
+every later one. It is not derived from any device or advertising identifier, and
+it is not shared with any other SDK. It stays until the app is uninstalled or its
+storage is cleared. If you pass your own id, the SDK sends that instead and
+stores nothing. Declare it accordingly in your privacy disclosures, for example
+as a device or user identifier used for app functionality.
+
+To send nothing, pass `false`, or return `false` from the getter. The param is
+then omitted, and the installation id is never read, created or written. Every
+request is then assigned independently, with no stickiness across requests.
+`null` and `""` are **not** an opt-out: they fall back to the installation id.
+
+To wait for consent, return `false` until it is given:
+
+```typescript
+OnboardingStudio.init({
+  projectId,
+  assignmentId: () => (hasConsented() ? undefined : false), // undefined → installation id
+});
+```
+
+An installation id written before an opt-out stays on disk. It is not sent while
+the opt-out applies.
 
 :::caution Changing the id can change the variant
 The server picks the variant from the id. If the id a person sends changes, for

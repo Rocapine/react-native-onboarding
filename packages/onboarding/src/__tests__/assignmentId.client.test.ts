@@ -38,6 +38,7 @@ describe.each(Object.entries(fetches))("%s assignmentId", (_name, fetchWith) => 
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
+    vi.clearAllMocks(); // the AsyncStorage module mock keeps call history across tests
     disk.data = {};
     __resetInstallationIdForTests();
     fetchMock = vi.fn().mockResolvedValue(fakeResponse({ metadata: {}, steps: [], paywalls: {} }));
@@ -79,6 +80,22 @@ describe.each(Object.entries(fetches))("%s assignmentId", (_name, fetchWith) => 
     expect(sent(0).get("assignmentId")).toBe("anon-1");
     expect(sent(1).get("assignmentId")).toBe("user-42");
     expect(disk.data[ASSIGNMENT_ID_STORAGE_KEY]).toBeUndefined();
+  });
+
+  it("assignmentId: false sends nothing and never touches storage", async () => {
+    const client = new OnboardingStudioClient("proj-1", { assignmentId: false });
+    await fetchWith(client);
+    expect(sent().has("assignmentId")).toBe(false);
+    expect(AsyncStorage.getItem).not.toHaveBeenCalledWith(ASSIGNMENT_ID_STORAGE_KEY);
+    expect(AsyncStorage.setItem).not.toHaveBeenCalledWith(ASSIGNMENT_ID_STORAGE_KEY, expect.anything());
+    expect(disk.data[ASSIGNMENT_ID_STORAGE_KEY]).toBeUndefined();
+  });
+
+  it("opting out drops a user param named assignmentId too", async () => {
+    await fetchWith(new OnboardingStudioClient("proj-1", { assignmentId: () => false }), {
+      assignmentId: "spoofed",
+    });
+    expect(sent().has("assignmentId")).toBe(false);
   });
 
   it("is absent when nothing stable is available (storage unreadable)", async () => {

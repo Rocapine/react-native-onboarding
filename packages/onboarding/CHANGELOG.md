@@ -15,7 +15,10 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   installation id survives `clearCache()` and `OnboardingStudio.reset()`. It is
   omitted, rather than invented, when storage cannot be read or written. A host
   value that is empty, throws, or takes over 2s falls back to the installation
-  id. `assignmentId` is now a reserved user property key. It is not part of any
+  id. `assignmentId: false`, or a getter returning `false`, opts out: nothing
+  is sent and the installation id is never read, created or written (e.g.
+  until consent); `null` and `""` still fall back to the installation id.
+  `assignmentId` is now a reserved user property key. It is not part of any
   cache key. Servers that do not read it ignore it. Changing the id (anonymous
   to identified) can move a person to another variant once; see the API
   reference.

@@ -14,12 +14,17 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
  *   3. else nothing: the param is omitted rather than invented, so the server
  *      can tell "no stable id" from "a fresh id it will never see again".
  *
+ * `false` (as the option, or returned by the getter) OPTS OUT: nothing is sent
+ * and the installation id is never read, created or written — e.g. until the
+ * user consents. `null` / `""` are not an opt-out; they fall through to 2.
+ *
  * A host value that is empty, throws, or does not settle within
  * `HOST_ASSIGNMENT_ID_TIMEOUT_MS` falls through to the installation id, so a
  * broken getter still yields a sticky assignment instead of none.
  */
 
-export type AssignmentIdValue = string | null | undefined;
+/** `false` opts out; `null` / `undefined` / `""` mean "no host value". */
+export type AssignmentIdValue = string | false | null | undefined;
 
 /** The `OnboardingStudioClientOptions.assignmentId` option. */
 export type AssignmentIdOption =
@@ -103,8 +108,12 @@ export const createInstallationIdStore = (
   };
 };
 
-/** Calls a host getter; never throws, never waits past the bound. */
-const readHostValue = async (option: AssignmentIdOption): Promise<string | undefined> => {
+/**
+ * Calls a host getter; never throws, never waits past the bound. Returns
+ * `false` only for an explicit opt-out.
+ */
+const readHostValue = async (option: AssignmentIdOption): Promise<string | false | undefined> => {
+  if (option === false) return false;
   if (typeof option !== "function") return nonEmpty(option);
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -120,7 +129,7 @@ const readHostValue = async (option: AssignmentIdOption): Promise<string | undef
         }, HOST_ASSIGNMENT_ID_TIMEOUT_MS);
       }),
     ]);
-    return nonEmpty(value);
+    return value === false ? false : nonEmpty(value);
   } catch (error) {
     console.warn("[assignment-id] The assignmentId getter threw; using the installation id:", error);
     return undefined;
@@ -129,11 +138,15 @@ const readHostValue = async (option: AssignmentIdOption): Promise<string | undef
   }
 };
 
-/** Host value → installation id → `undefined`. Never throws. */
+/** Opt-out → `undefined`; host value → installation id → `undefined`. Never throws. */
 export const resolveAssignmentId = async (
   option: AssignmentIdOption,
   installation: InstallationIdStore,
-): Promise<string | undefined> => (await readHostValue(option)) ?? installation.get();
+): Promise<string | undefined> => {
+  const host = await readHostValue(option);
+  if (host === false) return undefined;
+  return host ?? installation.get();
+};
 
 let installationIdStore = createInstallationIdStore(AsyncStorage);
 

@@ -206,9 +206,11 @@ Each onboarding and paywall request sends, besides your audience params:
   the same variant across launches. The `assignmentId` option if you pass one
   (a string, or a getter called on every request, e.g.
   `() => Purchases.getAppUserID()`), else an installation id generated once and
-  persisted in AsyncStorage, else not sent. Changing it (anonymous to logged
-  in) can move a person to another variant once. See the API reference's
-  "Sticky variant assignment".
+  persisted in AsyncStorage, else not sent. `false` (or a getter returning
+  `false`) sends nothing and never reads or writes the stored id: use it until
+  the user consents. Changing the id (anonymous to logged in) can move a person
+  to another variant once. See the API reference's "Sticky variant assignment",
+  which also covers what to declare in privacy disclosures.
 
 They are ordinary query params, so an audience rule can target them, for
 example `environment == "staging"` or a build range.

@@ -301,8 +301,9 @@ The SDK resolves it per request, in this order:
    AsyncStorage under `rocapine-assignment-id`. It survives app updates,
    `clearCache()` and `OnboardingStudio.reset()`. It is lost when the app is
    uninstalled or its storage is cleared.
-3. **Nothing**: if storage cannot be read or written, the param is omitted rather
-   than sent with an id the next launch would not repeat.
+3. **Nothing**: if storage cannot be read or written, the `X-Assignment-Id`
+   header is not sent, rather than sent with an id the next launch would not
+   repeat.
 
 A host value of `undefined`, `null` or `""` falls back to the installation id
 for that request.
@@ -364,8 +365,8 @@ storage is cleared. If you pass your own id, the SDK sends that instead and
 stores nothing. Declare it accordingly in your privacy disclosures, for example
 as a device or user identifier used for app functionality.
 
-To send nothing, pass `false`, or return `false` from the getter. The param is
-then omitted, and the installation id is never read, created or written. Every
+To send nothing, pass `false`, or return `false` from the getter. The
+`X-Assignment-Id` header is then not sent, and the installation id is never read, created or written. Every
 request is then assigned independently, with no stickiness across requests.
 `null` and `""` are **not** an opt-out: they fall back to the installation id.
 

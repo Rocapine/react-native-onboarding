@@ -1,4 +1,5 @@
 import type { NextStep } from "./steps/common.types";
+import type { AssignmentIdOption } from "./assignmentId";
 
 /**
  * Base step type that all onboarding steps must conform to.
@@ -37,9 +38,36 @@ export type OnboardingStudioClientOptions<
    * characters before it is sent. An audience rule can target it.
    */
   environment?: string;
+  /**
+   * The stable per-person id sent as `assignmentId`, so the server can keep a
+   * person in the same variant across launches. A string, or a getter called
+   * on every request (sync or async) — e.g. `() => Purchases.getAppUserID()`
+   * to use the RevenueCat App User ID (call `Purchases.configure()` before
+   * the first request). When omitted, or when the value is `undefined`,
+   * `null` or `""`, the SDK sends an installation id it generates once and
+   * persists. Absent from the request when neither is available.
+   *
+   * `false` (or a getter returning `false`) opts out: nothing is sent, and the
+   * installation id is never read, created or written. Use it until the user
+   * has consented. `null` and `""` are not an opt-out.
+   *
+   * Fails closed: a getter that throws, rejects or takes longer than 2s is
+   * treated like `false` for that request — nothing is sent and the
+   * installation id is not touched. Resolving it counts against `timeout`.
+   *
+   * Changing the value (e.g. anonymous → identified on login) can move the
+   * person to another variant, once.
+   */
+  assignmentId?: AssignmentIdOption;
   isSandbox?: boolean;
   baseUrl?: string;
   fallbackOnboarding?: Onboarding<StepType>;
+  /**
+   * End-to-end budget in ms for each `getSteps` / `getPaywalls` request:
+   * resolving the request identity (including the `assignmentId` getter) and
+   * the fetch together. On expiry `getSteps` returns `fallbackOnboarding` if
+   * set; otherwise both reject with `Error("timeout")`.
+   */
   timeout?: number;
   /**
    * Optional custom cache key. When provided, the fetched onboarding is

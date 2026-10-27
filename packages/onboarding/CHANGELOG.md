@@ -23,6 +23,28 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   `get-paywalls` untouched; `null` and absent are equivalent (no variant or
   deployment information). `CustomPaywallScreenProps.paywall` carries the same
   two fields, so a custom paywall screen sees them too.
+- **Every `getSteps` and `getPaywalls` request carries a stable
+  `assignmentId`** (#236), so the server can keep a person in the same variant
+  across launches. Resolved per request: the new `assignmentId` client option
+  (a string, or a sync/async getter called on every request, e.g.
+  `() => Purchases.getAppUserID()`), else an installation id generated once and
+  persisted in AsyncStorage under `rocapine-assignment-id`, else omitted. The
+  installation id survives `clearCache()` and `OnboardingStudio.reset()`. It is
+  omitted, rather than invented, when storage cannot be read or written. A host
+  value of `undefined`, `null` or `""` falls back to the installation id.
+  `assignmentId: false`, or a getter returning `false`, opts out: nothing is
+  sent and the installation id is never read, created or written (e.g. until
+  consent). A getter that throws, rejects or takes over 2s fails closed the
+  same way. With RevenueCat, `Purchases.configure()` must run before the first
+  request.
+- **`timeout` is now end-to-end** for `getSteps` and `getPaywalls`: it covers
+  resolving the request identity (including the `assignmentId` getter) as well
+  as the fetch, so `fallbackOnboarding` arrives on time. A request whose budget
+  ran out while the id resolved is not sent afterwards.
+  `assignmentId` is now a reserved user property key. It is not part of any
+  cache key. Servers that do not read it ignore it. Changing the id (anonymous
+  to identified) can move a person to another variant once; see the API
+  reference.
 
 ### Fixed
 - **`expoIapProductProvider`: an Ask to Buy purchase resolves `"pending"`, not

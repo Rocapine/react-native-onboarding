@@ -263,6 +263,7 @@ new OnboardingStudioClient(
   projectId: string,
   options?: {
     appVersion?: string;
+    assignmentId?: string | false | (() => string | false | null | undefined | Promise<string | false | null | undefined>);
     isSandbox?: boolean;
     baseUrl?: string;
     fallbackOnboarding?: Onboarding;
@@ -278,11 +279,111 @@ new OnboardingStudioClient(
 |-------|------|---------|-------------|
 | `projectId` | `string` | **Required** | Your Rocapine project ID |
 | `options.appVersion` | `string` | - | Your app version (sent to the CMS for version targeting) |
+| `options.assignmentId` | `string \| false \| () => string \| false \| Promise<…>` | Installation id | Stable per-person id sent with every request so a person keeps the same variant across launches. A getter is called on every request. `false` opts out. See [Sticky variant assignment](#sticky-variant-assignment). |
 | `options.isSandbox` | `boolean` | `false` | Enable sandbox/draft mode (always fetches fresh, never caches) |
 | `options.baseUrl` | `string` | Rocapine prod | Override the CMS endpoint (testing/self-host) |
 | `options.fallbackOnboarding` | `Onboarding` | - | Payload returned on fetch failure (never cached) |
-| `options.timeout` | `number` | - | Fetch timeout in ms |
+| `options.timeout` | `number` | - | End-to-end timeout in ms per request, covering `assignmentId` resolution and the fetch together |
 | `options.cacheKey` | `string` | - | Custom cache key. Persists the payload under `rocapine-onboarding-sdk-{cacheKey}` **cache-first with no background revalidation** (a pinned version survives across launches until you `clearCache()`). Omit for the default key with stale-while-revalidate. See [Caching Strategy](./core-concepts#caching-strategy). |
+
+#### Sticky variant assignment
+
+Every `getSteps` and `getPaywalls` request carries an `assignmentId` query
+param, so the server can put the same person in the same variant every time.
+The SDK resolves it per request, in this order:
+
+1. **`options.assignmentId`**: a string, or a getter (sync or async) called on
+   every request.
+2. **An installation id**: a UUID the SDK generates on first use and persists in
+   AsyncStorage under `rocapine-assignment-id`. It survives app updates,
+   `clearCache()` and `OnboardingStudio.reset()`. It is lost when the app is
+   uninstalled or its storage is cleared.
+3. **Nothing**: if storage cannot be read or written, the param is omitted rather
+   than sent with an id the next launch would not repeat.
+
+A host value of `undefined`, `null` or `""` falls back to the installation id
+for that request.
+
+A getter that **throws, rejects, or takes longer than 2 seconds fails closed**:
+that request sends no `assignmentId`, and the installation id is not read,
+created or written. A getter that cannot answer may be one that would have
+answered `false` (no consent yet), so the SDK never substitutes the stored id
+for it. Resolving the id counts against `options.timeout`, so a slow getter
+cannot delay `fallbackOnboarding` past it.
+
+To assign by your RevenueCat App User ID (stable across devices once the user is
+identified):
+
+```typescript
+import Purchases from "react-native-purchases";
+
+// App entry, at module scope: configure RevenueCat FIRST, then the SDK.
+Purchases.configure({ apiKey: REVENUECAT_API_KEY });
+
+OnboardingStudio.init({
+  projectId,
+  assignmentId: () => Purchases.getAppUserID(),
+});
+```
+
+`Purchases.configure()` must have run before the first `getSteps` or
+`getPaywalls` request, and `OnboardingProvider` / `PaywallProvider` fetch when
+they mount. If your RevenueCat setup is asynchronous (for example, you load the
+API key first), await it before mounting them:
+
+```tsx
+const [purchasesReady, setPurchasesReady] = useState(false);
+useEffect(() => {
+  setupPurchases().then(() => setPurchasesReady(true)); // resolves after Purchases.configure()
+}, []);
+if (!purchasesReady) return <Splash />;
+return <OnboardingProvider>{/* … */}</OnboardingProvider>;
+```
+
+If a request runs before `configure`, the getter throws, so that request sends
+no `assignmentId` (it fails closed, see above) and the server picks a variant at
+random. On a later launch the same person is assigned by their RevenueCat id and
+can land in a different variant.
+
+The SDK never reads RevenueCat on its own: the getter is the only way to use the
+RevenueCat App User ID. Detecting it automatically would make the id depend on
+whether RevenueCat was configured before the first request, so the same install
+could send different ids on different launches.
+
+##### Privacy and opting out
+
+What is stored, and when: on the first `getSteps` or `getPaywalls` request
+without a host id, the SDK writes one random UUID to AsyncStorage under
+`rocapine-assignment-id`, and sends it as `assignmentId` on that request and
+every later one. It is not derived from any device or advertising identifier, and
+it is not shared with any other SDK. It stays until the app is uninstalled or its
+storage is cleared. If you pass your own id, the SDK sends that instead and
+stores nothing. Declare it accordingly in your privacy disclosures, for example
+as a device or user identifier used for app functionality.
+
+To send nothing, pass `false`, or return `false` from the getter. The param is
+then omitted, and the installation id is never read, created or written. Every
+request is then assigned independently, with no stickiness across requests.
+`null` and `""` are **not** an opt-out: they fall back to the installation id.
+
+To wait for consent, return `false` until it is given:
+
+```typescript
+OnboardingStudio.init({
+  projectId,
+  assignmentId: () => (hasConsented() ? undefined : false), // undefined → installation id
+});
+```
+
+An installation id written before an opt-out stays on disk. It is not sent while
+the opt-out applies.
+
+:::caution Changing the id can change the variant
+The server picks the variant from the id. If the id a person sends changes, for
+example from an anonymous id to a logged-in user id, that person can move to
+another variant **once**, and is counted under both ids. To avoid it, pass an id
+that is already final on the first request, or keep the default installation id.
+:::
 
 #### Methods
 

@@ -1,6 +1,7 @@
 // Core client and types
 export { OnboardingStudioClient } from "./OnboardingStudioClient";
 export * from "./types";
+export type { AssignmentIdOption, AssignmentIdValue } from "./assignmentId";
 export * from "./onboarding-example";
 // Cache key helper (advanced/host use — e.g. to read/clear the persisted key)
 export {

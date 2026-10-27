@@ -20,6 +20,7 @@ import {
 
 import { Platform } from "react-native";
 import { readNativeAppInfo, resolveRequestIdentity } from "./requestIdentity";
+import { getInstallationIdStore, resolveAssignmentId } from "./assignmentId";
 
 export class OnboardingStudioClient {
   private baseUrl: string;
@@ -49,12 +50,50 @@ export class OnboardingStudioClient {
    * would then leave a same-named user param on the wire (a property persisted
    * before these names were reserved is re-read without a reserved-key check).
    */
-  private writeIdentity(urlParams: URLSearchParams): void {
+  private async writeIdentity(urlParams: URLSearchParams): Promise<void> {
     urlParams.delete("appVersion");
     urlParams.delete("build");
     for (const [key, value] of Object.entries(this.identityParams())) {
       urlParams.set(key, value);
     }
+    // Same delete-first rule: absent must mean absent, never a user param.
+    urlParams.delete("assignmentId");
+    const assignmentId = await this.getAssignmentId();
+    if (assignmentId) urlParams.set("assignmentId", assignmentId);
+  }
+
+  /**
+   * The `assignmentId` the next request will carry: the host's `assignmentId`
+   * option, else the persisted installation id, else `undefined` (sent as
+   * absent). Resolved per request, never memoized here, because a host getter
+   * may change value on login. Never throws. See `assignmentId.ts`.
+   */
+  getAssignmentId(): Promise<string | undefined> {
+    return resolveAssignmentId(this.options.assignmentId, getInstallationIdStore());
+  }
+
+  /**
+   * Races `work` against `options.timeout`, rejecting with `Error("timeout")`.
+   * `work` covers identity resolution AND the fetch, so `timeout` is one
+   * end-to-end budget: a slow `assignmentId` getter cannot push
+   * `fallbackOnboarding` (or the rejection) past it. `work` gets an `expired()`
+   * check so a request whose budget ran out while the id resolved is never
+   * sent afterwards (the server would count a serve nobody receives).
+   */
+  private withTimeout<T>(work: (expired: () => boolean) => Promise<T>): Promise<T> {
+    const ms = this.options.timeout;
+    if (!ms) return work(() => false);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let timedOut = false;
+    return Promise.race([
+      work(() => timedOut),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          timedOut = true;
+          reject(new Error("timeout"));
+        }, ms);
+      }),
+    ]).finally(() => clearTimeout(timer));
   }
 
   constructor(projectId: string, options: OnboardingStudioClientOptions) {
@@ -117,7 +156,6 @@ export class OnboardingStudioClient {
     // value would lose to a same-named user param added above.
     urlParams.set("projectId", this.projectId);
     urlParams.set("platform", Platform.OS);
-    this.writeIdentity(urlParams);
 
     if (isSandbox) {
       urlParams.set("draft", "true");
@@ -128,21 +166,17 @@ export class OnboardingStudioClient {
       urlParams.set("locale", onboardingOptions.locale);
     }
 
-    const url = `${this.baseUrl}/get-onboarding-steps?${urlParams.toString()}`;
-    console.info("OnboardingStudioClient getSteps url", url);
     try {
-      const response = await Promise.race(
-        this.options.timeout
-          ? [
-              fetch(url),
-              new Promise<Response>((_, reject) =>
-                setTimeout(
-                  () => reject(new Error("timeout")),
-                  this.options.timeout
-                )
-              ),
-            ]
-          : [fetch(url)]
+      // Identity (incl. the host's assignmentId getter) resolves inside the
+      // same timeout budget as the fetch — see `withTimeout`.
+      const response = await this.withTimeout(
+        async (expired) => {
+          await this.writeIdentity(urlParams);
+          if (expired()) throw new Error("timeout");
+          const url = `${this.baseUrl}/get-onboarding-steps?${urlParams.toString()}`;
+          console.info("OnboardingStudioClient getSteps url", url);
+          return fetch(url);
+        }
       );
       if (!response.ok) {
         throw new Error(
@@ -205,7 +239,6 @@ export class OnboardingStudioClient {
     // SDK-owned keys use `set`, never `append` (see getSteps).
     urlParams.set("projectId", this.projectId);
     urlParams.set("platform", Platform.OS);
-    this.writeIdentity(urlParams);
 
     if (isSandbox) {
       urlParams.set("draft", "true");
@@ -228,21 +261,17 @@ export class OnboardingStudioClient {
     // and `Paywall`'s declared `| null` fields. This client parses into those
     // typed objects, so the fields must always be present (possibly `null`),
     // not sometimes missing.
-    const url = `${this.baseUrl}/get-paywalls?${urlParams.toString()}`;
-    console.info("OnboardingStudioClient getPaywalls url", url);
     try {
-      const response = await Promise.race(
-        this.options.timeout
-          ? [
-              fetch(url),
-              new Promise<Response>((_, reject) =>
-                setTimeout(
-                  () => reject(new Error("timeout")),
-                  this.options.timeout
-                )
-              ),
-            ]
-          : [fetch(url)]
+      // Identity (incl. the host's assignmentId getter) resolves inside the
+      // same timeout budget as the fetch — see `withTimeout`.
+      const response = await this.withTimeout(
+        async (expired) => {
+          await this.writeIdentity(urlParams);
+          if (expired()) throw new Error("timeout");
+          const url = `${this.baseUrl}/get-paywalls?${urlParams.toString()}`;
+          console.info("OnboardingStudioClient getPaywalls url", url);
+          return fetch(url);
+        }
       );
       if (!response.ok) {
         throw new Error(

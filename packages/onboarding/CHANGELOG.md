@@ -4,7 +4,7 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
-## [Unreleased]
+## [1.78.0] - 2026-10-27
 ### Added
 - **`OnboardingMetadata` carries `variantKey` and `deploymentId`** (#234).
   Both are optional, nullable and typed only: `getSteps` already passes the

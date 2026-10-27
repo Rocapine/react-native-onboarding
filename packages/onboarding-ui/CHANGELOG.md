@@ -5,7 +5,7 @@ here.
 
 ---
 
-## [Unreleased]
+## [1.78.0] - 2026-10-27
 ### Added
 - **A custom paywall screen receives `variantKey` and `deploymentId`** (#235)
   on its `paywall` prop, from both `PaywallHost` and the inline `Paywall` step,

@@ -283,7 +283,7 @@ new OnboardingStudioClient(
 | `options.isSandbox` | `boolean` | `false` | Enable sandbox/draft mode (always fetches fresh, never caches) |
 | `options.baseUrl` | `string` | Rocapine prod | Override the CMS endpoint (testing/self-host) |
 | `options.fallbackOnboarding` | `Onboarding` | - | Payload returned on fetch failure (never cached) |
-| `options.timeout` | `number` | - | Fetch timeout in ms |
+| `options.timeout` | `number` | - | End-to-end timeout in ms per request, covering `assignmentId` resolution and the fetch together |
 | `options.cacheKey` | `string` | - | Custom cache key. Persists the payload under `rocapine-onboarding-sdk-{cacheKey}` **cache-first with no background revalidation** (a pinned version survives across launches until you `clearCache()`). Omit for the default key with stale-while-revalidate. See [Caching Strategy](./core-concepts#caching-strategy). |
 
 #### Sticky variant assignment
@@ -301,8 +301,15 @@ The SDK resolves it per request, in this order:
 3. **Nothing**: if storage cannot be read or written, the param is omitted rather
    than sent with an id the next launch would not repeat.
 
-A host value that is empty (`""`, `null`, `undefined`), throws, or takes longer
-than 2 seconds falls back to the installation id for that request.
+A host value of `undefined`, `null` or `""` falls back to the installation id
+for that request.
+
+A getter that **throws, rejects, or takes longer than 2 seconds fails closed**:
+that request sends no `assignmentId`, and the installation id is not read,
+created or written. A getter that cannot answer may be one that would have
+answered `false` (no consent yet), so the SDK never substitutes the stored id
+for it. Resolving the id counts against `options.timeout`, so a slow getter
+cannot delay `fallbackOnboarding` past it.
 
 To assign by your RevenueCat App User ID (stable across devices once the user is
 identified):
@@ -310,14 +317,33 @@ identified):
 ```typescript
 import Purchases from "react-native-purchases";
 
+// App entry, at module scope: configure RevenueCat FIRST, then the SDK.
+Purchases.configure({ apiKey: REVENUECAT_API_KEY });
+
 OnboardingStudio.init({
   projectId,
   assignmentId: () => Purchases.getAppUserID(),
 });
 ```
 
-`Purchases.configure()` must have run before the first request. If it has not,
-the getter throws and that request uses the installation id instead.
+`Purchases.configure()` must have run before the first `getSteps` or
+`getPaywalls` request, and `OnboardingProvider` / `PaywallProvider` fetch when
+they mount. If your RevenueCat setup is asynchronous (for example, you load the
+API key first), await it before mounting them:
+
+```tsx
+const [purchasesReady, setPurchasesReady] = useState(false);
+useEffect(() => {
+  setupPurchases().then(() => setPurchasesReady(true)); // resolves after Purchases.configure()
+}, []);
+if (!purchasesReady) return <Splash />;
+return <OnboardingProvider>{/* … */}</OnboardingProvider>;
+```
+
+If a request runs before `configure`, the getter throws, so that request sends
+no `assignmentId` (it fails closed, see above) and the server picks a variant at
+random. On a later launch the same person is assigned by their RevenueCat id and
+can land in a different variant.
 
 The SDK never reads RevenueCat on its own: the getter is the only way to use the
 RevenueCat App User ID. Detecting it automatically would make the id depend on

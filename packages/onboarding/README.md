@@ -208,7 +208,10 @@ Each onboarding and paywall request sends, besides your audience params:
   `() => Purchases.getAppUserID()`), else an installation id generated once and
   persisted in AsyncStorage, else not sent. `false` (or a getter returning
   `false`) sends nothing and never reads or writes the stored id: use it until
-  the user consents. Changing the id (anonymous to logged in) can move a person
+  the user consents. A getter that throws, rejects or takes over 2s fails
+  closed the same way (nothing sent, stored id untouched); only `undefined`,
+  `null` or `""` fall back to the installation id. With RevenueCat, call
+  `Purchases.configure()` before the providers mount. Changing the id (anonymous to logged in) can move a person
   to another variant once. See the API reference's "Sticky variant assignment",
   which also covers what to declare in privacy disclosures.
 

@@ -148,22 +148,43 @@ describe("resolveAssignmentId", () => {
     expect(await resolveAssignmentId(getter, inst)).toBe("inst");
   });
 
-  it("a throwing or rejecting getter falls through to the installation id", async () => {
+  // Fail closed: a getter that cannot answer may be one that would have said
+  // `false` (no consent yet), so it must never fall back to the stored id.
+  it("a throwing or rejecting getter omits the id and never touches the store", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
+    const inst = installation("inst");
     const boom = () => {
       throw new Error("Purchases not configured");
     };
-    expect(await resolveAssignmentId(boom, installation("inst"))).toBe("inst");
-    expect(await resolveAssignmentId(async () => boom(), installation("inst"))).toBe("inst");
+    expect(await resolveAssignmentId(boom, inst)).toBeUndefined();
+    expect(await resolveAssignmentId(async () => boom(), inst)).toBeUndefined();
+    expect(inst.get).not.toHaveBeenCalled();
   });
 
-  it("a getter that never settles is abandoned after the bound, not awaited forever", async () => {
+  it("a getter that never settles is abandoned after the bound: omitted, store untouched", async () => {
     vi.useFakeTimers();
     vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
-      const pending = resolveAssignmentId(() => new Promise<string>(() => {}), installation("inst"));
+      const inst = installation("inst");
+      const pending = resolveAssignmentId(() => new Promise<string>(() => {}), inst);
       await vi.advanceTimersByTimeAsync(5000);
-      expect(await pending).toBe("inst");
+      expect(await pending).toBeUndefined();
+      expect(inst.get).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a getter that settles false after the bound (2.5s) still sends nothing and stores nothing", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const inst = installation("inst");
+      const late = () => new Promise<false>((r) => setTimeout(() => r(false), 2500));
+      const pending = resolveAssignmentId(late, inst);
+      await vi.advanceTimersByTimeAsync(3000);
+      expect(await pending).toBeUndefined();
+      expect(inst.get).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }

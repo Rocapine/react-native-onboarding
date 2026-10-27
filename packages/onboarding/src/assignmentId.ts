@@ -18,9 +18,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
  * and the installation id is never read, created or written — e.g. until the
  * user consents. `null` / `""` are not an opt-out; they fall through to 2.
  *
- * A host value that is empty, throws, or does not settle within
- * `HOST_ASSIGNMENT_ID_TIMEOUT_MS` falls through to the installation id, so a
- * broken getter still yields a sticky assignment instead of none.
+ * A host value of `undefined`, `null` or `""` falls through to the installation
+ * id. A getter that throws, rejects, or does not settle within
+ * `HOST_ASSIGNMENT_ID_TIMEOUT_MS` FAILS CLOSED: the id is omitted for that
+ * request and the installation id is not read, created or written. A getter
+ * that cannot answer may be one that would have answered `false` (no consent
+ * yet), so it must never be overridden by the stored id.
  */
 
 /** `false` opts out; `null` / `undefined` / `""` mean "no host value". */
@@ -110,7 +113,8 @@ export const createInstallationIdStore = (
 
 /**
  * Calls a host getter; never throws, never waits past the bound. Returns
- * `false` only for an explicit opt-out.
+ * `false` (omit, store untouched) for an explicit opt-out AND for a getter that
+ * throws or times out; `undefined` only for "no host value".
  */
 const readHostValue = async (option: AssignmentIdOption): Promise<string | false | undefined> => {
   if (option === false) return false;
@@ -119,26 +123,29 @@ const readHostValue = async (option: AssignmentIdOption): Promise<string | false
   try {
     const value = await Promise.race([
       Promise.resolve().then(option),
-      new Promise<undefined>((resolve) => {
+      new Promise<false>((resolve) => {
         timer = setTimeout(() => {
           console.warn(
             `[assignment-id] The assignmentId getter did not settle within ${HOST_ASSIGNMENT_ID_TIMEOUT_MS}ms; ` +
-              "using the installation id for this request."
+              "sending no assignmentId for this request."
           );
-          resolve(undefined);
+          resolve(false);
         }, HOST_ASSIGNMENT_ID_TIMEOUT_MS);
       }),
     ]);
     return value === false ? false : nonEmpty(value);
   } catch (error) {
-    console.warn("[assignment-id] The assignmentId getter threw; using the installation id:", error);
-    return undefined;
+    console.warn("[assignment-id] The assignmentId getter threw; sending no assignmentId for this request:", error);
+    return false;
   } finally {
     clearTimeout(timer);
   }
 };
 
-/** Opt-out → `undefined`; host value → installation id → `undefined`. Never throws. */
+/**
+ * Opt-out, throw or timeout → `undefined` (store untouched); host value →
+ * installation id → `undefined`. Never throws.
+ */
 export const resolveAssignmentId = async (
   option: AssignmentIdOption,
   installation: InstallationIdStore,

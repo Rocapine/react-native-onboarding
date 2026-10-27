@@ -135,3 +135,26 @@ describe("PaywallHost: a custom screen's transaction (#287)", () => {
     expect(warn).not.toHaveBeenCalled();
   });
 });
+
+describe("PaywallHost: a custom screen sees the moment's variant identity (#235)", () => {
+  it("passes variantKey and deploymentId through on the paywall prop", async () => {
+    await show({ ...custom, variantKey: "b", deploymentId: 42 });
+    expect(h.screenProps.paywall).toEqual({
+      id: "pw",
+      name: "pw",
+      moment: "upgrade",
+      customScreenId: "native",
+      variantKey: "b",
+      deploymentId: 42,
+    });
+  });
+
+  it("passes null through as null, and leaves them undefined when the catalog has none", async () => {
+    await show({ ...custom, variantKey: null, deploymentId: null });
+    expect([h.screenProps.paywall.variantKey, h.screenProps.paywall.deploymentId]).toEqual([null, null]);
+    await act(async () => root!.unmount());
+    root = null;
+    await show(custom);
+    expect([h.screenProps.paywall.variantKey, h.screenProps.paywall.deploymentId]).toEqual([undefined, undefined]);
+  });
+});

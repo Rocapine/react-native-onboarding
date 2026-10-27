@@ -16,6 +16,13 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   the same thing (no variant information) and should be treated identically.
   `deploymentId` is `null` on a draft (sandbox) payload, which has no
   deployment. No runtime change.
+- **Resolved `Paywall`: `variantKey`, `deploymentId`** (#235). Optional and
+  nullable (`string | null`, `number | null`), resolved per moment like
+  `audienceId`, so two moments in one catalog can carry different values. The
+  parent paywall reports the reserved `variantKey: "main"`. Passed through from
+  `get-paywalls` untouched; `null` and absent are equivalent (no variant or
+  deployment information). `CustomPaywallScreenProps.paywall` carries the same
+  two fields, so a custom paywall screen sees them too.
 
 ### Fixed
 - **`expoIapProductProvider`: an Ask to Buy purchase resolves `"pending"`, not

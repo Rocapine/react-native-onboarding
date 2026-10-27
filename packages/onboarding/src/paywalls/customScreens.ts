@@ -90,12 +90,19 @@ export type CustomPaywallScreenProps = {
    * `name` are the studio's, for analytics. Enough to report a conversion
    * without also handing over the `elements` tree a custom paywall has no use
    * for.
+   *
+   * `variantKey` and `deploymentId` are the catalog entry's own, passed
+   * through untouched: see `Paywall.variantKey` / `Paywall.deploymentId` for
+   * what they mean. `null` and absent are equivalent (no variant or
+   * deployment information).
    */
   paywall: {
     id: string;
     name: string;
     moment: string;
     customScreenId: string;
+    variantKey?: string | null;
+    deploymentId?: number | null;
   };
 };
 

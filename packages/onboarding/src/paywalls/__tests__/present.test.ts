@@ -86,6 +86,20 @@ describe("resolvePresentDecision", () => {
     expect(decision).toEqual({ type: "start", paywall });
   });
 
+  it("hands present() the moment's own variant identity, per moment (#235)", () => {
+    const armed = makePaywall({ id: "a", moment: "end", variantKey: "b", deploymentId: 42 });
+    const other = makePaywall({ id: "b", moment: "settings", variantKey: "main", deploymentId: 7 });
+    const both = makeCatalog([armed, other]);
+
+    const pick = (moment: string) => {
+      const d = resolvePresentDecision(both, null, moment);
+      if (d.type !== "start") throw new Error(`expected start, got ${d.type}`);
+      return [d.paywall.variantKey, d.paywall.deploymentId];
+    };
+    expect(pick("end")).toEqual(["b", 42]);
+    expect(pick("settings")).toEqual(["main", 7]);
+  });
+
   // Every error below carries a `reason`. The bare `{status:"error"}` these
   // used to assert is what made two conditions with OPPOSITE correct responses
   // — "retry later, the catalog may still arrive" vs "do not retry, something

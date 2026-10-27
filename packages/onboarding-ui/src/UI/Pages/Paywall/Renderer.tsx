@@ -57,6 +57,9 @@ type ResolvedPaywall = {
   renderMode?: "elements" | "custom" | null;
   customScreenId?: string | null;
   customPayload?: Record<string, { ios?: string; android?: string }> | null;
+  // Passed through to a custom screen's `paywall` prop, untouched.
+  variantKey?: string | null;
+  deploymentId?: number | null;
 };
 
 /**
@@ -384,6 +387,8 @@ const PaywallStepRendererBase = ({
           name: paywall.name,
           moment: paywall.moment,
           customScreenId,
+          variantKey: paywall.variantKey,
+          deploymentId: paywall.deploymentId,
         }}
       />,
     );

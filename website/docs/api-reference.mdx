@@ -382,6 +382,8 @@ interface OnboardingStepMetadata {
   audienceOrder?: number;
   locale?: string;
   draft?: boolean;
+  variantKey?: string | null;
+  deploymentId?: number | null;
 }
 ```
 
@@ -394,6 +396,17 @@ interface OnboardingStepMetadata {
 | `audienceOrder` | `number?` | Audience priority order |
 | `locale` | `string?` | Locale of the onboarding |
 | `draft` | `boolean?` | Whether this is a draft version |
+| `variantKey` | `string \| null?` | Variant of the onboarding the user was served; the parent onboarding reports the reserved `MAIN_VARIANT_KEY` (`"main"`). `null` and absent mean the same thing (no variant information, e.g. an older server); treat them identically |
+| `deploymentId` | `number \| null?` | Published deployment that was served; `null` for a draft payload |
+
+`MAIN_VARIANT_KEY` is exported from `@rocapine/react-native-onboarding`:
+
+```typescript
+import { MAIN_VARIANT_KEY } from "@rocapine/react-native-onboarding";
+
+const variant = metadata.variantKey ?? undefined; // null and absent: no variant info
+const isMain = variant === MAIN_VARIANT_KEY; // "main"
+```
 
 ---
 

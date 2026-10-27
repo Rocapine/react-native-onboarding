@@ -67,6 +67,16 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   still lands, ahead of any later removal). `reset()` does not call it.
 
 ### Fixed
+- **`assignmentId` is sent as the `X-Assignment-Id` request header, never as a
+  query param** (#345). Edge invocation logs record the full request URL, and
+  the id may be a host's user id (e.g. a RevenueCat App User ID), so on the
+  querystring it was logged on every `getSteps` and `getPaywalls` request. A
+  custom audience param named `assignmentId` is still dropped from the URL. The
+  resolution rules are unchanged: `false` opts out, a getter that throws,
+  rejects or takes over 2s sends no header, the installation id fallback and
+  `clearAssignmentId()` behave as before. Requires a server that reads the
+  header; one that reads only the old query param assigns as if no id were
+  sent.
 - **`expoIapProductProvider`: an Ask to Buy purchase resolves `"pending"`, not
   `"error"`** (#337). openiap reports StoreKit's `.pending` purchase result as
   the error code `deferred-payment`, and the adapter only recognised the

@@ -203,7 +203,9 @@ Each onboarding and paywall request sends, besides your audience params:
   `"development"` under `__DEV__`, `"production"` otherwise. Lower-cased,
   reduced to `a-z`, `0-9`, `_` and `-`, at most 32 characters.
 - `assignmentId`: a stable per-person id, so the server can keep a person in
-  the same variant across launches. The `assignmentId` option if you pass one
+  the same variant across launches. Sent as the `X-Assignment-Id` request
+  header, never on the querystring: it may be one of your user ids, and request
+  URLs end up in server logs. The `assignmentId` option if you pass one
   (a string, or a getter called on every request, e.g.
   `() => Purchases.getAppUserID()`), else an installation id generated once and
   persisted in AsyncStorage, else not sent. `false` (or a getter returning
@@ -217,8 +219,9 @@ Each onboarding and paywall request sends, besides your audience params:
   to another variant once. See the API reference's "Sticky variant assignment",
   which also covers what to declare in privacy disclosures.
 
-They are ordinary query params, so an audience rule can target them, for
-example `environment == "staging"` or a build range.
+All but `assignmentId` are ordinary query params, so an audience rule can
+target them, for example `environment == "staging"` or a build range.
+`assignmentId` is a header, not an audience param: no rule can read it.
 
 ### Relationship to `customAudienceParams`
 

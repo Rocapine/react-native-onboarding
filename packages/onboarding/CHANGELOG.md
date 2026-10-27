@@ -6,6 +6,23 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ## [Unreleased]
 ### Added
+- **`OnboardingMetadata` carries `variantKey` and `deploymentId`** (#234).
+  Both are optional, nullable and typed only: `getSteps` already passes the
+  server's `metadata` through untouched, so a payload that carries them now
+  reaches `useOnboardingStep().onboardingMetadata` and `onComplete`'s
+  `metadata` typed, and a payload that does not reads them as `undefined`.
+  `variantKey` names the variant served; the parent onboarding reports the
+  reserved `"main"`, exported as `MAIN_VARIANT_KEY`. `null` and absent mean
+  the same thing (no variant information) and should be treated identically.
+  `deploymentId` is `null` on a draft (sandbox) payload, which has no
+  deployment. No runtime change.
+- **Resolved `Paywall`: `variantKey`, `deploymentId`** (#235). Optional and
+  nullable (`string | null`, `number | null`), resolved per moment like
+  `audienceId`, so two moments in one catalog can carry different values. The
+  parent paywall reports the reserved `variantKey: "main"`. Passed through from
+  `get-paywalls` untouched; `null` and absent are equivalent (no variant or
+  deployment information). `CustomPaywallScreenProps.paywall` carries the same
+  two fields, so a custom paywall screen sees them too.
 - **Every `getSteps` and `getPaywalls` request carries a stable
   `assignmentId`** (#236), so the server can keep a person in the same variant
   across launches. Resolved per request: the new `assignmentId` client option

@@ -23,6 +23,28 @@ export type Paywall = {
   moment: string;
   audienceId: number | null;
   audienceName: string | null;
+  /**
+   * Which variant of the paywall this moment resolved to. Resolved PER MOMENT,
+   * for the same reason as `audienceId` above: one moment can serve a variant
+   * while another serves the parent paywall, so two entries in one catalog can
+   * carry different values.
+   *
+   * The parent paywall itself reports the reserved key `"main"`; any other
+   * value names a variant of it.
+   *
+   * Passed through exactly as `get-paywalls` sends it; the SDK neither reads
+   * nor normalizes it. `null` and ABSENT (`undefined`) are equivalent: both
+   * mean "no variant information". Absent is what an older `get-paywalls`
+   * that predates the field produces — a device on a new SDK can be talking
+   * to one — so a consumer must not treat the two differently.
+   */
+  variantKey?: string | null;
+  /**
+   * Which published deployment this moment's paywall was served from. Same
+   * per-moment and pass-through rules as `variantKey`, and the same
+   * equivalence: `null` and absent both mean "no deployment information".
+   */
+  deploymentId?: number | null;
   /** UIElement[] — parsed by the UI adapter (Task 7's `ScreenElementsSchema`), not here. */
   elements: unknown[];
   /**

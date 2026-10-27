@@ -1,4 +1,5 @@
 import type { NextStep } from "./steps/common.types";
+import type { AssignmentIdOption } from "./assignmentId";
 
 /**
  * Base step type that all onboarding steps must conform to.
@@ -37,6 +38,19 @@ export type OnboardingStudioClientOptions<
    * characters before it is sent. An audience rule can target it.
    */
   environment?: string;
+  /**
+   * The stable per-person id sent as `assignmentId`, so the server can keep a
+   * person in the same variant across launches. A string, or a getter called
+   * on every request (sync or async) — e.g. `() => Purchases.getAppUserID()`
+   * to use the RevenueCat App User ID. When omitted, or when the value is
+   * empty, the getter throws, or it takes longer than 2s, the SDK sends an
+   * installation id it generates once and persists. Absent from the request
+   * when neither is available.
+   *
+   * Changing the value (e.g. anonymous → identified on login) can move the
+   * person to another variant, once.
+   */
+  assignmentId?: AssignmentIdOption;
   isSandbox?: boolean;
   baseUrl?: string;
   fallbackOnboarding?: Onboarding<StepType>;

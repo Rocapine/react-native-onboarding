@@ -20,6 +20,7 @@ import {
 
 import { Platform } from "react-native";
 import { readNativeAppInfo, resolveRequestIdentity } from "./requestIdentity";
+import { getInstallationIdStore, resolveAssignmentId } from "./assignmentId";
 
 export class OnboardingStudioClient {
   private baseUrl: string;
@@ -49,12 +50,26 @@ export class OnboardingStudioClient {
    * would then leave a same-named user param on the wire (a property persisted
    * before these names were reserved is re-read without a reserved-key check).
    */
-  private writeIdentity(urlParams: URLSearchParams): void {
+  private async writeIdentity(urlParams: URLSearchParams): Promise<void> {
     urlParams.delete("appVersion");
     urlParams.delete("build");
     for (const [key, value] of Object.entries(this.identityParams())) {
       urlParams.set(key, value);
     }
+    // Same delete-first rule: absent must mean absent, never a user param.
+    urlParams.delete("assignmentId");
+    const assignmentId = await this.getAssignmentId();
+    if (assignmentId) urlParams.set("assignmentId", assignmentId);
+  }
+
+  /**
+   * The `assignmentId` the next request will carry: the host's `assignmentId`
+   * option, else the persisted installation id, else `undefined` (sent as
+   * absent). Resolved per request, never memoized here, because a host getter
+   * may change value on login. Never throws. See `assignmentId.ts`.
+   */
+  getAssignmentId(): Promise<string | undefined> {
+    return resolveAssignmentId(this.options.assignmentId, getInstallationIdStore());
   }
 
   constructor(projectId: string, options: OnboardingStudioClientOptions) {
@@ -117,7 +132,7 @@ export class OnboardingStudioClient {
     // value would lose to a same-named user param added above.
     urlParams.set("projectId", this.projectId);
     urlParams.set("platform", Platform.OS);
-    this.writeIdentity(urlParams);
+    await this.writeIdentity(urlParams);
 
     if (isSandbox) {
       urlParams.set("draft", "true");
@@ -205,7 +220,7 @@ export class OnboardingStudioClient {
     // SDK-owned keys use `set`, never `append` (see getSteps).
     urlParams.set("projectId", this.projectId);
     urlParams.set("platform", Platform.OS);
-    this.writeIdentity(urlParams);
+    await this.writeIdentity(urlParams);
 
     if (isSandbox) {
       urlParams.set("draft", "true");

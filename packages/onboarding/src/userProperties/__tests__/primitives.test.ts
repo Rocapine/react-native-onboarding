@@ -6,7 +6,7 @@ import { applyUserPropertyPatch } from "../applyPatch";
 describe("reserved keys", () => {
   it("names every key the client itself puts on the querystring", () => {
     expect([...RESERVED_USER_PROPERTY_KEYS].sort()).toEqual(
-      ["appVersion", "build", "draft", "environment", "locale", "moment", "now", "omitNulls", "platform", "projectId", "sdkVersion"],
+      ["appVersion", "assignmentId", "build", "draft", "environment", "locale", "moment", "now", "omitNulls", "platform", "projectId", "sdkVersion"],
     );
   });
 

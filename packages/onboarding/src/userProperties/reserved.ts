@@ -8,7 +8,8 @@
  *
  * The others are the params the client writes on every request: `projectId`,
  * `platform`, the request identity (`appVersion`, `build`, `sdkVersion`,
- * `environment` — see `requestIdentity.ts`), `draft`, `locale`, `omitNulls`.
+ * `environment` — see `requestIdentity.ts`), `assignmentId` (see
+ * `assignmentId.ts`), `draft`, `locale`, `omitNulls`.
  * The client adds user params FIRST, then writes its own with
  * `URLSearchParams.set`, which replaces any same-named user param (and removes
  * a user `appVersion`/`build` when it has none of its own to send):
@@ -34,6 +35,7 @@ export const RESERVED_USER_PROPERTY_KEYS = [
   "build",
   "sdkVersion",
   "environment",
+  "assignmentId",
   "draft",
   "locale",
   "omitNulls",

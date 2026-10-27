@@ -64,8 +64,20 @@ const generateUuidV4 = (): string => {
   });
 };
 
+/** Bound on each queued storage call, so one that never settles cannot wedge the queue. */
+export const STORAGE_OP_TIMEOUT_MS = HOST_ASSIGNMENT_ID_TIMEOUT_MS;
+
 export type InstallationIdStore = {
-  get: () => Promise<string | undefined>;
+  /**
+   * The current clear() generation. Take it BEFORE any await that precedes
+   * `get(token)` (e.g. a host getter), so a `clear()` in between is seen.
+   */
+  token: () => number;
+  /**
+   * The installation id, or `undefined`. With a `token` older than the last
+   * `clear()`, returns `undefined` without reading or writing storage.
+   */
+  get: (token?: number) => Promise<string | undefined>;
   /**
    * Removes the stored id and forgets the in-memory one, so a later request
    * mints a new id. Rejects if the removal fails.
@@ -84,7 +96,13 @@ export type InstallationIdStore = {
  *   any write already started, and a load started after `clear()` runs after
  *   the removal (and is therefore never deleted by it);
  * - an `epoch` bumped by `clear()`: a load that began before it neither writes
- *   nor returns an id, so the request in flight sends nothing.
+ *   nor returns an id, so the request in flight sends nothing. Callers that
+ *   await something first (`resolveAssignmentId` awaits the host getter) take
+ *   the epoch as a `token()` up front and pass it to `get(token)`.
+ *
+ * Each queued storage call is bounded by `STORAGE_OP_TIMEOUT_MS`: on expiry the
+ * call's promise rejects (`clear()` rejects; `get()` fails closed with
+ * `undefined`, never minting) and the queue moves on.
  */
 export const createInstallationIdStore = (
   storage: AssignmentIdStorage,
@@ -94,8 +112,21 @@ export const createInstallationIdStore = (
   let epoch = 0;
   let queue: Promise<unknown> = Promise.resolve();
 
+  const bounded = <T>(op: () => Promise<T>): Promise<T> => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    return Promise.race([
+      op(),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`[assignment-id] storage call timed out after ${STORAGE_OP_TIMEOUT_MS}ms`)),
+          STORAGE_OP_TIMEOUT_MS,
+        );
+      }),
+    ]).finally(() => clearTimeout(timer));
+  };
+
   const enqueue = <T>(op: () => Promise<T>): Promise<T> => {
-    const run = queue.then(op);
+    const run = queue.then(() => bounded(op));
     queue = run.catch(() => {});
     return run;
   };
@@ -124,14 +155,21 @@ export const createInstallationIdStore = (
   };
 
   return {
-    get: () => {
+    token: () => epoch,
+    get: (token) => {
+      // Cleared since the caller started: no load, no write.
+      if (token !== undefined && token !== epoch) return Promise.resolve(undefined);
       if (!pending) {
         const startedAt = epoch;
-        pending = enqueue(() => load(startedAt)).then((id) => {
+        const settle = (id: string | undefined) => {
           // Cleared while loading: `clear()` already dropped this memo.
           if (epoch !== startedAt) return undefined;
           if (!id) pending = null;
           return id;
+        };
+        pending = enqueue(() => load(startedAt)).then(settle, (error) => {
+          console.warn("[assignment-id] Loading the installation id failed; omitting it:", error);
+          return settle(undefined);
         });
       }
       return pending;
@@ -181,11 +219,13 @@ const readHostValue = async (option: AssignmentIdOption): Promise<string | false
  */
 export const resolveAssignmentId = async (
   option: AssignmentIdOption,
-  installation: Pick<InstallationIdStore, "get">,
+  installation: Pick<InstallationIdStore, "get" | "token">,
 ): Promise<string | undefined> => {
+  // Before the host getter's await: a clear() while it runs must be seen.
+  const token = installation.token();
   const host = await readHostValue(option);
   if (host === false) return undefined;
-  return host ?? installation.get();
+  return host ?? installation.get(token);
 };
 
 let installationIdStore = createInstallationIdStore(AsyncStorage);

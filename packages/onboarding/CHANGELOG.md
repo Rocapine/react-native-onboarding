@@ -28,8 +28,12 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   (#236) delete the stored `rocapine-assignment-id` and forget the in-memory
   id, so a later request mints a new one (e.g. after consent is withdrawn,
   together with a getter returning `false`). A request already resolving the
-  id sends none, and a first-launch id still being written is not brought
-  back. Rejects if the removal fails. `reset()` does not call it.
+  id sends none, even while its `assignmentId` getter is still pending, and a
+  first-launch id still being written is not brought back. Rejects if the
+  removal fails or storage does not answer within 2s. Every installation-id
+  storage call is bounded the same way, so a hung call cannot block later
+  requests; a request whose own call times out omits the id and never mints
+  one. `reset()` does not call it.
   `assignmentId` is now a reserved user property key. It is not part of any
   cache key. Servers that do not read it ignore it. Changing the id (anonymous
   to identified) can move a person to another variant once; see the API

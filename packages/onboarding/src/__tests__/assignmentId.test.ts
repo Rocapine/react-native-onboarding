@@ -98,7 +98,7 @@ describe("installation id store", () => {
 });
 
 describe("resolveAssignmentId", () => {
-  const installation = (id: string | undefined) => ({ get: vi.fn(async () => id) });
+  const installation = (id: string | undefined) => ({ token: () => 0, get: vi.fn(async () => id) });
 
   it("no override: the installation id", async () => {
     expect(await resolveAssignmentId(undefined, installation("inst"))).toBe("inst");

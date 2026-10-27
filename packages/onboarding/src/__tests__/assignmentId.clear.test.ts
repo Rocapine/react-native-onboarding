@@ -18,7 +18,9 @@ vi.mock("@react-native-async-storage/async-storage", () => ({
 
 import {
   ASSIGNMENT_ID_STORAGE_KEY,
+  STORAGE_OP_TIMEOUT_MS,
   createInstallationIdStore,
+  resolveAssignmentId,
   __resetInstallationIdForTests,
   type AssignmentIdStorage,
 } from "../assignmentId";
@@ -192,6 +194,87 @@ describe("installation id store: clear()", () => {
     // The memo was reset: the next get reads disk again.
     expect(await store.get()).toBe("existing");
     expect(s.storage.getItem).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("clear() against a request whose host getter is still pending", () => {
+  it("a consent getter pending across clear() does not mint, persist or send an id", async () => {
+    vi.useFakeTimers();
+    try {
+      const s = controllableStorage();
+      const store = createInstallationIdStore(s.storage, counter);
+      let consented = true;
+      // Async consent check: answers `null` ("no host id") 50ms later.
+      const getter = () => new Promise<null>((r) => setTimeout(() => r(null), 50));
+
+      const request = resolveAssignmentId(getter, store);
+      await vi.advanceTimersByTimeAsync(10);
+      consented = false; // consent withdrawn while the request is in flight
+      await store.clear();
+      await vi.advanceTimersByTimeAsync(100);
+
+      expect(consented).toBe(false);
+      expect(await request).toBeUndefined();
+      expect(s.storage.setItem).not.toHaveBeenCalled();
+      expect(s.data[KEY]).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a request that starts after clear() still mints normally", async () => {
+    const s = controllableStorage();
+    const store = createInstallationIdStore(s.storage, counter);
+    await store.clear();
+    const id = await resolveAssignmentId(async () => null, store);
+    expect(id).toMatch(/^generated-/);
+    expect(s.data[KEY]).toBe(id);
+  });
+});
+
+describe("a storage call that never settles", () => {
+  const hanging = () => new Promise<never>(() => {});
+
+  it("a hung removeItem: clear() rejects at the bound and later get() calls are not wedged", async () => {
+    vi.useFakeTimers();
+    try {
+      const s = controllableStorage({ [KEY]: "existing" });
+      s.storage.removeItem.mockImplementation(hanging);
+      const store = createInstallationIdStore(s.storage, counter);
+
+      const cleared = store.clear();
+      const outcome = cleared.then(
+        () => "resolved",
+        (e: Error) => e.message,
+      );
+      const next = store.get();
+      await vi.advanceTimersByTimeAsync(STORAGE_OP_TIMEOUT_MS + 10);
+      expect(await outcome).toMatch(/timed out/);
+      // The queue moved on: the get() behind it settled instead of hanging.
+      expect(await next).toBe("existing");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a hung getItem: get() fails closed (omitted, never minted) and the next get() retries", async () => {
+    vi.useFakeTimers();
+    try {
+      const s = controllableStorage();
+      s.storage.getItem.mockImplementationOnce(hanging);
+      const store = createInstallationIdStore(s.storage, counter);
+
+      const first = store.get();
+      await vi.advanceTimersByTimeAsync(STORAGE_OP_TIMEOUT_MS + 10);
+      expect(await first).toBeUndefined();
+      expect(s.storage.setItem).not.toHaveBeenCalled();
+
+      const second = store.get();
+      await vi.advanceTimersByTimeAsync(10);
+      expect(await second).toMatch(/^generated-/);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

@@ -386,8 +386,11 @@ await OnboardingStudio.clearAssignmentId(); // or client.clearAssignmentId()
 
 `clearAssignmentId()` removes `rocapine-assignment-id` from AsyncStorage and
 forgets the id in memory. It works before `init`. A request that is already
-resolving the id when you call it sends none, and a first-launch id still being
-written is not brought back. It rejects if the removal fails. Make the getter
+resolving the id when you call it sends none, even if your getter is still
+pending, and a first-launch id still being written is not brought back. It
+rejects if the removal fails, or if storage does not answer within 2 seconds.
+A request whose own storage read or write takes longer than that sends no
+`assignmentId`, and no new id is created for it. Make the getter
 return `false` first: otherwise the next request without a host id mints a
 **new** installation id, which can put the person in a different variant. Use
 that deliberately if you want a fresh assignment. `OnboardingStudio.reset()` does

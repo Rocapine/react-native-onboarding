@@ -48,6 +48,7 @@ export const HOST_ASSIGNMENT_ID_TIMEOUT_MS = 2000;
 export type AssignmentIdStorage = {
   getItem: (key: string) => Promise<string | null>;
   setItem: (key: string, value: string) => Promise<void>;
+  removeItem: (key: string) => Promise<void>;
 };
 
 const nonEmpty = (v: unknown): string | undefined =>
@@ -63,20 +64,43 @@ const generateUuidV4 = (): string => {
   });
 };
 
-export type InstallationIdStore = { get: () => Promise<string | undefined> };
+export type InstallationIdStore = {
+  get: () => Promise<string | undefined>;
+  /**
+   * Removes the stored id and forgets the in-memory one, so a later request
+   * mints a new id. Rejects if the removal fails.
+   */
+  clear: () => Promise<void>;
+};
 
 /**
  * One in-flight resolution per store, so `getSteps` and `getPaywalls` fired
  * together on a first launch share one generated id and write it once. A
  * failure is not memoized: the next request retries.
+ *
+ * `clear()` must win against a load already in flight, or the id it removes
+ * comes back. Two mechanisms:
+ * - every storage operation runs on ONE queue, so a removal is ordered after
+ *   any write already started, and a load started after `clear()` runs after
+ *   the removal (and is therefore never deleted by it);
+ * - an `epoch` bumped by `clear()`: a load that began before it neither writes
+ *   nor returns an id, so the request in flight sends nothing.
  */
 export const createInstallationIdStore = (
   storage: AssignmentIdStorage,
   generate: () => string = generateUuidV4,
 ): InstallationIdStore => {
   let pending: Promise<string | undefined> | null = null;
+  let epoch = 0;
+  let queue: Promise<unknown> = Promise.resolve();
 
-  const load = async (): Promise<string | undefined> => {
+  const enqueue = <T>(op: () => Promise<T>): Promise<T> => {
+    const run = queue.then(op);
+    queue = run.catch(() => {});
+    return run;
+  };
+
+  const load = async (startedAt: number): Promise<string | undefined> => {
     let stored: string | null;
     try {
       stored = await storage.getItem(ASSIGNMENT_ID_STORAGE_KEY);
@@ -85,6 +109,7 @@ export const createInstallationIdStore = (
       console.warn("[assignment-id] Failed to read the installation id; omitting it:", error);
       return undefined;
     }
+    if (epoch !== startedAt) return undefined; // cleared meanwhile: do not mint
     const existing = nonEmpty(stored);
     if (existing) return existing;
     const fresh = generate();
@@ -101,12 +126,20 @@ export const createInstallationIdStore = (
   return {
     get: () => {
       if (!pending) {
-        pending = load().then((id) => {
+        const startedAt = epoch;
+        pending = enqueue(() => load(startedAt)).then((id) => {
+          // Cleared while loading: `clear()` already dropped this memo.
+          if (epoch !== startedAt) return undefined;
           if (!id) pending = null;
           return id;
         });
       }
       return pending;
+    },
+    clear: () => {
+      epoch++;
+      pending = null;
+      return enqueue(() => storage.removeItem(ASSIGNMENT_ID_STORAGE_KEY));
     },
   };
 };
@@ -148,7 +181,7 @@ const readHostValue = async (option: AssignmentIdOption): Promise<string | false
  */
 export const resolveAssignmentId = async (
   option: AssignmentIdOption,
-  installation: InstallationIdStore,
+  installation: Pick<InstallationIdStore, "get">,
 ): Promise<string | undefined> => {
   const host = await readHostValue(option);
   if (host === false) return undefined;

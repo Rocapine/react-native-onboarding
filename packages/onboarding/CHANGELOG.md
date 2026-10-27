@@ -24,6 +24,12 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   resolving the request identity (including the `assignmentId` getter) as well
   as the fetch, so `fallbackOnboarding` arrives on time. A request whose budget
   ran out while the id resolved is not sent afterwards.
+- **`OnboardingStudio.clearAssignmentId()` / `client.clearAssignmentId()`**
+  (#236) delete the stored `rocapine-assignment-id` and forget the in-memory
+  id, so a later request mints a new one (e.g. after consent is withdrawn,
+  together with a getter returning `false`). A request already resolving the
+  id sends none, and a first-launch id still being written is not brought
+  back. Rejects if the removal fails. `reset()` does not call it.
   `assignmentId` is now a reserved user property key. It is not part of any
   cache key. Servers that do not read it ignore it. Changing the id (anonymous
   to identified) can move a person to another variant once; see the API

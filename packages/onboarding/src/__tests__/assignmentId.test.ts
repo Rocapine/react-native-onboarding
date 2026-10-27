@@ -15,6 +15,9 @@ const memoryStorage = (initial: Record<string, string> = {}) => {
     setItem: vi.fn(async (k: string, v: string) => {
       data[k] = v;
     }),
+    removeItem: vi.fn(async (k: string) => {
+      delete data[k];
+    }),
   } satisfies AssignmentIdStorage;
   return { data, storage };
 };

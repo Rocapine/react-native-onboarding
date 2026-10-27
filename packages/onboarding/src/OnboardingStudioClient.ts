@@ -73,6 +73,18 @@ export class OnboardingStudioClient {
   }
 
   /**
+   * Deletes the stored installation id (`rocapine-assignment-id`) and forgets
+   * the in-memory one; a request already resolving it sends none. The next
+   * request without a host id mints a NEW id — to stop sending one at all (e.g.
+   * consent withdrawn), also make the `assignmentId` option return `false`.
+   * Process-wide, like the id: same effect as `OnboardingStudio.clearAssignmentId()`.
+   * Rejects if the removal fails.
+   */
+  clearAssignmentId(): Promise<void> {
+    return getInstallationIdStore().clear();
+  }
+
+  /**
    * Races `work` against `options.timeout`, rejecting with `Error("timeout")`.
    * `work` covers identity resolution AND the fetch, so `timeout` is one
    * end-to-end budget: a slow `assignmentId` getter cannot push

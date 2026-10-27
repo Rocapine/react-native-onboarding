@@ -8,8 +8,6 @@ export const onboardingExample = {
     audienceName: undefined,
     audienceOrder: undefined,
     draft: true,
-    variantKey: null,
-    deploymentId: null,
   },
   fonts: {
     Inter: {

@@ -152,6 +152,7 @@ import type { CustomPaywallScreenProps } from "@rocapine/react-native-onboarding
 
 const NativePaywall = ({ payload, complete, paywall }: CustomPaywallScreenProps) => {
   // payload: { monthly: { ios: "com.app.m", android: "app_m" }, … }
+  // paywall: { id, name, moment, customScreenId, variantKey?, deploymentId? }
   // Do your own store calls with those ids, then:
   //   complete({ status: "purchased" })  or  complete()  to dismiss.
   // With an `observer`, pass the purchase so it is attributed to this paywall:
@@ -239,7 +240,14 @@ OnboardingStudio.reset();  // forget the user, on logout
 - Values are `string | number | boolean` and reach filters as strings. A filter comparing against a **number** coerces correctly; one comparing against a **string** is lexicographic, so `"10" > "9"` is false.
 - **Properties persist** and are hydrated before the first catalog fetch, so a returning user is targeted correctly on the first launch-frame. A first-ever install has nothing to hydrate — seed it in `init({ projectId, userProperties: {...} })`, which runs before anything renders.
 - **A change applies to the next serve.** A paywall is served at `register`/`present`, so the catalog follows the store until that call and a property set before it is honoured; one set after applies to the next call. (An onboarding, by contrast, is served once at `OnboardingProvider` mount and frozen for that presentation — a property written mid-onboarding targets the next one.)
-- These names are refused (the SDK puts them on the querystring itself): `projectId`, `platform`, `appVersion`, `build`, `sdkVersion`, `environment`, `draft`, `locale`, `omitNulls`, `moment`, `now`.
+- These names are refused (the SDK puts them on the querystring itself): `projectId`, `platform`, `appVersion`, `build`, `sdkVersion`, `environment`, `assignmentId`, `draft`, `locale`, `omitNulls`, `moment`, `now`.
+
+### Variant stickiness and the served variant
+
+Requires an SDK release after 1.77.0.
+
+- **Every `getPaywalls` request carries an `assignmentId`**, so the server can serve the same person the same paywall variant across launches. By default it is an installation UUID the SDK stores itself. With RevenueCat, key it on the App User ID: `OnboardingStudio.init({ projectId, assignmentId: () => Purchases.getAppUserID() })`, and call `Purchases.configure()` before the first fetch. A getter returning `false` sends nothing, e.g. until consent; withdrawal needs `OnboardingStudio.clearAssignmentId()` **and** that `false`. Full rules (fail-closed getter, end-to-end `timeout`) are in `setup-headless-sdk` → **Assignment id and consent**.
+- **Each resolved `Paywall` carries `variantKey?: string | null` and `deploymentId?: number | null`, per moment** — two moments in one catalog can report different values. Read them from `usePaywall().catalog?.paywalls[moment]`, or from the `paywall` prop of a custom screen. The parent paywall reports `variantKey: "main"`. `null` and absent mean the same thing (no variant information, e.g. an older server); treat them identically.
 
 ## Present one
 

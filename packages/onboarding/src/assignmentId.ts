@@ -107,10 +107,11 @@ export type InstallationIdStore = {
  * The caller's wait on each queued operation is bounded by
  * `STORAGE_OP_TIMEOUT_MS`, counted from when it was queued. On expiry the
  * caller's promise rejects (`clear()` rejects; `get()` fails closed with
- * `undefined`). The queue does NOT move on: the next operation still starts
- * only once the real storage call has settled, so a removal can never overtake
- * a write still in flight. Later callers behind a hung call therefore fail
- * closed at their own bound instead of skipping ahead.
+ * `undefined`). A write or removal still holds the queue until the real call
+ * settles, so a removal can never overtake a write in flight; callers behind a
+ * hung write or removal fail closed at their own bound. A load abandoned BEFORE
+ * it issued `setItem` releases the queue at once, since it can no longer write:
+ * a hung read does not stall the rest of the process.
  *
  * A timed-out load is marked abandoned, and checks that right before minting
  * and right before writing: a timed-out request never mints. (A write that had
@@ -126,26 +127,34 @@ export const createInstallationIdStore = (
   let queue: Promise<unknown> = Promise.resolve();
 
   /**
-   * Runs `op` after every earlier operation has REALLY settled; the returned
-   * promise only bounds how long the caller waits (`onTimeout` runs when it
-   * gives up).
+   * Runs `op` after every earlier operation has settled; the returned promise
+   * only bounds how long the caller waits. When the caller gives up,
+   * `onTimeout` runs, and if it returns `true` the queue is released at once:
+   * the op promises it will issue no further storage writes, so a later
+   * operation may safely start while it is still pending. Otherwise the queue
+   * keeps waiting for the real call (a write or removal must stay ordered).
    */
-  const enqueue = <T>(op: () => Promise<T>, onTimeout?: () => void): Promise<T> => {
+  const enqueue = <T>(op: () => Promise<T>, onTimeout?: () => boolean): Promise<T> => {
     const real = queue.then(op);
-    queue = real.catch(() => {});
+    let release!: () => void;
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    queue = Promise.race([real.catch(() => {}), released]);
     let timer: ReturnType<typeof setTimeout> | undefined;
     return Promise.race([
       real,
       new Promise<never>((_, reject) => {
         timer = setTimeout(() => {
-          onTimeout?.();
+          if (onTimeout?.()) release();
           reject(new Error(`[assignment-id] storage operation timed out after ${STORAGE_OP_TIMEOUT_MS}ms`));
         }, STORAGE_OP_TIMEOUT_MS);
       }),
     ]).finally(() => clearTimeout(timer));
   };
 
-  type LoadState = { abandoned: boolean };
+  /** `writing` flips, synchronously, the moment the load issues `setItem`. */
+  type LoadState = { abandoned: boolean; writing: boolean };
 
   const load = async (startedAt: number, state: LoadState): Promise<string | undefined> => {
     let stored: string | null;
@@ -163,6 +172,7 @@ export const createInstallationIdStore = (
     // between here and `setItem`, so this is also the last check before it.
     if (state.abandoned) return undefined;
     const fresh = generate();
+    state.writing = true; // same tick as the check above and the call below
     try {
       await storage.setItem(ASSIGNMENT_ID_STORAGE_KEY, fresh);
     } catch (error) {
@@ -186,11 +196,14 @@ export const createInstallationIdStore = (
           if (!id) pending = null;
           return id;
         };
-        const state: LoadState = { abandoned: false };
+        const state: LoadState = { abandoned: false, writing: false };
         pending = enqueue(
           () => load(startedAt, state),
           () => {
             state.abandoned = true;
+            // Not yet writing: the abandoned load will never write now, so the
+            // queue need not wait for its read. A write in flight still holds it.
+            return !state.writing;
           },
         ).then(settle, (error) => {
           console.warn("[assignment-id] Loading the installation id failed; omitting it:", error);

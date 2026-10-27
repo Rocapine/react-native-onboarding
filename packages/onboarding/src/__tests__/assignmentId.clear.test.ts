@@ -270,6 +270,41 @@ describe("a storage call slower than the bound", () => {
     expect(await later).toMatch(/^generated-/);
   });
 
+  it("a getItem that never settles does not hold the queue: the next get() mints at once", async () => {
+    const s = controllableStorage();
+    s.storage.getItem.mockImplementationOnce(() => new Promise<never>(() => {}));
+    const store = createInstallationIdStore(s.storage, counter);
+
+    const first = store.get();
+    await vi.advanceTimersByTimeAsync(STORAGE_OP_TIMEOUT_MS);
+    expect(await first).toBeUndefined();
+
+    const next = store.get();
+    const nextAt = settleTime(next);
+    await vi.advanceTimersByTimeAsync(10);
+    const id = await next;
+    expect(id).toMatch(/^generated-/);
+    expect(await nextAt).toBeLessThan(10); // did not wait behind the hung read
+    expect(s.data[KEY]).toBe(id);
+  });
+
+  it("a setItem that never settles keeps holding the queue: later get() calls fail closed", async () => {
+    const s = controllableStorage();
+    s.storage.setItem.mockImplementationOnce(() => new Promise<never>(() => {}));
+    const store = createInstallationIdStore(s.storage, counter);
+
+    const first = store.get();
+    await vi.advanceTimersByTimeAsync(STORAGE_OP_TIMEOUT_MS);
+    expect(await first).toBeUndefined();
+
+    const next = store.get();
+    const nextAt = settleTime(next);
+    await vi.advanceTimersByTimeAsync(STORAGE_OP_TIMEOUT_MS);
+    expect(await next).toBeUndefined();
+    expect(await nextAt).toBe(STORAGE_OP_TIMEOUT_MS); // waited its own bound
+    expect(s.storage.getItem).toHaveBeenCalledTimes(1); // never ran: queue held
+  });
+
   it("setItem takes 2.5s: a clear() issued meanwhile removes the key AFTER the write lands", async () => {
     const s = controllableStorage();
     s.storage.setItem.mockImplementationOnce((k: string, v: string) =>

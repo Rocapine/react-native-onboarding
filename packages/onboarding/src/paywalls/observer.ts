@@ -65,6 +65,8 @@ export type PaywallPresentationSource = {
   billing?: "store" | "stripe";
   renderMode?: "elements" | "custom" | null;
   products?: ReadonlyArray<{ key: string; ios?: string; android?: string }>;
+  variantKey?: string | null;
+  deploymentId?: number | null;
 };
 
 /**
@@ -132,6 +134,25 @@ const isHandle = (value: unknown): value is PaywallPresentationHandle =>
   typeof (value as PaywallPresentationHandle).shown === "function" &&
   typeof (value as PaywallPresentationHandle).end === "function";
 
+const nonEmptyString = (value: unknown): value is string => typeof value === "string" && value.length > 0;
+
+/**
+ * The arm this paywall was served as (#237): a variant's key, or the reserved
+ * `"main"` for the parent. Both keys are left UNSET, never empty or
+ * `"none"`, when the server sent no `variantKey` (an older server), so an app
+ * on one sees no new property. `deploymentId` is only sent alongside a key,
+ * and as a decimal string because that is the contract's type.
+ *
+ * `end()` carries no info of its own: an observer attributes a purchase or a
+ * dismiss to the presentation `start()` opened, so this covers them too.
+ */
+const servedArm = (paywall: PaywallPresentationSource): Pick<PaywallPresentationInfo, "variantKey" | "deploymentId"> => {
+  if (!nonEmptyString(paywall.variantKey)) return {};
+  return paywall.deploymentId == null
+    ? { variantKey: paywall.variantKey }
+    : { variantKey: paywall.variantKey, deploymentId: String(paywall.deploymentId) };
+};
+
 export const buildPresentationInfo = (
   paywall: PaywallPresentationSource,
   surface: PaywallSurface
@@ -144,6 +165,7 @@ export const buildPresentationInfo = (
   renderMode: paywall.renderMode === "custom" ? "custom" : "elements",
   billing: paywall.billing === "stripe" ? "stripe" : "store",
   surface,
+  ...servedArm(paywall),
 });
 
 /**
@@ -163,8 +185,6 @@ const resolveProductId = (
   if (platform === "android") return slot.android || undefined;
   return undefined;
 };
-
-const nonEmptyString = (value: unknown): value is string => typeof value === "string" && value.length > 0;
 
 /**
  * A custom screen's `complete({ transaction })`, reduced to the contract: the

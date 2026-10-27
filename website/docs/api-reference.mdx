@@ -288,8 +288,11 @@ new OnboardingStudioClient(
 
 #### Sticky variant assignment
 
-Every `getSteps` and `getPaywalls` request carries an `assignmentId` query
-param, so the server can put the same person in the same variant every time.
+Every `getSteps` and `getPaywalls` request carries an `assignmentId` in the
+`X-Assignment-Id` request header, so the server can put the same person in the
+same variant every time. It is never put on the URL, because the id may be one
+of your user ids and request URLs end up in server logs. A custom audience
+param named `assignmentId` is dropped, never sent.
 The SDK resolves it per request, in this order:
 
 1. **`options.assignmentId`**: a string, or a getter (sync or async) called on
@@ -354,8 +357,8 @@ could send different ids on different launches.
 
 What is stored, and when: on the first `getSteps` or `getPaywalls` request
 without a host id, the SDK writes one random UUID to AsyncStorage under
-`rocapine-assignment-id`, and sends it as `assignmentId` on that request and
-every later one. It is not derived from any device or advertising identifier, and
+`rocapine-assignment-id`, and sends it in the `X-Assignment-Id` header on that
+request and every later one. It is not derived from any device or advertising identifier, and
 it is not shared with any other SDK. It stays until the app is uninstalled or its
 storage is cleared. If you pass your own id, the SDK sends that instead and
 stores nothing. Declare it accordingly in your privacy disclosures, for example

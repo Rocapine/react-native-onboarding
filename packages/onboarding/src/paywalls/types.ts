@@ -29,9 +29,8 @@ export type Paywall = {
    * while another serves the parent paywall, so two entries in one catalog can
    * carry different values.
    *
-   * The parent paywall itself reports the reserved key `"main"` (the same
-   * value as the `MAIN_VARIANT_KEY` constant the onboarding metadata uses);
-   * any other value names a variant of it.
+   * The parent paywall itself reports the reserved key `"main"`; any other
+   * value names a variant of it.
    *
    * Passed through exactly as `get-paywalls` sends it; the SDK neither reads
    * nor normalizes it. `null` and ABSENT (`undefined`) are equivalent: both

@@ -91,7 +91,7 @@ OnboardingStudio.init({
 - **`false` opts out**: nothing is sent, and the installation id is never read, created or written. Only `false` — `null` / `undefined` / `""` fall through to the installation id. To wait for consent: `assignmentId: () => hasConsented() ? undefined : false`.
 - **The getter fails closed.** A throw, a rejection, or no answer within 2s sends no id for that request and leaves the stored id untouched.
 - **Changing the value** (anonymous → identified on login) can move the person to another variant, once.
-- **Consent withdrawn:** call `OnboardingStudio.clearAssignmentId()` (or `client.clearAssignmentId()`; same process-wide effect, works before `init`). It deletes the stored id, and rejects if the removal fails or takes over 2s. It does **not** opt out on its own — the next request mints a new id — so also make the getter return `false`.
+- **Consent withdrawn:** call `OnboardingStudio.clearAssignmentId()` (works before `init`) or `client.clearAssignmentId()` — same process-wide effect. It deletes the stored id, and rejects if the removal fails or takes over 2s. It does **not** opt out on its own — the next request mints a new id — so also make the getter return `false`.
 - The getter is read per request, so flip consent by changing what it returns. Calling `init` again with only a different getter is a no-op: functions are not part of the config comparison, so the first getter stays.
 
 ## Mount the provider

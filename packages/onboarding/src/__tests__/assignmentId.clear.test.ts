@@ -390,7 +390,7 @@ describe("clearAssignmentId() on the client and the facade", () => {
     vi.stubGlobal("fetch", fetchMock);
     const client = new OnboardingStudioClient("proj-1", {});
     const sent = (i: number) =>
-      new URL(fetchMock.mock.calls[i][0] as string).searchParams.get("assignmentId");
+      new Headers((fetchMock.mock.calls[i][1] as RequestInit | undefined)?.headers).get("X-Assignment-Id");
 
     await client.getSteps();
     const first = sent(0);

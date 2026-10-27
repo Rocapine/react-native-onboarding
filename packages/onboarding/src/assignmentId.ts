@@ -11,8 +11,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
  *      request — e.g. `() => Purchases.getAppUserID()`),
  *   2. else an installation id, generated once and persisted under
  *      `ASSIGNMENT_ID_STORAGE_KEY`,
- *   3. else nothing: the param is omitted rather than invented, so the server
- *      can tell "no stable id" from "a fresh id it will never see again".
+ *   3. else nothing: the `X-Assignment-Id` header is not sent rather than
+ *      carrying an invented id, so the server can tell "no stable id" from "a
+ *      fresh id it will never see again".
  *
  * `false` (as the option, or returned by the getter) OPTS OUT: nothing is sent
  * and the installation id is never read, created or written — e.g. until the

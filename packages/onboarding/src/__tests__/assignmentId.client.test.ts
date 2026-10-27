@@ -27,6 +27,11 @@ const fakeResponse = (body: unknown) => ({
   headers: { get: () => null },
 });
 
+// The id travels as the `X-Assignment-Id` header, never on the URL: edge
+// invocation logs record the full URL, and the id may be a host's user id.
+const idHeader = (fetchMock: ReturnType<typeof vi.fn>, i = 0) =>
+  new Headers((fetchMock.mock.calls[i][1] as RequestInit | undefined)?.headers).get("X-Assignment-Id");
+
 const fetches = {
   getSteps: (c: OnboardingStudioClient, params?: Record<string, string>) =>
     c.getSteps({ locale: "en" }, params),
@@ -52,23 +57,24 @@ describe.each(Object.entries(fetches))("%s assignmentId", (_name, fetchWith) => 
   });
 
   const sent = (i = 0) => new URL(fetchMock.mock.calls[i][0] as string).searchParams;
+  const sentId = (i = 0) => idHeader(fetchMock, i);
 
   it("sends a persisted installation id, the same one across launches", async () => {
     await fetchWith(new OnboardingStudioClient("proj-1", {}));
-    const first = sent().get("assignmentId");
+    const first = sentId();
     expect(first).toBeTruthy();
     expect(disk.data[ASSIGNMENT_ID_STORAGE_KEY]).toBe(first);
 
     // Next launch: module memo gone, disk kept.
     __resetInstallationIdForTests();
     await fetchWith(new OnboardingStudioClient("proj-1", {}));
-    expect(sent(1).get("assignmentId")).toBe(first);
+    expect(sentId(1)).toBe(first);
   });
 
   it("sends it in sandbox (draft) requests too", async () => {
     await fetchWith(new OnboardingStudioClient("proj-1", { isSandbox: true }));
     expect(sent().get("draft")).toBe("true");
-    expect(sent().get("assignmentId")).toBeTruthy();
+    expect(sentId()).toBeTruthy();
   });
 
   it("a host override wins and is read on every request", async () => {
@@ -77,14 +83,15 @@ describe.each(Object.entries(fetches))("%s assignmentId", (_name, fetchWith) => 
     await fetchWith(client);
     id = "user-42";
     await fetchWith(client);
-    expect(sent(0).get("assignmentId")).toBe("anon-1");
-    expect(sent(1).get("assignmentId")).toBe("user-42");
+    expect(sentId(0)).toBe("anon-1");
+    expect(sentId(1)).toBe("user-42");
     expect(disk.data[ASSIGNMENT_ID_STORAGE_KEY]).toBeUndefined();
   });
 
   it("assignmentId: false sends nothing and never touches storage", async () => {
     const client = new OnboardingStudioClient("proj-1", { assignmentId: false });
     await fetchWith(client);
+    expect(sentId()).toBeNull();
     expect(sent().has("assignmentId")).toBe(false);
     expect(AsyncStorage.getItem).not.toHaveBeenCalledWith(ASSIGNMENT_ID_STORAGE_KEY);
     expect(AsyncStorage.setItem).not.toHaveBeenCalledWith(ASSIGNMENT_ID_STORAGE_KEY, expect.anything());
@@ -95,6 +102,7 @@ describe.each(Object.entries(fetches))("%s assignmentId", (_name, fetchWith) => 
     await fetchWith(new OnboardingStudioClient("proj-1", { assignmentId: () => false }), {
       assignmentId: "spoofed",
     });
+    expect(sentId()).toBeNull();
     expect(sent().has("assignmentId")).toBe(false);
   });
 
@@ -102,6 +110,28 @@ describe.each(Object.entries(fetches))("%s assignmentId", (_name, fetchWith) => 
     vi.spyOn(console, "warn").mockImplementation(() => {});
     vi.mocked(AsyncStorage.getItem).mockRejectedValueOnce(new Error("disk"));
     await fetchWith(new OnboardingStudioClient("proj-1", {}));
+    expect(sentId()).toBeNull();
+    expect(sent().has("assignmentId")).toBe(false);
+  });
+
+  it("sends the id as the X-Assignment-Id header and never on the URL", async () => {
+    await fetchWith(new OnboardingStudioClient("proj-1", { assignmentId: "user-42" }));
+    expect(sentId()).toBe("user-42");
+    const url = fetchMock.mock.calls[0][0] as string;
+    expect(url).not.toMatch(/assignmentId/i);
+    expect(url).not.toContain("user-42");
+  });
+
+  it("a getter that throws fails closed: no header, nothing on the URL", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    await fetchWith(
+      new OnboardingStudioClient("proj-1", {
+        assignmentId: () => {
+          throw new Error("boom");
+        },
+      }),
+    );
+    expect(sentId()).toBeNull();
     expect(sent().has("assignmentId")).toBe(false);
   });
 
@@ -110,11 +140,13 @@ describe.each(Object.entries(fetches))("%s assignmentId", (_name, fetchWith) => 
     vi.mocked(AsyncStorage.getItem).mockRejectedValueOnce(new Error("disk"));
     await fetchWith(new OnboardingStudioClient("proj-1", {}), { assignmentId: "spoofed" });
     expect(sent().getAll("assignmentId")).toEqual([]);
+    expect(sentId()).toBeNull();
 
     await fetchWith(new OnboardingStudioClient("proj-1", { assignmentId: "host" }), {
       assignmentId: "spoofed",
     });
-    expect(sent(1).getAll("assignmentId")).toEqual(["host"]);
+    expect(sent(1).getAll("assignmentId")).toEqual([]);
+    expect(sentId(1)).toBe("host");
   });
 });
 
@@ -126,7 +158,7 @@ it("getSteps and getPaywalls fired together on a first launch send the same id",
   vi.spyOn(console, "info").mockImplementation(() => {});
   const client = new OnboardingStudioClient("proj-1", {});
   await Promise.all([fetches.getSteps(client), fetches.getPaywalls(client)]);
-  const ids = fetchMock.mock.calls.map((c) => new URL(c[0] as string).searchParams.get("assignmentId"));
+  const ids = [idHeader(fetchMock, 0), idHeader(fetchMock, 1)];
   expect(ids[0]).toBeTruthy();
   expect(ids[1]).toBe(ids[0]);
   vi.unstubAllGlobals();
@@ -184,10 +216,22 @@ describe.each(Object.entries(fetches))("%s: fail closed and one timeout budget",
     });
     const out = await settle(fetchWith(client), 3000);
     expect(out.error).toBeUndefined();
+    expect(idHeader(fetchMock)).toBeNull();
     expect(new URL(fetchMock.mock.calls[0][0] as string).searchParams.has("assignmentId")).toBe(false);
     expect(AsyncStorage.getItem).not.toHaveBeenCalledWith(ASSIGNMENT_ID_STORAGE_KEY);
     expect(AsyncStorage.setItem).not.toHaveBeenCalledWith(ASSIGNMENT_ID_STORAGE_KEY, expect.anything());
     expect(disk.data[ASSIGNMENT_ID_STORAGE_KEY]).toBeUndefined();
+  });
+
+  it("a getter that resolves an id after 2.5s fails closed: no header, nothing on the URL", async () => {
+    slowFetch(0);
+    const client = new OnboardingStudioClient("proj-1", {
+      assignmentId: () => new Promise<string>((r) => setTimeout(() => r("late-user"), 2500)),
+    });
+    const out = await settle(fetchWith(client), 3000);
+    expect(out.error).toBeUndefined();
+    expect(idHeader(fetchMock)).toBeNull();
+    expect(fetchMock.mock.calls[0][0] as string).not.toMatch(/assignmentId|late-user/);
   });
 
   it("options.timeout covers id resolution AND fetch: 800ms + 500ms against 1000ms times out at 1000ms", async () => {
@@ -239,6 +283,6 @@ describe.each(Object.entries(fetches))("%s: fail closed and one timeout budget",
     const out = await settle(fetchWith(client), 3000);
     expect(out.error).toBeUndefined();
     expect(out.at).toBe(600);
-    expect(new URL(fetchMock.mock.calls[0][0] as string).searchParams.get("assignmentId")).toBe("user-42");
+    expect(idHeader(fetchMock)).toBe("user-42");
   });
 });

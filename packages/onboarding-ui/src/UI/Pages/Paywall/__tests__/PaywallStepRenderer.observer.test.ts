@@ -600,6 +600,36 @@ describe("PaywallStepRenderer — round 2 on a custom screen's transaction (#287
   });
 });
 
+describe("PaywallStepRenderer — the served arm reaches the observer's start() (#237)", () => {
+  const startInfo = async (arm: Record<string, unknown>) => {
+    const infos: Array<Record<string, unknown>> = [];
+    const observer = { start: (info: Record<string, unknown>) => void infos.push(info) };
+    h.observePresentation = (p: any) => openPaywallPresentation(observer as any, p, "paywall_step", "ios");
+    setCatalog(paywall("pw-a", arm));
+    await render();
+    expect(infos).toHaveLength(1);
+    return infos[0];
+  };
+
+  it("reports a served variant", async () => {
+    expect(await startInfo({ variantKey: "b", deploymentId: 42 })).toMatchObject({
+      surface: "paywall_step",
+      variantKey: "b",
+      deploymentId: "42",
+    });
+  });
+
+  it("reports the parent paywall as main", async () => {
+    expect(await startInfo({ variantKey: "main", deploymentId: 7 })).toMatchObject({ variantKey: "main", deploymentId: "7" });
+  });
+
+  it("adds no property for an older server", async () => {
+    const info = await startInfo({});
+    expect(Object.keys(info)).not.toContain("variantKey");
+    expect(Object.keys(info)).not.toContain("deploymentId");
+  });
+});
+
 describe("PaywallStepRenderer — custom screen sees the moment's variant identity (#235)", () => {
   it("passes variantKey and deploymentId through on the paywall prop", async () => {
     let seen: Record<string, unknown> | null = null;

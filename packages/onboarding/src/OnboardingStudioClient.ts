@@ -22,6 +22,9 @@ import { Platform } from "react-native";
 import { readNativeAppInfo, resolveRequestIdentity } from "./requestIdentity";
 import { getInstallationIdStore, resolveAssignmentId } from "./assignmentId";
 
+/** Request header carrying the `assignmentId`; the server reads it case-insensitively. */
+const ASSIGNMENT_ID_HEADER = "X-Assignment-Id";
+
 export class OnboardingStudioClient {
   private baseUrl: string;
   public projectId: string;
@@ -49,17 +52,21 @@ export class OnboardingStudioClient {
    * when neither the host nor `expo-application` has a value, and `set` alone
    * would then leave a same-named user param on the wire (a property persisted
    * before these names were reserved is re-read without a reserved-key check).
+   *
+   * Returns the request headers: the `assignmentId` travels as the
+   * `X-Assignment-Id` header, never on the querystring, because edge invocation
+   * logs record the full URL and the id may be a host's user id.
    */
-  private async writeIdentity(urlParams: URLSearchParams): Promise<void> {
+  private async writeIdentity(urlParams: URLSearchParams): Promise<Record<string, string>> {
     urlParams.delete("appVersion");
     urlParams.delete("build");
     for (const [key, value] of Object.entries(this.identityParams())) {
       urlParams.set(key, value);
     }
-    // Same delete-first rule: absent must mean absent, never a user param.
+    // A user param of that name never reaches the URL, whatever the id resolves to.
     urlParams.delete("assignmentId");
     const assignmentId = await this.getAssignmentId();
-    if (assignmentId) urlParams.set("assignmentId", assignmentId);
+    return assignmentId ? { [ASSIGNMENT_ID_HEADER]: assignmentId } : {};
   }
 
   /**
@@ -183,11 +190,11 @@ export class OnboardingStudioClient {
       // same timeout budget as the fetch — see `withTimeout`.
       const response = await this.withTimeout(
         async (expired) => {
-          await this.writeIdentity(urlParams);
+          const headers = await this.writeIdentity(urlParams);
           if (expired()) throw new Error("timeout");
           const url = `${this.baseUrl}/get-onboarding-steps?${urlParams.toString()}`;
           console.info("OnboardingStudioClient getSteps url", url);
-          return fetch(url);
+          return fetch(url, { headers });
         }
       );
       if (!response.ok) {
@@ -278,11 +285,11 @@ export class OnboardingStudioClient {
       // same timeout budget as the fetch — see `withTimeout`.
       const response = await this.withTimeout(
         async (expired) => {
-          await this.writeIdentity(urlParams);
+          const headers = await this.writeIdentity(urlParams);
           if (expired()) throw new Error("timeout");
           const url = `${this.baseUrl}/get-paywalls?${urlParams.toString()}`;
           console.info("OnboardingStudioClient getPaywalls url", url);
-          return fetch(url);
+          return fetch(url, { headers });
         }
       );
       if (!response.ok) {

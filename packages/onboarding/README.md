@@ -185,10 +185,10 @@ lexicographic, so `"10"` is *not* greater than `"9"`:
 
 These are refused with a warning, because the SDK puts them on the request
 querystring itself: its own value is sent instead of yours, or, for
-`appVersion` and `build` when it has none, nothing is:
+`appVersion`, `build` and `assignmentId` when it has none, nothing is:
 
 `projectId`, `platform`, `appVersion`, `build`, `sdkVersion`, `environment`,
-`draft`, `locale`, `omitNulls`, `moment`, `now`
+`assignmentId`, `draft`, `locale`, `omitNulls`, `moment`, `now`
 
 ### What every request carries
 
@@ -202,6 +202,13 @@ Each onboarding and paywall request sends, besides your audience params:
 - `environment`: the `environment` option, else `"sandbox"` in sandbox mode,
   `"development"` under `__DEV__`, `"production"` otherwise. Lower-cased,
   reduced to `a-z`, `0-9`, `_` and `-`, at most 32 characters.
+- `assignmentId`: a stable per-person id, so the server can keep a person in
+  the same variant across launches. The `assignmentId` option if you pass one
+  (a string, or a getter called on every request, e.g.
+  `() => Purchases.getAppUserID()`), else an installation id generated once and
+  persisted in AsyncStorage, else not sent. Changing it (anonymous to logged
+  in) can move a person to another variant once. See the API reference's
+  "Sticky variant assignment".
 
 They are ordinary query params, so an audience rule can target them, for
 example `environment == "staging"` or a build range.
@@ -212,7 +219,8 @@ The prop still works and is not deprecated. Treat it as the **static** baseline
 (build-time facts like an `onboardingId`) and the store as the **runtime** half.
 Where both define a key, **the store wins**.
 
-Neither can set `appVersion`, `build`, `sdkVersion` or `environment`: since the
+Neither can set `appVersion`, `build`, `sdkVersion`, `environment` or
+`assignmentId`: since the
 SDK sends them itself, a value under one of those names in either source is
 dropped (see [Reserved names](#reserved-names)), and an audience rule on them
 sees the SDK's value.

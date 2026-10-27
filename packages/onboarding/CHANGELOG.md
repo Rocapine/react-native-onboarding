@@ -5,6 +5,21 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 ---
 
 ## [Unreleased]
+### Added
+- **Every `getSteps` and `getPaywalls` request carries a stable
+  `assignmentId`** (#236), so the server can keep a person in the same variant
+  across launches. Resolved per request: the new `assignmentId` client option
+  (a string, or a sync/async getter called on every request, e.g.
+  `() => Purchases.getAppUserID()`), else an installation id generated once and
+  persisted in AsyncStorage under `rocapine-assignment-id`, else omitted. The
+  installation id survives `clearCache()` and `OnboardingStudio.reset()`. It is
+  omitted, rather than invented, when storage cannot be read or written. A host
+  value that is empty, throws, or takes over 2s falls back to the installation
+  id. `assignmentId` is now a reserved user property key. It is not part of any
+  cache key. Servers that do not read it ignore it. Changing the id (anonymous
+  to identified) can move a person to another variant once; see the API
+  reference.
+
 ### Fixed
 - **`expoIapProductProvider`: an Ask to Buy purchase resolves `"pending"`, not
   `"error"`** (#337). openiap reports StoreKit's `.pending` purchase result as

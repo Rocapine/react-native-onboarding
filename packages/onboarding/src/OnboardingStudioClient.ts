@@ -78,7 +78,7 @@ export class OnboardingStudioClient {
    * request without a host id mints a NEW id — to stop sending one at all (e.g.
    * consent withdrawn), also make the `assignmentId` option return `false`.
    * Process-wide, like the id: same effect as `OnboardingStudio.clearAssignmentId()`.
-   * Rejects if the removal fails.
+   * Rejects if the removal fails or is still waiting after 2s.
    */
   clearAssignmentId(): Promise<void> {
     return getInstallationIdStore().clear();

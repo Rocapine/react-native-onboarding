@@ -38,7 +38,7 @@ const controllableStorage = (initial: Record<string, string> = {}) => {
   const maybeHold = () =>
     holding ? new Promise<void>((resolve) => held.push(resolve)) : Promise.resolve();
   const storage = {
-    getItem: vi.fn(async (k: string) => {
+    getItem: vi.fn(async (k: string): Promise<string | null> => {
       const v = data[k] ?? null; // read at call time, like a real store
       await maybeHold();
       return v;
@@ -232,51 +232,107 @@ describe("clear() against a request whose host getter is still pending", () => {
   });
 });
 
-describe("a storage call that never settles", () => {
-  const hanging = () => new Promise<never>(() => {});
+describe("a storage call slower than the bound", () => {
+  /** A storage call that settles after `ms` (fake timers), running `effect` then. */
+  const slow =
+    <T>(ms: number, effect: () => T) =>
+    () =>
+      new Promise<T>((resolve) => setTimeout(() => resolve(effect()), ms));
 
-  it("a hung removeItem: clear() rejects at the bound and later get() calls are not wedged", async () => {
+  beforeEach(() => {
     vi.useFakeTimers();
-    try {
-      const s = controllableStorage({ [KEY]: "existing" });
-      s.storage.removeItem.mockImplementation(hanging);
-      const store = createInstallationIdStore(s.storage, counter);
-
-      const cleared = store.clear();
-      const outcome = cleared.then(
-        () => "resolved",
-        (e: Error) => e.message,
-      );
-      const next = store.get();
-      await vi.advanceTimersByTimeAsync(STORAGE_OP_TIMEOUT_MS + 10);
-      expect(await outcome).toMatch(/timed out/);
-      // The queue moved on: the get() behind it settled instead of hanging.
-      expect(await next).toBe("existing");
-    } finally {
-      vi.useRealTimers();
-    }
+  });
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
-  it("a hung getItem: get() fails closed (omitted, never minted) and the next get() retries", async () => {
-    vi.useFakeTimers();
-    try {
-      const s = controllableStorage();
-      s.storage.getItem.mockImplementationOnce(hanging);
-      const store = createInstallationIdStore(s.storage, counter);
+  it("getItem takes 2.5s: get() omits at 2s, and the abandoned load never mints or writes", async () => {
+    const s = controllableStorage();
+    s.storage.getItem.mockImplementationOnce(slow(2500, () => null));
+    const generate = vi.fn(counter);
+    const store = createInstallationIdStore(s.storage, generate);
 
-      const first = store.get();
-      await vi.advanceTimersByTimeAsync(STORAGE_OP_TIMEOUT_MS + 10);
-      expect(await first).toBeUndefined();
-      expect(s.storage.setItem).not.toHaveBeenCalled();
+    const first = store.get();
+    const firstAt = settleTime(first);
+    await vi.advanceTimersByTimeAsync(STORAGE_OP_TIMEOUT_MS);
+    expect(await first).toBeUndefined();
+    expect(await firstAt).toBe(STORAGE_OP_TIMEOUT_MS);
 
-      const second = store.get();
-      await vi.advanceTimersByTimeAsync(10);
-      expect(await second).toMatch(/^generated-/);
-    } finally {
-      vi.useRealTimers();
-    }
+    // The read finishes at 2.5s with "no id": the abandoned load must stop there.
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(generate).not.toHaveBeenCalled();
+    expect(s.storage.setItem).not.toHaveBeenCalled();
+    expect(s.data[KEY]).toBeUndefined();
+
+    // A later request is not affected.
+    const later = store.get();
+    await vi.advanceTimersByTimeAsync(10);
+    expect(await later).toMatch(/^generated-/);
+  });
+
+  it("setItem takes 2.5s: a clear() issued meanwhile removes the key AFTER the write lands", async () => {
+    const s = controllableStorage();
+    s.storage.setItem.mockImplementationOnce((k: string, v: string) =>
+      slow(2500, () => {
+        s.data[k] = v;
+      })(),
+    );
+    const store = createInstallationIdStore(s.storage, counter);
+
+    const request = store.get();
+    await vi.advanceTimersByTimeAsync(STORAGE_OP_TIMEOUT_MS);
+    expect(await request).toBeUndefined(); // the caller stopped waiting at 2s
+
+    // The abandoned write is still in flight. The removal must queue behind it.
+    await vi.advanceTimersByTimeAsync(100);
+    const cleared = store.clear().catch(() => {});
+    await vi.advanceTimersByTimeAsync(1000); // the write lands at 2.5s
+    await cleared;
+    expect(s.data[KEY]).toBeUndefined();
+  });
+
+  it("removeItem takes 5s: clear() rejects at 2s, a get() meanwhile fails closed, then things proceed", async () => {
+    const s = controllableStorage({ [KEY]: "existing" });
+    s.storage.removeItem.mockImplementationOnce((k: string) =>
+      slow(5000, () => {
+        delete s.data[k];
+      })(),
+    );
+    const generate = vi.fn(counter);
+    const store = createInstallationIdStore(s.storage, generate);
+
+    const outcome = store.clear().then(
+      () => "resolved",
+      (e: Error) => e.message,
+    );
+    const during = store.get(); // queued behind the hung removal
+    await vi.advanceTimersByTimeAsync(STORAGE_OP_TIMEOUT_MS);
+    expect(await outcome).toMatch(/timed out/);
+    // It did not skip ahead of the removal: it waited its own 2s and omitted.
+    await vi.advanceTimersByTimeAsync(10);
+    expect(await during).toBeUndefined();
+    expect(s.data[KEY]).toBe("existing"); // removal still in flight
+
+    // The removal settles at 5s; the abandoned get never mints or writes.
+    await vi.advanceTimersByTimeAsync(3500);
+    expect(s.data[KEY]).toBeUndefined();
+    expect(generate).not.toHaveBeenCalled();
+
+    const after = store.get();
+    await vi.advanceTimersByTimeAsync(10);
+    expect(await after).toMatch(/^generated-/);
+    expect(s.data[KEY]).toBe(await after);
   });
 });
+
+/** Fake-clock time (ms) at which `p` settles, measured from now. */
+const settleTime = (p: Promise<unknown>) => {
+  const start = Date.now();
+  return p.then(
+    () => Date.now() - start,
+    () => Date.now() - start,
+  );
+};
 
 describe("clearAssignmentId() on the client and the facade", () => {
   const fakeResponse = {

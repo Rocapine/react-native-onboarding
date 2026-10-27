@@ -59,7 +59,8 @@ export type OnboardingStudioFacade = {
    * (`rocapine-assignment-id`) and forgets it in memory; a request already
    * resolving it sends none. Works before `init`. The next request without a
    * host id mints a NEW id, so on consent withdrawal also make the
-   * `assignmentId` option return `false`. Rejects if the removal fails.
+   * `assignmentId` option return `false`. Rejects if the removal fails or is
+   * still waiting after 2s.
    *
    * Separate from `reset()` on purpose: logging out must not move an install
    * to another variant.

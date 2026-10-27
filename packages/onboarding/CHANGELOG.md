@@ -30,10 +30,11 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   together with a getter returning `false`). A request already resolving the
   id sends none, even while its `assignmentId` getter is still pending, and a
   first-launch id still being written is not brought back. Rejects if the
-  removal fails or storage does not answer within 2s. Every installation-id
-  storage call is bounded the same way, so a hung call cannot block later
-  requests; a request whose own call times out omits the id and never mints
-  one. `reset()` does not call it.
+  removal fails or is still waiting after 2s. The caller's wait on each queued
+  operation is bounded the same way, but operations still run strictly in
+  order, so a removal never overtakes a write in flight. A request stuck behind
+  a hung operation omits the id at its own 2s bound. A timed-out request never
+  mints. `reset()` does not call it.
   `assignmentId` is now a reserved user property key. It is not part of any
   cache key. Servers that do not read it ignore it. Changing the id (anonymous
   to identified) can move a person to another variant once; see the API

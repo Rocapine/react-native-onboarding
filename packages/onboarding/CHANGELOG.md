@@ -37,6 +37,10 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   consent). A getter that throws, rejects or takes over 2s fails closed the
   same way. With RevenueCat, `Purchases.configure()` must run before the first
   request.
+  `assignmentId` is now a reserved user property key. It is not part of any
+  cache key. Servers that do not read it ignore it. Changing the id (anonymous
+  to identified) can move a person to another variant once; see the API
+  reference.
 - **`timeout` is now end-to-end** for `getSteps` and `getPaywalls`: it covers
   resolving the request identity (including the `assignmentId` getter) as well
   as the fetch, so `fallbackOnboarding` arrives on time. A request whose budget
@@ -54,10 +58,6 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
   against `timeout`. A hung read does not block later requests. A timed-out
   request never mints, unless its write was already in flight (that write
   still lands, ahead of any later removal). `reset()` does not call it.
-  `assignmentId` is now a reserved user property key. It is not part of any
-  cache key. Servers that do not read it ignore it. Changing the id (anonymous
-  to identified) can move a person to another variant once; see the API
-  reference.
 
 ### Fixed
 - **`expoIapProductProvider`: an Ask to Buy purchase resolves `"pending"`, not

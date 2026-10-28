@@ -68,10 +68,31 @@ Every option below is accepted by both forms. `OnboardingStudioClientOptions` �
 - `isSandbox` — serves the draft instead of the published deployment. Also always fetches fresh (ignores `cacheKey`).
 - `baseUrl` — override the edge-function origin.
 - `fallbackOnboarding` — an `Onboarding` object served if the fetch fails. `onboardingExample` is exported from the package for this.
-- `timeout` — fetch timeout in ms.
+- `assignmentId` — the stable per-person id the server uses to keep someone in the same variant. A string, or a getter (sync or async) called on **every** request. Omitted, or `undefined` / `null` / `""`, falls back to an installation UUID the SDK generates once and stores in AsyncStorage under `rocapine-assignment-id`. Requires SDK 1.78.0 or later. See **Assignment id and consent** below.
+- `timeout` — end-to-end budget in ms per request: resolving the request identity (including the `assignmentId` getter) **and** the fetch. On expiry `getSteps` serves `fallbackOnboarding` if set, otherwise rejects with `Error("timeout")`.
 - `cacheKey` — pins the payload. With a `cacheKey` the onboarding is persisted under `rocapine-onboarding-sdk-{cacheKey}` and served **cache-first with no background revalidation** — the pinned version stays put across launches until you call `client.clearCache()`. Omit for the default key and stale-while-revalidate.
 
 `platform` is not an option — the client reads `Platform.OS` itself. There is no `draft` option; it's `isSandbox`.
+
+### Assignment id and consent
+
+Requires SDK 1.78.0 or later. Every `getSteps` and `getPaywalls` request carries an `assignmentId`, so the server can keep a person in the same onboarding and paywall variant across launches. With no option set the installation UUID is used, and it survives `clearCache()` and `OnboardingStudio.reset()`. To key it on the user instead — RevenueCat's App User ID:
+
+```tsx
+import Purchases from "react-native-purchases";
+
+Purchases.configure({ apiKey });   // before the first Rocapine fetch
+OnboardingStudio.init({
+  projectId,
+  assignmentId: () => Purchases.getAppUserID(),
+});
+```
+
+- **`false` opts out**: nothing is sent, and the installation id is never read, created or written. Only `false` — `null` / `undefined` / `""` fall through to the installation id. To wait for consent: `assignmentId: () => hasConsented() ? undefined : false`.
+- **The getter fails closed.** A throw, a rejection, or no answer within 2s sends no id for that request and leaves the stored id untouched.
+- **Changing the value** (anonymous → identified on login) can move the person to another variant, once.
+- **Consent withdrawn:** call `OnboardingStudio.clearAssignmentId()` (works before `init`) or `client.clearAssignmentId()` — same process-wide effect. It deletes the stored id, and rejects if the removal fails or takes over 2s. It does **not** opt out on its own — the next request mints a new id — so also make the getter return `false`.
+- The getter is read per request, so flip consent by changing what it returns. Calling `init` again with only a different getter is a no-op: functions are not part of the config comparison, so the first getter stays.
 
 ## Mount the provider
 
@@ -127,7 +148,7 @@ OnboardingStudio.reset();  // forget the user, on logout
 - Values are `string | number | boolean`, and reach filters as strings — a filter comparing against a number coerces fine, one comparing against a string is lexicographic (`"10" > "9"` is false).
 - **Persisted and hydrated before the first fetch**, so a returning user is targeted correctly on the first launch-frame with no host code. A first-ever install has nothing to hydrate — seed it in `init` (`init({ projectId, userProperties: { plan: "free" } })`), which runs before anything renders, and even that launch is targeted correctly.
 - **A change applies to the NEXT serve, never retroactively.** The onboarding is served once, when `OnboardingProvider` mounts, and that payload is frozen for the presentation: a `setUserProperty` (or a `customAudienceParams` change) during the flow does not refetch, re-key, swap the onboarding or blank the screen — it is picked up on the next mount or launch. Write a property the moment you compute it, even mid-onboarding — but anything **this** serve must target on has to be set before the provider mounts; a property that resolves asynchronously during startup and lands after mount targets the next serve, with no error. `reset()` follows the same rule. A paywall is served at `register`/`present`, so it follows the store until that call. To re-serve an onboarding with the current properties, remount the provider (a `key`) — a full teardown, so at a flow boundary.
-- Refused names, because the SDK puts them on the querystring itself: `projectId`, `platform`, `appVersion`, `build`, `sdkVersion`, `environment`, `draft`, `locale`, `omitNulls`, `moment`, `now`.
+- Refused names, because the SDK puts them on the querystring itself: `projectId`, `platform`, `appVersion`, `build`, `sdkVersion`, `environment`, `draft`, `locale`, `omitNulls`, `moment`, `now`. `assignmentId` is refused too: the SDK sends it as the `X-Assignment-Id` header and never on the URL, so no audience rule can read it.
 - The provider holds its query until hydration completes, which is one AsyncStorage read. Set `fontsFallback` and that frame is covered.
 
 **Wire `onComplete`.** The terminal branch calls `completeOnboarding()`; if no handler is set the SDK logs a warning and nothing advances, leaving the user stranded on the last screen.
@@ -165,6 +186,8 @@ const onContinue = (value?: any) => {
 ```
 
 `useOnboardingStep` returns `{ step, isLastStep, stepsLength, onboardingMetadata, steps, completeOnboarding }`. **Branch on `resolveNextStepNumber(...) === null`, not on `isLastStep`** — `isLastStep` is positional and not branch-aware, so it's wrong for any flow with branches or an `__END__` sentinel.
+
+**Which variant was served** — requires SDK 1.78.0 or later. `onboardingMetadata` (and `onComplete`'s `metadata`) carries `variantKey?: string | null` and `deploymentId?: number | null`. The parent onboarding reports `variantKey: "main"`, exported as `MAIN_VARIANT_KEY`; any other value names a variant. `null` and absent mean the same thing (no variant information, e.g. an older server), so normalize once: `metadata.variantKey ?? undefined`. `deploymentId` is `null` on a sandbox draft. To tag Rocalytics onboarding runs with it, pass it to rocalytics-sdk's `start({ studio: { variantKey: metadata.variantKey } })` alongside the studio ids already passed — that field needs rocalytics-sdk 0.7.0 or later.
 
 **Layout** — progress state for the header:
 

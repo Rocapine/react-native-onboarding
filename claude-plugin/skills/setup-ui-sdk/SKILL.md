@@ -89,6 +89,8 @@ OnboardingStudio.setUserProperty("plan", "free");
 
 `setUserProperties` merges; a `null` value deletes; `reset()` forgets the user on logout. Properties persist and are hydrated before the first fetch, so `OnboardingProvider` holds its query for one AsyncStorage read — pass `fontsFallback` and that frame is covered. The onboarding is served once, at mount, and frozen for that presentation: a property written mid-flow applies to the next serve (next mount or launch), never retroactively, so it is safe to write one at any point. Full detail, including the reserved key names, is in `setup-headless-sdk`.
 
+On SDK 1.78.0 or later, every request also carries an `assignmentId` the server uses to keep a person in the same variant — a stored installation UUID by default, or the `assignmentId` option on `OnboardingStudio.init` (e.g. `() => Purchases.getAppUserID()`). If the app gates tracking on consent, make that getter return `false` until consent, and call `OnboardingStudio.clearAssignmentId()` on withdrawal; see **Assignment id and consent** in `setup-headless-sdk`. The served variant is `onboardingMetadata.variantKey` (`"main"` for the parent onboarding).
+
 ### Applying a custom theme
 
 Because `OnboardingProgressProvider` renders its **own** `ThemeProvider` with no custom-theme pass-through, a `ThemeProvider` wrapped *around* it is shadowed and your brand tokens are silently ignored. Nest yours **inside** it — the inner provider wins:

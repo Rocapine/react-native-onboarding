@@ -28,7 +28,7 @@ npm run build:ui           # packages/onboarding-ui only (also copies src/assets
 npm run watch:headless     # Watch mode for headless
 npm run watch:ui           # Watch mode for UI
 npm run clean              # Remove all dist/ and node_modules/
-npm run publish:all        # Build + publish both packages to npm
+npm run publish:all        # Manual fallback; CI publishes on merge to main
 npm test --workspace=packages/onboarding  # vitest (evaluateCondition, resolveNextStepNumber)
 ```
 
@@ -217,8 +217,10 @@ In onboarding-studio, update:
 # 1. Bump — use the skill; it edits and stages all seven files
 /bump-version [patch|minor|major]
 
-# 2. Publish both packages together
-npm run publish:all        # runs check:versions first, then builds, then publishes
+# 2. Open a PR with the bump. Merging it to main IS the release:
+#    .github/workflows/publish.yml publishes any package whose version
+#    differs from the registry, then tags and creates the GitHub Release.
+#    `npm run publish:all` is a manual fallback only.
 ```
 
 There is no individual-package release. The two packages share a version by policy, so bumping one alone is a contradiction rather than a shortcut — the old `npm run patch` per-package scripts did exactly that (`npm version patch && build && publish`, touching neither the sibling package, the plugin manifest, nor a changelog) and were the mechanism behind the version drift F-11 found. They are removed, and `prepublishOnly` in both packages re-runs the check so no publish path can ship a divergent set, whatever command someone reaches for.

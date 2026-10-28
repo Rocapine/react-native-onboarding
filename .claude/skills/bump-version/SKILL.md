@@ -196,7 +196,7 @@ Commit message format (gitmoji conventional):
 
 Show the user the proposed commit message before running — confirm then commit.
 
-Do **not** push. Do **not** run `npm publish`. The user handles publishing separately.
+Do **not** run `npm publish` or `npm run publish:all`. **Merging to `main` is the release:** `.github/workflows/publish.yml` runs on every push to `main`, compares each package's version with the registry, and publishes (OIDC trusted publishing), then tags and creates the GitHub Release. So the bump goes on a branch, as a PR, and merging that PR is the irreversible step — it needs the user's explicit go. Do not push the bump commit straight to `main`.
 
 ---
 
@@ -227,6 +227,7 @@ Bumped: x.y.z → NEW_VERSION (BUMP_TYPE)
 Files:  7 staged (2 packages, SDK_VERSION, plugin manifest, 2 changelogs, lockfile)
 Checks: npm run check:versions ✓
 Commit: <sha or "done">
-Next:   npm run publish:all  (when ready to publish)
+Next:   open the release PR; merging it publishes (publish.yml)
+        verify: npm view @rocapine/react-native-onboarding version
         marketplace PR for <NEW_VERSION>  (optional, not a blocker)
 ```

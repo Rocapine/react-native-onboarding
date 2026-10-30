@@ -411,6 +411,12 @@ npx expo install @shopify/react-native-skia
 
 ### ComposableScreen
 
+:::warning Deprecated step type
+The `ComposableScreen` **step type** is deprecated (#353). Existing ComposableScreen steps keep parsing and rendering unchanged, and the step type will be removed in a future major version. Author new steps with a built-in page type: `MediaContent`, `Question`, `Picker`, `Carousel`, `Loader`, `Ratings`, `Commitment` or `Paywall`. In development builds, the first ComposableScreen step rendered in a session logs a one-time `console.warn`.
+
+The element vocabulary below is **not** deprecated: paywalls are built from it, and they never trigger the warning.
+:::
+
 Build arbitrary onboarding screens entirely from CMS data — no custom renderer required. You define a tree of layout and media elements that is rendered directly to native components.
 
 **Use cases:**

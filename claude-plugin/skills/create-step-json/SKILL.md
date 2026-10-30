@@ -37,7 +37,7 @@ Full payload reference: `references/built-in-step-types.md`.
 | Multi-select question | `Question` (`multipleAnswer: true`) |
 | Name, height, weight, date | `Picker` (`pickerType`) |
 | Social proof + rating prompt | `Ratings` (or `MediaContent.socialProof` for a single quote) |
-| Loader / "building your plan" | `Loader` |
+| Loader / "building your plan" | `Loader` (`variant: "circle"` advances by itself; `"bars"` waits for a tap) |
 | Commitment / signature | `Commitment` |
 | Carousel intro | `Carousel` |
 | Paywall inside the flow | `Paywall` (`payload.moment`) |
@@ -76,7 +76,7 @@ Branch resolution: first matching `branches[].condition` wins; otherwise `defaul
 
 ### 4. Apply the Design Profile
 
-Built-in step types are styled by the theme passed to `OnboardingProvider`, not per step. Map the Design Profile into that theme with `customize-onboarding-theme`; replace `Question` answer rows through `customComponents` (`customize-onboarding-components`) when the theme is not enough. In the step itself, the Design Profile drives copy: titles, answer labels, CTA verb from `voice.ctaVerbs[0]`.
+Built-in step types are styled by the UI SDK theme (see `customize-onboarding-theme`), not per step. Map the Design Profile into that theme; replace `Question` answer rows through `customComponents` (`customize-onboarding-components`) when the theme is not enough. In the step itself, the Design Profile drives copy: titles, answer labels, CTA verb from `voice.ctaVerbs[0]`.
 
 If the Design Profile is empty (no app context), say so and use SDK defaults.
 

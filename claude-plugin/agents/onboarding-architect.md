@@ -64,7 +64,7 @@ Numbered list of screen titles + step types. Show this BEFORE generating JSON so
 | Name, weight, height, date | `Picker` (`pickerType`) |
 | Value statement (no interpolation of prior answers) | `MediaContent` |
 | Testimonials + rating prompt | `Ratings` |
-| Animated wait | `Loader` |
+| Animated wait | `Loader` (`variant: "circle"` advances by itself; `"bars"` waits for a tap) |
 | Commitment / signature | `Commitment` |
 | 3–5 slide intro | `Carousel` |
 | Paywall in the flow | `Paywall` (`payload.moment`) |
@@ -93,7 +93,7 @@ Emit one array of steps. Each step:
 
 After Step 3 (variables) and before emitting JSON, walk the arc top-to-bottom and assign `nextStep.defaultTargetStepId` to the next step's `id`. Where a branch is needed (e.g. gender → male-track vs female-track), set `branches: [{ condition, targetStepId }]` on the deciding step; `defaultTargetStepId` stays as the common path. List branch points explicitly in the "Branching" section of the recap. Terminal step is the only `nextStep: null`.
 
-Built-in step types are styled by the theme passed to `OnboardingProvider`, not per step. Use the probe for copy (CTA verb, sentence case) and hand theme alignment to `customize-onboarding-theme`.
+Built-in step types are styled by the UI SDK theme (see `customize-onboarding-theme`), not per step. Use the probe for copy (CTA verb, sentence case) and hand theme alignment to `customize-onboarding-theme`.
 
 ## Step 5: Recap
 

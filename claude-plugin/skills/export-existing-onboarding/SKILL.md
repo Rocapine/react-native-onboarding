@@ -84,14 +84,14 @@ For each `ScreenIR`, classify intent:
 
 | Signal | Step type |
 | --- | --- |
-| Single big image + title + CTA, no inputs | `MediaContent` |
+| Single big image + title + CTA, no inputs | `MediaContent` (a Lottie / Rive / video hero renders a placeholder: report as a gap) |
 | `RadioGroup` semantics (single selection state) | `Question` (`multipleAnswer: false`) |
 | `CheckboxGroup` semantics (multi-selection) | `Question` (`multipleAnswer: true`) |
 | `TextInput` capturing a name | `Picker` (`pickerType: "name"`) |
 | Numeric `TextInput` + unit label (weight, height), or a date | `Picker` |
 | Text uses prior screens' variables, an age or gender picker | No built-in type (no interpolation, no renderer): report as a gap |
 | Multiple quote/testimonial cards | `Ratings` |
-| Lottie + status text + auto-advance / spinner | `Loader` |
+| Status text + auto-advance / spinner | `Loader` (`variant: "circle"` auto-advances; `"bars"` waits for a tap) |
 | Multiple checkboxes pre-filled with "I will…" copy | `Commitment` |
 | Horizontal pager (FlatList horizontal, ViewPager, Carousel) | `Carousel` |
 | A paywall shown inside the flow | `Paywall` (the user names the moment) |
@@ -136,7 +136,7 @@ After the JSON, list every gap explicitly:
 ```
 ## Gaps requiring decisions
 - screen "intro": uses local require('./assets/hero.png'). Replace with hosted URL or use `localPathId` once SDK supports it.
-- screen "loader": original implementation auto-advances after 3s via setTimeout. Mapped to `Loader`, which shows its CTA when the animation ends instead of advancing by itself.
+- screen "loader": original implementation auto-advances after 3s via setTimeout. Mapped to `Loader` with `variant: "circle"`, which advances by itself after about `duration * (steps.length + 0.5)` ms; pick `duration` so that lands near 3s.
 - screen "permissions": asks for notification permission. Permission asks shouldn't live in the onboarding payload. Recommend moving to post-onboarding.
 - screen "name": custom validation regex on TextInput. `Picker` (`pickerType: "name"`) has no regex validation — validation now lives in the host.
 ```

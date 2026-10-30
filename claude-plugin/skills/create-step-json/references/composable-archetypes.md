@@ -1,5 +1,7 @@
 # ComposableScreen Archetypes
 
+> **Deprecated step type — reference only.** The `ComposableScreen` step type is deprecated (#353). Do not start a new step from these archetypes; new steps use a built-in step type (`built-in-step-types.md`, same directory). These skeletons stay for reading and editing existing ComposableScreen steps, and their element patterns still apply to paywall element trees.
+
 > **Schema reminder.** `payload = { elements: UIElement[] }`. No `payload.root`, no `payload.variables`. Variables flow at runtime from in-screen `Input` / `RadioGroup` / `CheckboxGroup` / `DatePicker` / `WheelPicker` / `Slider` `variableName` props (and `DrawingPad`'s `variableName` / `imageVariableName`) (or prior steps' captures).
 
 > **Element ids.** The readable `"id"` values below (`safe`, `root`, `title`, …) are illustrative for readability. In real output, every element `id` must be a fresh UUID v4 — never reuse or content-derive.

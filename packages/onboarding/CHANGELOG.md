@@ -4,6 +4,17 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [Unreleased]
+### Deprecated
+- **The `ComposableScreen` step type** (#353). `ComposableScreenStepTypeSchema`,
+  `ComposableScreenStepType` and `ComposableScreenStepPayloadSchema` carry
+  `@deprecated`. Author new steps with a built-in step type: `MediaContent`,
+  `Question`, `Picker`, `Carousel`, `Loader`, `Ratings`, `Commitment` or
+  `Paywall`. Existing ComposableScreen steps parse exactly as before; removal is
+  a later major version. Nothing else is deprecated: the UIElement types and
+  schemas re-exported from `steps/ComposableScreen/types` are what paywalls are
+  built from. No runtime change.
+
 ## [1.78.0] - 2026-10-27
 ### Added
 - **`OnboardingMetadata` carries `variantKey` and `deploymentId`** (#234).

@@ -1,8 +1,8 @@
 # Inspect Target App Before Building
 
-Every authoring + integration skill in this plugin must run this probe before producing output. The goal: produce a structured **Design Profile** that downstream skills inject into every UIElement they emit.
+Every authoring + integration skill in this plugin must run this probe before producing output. The goal: produce a structured **Design Profile** that downstream skills map into the UI SDK theme (built-in step types) or inject into every UIElement (paywalls, existing ComposableScreen steps).
 
-Generic onboarding output is a regression. ComposableScreens should be indistinguishable from screens written by hand inside the host app.
+Generic onboarding output is a regression. Onboarding screens should be indistinguishable from screens written by hand inside the host app.
 
 ## The Design Profile (target output of this probe)
 
@@ -148,8 +148,9 @@ After the probe, surface a compact block at the top of every authoring output:
 
 ## How downstream skills use it
 
-For every UIElement they emit:
+**Built-in step types** (`MediaContent`, `Question`, `Picker`, `Carousel`, `Loader`, `Ratings`, `Commitment`, `Paywall`) take no per-element styling. The profile goes into the UI SDK theme via `customize-onboarding-theme` (brand + surface + text colors, font families, type scale), and into the step's copy: titles, answer labels, and the CTA verb from `voice.ctaVerbs` in `continueButtonLabel`.
 
+**UIElement trees** — a paywall's `elements`, or an edit to an existing ComposableScreen step (a deprecated step type; never author a new one). For every UIElement emitted:
 - `Button.props.backgroundColor` ← `brand.primary`
 - `Button.props.color` ← `text.onBrand`
 - `Button.props.fontFamily` ← `fonts.heading` (or `body` if buttons use body font)

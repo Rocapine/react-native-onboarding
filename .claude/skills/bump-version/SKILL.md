@@ -157,6 +157,8 @@ Read the diff again (already done in Step 1). Write a changelog entry for **each
 
 Only include sections that apply. Today's date: read from the environment or use the date in the conversation context.
 
+**If a file already opens with a `## [Unreleased]` section, promote it — do not prepend above it.** Feature PRs may land their entries under `## [Unreleased]` ahead of the release. Rename that heading to `## [NEW_VERSION] - YYYY-MM-DD`, keep its subsections (`### Deprecated`, …), and merge this step's entries into them. Do not leave an empty `## [Unreleased]` behind. A new section prepended above it would strand those entries: `publish.yml` builds the GitHub release notes with an `awk` that takes everything from `## [NEW_VERSION]` up to the next `## ` heading, so it would stop at `## [Unreleased]` and drop them, and `check-versions.mjs` skips an Unreleased heading, so nothing would flag it.
+
 Files to update:
 - `packages/onboarding/CHANGELOG.md`
 - `packages/onboarding-ui/CHANGELOG.md`

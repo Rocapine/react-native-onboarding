@@ -5,6 +5,20 @@ here.
 
 ---
 
+## [Unreleased]
+### Deprecated
+- **The `ComposableScreen` step type** (#353). `ComposableScreenRenderer`,
+  `ComposableScreenStepTypeSchema`, `ComposableScreenStepType` and
+  `ComposableScreenStepPayloadSchema` carry `@deprecated`. Author new steps with
+  a built-in step type: `MediaContent`, `Question`, `Picker`, `Carousel`,
+  `Loader`, `Ratings`, `Commitment` or `Paywall`. Existing ComposableScreen
+  steps render exactly as before; removal is a later major version.
+  In development builds (`__DEV__`), the first ComposableScreen step rendered in
+  a JS session logs one `console.warn` naming the alternatives; production
+  builds never log it. `ScreenRenderer`, the UIElement renderers, `PaywallHost`
+  and the `Paywall` step are not deprecated, and a paywall never triggers the
+  warning.
+
 ## [1.78.0] - 2026-10-27
 ### Added
 - **A custom paywall screen receives `variantKey` and `deploymentId`** (#235)

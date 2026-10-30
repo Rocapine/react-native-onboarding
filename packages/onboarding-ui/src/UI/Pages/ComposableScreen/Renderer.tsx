@@ -15,6 +15,7 @@ import { ScreenRenderer } from "../../Runtime/ScreenRenderer";
 import { getRenderableElementTypes } from "../../Runtime/renderableElementTypes";
 import type { ScreenHost } from "../../Runtime/ScreenHost";
 import type { PermissionResolver } from "../../Runtime/elements/permissions";
+import { warnComposableScreenDeprecated } from "./deprecationWarning";
 
 /**
  * Label for the escape CTA the strip may have to supply. Hardcoded, like the
@@ -41,6 +42,11 @@ type ContentProps = {
  * lives in UI/Runtime and is shared with the paywall renderer.
  */
 const ComposableScreenRendererBase = ({ step, onContinue, keyboardVerticalOffset, enteringSettleDelayMs, requestPermission }: ContentProps) => {
+  // Dev builds only, once per session (#353). Here and not in ScreenRenderer or
+  // OnboardingTemplate, which paywalls render through too.
+  useEffect(() => {
+    warnComposableScreenDeprecated();
+  }, []);
   const { theme } = useTheme();
   const { headerHeight } = useOnboardingHeaderHeight();
   // FORWARD COMPATIBILITY (#209). An element type published after this app
@@ -177,4 +183,11 @@ const ComposableScreenRendererBase = ({ step, onContinue, keyboardVerticalOffset
   );
 };
 
+/**
+ * @deprecated The `ComposableScreen` step type is deprecated and will be removed
+ * in a future major version. Existing steps keep rendering unchanged. Use a
+ * built-in step type for new steps: `MediaContent`, `Question`, `Picker`,
+ * `Carousel`, `Loader`, `Ratings`, `Commitment` or `Paywall`. Paywalls, and the
+ * `ScreenRenderer` / UIElement engine they use, are not deprecated.
+ */
 export const ComposableScreenRenderer = withErrorBoundary(ComposableScreenRendererBase, "ComposableScreen");

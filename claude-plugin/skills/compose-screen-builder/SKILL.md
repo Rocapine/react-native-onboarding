@@ -1,12 +1,17 @@
 ---
 name: compose-screen-builder
-description: Builds the inner UIElement tree of a ComposableScreen step, and is the deep reference for every element type, prop, animation preset and condition operator. Inspects the target app's design system before composing. Use when the user asks to "compose a screen", "build the UIElement tree", "design the layout", asks what props an element accepts, or needs branching/variables within a single screen.
+description: Builds UIElement trees — a paywall's elements, or an edit to an EXISTING ComposableScreen step — and is the deep reference for every element type, prop, animation preset and condition operator. Inspects the target app's design system before composing. Use when the user asks to "compose a screen", "build the UIElement tree", "design the layout", asks what props an element accepts, or needs branching/variables within a single screen. Does not author new ComposableScreen steps: that step type is deprecated; new onboarding steps use the built-in step types via create-step-json.
 allowed-tools: Read, Write, Edit, Glob, Grep
 ---
 
 # Compose Screen Builder
 
-This plugin uses **ComposableScreen exclusively**. This skill is the deep reference for UIElement trees.
+This skill is the deep reference for UIElement trees. Use it for:
+
+- **Paywalls** — a paywall's `elements` are a UIElement tree (`setup-paywalls`). Not deprecated.
+- **Existing ComposableScreen steps** — editing one keeps working.
+
+> **The `ComposableScreen` step type is deprecated** (#353). Existing ComposableScreen steps keep parsing and rendering, but do not author new ones: new onboarding steps use a built-in step type (`MediaContent`, `Question`, `Picker`, `Carousel`, `Loader`, `Ratings`, `Commitment`, `Paywall`) via `create-step-json`. The elements, actions and conditions documented here are not deprecated.
 
 ## Process
 

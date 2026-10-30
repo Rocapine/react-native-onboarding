@@ -567,6 +567,13 @@ export const ScreenElementsSchema = z
 
 // `ComposableScreenStepPayloadSchema` stays exported and unchanged in behaviour —
 // it is public API, and Pages/ComposableScreen/Renderer.tsx parses with it.
+/**
+ * @deprecated The `ComposableScreen` step type is deprecated and will be removed
+ * in a future major version. Existing steps keep parsing and rendering unchanged.
+ * Use a built-in step type for new steps: `MediaContent`, `Question`, `Picker`,
+ * `Carousel`, `Loader`, `Ratings`, `Commitment` or `Paywall`. The UIElement types
+ * and `ScreenElementsSchema` are not deprecated: paywalls use them.
+ */
 export const ComposableScreenStepPayloadSchema = z.object({
   elements: ScreenElementsSchema,
 });

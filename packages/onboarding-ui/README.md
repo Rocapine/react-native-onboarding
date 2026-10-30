@@ -41,14 +41,24 @@ export default function OnboardingScreen() {
 | `Loader`                                 | Animated progress bars with optional carousel          |
 | `Ratings`                                | App store rating prompts with social proof             |
 | `Commitment`                             | Agreement / signature screens                          |
-| `ComposableScreen` _(under development)_ | Declarative layout system — see below                  |
+| `Paywall`                                | A paywall rendered in flow position                    |
+| `ComposableScreen` _(deprecated)_        | Declarative layout system — see below                  |
 
 ---
 
-## 🧱 ComposableScreen _(under development)_
+## 🧱 ComposableScreen _(deprecated)_
 
-> **This page type is still under active development. The API may change before
-> it is considered stable.**
+> **The `ComposableScreen` step type is deprecated** (#353). Existing
+> ComposableScreen steps keep parsing and rendering unchanged, and the step type
+> will be removed in a future major version. Author new steps with a built-in
+> step type: `MediaContent`, `Question`, `Picker`, `Carousel`, `Loader`,
+> `Ratings`, `Commitment` or `Paywall`. In development builds, the first
+> ComposableScreen step rendered in a session logs a one-time `console.warn`.
+>
+> `ComposableScreenRenderer` and the step schemas are marked `@deprecated`. The
+> element vocabulary documented below is **not** deprecated: paywalls are built
+> from it and render through the same `ScreenRenderer`, and they never trigger
+> the warning.
 
 `ComposableScreen` lets you build arbitrary onboarding screens entirely from CMS
 data, without writing a custom renderer. You compose a tree of layout and text

@@ -8,6 +8,13 @@ import { ComposableScreenStepPayloadSchema } from "../../Runtime/types";
 // src/screens/types.ts (elements) vs src/steps/ComposableScreen/types.ts (step).
 export * from "../../Runtime/types";
 
+/**
+ * @deprecated The `ComposableScreen` step type is deprecated and will be removed
+ * in a future major version. Existing steps keep parsing and rendering unchanged.
+ * Use a built-in step type for new steps: `MediaContent`, `Question`, `Picker`,
+ * `Carousel`, `Loader`, `Ratings`, `Commitment` or `Paywall`. The UIElement types
+ * re-exported from this module are not deprecated: paywalls use them.
+ */
 export const ComposableScreenStepTypeSchema = z.object({
   id: z.string(),
   type: z.literal("ComposableScreen"),
@@ -19,4 +26,11 @@ export const ComposableScreenStepTypeSchema = z.object({
   figmaUrl: z.string().nullish(),
 });
 
+/**
+ * @deprecated The `ComposableScreen` step type is deprecated and will be removed
+ * in a future major version. Existing steps keep parsing and rendering unchanged.
+ * Use a built-in step type for new steps: `MediaContent`, `Question`, `Picker`,
+ * `Carousel`, `Loader`, `Ratings`, `Commitment` or `Paywall`. The UIElement types
+ * re-exported from this module are not deprecated: paywalls use them.
+ */
 export type ComposableScreenStepType = z.infer<typeof ComposableScreenStepTypeSchema>;

@@ -380,10 +380,18 @@ export default function OnboardingScreen() {
 - **Loader** - Sequential progress animation with optional carousel
 - **Ratings** - App store rating prompts with social proof
 - **Commitment** - User commitment and agreement screens
-- **ComposableScreen** _(under development)_ - Declarative layout system driven
-  entirely from the CMS. Build arbitrary screens by composing `YStack`,
-  `XStack`, and `Text` elements with full layout, spacing, border, and
-  typography control — no custom renderer needed.
+- **Paywall** - A paywall rendered in flow position, chosen by a moment's
+  audience waterfall
+- **ComposableScreen** _(deprecated)_ - Declarative layout system driven
+  entirely from the CMS, built from a tree of UIElements.
+
+> **`ComposableScreen` is deprecated as a step type** (#353). Existing
+> ComposableScreen steps keep parsing and rendering unchanged, and the step
+> type will be removed in a future major version. Author new steps with one of
+> the built-in step types above. The `ComposableScreenStepTypeSchema`,
+> `ComposableScreenStepType` and `ComposableScreenStepPayloadSchema` exports
+> are marked `@deprecated`. The UIElement types and schemas are **not**
+> deprecated: paywalls are built from them.
 
 [Learn more about page types →](./docs/page-types.mdx)
 

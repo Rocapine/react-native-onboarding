@@ -1,13 +1,16 @@
 ---
 name: create-step-json
-description: Authors a new Rocapine Onboarding Studio step using exclusively the ComposableScreen step type. Inspects the target app for design system, fonts, tokens, and copy voice before generating. Use when the user wants to add an onboarding screen, draft a step, or asks "give me JSON for an onboarding step".
+description: Authors a new Rocapine Onboarding Studio step with a built-in step type (MediaContent, Question, Picker, Carousel, Loader, Ratings, Commitment, Paywall). Inspects the target app for design system, fonts, tokens, and copy voice before generating. Use when the user wants to add an onboarding screen, draft a step, or asks "give me JSON for an onboarding step". The ComposableScreen step type is deprecated; this skill only edits existing ComposableScreen steps, never authors new ones.
 allowed-tools: Read, Write, Edit, Glob, Grep
-argument-hint: [screen purpose / archetype]
+argument-hint: [screen purpose / step type]
 ---
 
-# Create Step JSON (ComposableScreen-only)
+# Create Step JSON
 
-This plugin authors **ComposableScreen** steps. Full design-system fidelity, one mental model, no hidden UI assumptions.
+This skill authors steps with the **built-in step types**. The `ComposableScreen`
+step type is **deprecated** (#353): existing ComposableScreen steps keep rendering,
+but do not author new ones. To edit an existing one, see
+[Editing an existing ComposableScreen step](#editing-an-existing-composablescreen-step).
 
 ## Process
 
@@ -17,45 +20,43 @@ Run the probe from `../onboarding-best-practices/references/inspect-target-app.m
 
 - Brand color + surface tokens (from theme passed to `OnboardingProvider`)
 - Loaded font families (from `expo-font` / `useFonts`)
-- Border radius / padding conventions (from existing buttons)
 - Copy voice + CTA verb style
 - Variable naming convention (if existing onboarding present)
-- Whether motion (Reanimated) is in use
+- The installed SDK version, so the payload matches its `dist/steps/<Type>/types.d.ts`
 
 If no target app accessible, note ⚠ and use SDK defaults.
 
-### 2. Map intent to ComposableScreen archetype
+### 2. Map intent to a built-in step type
 
-Pick from `references/composable-archetypes.md`:
+Full payload reference: `references/built-in-step-types.md`.
 
-| Intent | Archetype |
-|--------|-----------|
-| Welcome / hook | `hero` |
-| Single-select question | `question-single` |
-| Multi-select question | `question-multi` |
-| User input (name, number, free text) | `input` |
-| Numeric picker (age, weight, height) | `picker` |
-| Reflection / personalized message | `reflection` |
-| Social proof | `social-proof` |
-| Loader / "building your plan" | `loader` (self-completing — chained `ProgressIndicator`s, no host timer) |
-| Commitment / signature | `commitment` |
-| Permission / integration ask (notifications, HealthKit, …) | `permission` |
-| Carousel intro | `carousel` |
-
-Each archetype is a ready ComposableScreen tree using only `BaseStepTypeSchema` + ComposableScreen UIElements. Customize tokens/copy from the app probe. After picking the archetype, consult `references/screen-patterns.md` for production-grade composition (select-and-advance questions, motion choreography, loaders, social-proof layering, permission branches).
+| Intent | Step type |
+| --- | --- |
+| Welcome / hook, value statement | `MediaContent` |
+| Reflection / personalized message | `MediaContent` |
+| Single-select question | `Question` (`multipleAnswer: false`) |
+| Multi-select question | `Question` (`multipleAnswer: true`) |
+| Name, age, height, weight, date, gender | `Picker` (`pickerType`) |
+| Social proof + rating prompt | `Ratings` (or `MediaContent.socialProof` for a single quote) |
+| Loader / "building your plan" | `Loader` |
+| Commitment / signature | `Commitment` |
+| Carousel intro | `Carousel` |
+| Paywall inside the flow | `Paywall` (`payload.moment`) |
+| Permission / integration ask | No built-in type. Tell the user; do not author a ComposableScreen step for it. |
 
 ### 3. Generate the step
 
 Always set:
 
-- `type: "ComposableScreen"`
-- `id` — the **step** id: kebab-case, matches target app convention (camelCase / kebab — match probe). Referenced by `nextStep` links, so keep it stable/readable. (Distinct from **element** ids inside `payload.elements`, which must be UUID v4 — see `payload` below.)
+- `type` — the built-in type from step 2.
+- `id` — the **step** id: kebab-case, matches target app convention (camelCase / kebab — match probe). Referenced by `nextStep` links, so keep it stable/readable.
 - `name` — human-readable.
-- `displayProgressHeader` — `true` ONLY for data-collection screens (`question-*`, `input`, `picker`); `false` for narrative/value screens (`hero`, `carousel`, `reflection`, `social-proof`, `permission`, `loader`, `commitment`). Rule of thumb: progress bar shows while the user is actively answering, hidden during storytelling and permission moments.
+- `displayProgressHeader` — `true` ONLY for data-collection screens (`Question`, `Picker`); `false` for narrative/value screens (`MediaContent`, `Carousel`, `Ratings`, `Loader`, `Commitment`, `Paywall`). Rule of thumb: progress bar shows while the user is actively answering, hidden during storytelling.
 - `customPayload: null`
-- `continueButtonLabel` — pick verb from app's voice (probe). Note: in ComposableScreen this is usually unused since the CTA is its own `Button` element inside `payload.elements`.
+- `continueButtonLabel` — pick verb from app's voice (probe). It is the CTA label on built-in types.
+- `variableName` — on `Question` and `Picker`, when a later step or branch reads the answer. Match the probe's naming style.
 - `nextStep` — **always emit as an explicit multi-path link** when generating a flow of > 1 step. Default-link each step to the next via `{ defaultTargetStepId: "<next-step-id>", branches: [] }`. Only the terminal step (or a true single-step generation) gets `nextStep: null` **or** ends explicitly via the end sentinel `{ defaultTargetStepId: "__END__", branches: [] }` (see below). If a branching condition applies, add `branches: [{ condition, targetStepId }]` — first match wins, `defaultTargetStepId` is the fallback. **Do not rely on the null + array-order linear fallback for multi-step flows.** Explicit links survive reordering and make adding branches trivial. (`null` still resolves linearly at runtime — see `resolveNextStepNumber.test.ts` — but explicit multi-path is the convention.)
-- `payload` — must be exactly `{ "elements": [ /* UIElement[] */ ] }`. Every UIElement's `id` must be a fresh UUID v4 (e.g. `crypto.randomUUID()`) — never reuse, never derive from content. Studio keys elements by UUID; the readable ids in the examples/archetypes below are illustrative only, real output uses UUIDs.
+- `payload` — exactly the fields `references/built-in-step-types.md` lists for that type. Unknown keys are stripped silently, so a misspelled field does nothing.
 
 ### Auto-linking rule (when generating > 1 step)
 
@@ -74,71 +75,44 @@ Walk the flow in order. For each step `i` of an `N`-length flow:
 
 Branch resolution: first matching `branches[].condition` wins; otherwise `defaultTargetStepId`. Every `targetStepId` (branch or default) MUST reference a real `id` present in the flow, **except** the reserved end sentinel `"__END__"` — a branch or the default target may be set to `"__END__"` to end the onboarding from any step (no trailing screen). It is deliberately not a real step id, so do not flag it as a dangling reference.
 
-**Do NOT set `payload.root`. Do NOT set `payload.variables`. Those keys do not exist in the schema.** Variables flow at runtime from prior steps' `variableName` captures or from in-screen `Input` / `RadioGroup` / `CheckboxGroup` / `Button` `setVariable` actions — they are never declared in the payload.
+### 4. Apply the Design Profile
 
-### 4. Apply the Design Profile, no exceptions
+Built-in step types are styled by the theme passed to `OnboardingProvider`, not per step. Map the Design Profile into that theme with `customize-onboarding-theme`; replace `Question` answer rows through `customComponents` (`customize-onboarding-components`) when the theme is not enough. In the step itself, the Design Profile drives copy: titles, answer labels, CTA verb from `voice.ctaVerbs[0]`.
 
-The probe output is a structured **Design Profile** (see `../onboarding-best-practices/references/inspect-target-app.md`). Inject it into every UIElement:
+If the Design Profile is empty (no app context), say so and use SDK defaults.
 
-- `Button.backgroundColor` ← `brand.primary`; `Button.color` ← `text.onBrand`; `Button.fontFamily` ← `fonts.heading`; `Button.borderRadius` ← `buttonBorderRadius`
-- `Text.fontFamily` ← `fonts.heading` for titles, `fonts.body` for body; `fontSize` from `typeScale`
-- `RadioGroup` / `CheckboxGroup` `item*` props — selected/unselected colors, border radius, font, padding all from Design Profile
-- Container `backgroundColor`, `borderRadius`, `borderColor` — never invented hex, always sourced
-- Spacing (`gap`, `padding*`) — snap to the app's spacing ladder
-- CTA label — pull verb from `voice.ctaVerbs[0]`
-
-If the Design Profile is empty (no app context), say so and use SDK defaults — but expect a regression vs. the host design system.
-
-### 5. Hand off the UIElement tree
-
-Inner tree composition is the `compose-screen-builder` skill's job. This skill produces the step wrapper + archetype skeleton; `compose-screen-builder` fills in nuanced layouts.
-
-### 6. Validate
+### 5. Validate
 
 Offer to run `validate-step-json` skill on the output.
 
 ## Output
 
-Single fenced JSON block, no prose unless explanation requested.
-
-```json
-{
-  "id": "goal",
-  "name": "Goal selection",
-  "type": "ComposableScreen",
-  "displayProgressHeader": true,
-  "customPayload": null,
-  "continueButtonLabel": "Continue",
-  "nextStep": { "defaultTargetStepId": "experience", "branches": [] },
-  "payload": {
-    "elements": [
-      {
-        "id": "safe",
-        "type": "SafeAreaView",
-        "props": { "flex": 1, "edges": ["top", "bottom"] },
-        "children": [
-          {
-            "id": "root",
-            "type": "YStack",
-            "props": { "flex": 1, "padding": 24, "gap": 24 },
-            "children": [/* ... */]
-          }
-        ]
-      }
-    ]
-  }
-}
-```
+Single fenced JSON block, no prose unless explanation requested. Example: the
+`Question` step at the end of `references/built-in-step-types.md`.
 
 Followed by a 3-line summary:
 
 ```
-Archetype: question-single
-Tokens applied: brand=#27ae60, font=Geist-Bold (from app probe)
+Step type: Question
+Copy voice: sentence case, "Continue" (from app probe)
 Variable: goal (string)
 ```
-
 ## Anti-patterns
+
+- Do NOT author a new `ComposableScreen` step. The step type is deprecated.
+- Do NOT invent payload fields. Check the type's schema in the installed SDK.
+- Do NOT skip the app probe — generic copy drifts from the host voice.
+- Do NOT put long-form content in button labels — ≤ 30 chars.
+- Do NOT use http:// media URLs.
+
+## Editing an existing ComposableScreen step
+
+Existing ComposableScreen steps still parse and render, so they can still be
+edited. Keep the edit to the requested change, and suggest moving the screen to a
+built-in type when one fits. The ComposableScreen payload is exactly
+`{ "elements": UIElement[] }`; `references/composable-archetypes.md` and the
+`compose-screen-builder` skill are the element reference. Every new UIElement
+`id` is a fresh UUID v4. When editing one:
 
 - Do NOT write `payload.root` or `payload.variables` — neither exists in the schema. Only `payload.elements: UIElement[]`. Writing `payload.root` causes Studio to crash with `"els is not iterable"`.
 - Do NOT emit a container element (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `ScrollView`, `KeyboardAvoidingView`, `Carousel`, `RichText`, `Repeat`) without a `children` array. Empty container → `"children": []`. Missing `children` crashes Studio with `"Cannot read properties of undefined (reading 'map')"`.
@@ -155,6 +129,3 @@ Variable: goal (string)
   - `Input.suffix` / `Input.alignment` → not in schema; use `textAlign`. (`Input.autoFocus` **is** in the schema since SDK 1.40.0 — a valid boolean that focuses on mount and opens the keyboard. Do not strip it.)
 - Do NOT use `{{var}}` in `Text.content` without also setting `Text.props.mode: "expression"`. Without that flag, interpolation is silently disabled.
 - Do NOT invent brand colors when app probe is available.
-- Do NOT skip the app probe — generic output drifts from host design system.
-- Do NOT put long-form content in button labels — ≤ 30 chars.
-- Do NOT use http:// media URLs.

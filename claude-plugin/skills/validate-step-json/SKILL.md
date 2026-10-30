@@ -1,13 +1,13 @@
 ---
 name: validate-step-json
-description: Validates a Rocapine ComposableScreen step JSON against the headless SDK Zod schemas. Use when the user pastes step JSON and asks "is this valid", "check this onboarding step", "validate this payload", or after creating step JSON.
+description: Validates a Rocapine step JSON (any step type, including existing ComposableScreen steps) against the headless SDK Zod schemas. Use when the user pastes step JSON and asks "is this valid", "check this onboarding step", "validate this payload", or after creating step JSON.
 allowed-tools: Read, Write, Bash, Glob, Grep
 argument-hint: [path-to-json-file or inline JSON]
 ---
 
 # Validate Step JSON
 
-This plugin emits ComposableScreen only. This skill validates against `ComposableScreenStepTypeSchema`.
+This skill validates a step against its own type's schema, `<Type>StepTypeSchema`. New steps use the built-in step types (`MediaContent`, `Question`, `Picker`, `Carousel`, `Loader`, `Ratings`, `Commitment`, `Paywall`). The `ComposableScreen` step type is deprecated (#353): an existing ComposableScreen step still validates, and the element checks below apply to it (and to a paywall's element tree).
 
 ## Misplaced keys parse clean — check for them explicitly
 
@@ -47,28 +47,32 @@ Only these keys are valid at an element's top level: `id`, `name`, `type`, `prop
 ## When invoked
 
 1. Locate the step JSON: inline, file path, or clipboard. If unclear, ask.
-2. Confirm `type === "ComposableScreen"`. If not, reject:
+2. Read `type`. Reject anything outside the built-in step types and `ComposableScreen`. On a `ComposableScreen` step, add a warning:
    ```
-   ✗ type
-     Expected "ComposableScreen" — this plugin uses ComposableScreen exclusively.
-     Fix: regenerate via create-step-json skill.
+   ⚠ type
+     ComposableScreen is a deprecated step type. Existing steps keep rendering; author new steps with a built-in type.
    ```
 3. Run real Zod validation:
 
 ```ts
-// scripts/_validate-composable.ts
-import { ComposableScreenStepTypeSchema } from "@rocapine/react-native-onboarding";
-
+// scripts/_validate-step.ts
 const input = JSON.parse(process.argv[2]);
-const result = ComposableScreenStepTypeSchema.safeParse(input);
+const TYPES = ["MediaContent", "Question", "Picker", "Carousel", "Loader", "Ratings", "Commitment", "Paywall", "ComposableScreen"];
+if (!TYPES.includes(input.type)) {
+  console.error(`Unknown step type ${JSON.stringify(input.type)}`);
+  process.exit(1);
+}
+const schema = require(`@rocapine/react-native-onboarding/dist/steps/${input.type}/types.js`)[`${input.type}StepTypeSchema`];
+const result = schema.safeParse(input);
 if (result.success) console.log("OK");
 else { console.error(JSON.stringify(result.error.format(), null, 2)); process.exit(1); }
 ```
 
-Run: `npx tsx scripts/_validate-composable.ts "$(cat step.json)"`
+Run: `npx tsx scripts/_validate-step.ts "$(cat step.json)"`
 
 4. If `tsx` unavailable, fall back to structural check:
    - `BaseStepTypeSchema` fields present (`id`, `name`, `displayProgressHeader`, `customPayload`, `nextStep`)
+   - Built-in step type: `payload` holds exactly the fields `../create-step-json/references/built-in-step-types.md` lists for it. The remaining checks are for a `ComposableScreen` step:
    - `payload` is exactly `{ "elements": UIElement[] }` — no `root`, no `variables` keys
    - Every UIElement has `id` (string), `type` (string literal), `props` (object).
    - Every container UIElement (`YStack`, `XStack`, `ZStack`, `SafeAreaView`, `ScrollView`, `KeyboardAvoidingView`, `Carousel`, `RichText`, `Repeat`) has `children: UIElement[]` at element top-level — required, must exist even if empty (`"children": []`). Non-container types must NOT have `children`. `RichText.children` are restricted to `Text` elements only — any non-`Text` child fails parse.

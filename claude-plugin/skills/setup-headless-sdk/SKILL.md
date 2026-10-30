@@ -242,6 +242,6 @@ Suggest running the `sdk-integration-verifier` agent.
 - Don't define the `navigation` adapter inline in JSX — it must be a stable reference.
 - Don't skip the app probe — provider placement and env conventions depend on app conventions.
 
-## ComposableScreen note
+## UI SDK note
 
-This plugin authors ComposableScreen steps only, which need the UI SDK to render. Run `setup-ui-sdk` next — it covers the required and optional peer deps ComposableScreen depends on.
+Steps render through the UI SDK. Run `setup-ui-sdk` next — it covers the required and optional peer deps.

@@ -1,12 +1,12 @@
 ---
 name: onboarding-best-practices
-description: Provides conversion-optimized onboarding patterns for Rocapine ComposableScreen-only flows — flow arc, screen ordering, per-archetype heuristics — plus the target-app inspection protocol every authoring skill depends on. Use when the user asks "how should I design this onboarding", "what's the best order", "how many screens", "how to improve conversion", or any open-ended onboarding strategy question.
+description: Provides conversion-optimized onboarding patterns for Rocapine flows — flow arc, screen ordering, per-archetype heuristics — plus the target-app inspection protocol every authoring skill depends on. Use when the user asks "how should I design this onboarding", "what's the best order", "how many screens", "how to improve conversion", or any open-ended onboarding strategy question.
 allowed-tools: Read, Glob, Grep
 ---
 
 # Onboarding Best Practices
 
-Knowledge for designing high-converting Rocapine onboarding flows. Every screen is a ComposableScreen tree.
+Knowledge for designing high-converting Rocapine onboarding flows. New screens use the built-in step types (`MediaContent`, `Question`, `Picker`, `Carousel`, `Loader`, `Ratings`, `Commitment`, `Paywall`); the archetype names below are screen intents, mapped to step types in `../create-step-json/SKILL.md`. The `ComposableScreen` step type is deprecated (#353).
 
 ## Always inspect target app first
 

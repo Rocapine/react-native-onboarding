@@ -88,8 +88,8 @@ For each `ScreenIR`, classify intent:
 | `RadioGroup` semantics (single selection state) | `Question` (`multipleAnswer: false`) |
 | `CheckboxGroup` semantics (multi-selection) | `Question` (`multipleAnswer: true`) |
 | `TextInput` capturing a name | `Picker` (`pickerType: "name"`) |
-| Numeric `TextInput` + unit label (age, weight, height), date, gender | `Picker` |
-| Text uses prior screens' variables | `MediaContent` |
+| Numeric `TextInput` + unit label (weight, height), or a date | `Picker` |
+| Text uses prior screens' variables, an age or gender picker | No built-in type (no interpolation, no renderer): report as a gap |
 | Multiple quote/testimonial cards | `Ratings` |
 | Lottie + status text + auto-advance / spinner | `Loader` |
 | Multiple checkboxes pre-filled with "I will…" copy | `Commitment` |
@@ -116,7 +116,7 @@ For each `ScreenIR`, build the step:
 }
 ```
 
-Set `variableName` on `Question` / `Picker` steps from the state the source screen writes. Map the extracted colors, fonts and radii into the onboarding theme (`customize-onboarding-theme`), not into the step.
+Set `variableName` on `Question` / `Picker` steps from the state the source screen writes; the bundled renderers do not store it, so note under "Gaps" any branch that depends on it. Map the extracted colors, fonts and radii into the onboarding theme (`customize-onboarding-theme`), not into the step.
 
 ## Phase 5 — Detect navigation graph
 
@@ -136,7 +136,7 @@ After the JSON, list every gap explicitly:
 ```
 ## Gaps requiring decisions
 - screen "intro": uses local require('./assets/hero.png'). Replace with hosted URL or use `localPathId` once SDK supports it.
-- screen "loader": original implementation auto-advances after 3s via setTimeout. Mapped to `Loader` with `duration: 3000`.
+- screen "loader": original implementation auto-advances after 3s via setTimeout. Mapped to `Loader`, which shows its CTA when the animation ends instead of advancing by itself.
 - screen "permissions": asks for notification permission. Permission asks shouldn't live in the onboarding payload. Recommend moving to post-onboarding.
 - screen "name": custom validation regex on TextInput. `Picker` (`pickerType: "name"`) has no regex validation — validation now lives in the host.
 ```
@@ -148,7 +148,7 @@ After the JSON, list every gap explicitly:
 - src/screens/Onboarding/Welcome.tsx → "welcome" (MediaContent)
 - src/screens/Onboarding/Goal.tsx    → "goal" (Question)
 - src/screens/Onboarding/Weight.tsx  → "weight" (Picker)
-- src/screens/Onboarding/Plan.tsx    → "plan" (MediaContent)
+- src/screens/Onboarding/Plan.tsx    → "plan" (gap: quotes prior answers)
 - src/screens/Onboarding/Done.tsx    → "done" (MediaContent, terminal)
 Navigation order from src/navigation/OnboardingStack.tsx:8-22
 

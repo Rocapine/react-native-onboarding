@@ -33,16 +33,15 @@ Full payload reference: `references/built-in-step-types.md`.
 | Intent | Step type |
 | --- | --- |
 | Welcome / hook, value statement | `MediaContent` |
-| Reflection / personalized message | `MediaContent` |
 | Single-select question | `Question` (`multipleAnswer: false`) |
 | Multi-select question | `Question` (`multipleAnswer: true`) |
-| Name, age, height, weight, date, gender | `Picker` (`pickerType`) |
+| Name, height, weight, date | `Picker` (`pickerType`) |
 | Social proof + rating prompt | `Ratings` (or `MediaContent.socialProof` for a single quote) |
 | Loader / "building your plan" | `Loader` |
 | Commitment / signature | `Commitment` |
 | Carousel intro | `Carousel` |
 | Paywall inside the flow | `Paywall` (`payload.moment`) |
-| Permission / integration ask | No built-in type. Tell the user; do not author a ComposableScreen step for it. |
+| Permission / integration ask, a message quoting prior answers, an age / gender picker | No built-in type. Tell the user; do not author a ComposableScreen step for it. |
 
 ### 3. Generate the step
 
@@ -53,8 +52,8 @@ Always set:
 - `name` — human-readable.
 - `displayProgressHeader` — `true` ONLY for data-collection screens (`Question`, `Picker`); `false` for narrative/value screens (`MediaContent`, `Carousel`, `Ratings`, `Loader`, `Commitment`, `Paywall`). Rule of thumb: progress bar shows while the user is actively answering, hidden during storytelling.
 - `customPayload: null`
-- `continueButtonLabel` — pick verb from app's voice (probe). It is the CTA label on built-in types.
-- `variableName` — on `Question` and `Picker`, when a later step or branch reads the answer. Match the probe's naming style.
+- `continueButtonLabel` — pick verb from app's voice (probe). It is the CTA label on most built-in types; see `references/built-in-step-types.md` for the exceptions.
+- `variableName` — on `Question` and `Picker`, matching the probe's naming style. The bundled renderers do not store it themselves; a branch on it needs the host to store the answer.
 - `nextStep` — **always emit as an explicit multi-path link** when generating a flow of > 1 step. Default-link each step to the next via `{ defaultTargetStepId: "<next-step-id>", branches: [] }`. Only the terminal step (or a true single-step generation) gets `nextStep: null` **or** ends explicitly via the end sentinel `{ defaultTargetStepId: "__END__", branches: [] }` (see below). If a branching condition applies, add `branches: [{ condition, targetStepId }]` — first match wins, `defaultTargetStepId` is the fallback. **Do not rely on the null + array-order linear fallback for multi-step flows.** Explicit links survive reordering and make adding branches trivial. (`null` still resolves linearly at runtime — see `resolveNextStepNumber.test.ts` — but explicit multi-path is the convention.)
 - `payload` — exactly the fields `references/built-in-step-types.md` lists for that type. Unknown keys are stripped silently, so a misspelled field does nothing.
 

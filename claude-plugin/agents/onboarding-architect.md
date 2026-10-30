@@ -61,8 +61,8 @@ Numbered list of screen titles + step types. Show this BEFORE generating JSON so
 | Welcome / first screen | `MediaContent` |
 | Single-select question | `Question` (`multipleAnswer: false`) |
 | Multi-select question | `Question` (`multipleAnswer: true`) |
-| Name, age, weight, height, date, gender | `Picker` (`pickerType`) |
-| Personalized message / value statement | `MediaContent` |
+| Name, weight, height, date | `Picker` (`pickerType`) |
+| Value statement (no interpolation of prior answers) | `MediaContent` |
 | Testimonials + rating prompt | `Ratings` |
 | Animated wait | `Loader` |
 | Commitment / signature | `Commitment` |
@@ -84,8 +84,8 @@ Emit one array of steps. Each step:
 - `type` — the built-in step type from the arc
 - `displayProgressHeader` — `false` on hook/loader/commitment, `true` otherwise
 - `customPayload: null`
-- `continueButtonLabel` — verb from app voice; it is the CTA label
-- `variableName` — on `Question` / `Picker` steps whose answer a later step or branch reads
+- `continueButtonLabel` — verb from app voice; the CTA label on most types (see `built-in-step-types.md` for the exceptions)
+- `variableName` — on `Question` / `Picker` steps. The bundled renderers do not store it; a branch on it needs the host to store the answer, so say so in the "Branching" recap
 - `nextStep` — **always emit as an explicit multi-path link**. For step `i` of `N`-length flow: `{ "defaultTargetStepId": "<id of step i+1>", "branches": [...] }`. Terminal step (`i === N-1`) gets `nextStep: null`. Each `branches[]` entry is `{ condition: LeafCondition | ConditionGroup | null, targetStepId }` — first matching branch wins; `defaultTargetStepId` is the catch-all. Every `targetStepId` must reference a real step `id` in the array. **Never rely on null + array-order linear fallback for multi-step flows** — explicit links survive reordering and make branching trivial to layer in.
 - `payload` — exactly the fields `../skills/create-step-json/references/built-in-step-types.md` lists for that type. Unknown keys are stripped silently.
 

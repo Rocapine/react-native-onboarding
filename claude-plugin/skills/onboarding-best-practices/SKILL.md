@@ -64,7 +64,7 @@ What each bundled renderer actually shows is in `../create-step-json/references/
 
 ### Ratings
 - Place AFTER user has seen value, not as cold ask.
-- Lead with one strong quote; `socialProofs[0]` is the one displayed, the rest only feed the user count.
+- Lead with one strong quote: `socialProofs[0]` is the full review card. Entries 1–3 only appear as initial avatars, and every entry after the first counts toward "+N others".
 - The first tap opens the store review prompt; the second advances.
 
 ### Loader

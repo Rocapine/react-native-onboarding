@@ -18,7 +18,7 @@ but do not author new ones. To edit an existing one, see
 
 Run the probe from `../onboarding-best-practices/references/inspect-target-app.md`. Capture:
 
-- Brand color + surface tokens (from theme passed to `OnboardingProvider`)
+- Brand color + surface tokens (from the UI SDK theme, see `customize-onboarding-theme`, or the app's own design system)
 - Loaded font families (from `expo-font` / `useFonts`)
 - Copy voice + CTA verb style
 - Variable naming convention (if existing onboarding present)

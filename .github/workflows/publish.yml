@@ -97,3 +97,51 @@ jobs:
           else
             printf '%s' "$NOTES" | gh release create "$TAG" --title "$TAG" --notes-file -
           fi
+
+  notify-roca-chandler:
+    needs: publish
+    if: needs.publish.result == 'success'
+    permissions: {}
+    runs-on: ubuntu-latest
+    steps:
+      # Public repo: checkout and ls-remote read anonymously, so the job
+      # needs no token scope. Checks out the pushed commit.
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # The publish job tags the pushed commit only when it actually published
+      # the headless package. A tag at this commit means "a release just shipped".
+      - name: Check this push released the headless SDK
+        id: release
+        run: |
+          VERSION=$(node -p "require('./packages/onboarding/package.json').version")
+          TAGGED=$(git ls-remote origin "refs/tags/v$VERSION" | cut -f1)
+          if [ "$TAGGED" = "$GITHUB_SHA" ]; then
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::v$VERSION is not tagged at $GITHUB_SHA (no headless release in this push), not notifying roca-chandler"
+          fi
+
+      - uses: actions/create-github-app-token@v2
+        if: steps.release.outputs.proceed == 'true'
+        id: app-token
+        with:
+          app-id: ${{ secrets.ROCA_CHANDLER_APP_ID }}
+          private-key: ${{ secrets.ROCA_CHANDLER_PRIVATE_KEY }}
+          owner: Rocapine
+          repositories: roca-chandler
+
+      - name: Dispatch sdk-released to roca-chandler
+        if: steps.release.outputs.proceed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          gh api repos/Rocapine/roca-chandler/dispatches \
+            -f event_type=sdk-released \
+            -F 'client_payload[sdk]=react-native-onboarding' \
+            -F "client_payload[version]=$VERSION"

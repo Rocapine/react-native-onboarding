@@ -190,6 +190,8 @@ querystring itself: its own value is sent instead of yours, or, for
 `projectId`, `platform`, `appVersion`, `build`, `sdkVersion`, `environment`,
 `assignmentId`, `draft`, `locale`, `omitNulls`, `moment`, `now`
 
+`appleReview` is refused too: the server sets it on every request and overwrites any value sent.
+
 ### What every request carries
 
 Each onboarding and paywall request sends, besides your audience params:

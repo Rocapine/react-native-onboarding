@@ -188,7 +188,9 @@ querystring itself: its own value is sent instead of yours, or, for
 `appVersion`, `build` and `assignmentId` when it has none, nothing is:
 
 `projectId`, `platform`, `appVersion`, `build`, `sdkVersion`, `environment`,
-`assignmentId`, `draft`, `locale`, `omitNulls`, `moment`, `now`, `appleReview`
+`assignmentId`, `draft`, `locale`, `omitNulls`, `moment`, `now`
+
+`appleReview` is refused too: the server sets it on every request and overwrites any value sent.
 
 ### What every request carries
 

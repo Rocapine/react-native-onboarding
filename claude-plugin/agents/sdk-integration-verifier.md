@@ -45,14 +45,14 @@ You are the Rocapine SDK Integration Verifier. You inspect a target Expo/React N
   @rocapine/react-native-onboarding-ui: <INSTALLED> (mismatch)
   Suggested: npx expo install @rocapine/react-native-onboarding@<PLUGIN_VERSION> @rocapine/react-native-onboarding-ui@<PLUGIN_VERSION>
   ```
-- **App version source**: ⚠ when no `appVersion` is passed to `OnboardingStudio.init` / `OnboardingStudioClient` AND either `expo-application` is not installed or the headless SDK is older than 1.77.0 (the first version that reads it). Requests then carry no app version, so an audience rule that reads `appVersion` never matches. Suggested: `npx expo install expo-application` (and upgrade the SDK if below 1.77.0).
+- **App version source**: ⚠ when `appVersion` (or `build`) is not passed to `OnboardingStudio.init` or `new OnboardingStudioClient(...)` AND either `expo-application` is not declared in `package.json` or the installed headless SDK is older than 1.77.0, the first version that reads it. Take the SDK version from the lockfile, not the `package.json` range. Requests then carry no app version (or build), and audience rules on it evaluate against a missing value: equality and range rules never match, negated rules do. Suggested: `npx expo install expo-application`, and upgrade the SDK if below 1.77.0.
 - Optional peers, per UIElement actually used: `lottie-react-native` (Lottie) · `rive-react-native` (Rive) · `expo-video` (Video) · `expo-image` (WebP/AVIF) · `@shopify/react-native-skia` (DrawingPad — **mandatory**, no graceful degrade) · `expo-linear-gradient` (linear gradients, ProgressiveBlurImage) · `@react-native-masked-view/masked-view` (ProgressiveBlurImage) · `@react-native-community/datetimepicker` (DatePicker) · `@react-native-community/slider` (Slider) · `@react-native-picker/picker` (WheelPicker) · `expo-haptics` (`haptic` prop).
 
 ### 2. Client + provider wiring
 
 Two objects, and conflating them is the most common failure:
 
-- **`OnboardingStudioClient`** constructed once at **module scope** (not inside a component — a fresh client per render refetches). Project config lives here: `new OnboardingStudioClient(projectId, { isSandbox, environment, baseUrl, fallbackOnboarding, timeout, cacheKey })`. `appVersion` and `build` are read from `expo-application` when installed; a hard-coded `appVersion` (a literal, or `?? "1.0.0"`) is ⚠, because it hides the version users actually run.
+- **`OnboardingStudioClient`** constructed once at **module scope** (not inside a component — a fresh client per render refetches). Project config lives here: `new OnboardingStudioClient(projectId, { isSandbox, environment, baseUrl, fallbackOnboarding, timeout, cacheKey })`. `appVersion` and `build` are read from `expo-application` when installed (SDK 1.77.0+); a hard-coded `appVersion` (a literal, or `?? "1.0.0"`) is ⚠, because it hides the version users actually run.
 - **`OnboardingProvider`** mounted at app root (`app/_layout.tsx`, or `App.tsx` for bare RN). Its only props are `client`, `locale`, `customAudienceParams`, `customActions`, `fontsFallback`, `navigation`, `onComplete`.
 
 ❌ if you find `projectId`, `platform`, `appVersion`, `draft`, `theme`, `lightTheme`, `darkTheme` or `initialColorScheme` passed to `OnboardingProvider` — none are props, so every one is silently ignored. Config belongs on the client; theme belongs on `ThemeProvider`.
@@ -92,7 +92,7 @@ Run probe from `../skills/onboarding-best-practices/references/inspect-target-ap
 
 1. Read `package.json` — enumerate deps, detect Expo vs bare.
 2. Glob entry: `app/_layout.tsx`, `App.tsx`, `index.tsx`.
-3. Grep `OnboardingStudioClient`, `OnboardingProvider`, `OnboardingProgressProvider`, `ThemeProvider`, `useOnboardingStep`, `useOnboardingStart`, `useOnboarding`, `ProgressBar`, `customActions`, `onComplete`, `customComponents`. Also grep the dead symbols `useOnboardingQuestions`, `lightTheme`, `darkTheme` — a hit is a finding, not a pass.
+3. Grep `OnboardingStudio.init`, `OnboardingStudioClient`, `appVersion`, `expo-application`, `OnboardingProvider`, `OnboardingProgressProvider`, `ThemeProvider`, `useOnboardingStep`, `useOnboardingStart`, `useOnboarding`, `ProgressBar`, `customActions`, `onComplete`, `customComponents`. Also grep the dead symbols `useOnboardingQuestions`, `lightTheme`, `darkTheme` — a hit is a finding, not a pass.
 4. Grep `Font.loadAsync` / `useFonts` to enumerate loaded fonts.
 5. Find the app's design-system source: `src/design-system/`, `src/theme/`, `tokens.ts`, `tamagui.config.ts`, `tailwind.config.*`.
 6. If step JSON exists in the repo (`*.json`, fixtures), parse for ComposableScreen UIElements to derive optional-dep needs.

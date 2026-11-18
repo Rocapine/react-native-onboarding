@@ -35,13 +35,13 @@ Required peers: `react`, `react-native` (already present in any RN app). Everyth
 | `expo-image` | WebP/AVIF decode + asset preloading |
 | `expo-router` | the default navigation adapter (back button + per-step focus effect) |
 
-**Install `expo-application` unless the app passes `appVersion` itself.** Without either, requests carry no app version, so an audience rule that reads `appVersion` never matches. The fallback needs SDK 1.77.0+; on an older SDK, pass `appVersion` explicitly.
+Non-expo-router apps install nothing extra and inject an adapter instead — see the `setup-ui-sdk` skill's **Back navigation** section.
+
+**Install `expo-application` unless the app passes `appVersion` and `build` itself.** From SDK 1.77.0 the SDK reads both from it. With neither source, requests carry no app version or build, and audience rules on them evaluate against a missing value: equality and range rules never match, while negated rules (`!=`, `!`) do. On an SDK older than 1.77.0, upgrade; if you cannot, pass `Application.nativeApplicationVersion` and `Application.nativeBuildVersion` from `expo-application`, never a literal.
 
 ```sh
 npx expo install expo-application
 ```
-
-Non-expo-router apps install nothing extra and inject an adapter instead — see the `setup-ui-sdk` skill's **Back navigation** section.
 
 ## Configure the SDK
 
@@ -70,7 +70,7 @@ const client = new OnboardingStudioClient(projectId, { isSandbox: __DEV__ });
 
 Every option below is accepted by both forms. `OnboardingStudioClientOptions` — all optional:
 
-- `appVersion`, `build` — read from `expo-application` when installed; pass them only to override. Do not hard-code them: a fixed value hides the version users actually run. `environment` — free text, defaults to sandbox / development / production. All sent as targeting params, together with `sdkVersion`.
+- `appVersion`, `build` — read from `expo-application` when installed (SDK 1.77.0+); pass them only to override. Do not hard-code them: a fixed value hides the version users actually run. `environment` — free text, defaults to sandbox / development / production. All sent as targeting params, together with `sdkVersion`.
 - `isSandbox` — serves the draft instead of the published deployment. Also always fetches fresh (ignores `cacheKey`).
 - `baseUrl` — override the edge-function origin.
 - `fallbackOnboarding` — an `Onboarding` object served if the fetch fails. `onboardingExample` is exported from the package for this.

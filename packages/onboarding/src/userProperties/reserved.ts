@@ -2,9 +2,10 @@
  * Property names a host may NOT use, because `OnboardingStudioClient` puts them
  * on the querystring itself.
  *
- * Two of them — `moment` and `now` — mirror the server's own
- * `RESERVED_AUDIENCE_VARS`, which strips them because they are server-owned (a
- * client supplying `now` is self-selecting into a time-gated audience).
+ * Three of them — `moment`, `now` and `appleReview` — are server-owned audience
+ * variables: the server sets them per request. `moment` and `now` mirror the
+ * server's own `RESERVED_AUDIENCE_VARS`, which strips them (a client supplying
+ * `now` is self-selecting into a time-gated audience).
  *
  * The others are the params the client writes on every request: `projectId`,
  * `platform`, the request identity (`appVersion`, `build`, `sdkVersion`,
@@ -41,6 +42,7 @@ export const RESERVED_USER_PROPERTY_KEYS = [
   "omitNulls",
   "moment",
   "now",
+  "appleReview",
 ] as const;
 
 export type ReservedUserPropertyKey = (typeof RESERVED_USER_PROPERTY_KEYS)[number];

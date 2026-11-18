@@ -3,9 +3,10 @@
  * on the querystring itself.
  *
  * Three of them — `moment`, `now` and `appleReview` — are server-owned audience
- * variables: the server sets them per request. `moment` and `now` mirror the
- * server's own `RESERVED_AUDIENCE_VARS`, which strips them (a client supplying
- * `now` is self-selecting into a time-gated audience).
+ * variables: the server sets them per request. They mirror the server's own
+ * list of server-owned names (`moment`, `now`, `appleReview`), which strips
+ * any client-supplied value (a client supplying `now` is self-selecting into a
+ * time-gated audience).
  *
  * The others are the params the client writes on every request: `projectId`,
  * `platform`, the request identity (`appVersion`, `build`, `sdkVersion`,

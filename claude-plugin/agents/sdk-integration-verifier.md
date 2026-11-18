@@ -45,6 +45,7 @@ You are the Rocapine SDK Integration Verifier. You inspect a target Expo/React N
   @rocapine/react-native-onboarding-ui: <INSTALLED> (mismatch)
   Suggested: npx expo install @rocapine/react-native-onboarding@<PLUGIN_VERSION> @rocapine/react-native-onboarding-ui@<PLUGIN_VERSION>
   ```
+- **App version source**: ⚠ when no `appVersion` is passed to `OnboardingStudio.init` / `OnboardingStudioClient` AND either `expo-application` is not installed or the headless SDK is older than 1.77.0 (the first version that reads it). Requests then carry no app version, so an audience rule that reads `appVersion` never matches. Suggested: `npx expo install expo-application` (and upgrade the SDK if below 1.77.0).
 - Optional peers, per UIElement actually used: `lottie-react-native` (Lottie) · `rive-react-native` (Rive) · `expo-video` (Video) · `expo-image` (WebP/AVIF) · `@shopify/react-native-skia` (DrawingPad — **mandatory**, no graceful degrade) · `expo-linear-gradient` (linear gradients, ProgressiveBlurImage) · `@react-native-masked-view/masked-view` (ProgressiveBlurImage) · `@react-native-community/datetimepicker` (DatePicker) · `@react-native-community/slider` (Slider) · `@react-native-picker/picker` (WheelPicker) · `expo-haptics` (`haptic` prop).
 
 ### 2. Client + provider wiring

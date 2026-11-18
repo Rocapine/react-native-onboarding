@@ -35,6 +35,12 @@ Required peers: `react`, `react-native` (already present in any RN app). Everyth
 | `expo-image` | WebP/AVIF decode + asset preloading |
 | `expo-router` | the default navigation adapter (back button + per-step focus effect) |
 
+**Install `expo-application` unless the app passes `appVersion` itself.** Without either, requests carry no app version, so an audience rule that reads `appVersion` never matches. The fallback needs SDK 1.77.0+; on an older SDK, pass `appVersion` explicitly.
+
+```sh
+npx expo install expo-application
+```
+
 Non-expo-router apps install nothing extra and inject an adapter instead — see the `setup-ui-sdk` skill's **Back navigation** section.
 
 ## Configure the SDK

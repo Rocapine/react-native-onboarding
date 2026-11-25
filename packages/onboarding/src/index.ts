@@ -98,6 +98,13 @@ export type {
 export { resolveRegisterDecision, shouldRunFeature } from "./paywalls/register";
 export type { RegisterDecision, RegisterFeature, RegisterResult } from "./paywalls/register";
 export { DEFAULT_REGISTER_TIMEOUT_MS } from "./paywalls/PaywallProvider";
+/** devtools-only */
+export {
+  setPaywallDevHook,
+  notifyPaywallShown,
+  hasPaywallDevHook,
+} from "./paywalls/devHook";
+export type { PaywallShownInfo, PaywallDevHook } from "./paywalls/devHook";
 // A step that IS a paywall: `payload.moment` names a moment, and the audience
 // waterfall behind it picks which paywall renders.
 export type { PaywallStepType } from "./steps/Paywall/types";

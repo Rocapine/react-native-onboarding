@@ -5,7 +5,19 @@ here.
 
 ---
 
-## [Unreleased]
+## [1.79.0] - 2026-11-25
+### Added
+- **Paywall-shown dev hook for `@rocapine/react-native-onboarding-devtools`.**
+  `PaywallHost` (once `onShow` confirms the paywall, and again when a new one
+  takes the still-visible Modal) and the inline `Paywall` step (once its custom
+  screen or element tree renders) call the headless `notifyPaywallShown`, with
+  the ref of a new `flex: 1`, `collapsable={false}` wrapper around the paywall
+  content. Layout is unchanged. Nothing happens unless a dev hook is registered.
+
+### Changed
+- **Peer dependency `@rocapine/react-native-onboarding` is now `^1.79.0`**: the
+  renderers import the dev hook and `SDK_VERSION` from it.
+
 ### Deprecated
 - **The `ComposableScreen` step type** (#353). `ComposableScreenRenderer`,
   `ComposableScreenStepTypeSchema`, `ComposableScreenStepType` and

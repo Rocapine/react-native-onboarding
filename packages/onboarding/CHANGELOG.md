@@ -4,7 +4,18 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
-## [Unreleased]
+## [1.79.0] - 2026-11-25
+### Added
+- **Paywall-shown dev hook for `@rocapine/react-native-onboarding-devtools`.**
+  `setPaywallDevHook`, `notifyPaywallShown`, `hasPaywallDevHook` and the
+  `PaywallShownInfo` / `PaywallDevHook` types. A devtools-only seam: without a
+  registered hook every call is a no-op. A hook that throws, or an async hook
+  that rejects, is warned and never reaches the paywall.
+- **`OnboardingStudioClient#functionsBaseUrl`** (read-only getter).
+- **`SDK_VERSION`** is exported from the package index.
+- **`usePaywallHost()` returns `client`** (`PaywallContextValue.client`,
+  `null` with no provider), so a paywall renderer can describe what it shows.
+
 ### Deprecated
 - **The `ComposableScreen` step type** (#353). `ComposableScreenStepTypeSchema`,
   `ComposableScreenStepType` and `ComposableScreenStepPayloadSchema` carry

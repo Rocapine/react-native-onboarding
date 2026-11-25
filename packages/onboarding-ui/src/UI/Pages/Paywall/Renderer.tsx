@@ -13,6 +13,7 @@ import { resolvePaywallStepDecision } from "./resolvePaywallStepDecision";
 import { shouldAdvanceOnComplete } from "./shouldAdvanceOnComplete";
 import { usePaywallStepObservation } from "./usePaywallStepObservation";
 import { takeTransaction } from "../../Paywall/presentationBinding";
+import { usePaywallShownNotifier } from "../../Paywall/usePaywallShownNotifier";
 import { ErrorBoundary, withErrorBoundary } from "../../ErrorBoundary";
 import { OnboardingTemplate } from "../../Templates/OnboardingTemplate";
 import {
@@ -91,7 +92,7 @@ const PaywallStepRendererBase = ({
   const { moment } = validated.payload;
 
   const { catalog, catalogStatus, isProviderMounted, customScreens } = usePaywall();
-  const { observePresentation } = usePaywallHost();
+  const { observePresentation, client } = usePaywallHost();
   const { composableVariables, setComposableVariable } = useContext(OnboardingProgressContext);
   const { setVariable: setHeadlessVariable, customActions, products, navigation } =
     useContext(HeadlessProgressContext);
@@ -339,6 +340,20 @@ const PaywallStepRendererBase = ({
   // assertion — `safeParse`'s union does not narrow through the early returns.
   const elements = parsedElements?.success ? parsedElements.data : null;
 
+  // Dev hook (`setPaywallDevHook`): shown once the resolved paywall's content
+  // is what renders below, custom screen or element tree. Called BEFORE the
+  // early returns (Rules of Hooks).
+  const shownViewRef = usePaywallShownNotifier({
+    shown: Boolean(paywall) && (isCustom ? Boolean(CustomScreen) : Boolean(elements)),
+    paywall: paywall && {
+      id: paywall.id,
+      name: paywall.name,
+      renderMode: isCustom ? "custom" : "elements",
+      customScreenId: isCustom ? customScreenId : null,
+    },
+    client,
+  });
+
   const spinner = (
     <View style={[styles.center, { backgroundColor: theme.colors.neutral.lowest }]}>
       <ActivityIndicator />
@@ -371,7 +386,12 @@ const PaywallStepRendererBase = ({
         theme={theme}
         disableTopPadding
       >
-        {children}
+        {/* The view a paywall dev hook captures: the paywall alone, not the
+            template chrome. `flex: 1` inside the template's `flex: 1`
+            container, so the content lays out exactly as without it. */}
+        <View ref={shownViewRef} collapsable={false} style={styles.flex}>
+          {children}
+        </View>
       </OnboardingTemplate>
     </ErrorBoundary>
   );
@@ -402,4 +422,5 @@ export const PaywallStepRenderer = withErrorBoundary(PaywallStepRendererBase, "P
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  flex: { flex: 1 },
 });

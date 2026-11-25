@@ -105,6 +105,7 @@ export {
   hasPaywallDevHook,
 } from "./paywalls/devHook";
 export type { PaywallShownInfo, PaywallDevHook } from "./paywalls/devHook";
+export { SDK_VERSION } from "./version";
 // A step that IS a paywall: `payload.moment` names a moment, and the audience
 // waterfall behind it picks which paywall renders.
 export type { PaywallStepType } from "./steps/Paywall/types";

@@ -19,7 +19,8 @@ export type PaywallShownInfo = {
   viewRef: React.RefObject<unknown>;
 };
 
-export type PaywallDevHook = (info: PaywallShownInfo) => void;
+/** May be async: a rejection is warned, never left unhandled. */
+export type PaywallDevHook = (info: PaywallShownInfo) => void | Promise<void>;
 
 let hook: PaywallDevHook | null = null;
 
@@ -34,9 +35,14 @@ export function hasPaywallDevHook(): boolean {
 
 export function notifyPaywallShown(info: PaywallShownInfo): void {
   if (!hook) return;
+  const warn = (e: unknown) => console.warn(`paywall dev hook threw for "${info.paywallName}"`, e);
   try {
-    hook(info);
+    const result: unknown = hook(info);
+    // `.then(undefined, …)`, not `.catch`: a bare thenable need not have one.
+    if (result && typeof (result as PromiseLike<void>).then === "function") {
+      (result as PromiseLike<void>).then(undefined, warn);
+    }
   } catch (e) {
-    console.warn(`paywall dev hook threw for "${info.paywallName}"`, e);
+    warn(e);
   }
 }

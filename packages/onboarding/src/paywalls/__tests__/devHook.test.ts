@@ -56,4 +56,15 @@ describe("paywall dev hook", () => {
     notifyPaywallShown(info);
     expect(hook).not.toHaveBeenCalled();
   });
+
+  it("an async hook that rejects is warned, not left unhandled", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    setPaywallDevHook(async () => {
+      throw new Error("async boom");
+    });
+    expect(() => notifyPaywallShown(info)).not.toThrow();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).toContain("Spring sale");
+  });
 });

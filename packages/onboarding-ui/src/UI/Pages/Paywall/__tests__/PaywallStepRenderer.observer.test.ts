@@ -49,6 +49,9 @@ vi.mock("@rocapine/react-native-onboarding", async () => {
     useOnboardingHeaderHeight: () => ({ headerHeight: 0 }),
     usePaywall: () => h.paywallState,
     usePaywallHost: () => ({ observePresentation: h.observePresentation }),
+    SDK_VERSION: "0.0.0-test",
+    hasPaywallDevHook: () => false,
+    notifyPaywallShown: () => {},
   };
 });
 

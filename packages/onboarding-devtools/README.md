@@ -79,8 +79,12 @@ confidence):
 - `expo-modules-autolinking/build/reactNativeConfig/reactNativeConfig.js:132`
   runs that recursive scan from the app root.
 
-So: the **app** must list `react-native-view-shot` itself (dependency or
-devDependency). This package declaring it as a peer is not enough on its own.
+The devtools package declares `react-native-view-shot` as a non-optional peer,
+and `resolution.js:46-56` resolves non-optional peers at depth >= 1 — so once
+view-shot is installed, the scan finds it through this package too. Still
+install it yourself with `npx expo install react-native-view-shot`: the peer
+range is `*`, and npm's peer auto-install would pick npm `latest`, not the
+version your Expo SDK expects (5.1.0 on SDK 56).
 
 Two caveats:
 

@@ -1,26 +1,28 @@
 ---
 name: bump-version
-description: Bump version of both SDK packages (headless + UI), update both CHANGELOGs, and commit. Use when the user wants to release a new version, bump the SDK, or cut a release.
+description: Bump version of the SDK packages (headless + UI + devtools), update their CHANGELOGs, and commit. Use when the user wants to release a new version, bump the SDK, or cut a release.
 user-invocable: true
 argument-hint: "[patch|minor|major]"
 ---
 
-Bump both `@rocapine/react-native-onboarding` and `@rocapine/react-native-onboarding-ui` to a new version, write changelog entries for both, and create a commit.
+Bump `@rocapine/react-native-onboarding`, `@rocapine/react-native-onboarding-ui` and `@rocapine/react-native-onboarding-devtools` to a new version, write changelog entries for each, and create a commit.
 
 Both packages always share the same version number — **and so does the Claude Code
-plugin manifest.** Seven files carry that number and all seven move together:
+plugin manifest.** Nine files carry that number and all nine move together:
 
 ```
 packages/onboarding/package.json              ← the version is computed from here
 packages/onboarding/src/version.ts            ← SDK_VERSION, sent on every request as sdkVersion
 packages/onboarding-ui/package.json
+packages/onboarding-devtools/package.json
 claude-plugin/.claude-plugin/plugin.json      ← historically the one that got left behind
 packages/onboarding/CHANGELOG.md
 packages/onboarding-ui/CHANGELOG.md
-package-lock.json                             ← npm records both workspace versions
+packages/onboarding-devtools/CHANGELOG.md
+package-lock.json                             ← npm records each workspace version
 ```
 
-`npm run check:versions` asserts all seven agree — eight readings, since the lockfile
+`npm run check:versions` asserts all nine agree — eleven readings, since the lockfile
 states each workspace separately — and runs in CI, so a half-done release fails the
 build rather than shipping a plugin that advertises a version it was never tested
 against.
@@ -115,6 +117,7 @@ Call this `NEW_VERSION`.
 Edit **all four** files — only the version value:
 - `packages/onboarding/package.json`
 - `packages/onboarding-ui/package.json`
+- `packages/onboarding-devtools/package.json`
 - `claude-plugin/.claude-plugin/plugin.json`
 - `packages/onboarding/src/version.ts` (the `SDK_VERSION` string)
 
@@ -127,8 +130,8 @@ npm install --package-lock-only --ignore-scripts
 ```
 
 `--package-lock-only` writes nothing into `node_modules`, and the diff should be
-**exactly two lines** — the `packages/onboarding` and `packages/onboarding-ui`
-version fields. Anything larger is unrelated dependency drift riding along in a
+**exactly three lines** — the `packages/onboarding`, `packages/onboarding-ui` and
+`packages/onboarding-devtools` version fields. Anything larger is unrelated dependency drift riding along in a
 release commit: look at it before you stage it, rather than after someone bisects
 to it.
 
@@ -162,6 +165,7 @@ Only include sections that apply. Today's date: read from the environment or use
 Files to update:
 - `packages/onboarding/CHANGELOG.md`
 - `packages/onboarding-ui/CHANGELOG.md`
+- `packages/onboarding-devtools/CHANGELOG.md` (if the release does not touch it, write "Version aligned with the SDK; no changes.")
 
 The plugin has no CHANGELOG. It had one; it sat fourteen minor versions behind and
 was deleted, because a changelog that stops at 1.45.0 actively asserts that nothing
@@ -173,7 +177,7 @@ history. Do not recreate the file.
 
 ## Step 6 — Verify, then commit
 
-Prove the seven agree before committing. This is not ceremony: the previous version
+Prove the nine agree before committing. This is not ceremony: the previous version
 of this skill edited `plugin.json` in step 4 and then staged four files that did
 not include it, so the edit was made and dropped on every release, which is how the
 plugin came to advertise a version it had never been tested against.
@@ -182,12 +186,14 @@ plugin came to advertise a version it had never been tested against.
 npm run check:versions
 ```
 
-Stage all **seven** files:
+Stage all **nine** files:
 ```bash
 git add packages/onboarding/package.json packages/onboarding-ui/package.json \
+        packages/onboarding-devtools/package.json \
         packages/onboarding/src/version.ts \
         claude-plugin/.claude-plugin/plugin.json \
         packages/onboarding/CHANGELOG.md packages/onboarding-ui/CHANGELOG.md \
+        packages/onboarding-devtools/CHANGELOG.md \
         package-lock.json
 ```
 

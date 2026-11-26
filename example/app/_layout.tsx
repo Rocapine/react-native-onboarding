@@ -33,6 +33,15 @@ const client = new OnboardingStudioClient(
   }
 );
 
+// Debug builds only: capture each paywall shown and upload it to the Studio as
+// its screenshot. `require` behind `__DEV__` (never a top-level import), so a
+// release bundle carries neither the package nor the token.
+if (__DEV__) {
+  require("@rocapine/react-native-onboarding-devtools").enablePaywallCapture({
+    token: process.env.EXPO_PUBLIC_ONBS_DEV_TOKEN,
+  });
+}
+
 export default function RootLayout() {
   // Load custom fonts - Futura Bold for demonstration
   const [fontsLoaded, fontError] = useFonts({

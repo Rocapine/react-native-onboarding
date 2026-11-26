@@ -337,3 +337,7 @@ Three things to tell the user explicitly, because none is visible from the call 
 **Never grant access from `onPending`.** Pending means unconfirmed: the user may never pay. Use it to close the paywall or show a "finish in your browser" state, and read entitlement state (RevenueCat) to decide what the user actually has.
 
 For the same reason `present()` resolves `"dismissed"` rather than `"purchased"` on this path. That is honest, not a bug — treat entitlement state as the source of truth for access, and the `present()` result only as "how the paywall closed".
+
+## Next: screenshots in the Studio
+
+Once paywalls present, run `setup-paywall-screenshots` so debug builds upload each shown paywall to the Studio as its screenshot. Custom-screen paywalls have no other preview there.

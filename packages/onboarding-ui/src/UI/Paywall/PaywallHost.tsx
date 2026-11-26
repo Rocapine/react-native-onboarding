@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Modal, StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import {
+  hasPaywallDevHook,
   usePaywallHost,
   usePaywall,
   useProductRuntime,
@@ -24,6 +25,7 @@ import {
 import type { CustomPaywallScreenProps, CustomPaywallScreens } from "./CustomPaywallScreen";
 import { presentationContentKey, readTransaction, toPresentResult } from "./presentationBinding";
 import { useSurfaceAcknowledgement } from "./useSurfaceAcknowledgement";
+import { usePaywallShownNotifier } from "./usePaywallShownNotifier";
 
 type PaywallContentProps = {
   /** Already parsed by `PaywallHost` — see `resolvePaywallModalDecision`'s doc for why parsing happens OUTSIDE this component's error boundary. */
@@ -234,6 +236,7 @@ export const PaywallHost = ({ customScreens, requestPermission }: PaywallHostPro
     acknowledgePresentation,
     customActions,
     customScreens: providerScreens,
+    client,
   } = usePaywallHost();
 
   // The prop wins where it is passed, otherwise the provider's registry. NOT
@@ -352,7 +355,37 @@ export const PaywallHost = ({ customScreens, requestPermission }: PaywallHostPro
   // the host will not render (an unregistered custom screen, a parse failure)
   // is never reported on screen.
   const visible = decision.type === "show" || decision.type === "show-custom";
-  const onShow = useSurfaceAcknowledgement(visible, resolvePresent, acknowledgePresentation);
+
+  // Which presentation the host has acknowledged as on screen: the dev hook's
+  // `shown`. Recorded by wrapping the acknowledgement rather than re-deriving
+  // it, so it inherits every rule above (a refused Modal, a late `onShow` while
+  // hidden, a hidden successor are never "shown"). The ref is synced in a
+  // layout effect declared BEFORE the hook's, so a same-commit swap's
+  // acknowledgement records the new presentation. Stored via an updater:
+  // `resolvePresent` is itself a function, which `setState` would call. Only
+  // recorded while a dev hook is registered: nothing else reads it, so an app
+  // without one pays no extra render on `onShow`.
+  const presentationRef = useRef(resolvePresent);
+  useLayoutEffect(() => {
+    presentationRef.current = resolvePresent;
+  }, [resolvePresent]);
+  const [acknowledged, setAcknowledged] = useState<unknown>(null);
+  const acknowledge = useCallback(() => {
+    acknowledgePresentation();
+    if (hasPaywallDevHook()) setAcknowledged(() => presentationRef.current);
+  }, [acknowledgePresentation]);
+  const onShow = useSurfaceAcknowledgement(visible, resolvePresent, acknowledge);
+
+  const shownViewRef = usePaywallShownNotifier({
+    shown: visible && acknowledged === resolvePresent,
+    paywall: activePaywall && {
+      id: activePaywall.id,
+      name: activePaywall.name,
+      renderMode: decision.type === "show-custom" ? "custom" : "elements",
+      customScreenId: decision.type === "show-custom" ? decision.customScreenId : null,
+    },
+    client,
+  });
 
   return (
     <Modal
@@ -375,38 +408,45 @@ export const PaywallHost = ({ customScreens, requestPermission }: PaywallHostPro
       onShow={onShow}
     >
       <SafeAreaProvider>
-        {decision.type === "show" && activePaywall && (
-          <PaywallContent
-            key={presentationContentKey(activePaywall.id, resolvePresent)}
-            elements={decision.elements}
-            complete={complete}
-            customActions={customActions}
-            requestPermission={requestPermission}
-            onError={handleRenderError}
-          />
-        )}
-        {/* Same Modal, same `onShow` acknowledgement, same Android
-            `onRequestClose`, same nested SafeAreaProvider — only the content
-            differs. That is why a custom screen gets the iOS
-            refused-presentation recovery and the hardware-back escape for
-            free, rather than each host having to reimplement both. */}
-        {decision.type === "show-custom" && activePaywall && (
-          <CustomPaywallContent
-            key={presentationContentKey(activePaywall.id, resolvePresent)}
-            Screen={decision.Screen}
-            payload={decision.payload}
-            complete={completeCustom}
-            paywall={{
-              id: activePaywall.id,
-              name: activePaywall.name,
-              moment: activePaywall.moment,
-              customScreenId: decision.customScreenId,
-              variantKey: activePaywall.variantKey,
-              deploymentId: activePaywall.deploymentId,
-            }}
-            onError={handleRenderError}
-          />
-        )}
+        {/* The view a paywall dev hook captures. Not keyed, so its ref is
+            stable across presentations; `flex: 1` inside the provider's own
+            `flex: 1`, so the content lays out exactly as without it.
+            Collapsable (no native view on Android) unless a hook is there to
+            capture it. */}
+        <View ref={shownViewRef} collapsable={!hasPaywallDevHook()} style={styles.flex}>
+          {decision.type === "show" && activePaywall && (
+            <PaywallContent
+              key={presentationContentKey(activePaywall.id, resolvePresent)}
+              elements={decision.elements}
+              complete={complete}
+              customActions={customActions}
+              requestPermission={requestPermission}
+              onError={handleRenderError}
+            />
+          )}
+          {/* Same Modal, same `onShow` acknowledgement, same Android
+              `onRequestClose`, same nested SafeAreaProvider — only the content
+              differs. That is why a custom screen gets the iOS
+              refused-presentation recovery and the hardware-back escape for
+              free, rather than each host having to reimplement both. */}
+          {decision.type === "show-custom" && activePaywall && (
+            <CustomPaywallContent
+              key={presentationContentKey(activePaywall.id, resolvePresent)}
+              Screen={decision.Screen}
+              payload={decision.payload}
+              complete={completeCustom}
+              paywall={{
+                id: activePaywall.id,
+                name: activePaywall.name,
+                moment: activePaywall.moment,
+                customScreenId: decision.customScreenId,
+                variantKey: activePaywall.variantKey,
+                deploymentId: activePaywall.deploymentId,
+              }}
+              onError={handleRenderError}
+            />
+          )}
+        </View>
       </SafeAreaProvider>
     </Modal>
   );

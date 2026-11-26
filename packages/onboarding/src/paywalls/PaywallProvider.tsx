@@ -199,6 +199,13 @@ export type PaywallContextValue = {
    * `present()` reports itself; a paywall HOST never calls this for it.
    */
   observePresentation: (paywall: PaywallPresentationSource) => PaywallPresentation;
+  /**
+   * The studio client this provider fetches with, or null with no provider.
+   * Read by the paywall renderers only to describe a shown paywall to a
+   * registered dev hook (`notifyPaywallShown`): project id, functions URL, app
+   * version.
+   */
+  client: OnboardingStudioClient | null;
 };
 
 const EMPTY_PAYWALL_CONTEXT: PaywallContextValue = {
@@ -227,6 +234,7 @@ const EMPTY_PAYWALL_CONTEXT: PaywallContextValue = {
   customActions: EMPTY_CUSTOM_ACTIONS,
   customScreens: EMPTY_CUSTOM_SCREENS,
   observePresentation: () => NOOP_PAYWALL_PRESENTATION,
+  client: null,
 };
 
 /**
@@ -261,6 +269,7 @@ export const usePaywallHost = (): Pick<
   | "customActions"
   | "customScreens"
   | "observePresentation"
+  | "client"
 > => {
   const {
     activePaywall,
@@ -269,6 +278,7 @@ export const usePaywallHost = (): Pick<
     customActions,
     customScreens,
     observePresentation,
+    client,
   } = useContext(PaywallContext);
   return {
     activePaywall,
@@ -277,6 +287,7 @@ export const usePaywallHost = (): Pick<
     customActions,
     customScreens,
     observePresentation,
+    client,
   };
 };
 
@@ -957,6 +968,7 @@ const PaywallProviderInner = ({
       customActions,
       customScreens,
       observePresentation,
+      client,
     }),
     [
       present,
@@ -971,6 +983,7 @@ const PaywallProviderInner = ({
       customActions,
       customScreens,
       observePresentation,
+      client,
     ]
   );
 

@@ -26,6 +26,12 @@ jobs:
           - dir: packages/onboarding-ui
             name: "@rocapine/react-native-onboarding-ui"
             build: build:ui
+          # First publish of this package is MANUAL (npm trusted publishing can only
+          # be configured on a package that already exists); until then this entry's
+          # OIDC publish step fails.
+          - dir: packages/onboarding-devtools
+            name: "@rocapine/react-native-onboarding-devtools"
+            build: build:devtools
 
     steps:
       - name: Checkout
@@ -63,8 +69,8 @@ jobs:
 
       - name: Build package
         if: steps.check.outputs.should_publish == 'true'
-        # UI package's tsc resolves @rocapine/react-native-onboarding types
-        # from the headless package's dist/, so build headless first.
+        # UI and devtools packages' tsc resolve @rocapine/react-native-onboarding
+        # types from the headless package's dist/, so build headless first.
         run: |
           npm run build:headless
           if [ "${{ matrix.build }}" != "build:headless" ]; then
@@ -100,7 +106,10 @@ jobs:
 
   notify-roca-chandler:
     needs: publish
-    if: needs.publish.result == 'success'
+    # Not gated on the whole matrix: one failed leg (e.g. devtools before its
+    # manual first publish) must not swallow a headless release. The tag check
+    # below proceeds only when the headless leg tagged this commit.
+    if: ${{ !cancelled() }}
     permissions: {}
     runs-on: ubuntu-latest
     steps:

@@ -18,20 +18,28 @@ import { createRoot, type Root } from "react-dom/client";
 
 const h = vi.hoisted(() => ({
   host: null as any,
-  modal: null as null | { visible: boolean; onShow: () => void },
+  modal: null as null | { visible: boolean; onShow: () => void; onRequestClose: () => void },
+  devHook: null as null | ((info: any) => void),
+  modalRenders: 0,
+  collapsable: [] as unknown[],
 }));
 
 vi.mock("react-native", async () => {
   const { createElement: ce } = await import("react");
   const box = ({ children }: { children?: unknown }) => ce("div", null, children as any);
+  const View = (props: { children?: unknown; collapsable?: boolean }) => {
+    if ("collapsable" in props) h.collapsable.push(props.collapsable);
+    return box(props);
+  };
   return {
-    View: box,
+    View,
     ScrollView: box,
     Text: box,
     StyleSheet: { create: <T,>(s: T) => s },
     Platform: { OS: "ios" },
-    Modal: (props: { visible: boolean; onShow: () => void; children?: unknown }) => {
-      h.modal = { visible: props.visible, onShow: props.onShow };
+    Modal: (props: { visible: boolean; onShow: () => void; onRequestClose: () => void; children?: unknown }) => {
+      h.modalRenders++;
+      h.modal = { visible: props.visible, onShow: props.onShow, onRequestClose: props.onRequestClose };
       return props.visible ? ce("div", null, props.children as any) : null;
     },
   };
@@ -43,6 +51,9 @@ vi.mock("@rocapine/react-native-onboarding", () => ({
   usePaywallHost: () => h.host,
   usePaywall: () => ({ present: async () => ({ status: "dismissed" }) }),
   useProductRuntime: () => null,
+  SDK_VERSION: "0.0.0-test",
+  hasPaywallDevHook: () => h.devHook !== null,
+  notifyPaywallShown: (info: unknown) => h.devHook?.(info),
 }));
 vi.mock("../../Theme/useTheme", () => ({
   useTheme: () => ({ theme: { colors: { neutral: { lowest: "#fff" } } } }),
@@ -64,6 +75,9 @@ afterEach(async () => {
   if (root) await act(async () => root!.unmount());
   root = null;
   vi.restoreAllMocks();
+  h.devHook = null;
+  h.modalRenders = 0;
+  h.collapsable = [];
 });
 
 const paywall = (id: string, elements: unknown = []) => ({ id, name: id, moment: id, elements });
@@ -83,6 +97,11 @@ const setup = async () => {
       acknowledgePresentation: () => void acks.push(label),
       customActions: {},
       customScreens: {},
+      client: {
+        projectId: "proj",
+        functionsBaseUrl: "https://example.test/functions/v1",
+        identityParams: () => ({ appVersion: "1.0.0" }),
+      },
     };
     if (!root) root = createRoot(document.createElement("div"));
     await act(async () => root!.render(createElement(PaywallHost)));
@@ -128,5 +147,47 @@ describe("PaywallHost: acknowledgement wiring", () => {
     expect(t.acks).toEqual([]);
     await t.fireOnShow();
     expect(t.acks).toEqual(["c"]);
+  });
+
+  it("notifies the dev hook once onShow confirms the paywall, and again for a same-commit swap", async () => {
+    const seen: string[] = [];
+    h.devHook = (info) => void seen.push(info.paywallId);
+    const t = await setup();
+    await t.commit(paywall("a"));
+    expect(seen).toEqual([]);
+    await t.fireOnShow();
+    expect(seen).toEqual(["a"]);
+    await t.commit(paywall("b"));
+    expect(seen).toEqual(["a", "b"]);
+  });
+
+  it("present() still resolves when the dev hook throws", async () => {
+    h.devHook = () => {
+      throw new Error("dev hook boom");
+    };
+    const t = await setup();
+    await t.commit(paywall("a"));
+    await t.fireOnShow();
+    expect(t.acks).toEqual(["a"]);
+    await act(async () => t.modal().onRequestClose());
+    expect(t.ended).toEqual([["a", { status: "dismissed" }]]);
+  });
+
+  it("without a dev hook, onShow does not re-render the host", async () => {
+    const t = await setup();
+    await t.commit(paywall("a"));
+    const before = h.modalRenders;
+    await t.fireOnShow();
+    expect(t.acks).toEqual(["a"]);
+    expect(h.modalRenders).toBe(before);
+  });
+
+  it("the capture wrapper is collapsable unless a dev hook is registered", async () => {
+    const t = await setup();
+    await t.commit(paywall("a"));
+    expect(h.collapsable[h.collapsable.length - 1]).toBe(true);
+    h.devHook = () => {};
+    await t.commit(paywall("b"));
+    expect(h.collapsable[h.collapsable.length - 1]).toBe(false);
   });
 });

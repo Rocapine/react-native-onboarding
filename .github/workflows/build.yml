@@ -62,14 +62,23 @@ jobs:
       - name: Build UI package
         run: npm run build:ui
 
+      - name: Build devtools package
+        run: npm run build:devtools
+
       - name: Headless tests type-check
         run: npm run type:check:tests --workspace=packages/onboarding
 
       - name: UI tests type-check
         run: npm run type:check:tests --workspace=packages/onboarding-ui
 
+      - name: Devtools tests type-check
+        run: npm run type:check:tests --workspace=packages/onboarding-devtools
+
       - name: Headless tests
         run: npm test --workspace=packages/onboarding
 
       - name: UI tests
         run: npm test --workspace=packages/onboarding-ui
+
+      - name: Devtools tests
+        run: npm test --workspace=packages/onboarding-devtools

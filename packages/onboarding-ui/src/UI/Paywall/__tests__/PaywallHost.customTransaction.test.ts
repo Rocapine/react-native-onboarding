@@ -37,6 +37,9 @@ vi.mock("@rocapine/react-native-onboarding", () => ({
   usePaywallHost: () => h.host,
   usePaywall: () => ({ present: async () => ({ status: "dismissed" }) }),
   useProductRuntime: () => null,
+  SDK_VERSION: "0.0.0-test",
+  hasPaywallDevHook: () => false,
+  notifyPaywallShown: () => {},
 }));
 vi.mock("../../Theme/useTheme", () => ({
   useTheme: () => ({ theme: { colors: { neutral: { lowest: "#fff" } } } }),

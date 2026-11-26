@@ -31,6 +31,11 @@ export class OnboardingStudioClient {
   public options: OnboardingStudioClientOptions;
   private identity?: Record<string, string>;
 
+  /** Edge functions base URL this client talks to. Read-only; devtools use it. */
+  get functionsBaseUrl(): string {
+    return this.baseUrl;
+  }
+
   /**
    * `appVersion`, `build`, `sdkVersion`, `environment`: the params this SDK
    * adds to every request (see `requestIdentity.ts`). Memoized: none of them

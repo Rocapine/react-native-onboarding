@@ -23,6 +23,7 @@ Claude Code plugin for building and updating onboarding flows powered by **Rocap
 | `setup-headless-sdk` | Install + wire `@rocapine/react-native-onboarding` |
 | `setup-ui-sdk` | Install + wire `@rocapine/react-native-onboarding-ui` |
 | `setup-paywalls` | Mount `PaywallProvider`, pick a billing adapter (store or Stripe), host the modal, present by moment |
+| `setup-paywall-screenshots` | Install the devtools package so debug builds upload each shown paywall to the Studio as its screenshot |
 | `customize-onboarding-theme` | Map host design system tokens to onboarding theme |
 | `customize-onboarding-components` | Override `customComponents` slots |
 | `onboarding-best-practices` | Flow arc + per-archetype heuristics + target-app probe protocol |

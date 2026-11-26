@@ -125,6 +125,8 @@ async function captureAndUploadWithRetries(
       try {
         image = await attempt.shoot(quality);
       } catch (e) {
+        // Left while the shot was being taken (e.g. unmounted during measure): an abort, not a failure.
+        if (!attempt.stillWanted()) return null;
         deps.warn(`${TAG} could not capture ${attempt.label} ${attempt.captureHint}`, e);
         return null;
       }
@@ -233,10 +235,19 @@ export function createStepCaptureHandler(deps: StepCaptureDeps, opts: ResolvedCa
       const { viewRef } = info;
       let shoot: (quality: number) => Promise<string>;
       if (viewRef === null) {
-        const shot = baseShot(
-          opts.quality,
-          captureSize(deps.screen(), opts.maxWidth, deps.pixelRatio, info.platform),
-        );
+        // Android: view-shot's captureScreen shoots the window's content view
+        // (android.R.id.content), which can exclude the status/nav bars that
+        // `screen` includes, and force-scales to any width+height given
+        // (createScaledBitmap), so sizing from the screen could stretch it. No
+        // JS size matches that view, so Android captures at full resolution: a
+        // 1080x2400 photo-heavy JPEG measured ~650 KB at q0.7 and ~400 KB at q0.5,
+        // under the 1 MiB image limit, and a 413 still recaptures at q0.5.
+        // iOS captures the whole window, which `screen` does match.
+        const size =
+          info.platform === "android"
+            ? {}
+            : captureSize(deps.screen(), opts.maxWidth, deps.pixelRatio, info.platform);
+        const shot = baseShot(opts.quality, size);
         shoot = (quality) => deps.captureScreen({ ...shot, quality });
       } else if (viewRef.current == null) {
         if (!warnedNoView.has(key)) {

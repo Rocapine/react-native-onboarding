@@ -116,6 +116,32 @@ describe("createStepCaptureHandler", () => {
     expect(JSON.parse(deps.fetch.mock.calls[0][1].body).image).toBe("SCREEN64");
   });
 
+  it("viewRef null on Android → captureScreen at full resolution (no width/height), screen() unused", async () => {
+    const deps = fakeDeps();
+    await createStepCaptureHandler(deps, OPTS)(info({ viewRef: null, platform: "android" }));
+    expect(deps.screen).not.toHaveBeenCalled();
+    expect(deps.captureScreen).toHaveBeenCalledWith({ format: "jpg", quality: 0.7, result: "base64" });
+    expect(deps.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("a capture that fails after the step lost focus → no warning, retried on a later show", async () => {
+    let active = true;
+    const captureRef = vi
+      .fn<StepCaptureDeps["captureRef"]>(async () => "BASE64")
+      .mockImplementationOnce(async () => {
+        active = false;
+        throw new Error("view unmounted");
+      });
+    const deps = fakeDeps({ captureRef });
+    const hook = createStepCaptureHandler(deps, OPTS);
+    await hook(info({ isActive: () => active }));
+    expect(deps.fetch).not.toHaveBeenCalled();
+    expect(deps.warn).not.toHaveBeenCalled();
+    active = true;
+    await hook(info({ isActive: () => active }));
+    expect(deps.fetch).toHaveBeenCalledTimes(1);
+  });
+
   it("viewRef attached to nothing → no capture, warned once naming the step, retried later", async () => {
     const deps = fakeDeps();
     const hook = createStepCaptureHandler(deps, OPTS);

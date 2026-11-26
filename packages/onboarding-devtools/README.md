@@ -5,8 +5,9 @@ Debug-build devtools for Rocapine Onboarding Studio. Today it does one thing:
 on a debug build is captured (`react-native-view-shot`) and uploaded to the
 Studio, where it becomes that paywall's or step's screenshot.
 
-Requires `@rocapine/react-native-onboarding` **>= 1.79.0** (the release that
-added the paywall dev hook this package registers).
+Requires `@rocapine/react-native-onboarding` **>= 1.79.0** for paywall capture
+(the release that added the paywall dev hook) and **>= 1.80.0** for step capture
+(the release that added the step dev hook).
 
 ## Install
 
@@ -110,8 +111,14 @@ Same options, same retry rules and warnings as paywalls (warnings name
   marks a step inactive when it unmounts. A stack that keeps the previous screen
   mounted can then let a late whole-screen capture store the next step under
   this one. Such apps should use `useReportStepShown` with a ref instead.
-- Requires an SDK version that reports steps (`setStepDevHook`). On an older
-  SDK, `enableScreenCapture` warns once and captures paywalls only.
+- Step capture requires `@rocapine/react-native-onboarding` **>= 1.80.0** (the
+  release that reports steps through `setStepDevHook`); paywall capture still
+  works from 1.79.0. On an older SDK, `enableScreenCapture` warns once and
+  captures paywalls only.
+- On Android the whole screen is captured at full resolution (view-shot's
+  screen capture is the window's content view, whose size the screen
+  dimensions do not reliably match, and forcing a size would stretch it), so
+  `maxWidth` does not apply there. iOS is scaled to `maxWidth` as usual.
 
 Wire contract: `POST <functionsBaseUrl>/upload-step-screenshot` with
 `Authorization: Bearer <token>` and a JSON body

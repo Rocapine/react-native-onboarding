@@ -3,6 +3,23 @@ All notable changes to `@rocapine/react-native-onboarding-devtools` are document
 
 ---
 
+## [1.80.0] - 2026-11-26
+### Added
+- **Custom onboarding step capture.** `CustomScreen` steps are captured and
+  uploaded like paywalls (same options, retries and warnings), through the
+  headless SDK's step dev hook (>= 1.80.0). Steps rendered with
+  `useOnboardingStep` are captured whole-screen automatically; hosts running
+  their own flow use `useReportStepShown` and its ref to capture one view.
+- **`enableScreenCapture`**, with `enablePaywallCapture` kept as an alias.
+- **`steps` option** (default `true`); `steps: false` keeps paywall-only capture.
+
+### Changed
+- **Android captures at full resolution** rather than scaled down.
+- On `@rocapine/react-native-onboarding` 1.79.x the package degrades to
+  paywall-only capture with one warning; the peer range stays `>=1.79.0`.
+
+---
+
 ## [1.79.0] - 2026-11-25
 ### Added
 - **First release.** `enablePaywallCapture({ token, delayMs?, maxWidth?, quality? })`

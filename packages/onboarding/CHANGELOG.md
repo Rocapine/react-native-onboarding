@@ -4,6 +4,21 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.80.0] - 2026-11-26
+### Added
+- **Step-shown dev hook for `@rocapine/react-native-onboarding-devtools`.**
+  `setStepDevHook`, `notifyStepShown`, `hasStepDevHook`, `buildStepShownInfo`
+  and the `StepShownInfo` / `StepDevHook` types. A devtools-only seam: without a
+  registered hook every call is a no-op, and a hook that throws or rejects is
+  warned and never reaches the step.
+- **`useReportStepShown({ onboardingId, step, locale?, draft?, client? })`**
+  for apps that render steps themselves: reports a `CustomScreen` step to the
+  hook and returns a ref to put on the step's root `<View collapsable={false}>`.
+- **Automatic reporting from `useOnboardingStep`.** Custom-screen steps are
+  reported once focused, with no change needed in apps that already use the hook.
+
+---
+
 ## [1.79.0] - 2026-11-25
 ### Added
 - **Paywall-shown dev hook for `@rocapine/react-native-onboarding-devtools`.**

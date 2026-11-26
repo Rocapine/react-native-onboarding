@@ -1,11 +1,11 @@
 ---
 name: setup-paywall-screenshots
-description: Wires `@rocapine/react-native-onboarding-devtools` into an Expo or React Native app so every paywall a DEBUG build shows is captured and uploaded to Onboarding Studio as that paywall's screenshot (the image on the Studio's paywall card and detail page). Use when the user says "paywall screenshots", "show my paywalls in the Studio", "the Studio has no preview of my custom paywall", "set up paywall capture", "dev token", or asks why a paywall has no thumbnail.
+description: Wires `@rocapine/react-native-onboarding-devtools` into an Expo or React Native app so every paywall and every custom onboarding step (`CustomScreen`) a DEBUG build shows is captured and uploaded to Onboarding Studio as its screenshot (the image on the Studio's paywall card and detail page, and on the step). Use when the user says "paywall screenshots", "step screenshots", "onboarding step screenshots", "show my paywalls in the Studio", "the Studio has no preview of my custom paywall", "set up paywall capture", "dev token", or asks why a paywall has no thumbnail.
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep
 argument-hint: [project-id?]
 ---
 
-# Setup Paywall Screenshots
+# Setup Paywall and Step Screenshots
 
 Most paywalls are **custom screens rendered by the host app**, so the Studio has nothing to draw for them. This devtools package closes that gap: when a paywall appears in a **debug build**, it captures the paywall view and uploads it to the Studio. Product managers then recognise paywalls by sight.
 
@@ -60,6 +60,16 @@ Minting a token creates a credential, so **never do it without the user's explic
 - **Never affects the paywall.** Every failure is one `console.warn`; `present()` resolves as usual.
 - **Products may be wrong in the image** (debug builds often show placeholder prices). That is expected: the screenshot is for recognising the design.
 - **Variants:** each paywall id has its own screenshot. The list card shows the parent's; each variant's detail page shows its own.
+
+## Custom onboarding steps
+
+The same `enableScreenCapture` call also captures `CustomScreen` steps (the screens the host renders itself). Other step types are not captured: the Studio draws those natively.
+
+- **Needs SDK >= 1.80.0** (`@rocapine/react-native-onboarding`). On 1.79.x only paywalls are captured, with one warning. Run `check-sdk-version` and propose the upgrade.
+- **Automatic** when the app renders steps through `useOnboardingStep`: nothing to add; the whole screen is captured once the step has been shown for the delay.
+- **Own flow (no `useOnboardingStep`):** in each custom step component, call `useReportStepShown({ onboardingId: metadata.id, step })` from `@rocapine/react-native-onboarding` and put the returned ref on the step's root view: `<View ref={ref} collapsable={false}>`. Only that view is captured; without a ref on a mounted view, nothing is captured and one warning appears.
+- **One image per step per platform**, overwritten on each upload, once per app session. Restart the app to refresh it after changing the screen.
+- Opt out of steps with `enableScreenCapture({ token, steps: false })`. `enablePaywallCapture` remains an alias of `enableScreenCapture`.
 
 ## Verify
 

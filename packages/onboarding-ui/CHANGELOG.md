@@ -5,6 +5,11 @@ here.
 
 ---
 
+## [1.80.0] - 2026-11-26
+Version aligned with the SDK; no changes.
+
+---
+
 ## [1.79.0] - 2026-11-25
 ### Added
 - **Paywall-shown dev hook for `@rocapine/react-native-onboarding-devtools`.**

@@ -47,6 +47,8 @@ describe("buildStepShownInfo", () => {
     expect(
       buildStepShownInfo({ ...base, step: { ...base.step, payload: { customScreenId: v } } })
     ).toBeNull();
+  });
+  it("returns null without a payload", () => {
     expect(buildStepShownInfo({ ...base, step: { id: "s", type: "CustomScreen" } })).toBeNull();
   });
   it("returns null on web", () => {

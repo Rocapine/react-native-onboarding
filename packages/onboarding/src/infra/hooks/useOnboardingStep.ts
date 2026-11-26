@@ -54,7 +54,14 @@ export const useOnboardingStep = <
         displayProgressHeader: currentStep?.displayProgressHeader ?? true,
       });
       setTotalSteps(steps.length);
+    }, [stepNumber, steps, setActiveStep, setTotalSteps])
+  );
 
+  // Own effect: reports to the step dev hook (devtools only), so the one above
+  // keeps its deps and behaviour for apps without a hook.
+  navigation.useFocusEffect(
+    useCallback(() => {
+      const currentStep = steps[stepNumber - 1];
       let active = true;
       if (hasStepDevHook() && currentStep) {
         try {
@@ -73,13 +80,13 @@ export const useOnboardingStep = <
           });
           if (info) notifyStepShown(info);
         } catch (e) {
-          console.warn("[Onboarding] could not describe the step to the step dev hook", e);
+          console.warn(`[Onboarding] could not describe step "${currentStep.id}" to the step dev hook`, e);
         }
       }
       return () => {
         active = false;
       };
-    }, [stepNumber, steps, setActiveStep, setTotalSteps, onboardingMetadata, client])
+    }, [stepNumber, steps, onboardingMetadata, client])
   );
 
   const step = steps[stepNumber - 1];

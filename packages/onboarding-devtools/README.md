@@ -15,8 +15,8 @@ npx expo install react-native-view-shot
 npm install --save-dev @rocapine/react-native-onboarding-devtools
 ```
 
-`react-native-view-shot` must be installed in the app (`npx expo install
-react-native-view-shot`); without it Metro fails to resolve it in dev.
+`react-native-view-shot` must be installed in the app itself; without it Metro
+fails to resolve it in dev.
 
 Both can be devDependencies — see [Native linking](#native-linking-react-native-view-shot)
 for why that works and what it does not change.
@@ -41,13 +41,25 @@ bundle. A top-level `import` would ship both.
 the Studio. Keep it in a local `.env`, not in source control. Without a token
 `enablePaywallCapture` warns once and registers nothing.
 
+**Reference the token only inside the `if (__DEV__)` block.** Expo inlines every
+`process.env.EXPO_PUBLIC_*` it finds into the JS bundle, release builds
+included. Inside the folded `__DEV__` branch the reference disappears with the
+branch; anywhere else (a config module, a constant, a log) the token ships in
+the release bundle. A leaked token can upload screenshots to that one project
+and nothing else; revoke it in Studio Settings if it leaks.
+
+Register it at app start, before the first paywall renders. The paywall wrapper
+view is collapsed away on Android when no hook is registered, so a hook added
+while a paywall is already on screen cannot capture that showing (one warning;
+the next show is captured).
+
 ### Options
 
 | Option     | Default | Meaning                                              |
 | ---------- | ------- | ---------------------------------------------------- |
 | `token`    | —       | Project dev token. Required.                         |
 | `delayMs`  | `1000`  | Wait after the paywall is shown before capturing.    |
-| `maxWidth` | `390`   | Width in px the capture is scaled to.                |
+| `maxWidth` | `390`   | Max width in px; scaled down, aspect ratio kept.     |
 | `quality`  | `0.7`   | JPEG quality, 0–1.                                   |
 
 `enablePaywallCapture` returns a function that unregisters the hook.
@@ -58,6 +70,11 @@ the Studio. Keep it in a local `.env`, not in source control. Without a token
 - Dismissed before `delayMs`, or a 5xx / network error: one warning, and the
   next time that paywall is shown it is tried again.
 - A 408 or 429: retried on the next show, like a 5xx.
+- A 413 (image over the server's 1 MiB limit): recaptured at once at quality
+  0.5 and uploaded again; if that is still refused, the rule below applies.
+- The view is measured first so the capture is at most `maxWidth` px wide
+  (view-shot resizes only when given both width and height). If it cannot be
+  measured, it is captured at full device resolution.
 - Any other 4xx (bad or revoked token, paywall from another project, image too large):
   one warning, not retried this session.
 - Never throws into the paywall. Every failure is a `console.warn`.
@@ -92,10 +109,10 @@ version your Expo SDK expects (5.1.0 on SDK 56).
 
 Two caveats:
 
-1. The native module is linked into **every** binary built with devDependencies
-   installed — release builds included (EAS installs devDependencies). Only the
-   JS is stripped from release bundles; the native `RNViewShot` module is inert
-   there, but present.
+1. Release builds strip this package's JS (the `if (__DEV__)` branch is folded
+   away). The `react-native-view-shot` native module may still be autolinked
+   into release binaries — any binary built with devDependencies installed, and
+   EAS installs them. That is harmless: nothing calls it.
 2. If your build installs production dependencies only, add
    `react-native-view-shot` as a regular dependency instead.
 

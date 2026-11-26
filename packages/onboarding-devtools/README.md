@@ -15,6 +15,9 @@ npx expo install react-native-view-shot
 npm install --save-dev @rocapine/react-native-onboarding-devtools
 ```
 
+`react-native-view-shot` must be installed in the app (`npx expo install
+react-native-view-shot`); without it Metro fails to resolve it in dev.
+
 Both can be devDependencies — see [Native linking](#native-linking-react-native-view-shot)
 for why that works and what it does not change.
 
@@ -54,7 +57,8 @@ the Studio. Keep it in a local `.env`, not in source control. Without a token
 - One upload per paywall and platform per app session.
 - Dismissed before `delayMs`, or a 5xx / network error: one warning, and the
   next time that paywall is shown it is tried again.
-- A 4xx (bad or revoked token, paywall from another project, image too large):
+- A 408 or 429: retried on the next show, like a 5xx.
+- Any other 4xx (bad or revoked token, paywall from another project, image too large):
   one warning, not retried this session.
 - Never throws into the paywall. Every failure is a `console.warn`.
 

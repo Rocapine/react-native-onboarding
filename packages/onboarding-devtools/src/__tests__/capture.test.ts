@@ -131,6 +131,21 @@ describe("createCaptureHandler", () => {
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 
+  it("408 and 429 are retried on the next show", async () => {
+    const fetch = vi
+      .fn<CaptureDeps["fetch"]>()
+      .mockResolvedValueOnce({ ok: false, status: 408 })
+      .mockResolvedValueOnce({ ok: false, status: 429 })
+      .mockResolvedValue({ ok: true, status: 200 });
+    const deps = fakeDeps({ fetch });
+    const hook = createCaptureHandler(deps, OPTS);
+    await hook(info());
+    await hook(info());
+    await hook(info());
+    await hook(info());
+    expect(fetch).toHaveBeenCalledTimes(3);
+  });
+
   it("a network error never rejects", async () => {
     const deps = fakeDeps({ fetch: vi.fn<CaptureDeps["fetch"]>(async () => Promise.reject(new Error("offline"))) });
     await expect(createCaptureHandler(deps, OPTS)(info())).resolves.toBeUndefined();

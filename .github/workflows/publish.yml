@@ -106,7 +106,10 @@ jobs:
 
   notify-roca-chandler:
     needs: publish
-    if: needs.publish.result == 'success'
+    # Not gated on the whole matrix: one failed leg (e.g. devtools before its
+    # manual first publish) must not swallow a headless release. The tag check
+    # below proceeds only when the headless leg tagged this commit.
+    if: ${{ !cancelled() }}
     permissions: {}
     runs-on: ubuntu-latest
     steps:

@@ -31,14 +31,17 @@ export const DEFAULTS = { delayMs: 1000, maxWidth: 390, quality: 0.7 } as const;
 
 const TAG = "[onboarding-devtools]";
 
+/** 4xx answers that can change on a later try (timeout, rate limit). */
+const RETRYABLE_4XX = new Set([408, 429]);
+
 /**
  * Captures each paywall once per (paywallId, platform) per session and uploads it.
  * Never throws or rejects: every failure is one `warn`.
  *
- * A pair is marked done on success and on a 4xx (bad token, wrong project, too
+ * A pair is marked done on success and on a 4xx other than 408/429 (bad token, wrong project, too
  * large — showing it again will not change the answer, so retrying would only
  * repeat the warning). A failed capture (paywall dismissed before the delay), a
- * 5xx or a network error leaves it open, so the next show retries.
+ * 408, 429, 5xx or a network error leaves it open, so the next show retries.
  */
 export function createCaptureHandler(deps: CaptureDeps, opts: ResolvedCaptureOptions): PaywallDevHook {
   const done = new Set<string>();
@@ -79,7 +82,7 @@ export function createCaptureHandler(deps: CaptureDeps, opts: ResolvedCaptureOpt
         done.add(key);
         return;
       }
-      if (res.status >= 400 && res.status < 500) done.add(key);
+      if (res.status >= 400 && res.status < 500 && !RETRYABLE_4XX.has(res.status)) done.add(key);
       deps.warn(`${TAG} screenshot upload for paywall "${info.paywallName}" failed: HTTP ${res.status}`);
     } catch (e) {
       deps.warn(`${TAG} screenshot upload for paywall "${info.paywallName}" failed`, e);

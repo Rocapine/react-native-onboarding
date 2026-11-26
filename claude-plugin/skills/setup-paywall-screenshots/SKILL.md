@@ -15,7 +15,20 @@ Nothing of this ships in a release build. It is a devDependency, registered behi
 
 1. **Paywalls already work** in the app (`PaywallProvider` + `PaywallHost`, or a `Paywall` onboarding step). If not, run `setup-paywalls` first.
 2. **Run `check-sdk-version`.** Capture needs `@rocapine/react-native-onboarding` (and `-ui`) **>= 1.79.0**; older versions have no paywall dev hook and silently capture nothing. Propose the upgrade and wait for the user's decision.
-3. **A dev token** for the project. Only a person can mint it: Studio → project → **Settings → Dev tokens → Create token**. It is shown once and looks like `onbs_dev_…`. Tokens are personal (the Studio shows "by <creator>" under each screenshot), never expire, and are revoked from the same card. Do not try to create one yourself; ask the user.
+3. **A dev token** for the project (`onbs_dev_…`). Tokens are personal (the Studio shows "by <creator>" under each screenshot), never expire, and can be revoked. Two ways to get one — see "Get a token" below.
+
+## Get a token — ALWAYS ASK FIRST
+
+Minting a token creates a credential, so **never do it without the user's explicit yes in this conversation**, even if they asked for the overall setup.
+
+**Preferred: the Onboarding Studio MCP** (tools `list_dev_tokens`, `create_dev_token`, `revoke_dev_token`).
+1. `list_dev_tokens({ projectId })` first. If the user already has an active token on this project (`revokedAt` null, `creatorOnTeam` true) and it is in their env file, reuse it — do not mint another.
+2. Ask the user, naming the project and the label, and saying that the token will appear once in this conversation, can only upload paywall screenshots to that one project, and can be revoked. Wait for a clear yes.
+3. Call `create_dev_token({ projectId, label, confirm: true })` only after that yes. Without `confirm: true` the tool creates nothing and returns what it would do — show that to the user as the question. Never set `confirm: true` on your own.
+4. Write the returned `envLine` into the gitignored env file (step 4 below). Do not repeat the token in your replies.
+5. To clean up, `revoke_dev_token({ projectId, tokenId, confirm: true })` — same rule: ask first.
+
+**Fallback (no MCP, or the user prefers):** they mint it themselves in Studio → project → **Settings → Dev tokens → Create token**, and paste the line into the env file themselves so the token never passes through you.
 
 ## When invoked
 

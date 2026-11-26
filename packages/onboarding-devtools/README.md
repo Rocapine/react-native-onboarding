@@ -75,7 +75,7 @@ the next show is captured).
 - The view is measured first so the capture is at most `maxWidth` px wide
   (view-shot resizes only when given both width and height). If it cannot be
   measured, it is captured at full device resolution.
-- Any other 4xx (bad or revoked token, paywall from another project, image too large):
+- Any other 4xx (bad or revoked token, paywall from another project, image still too large after the lower-quality retry):
   one warning, not retried this session.
 - Never throws into the paywall. Every failure is a `console.warn`.
 

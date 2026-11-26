@@ -12,7 +12,7 @@ here.
   takes the still-visible Modal) and the inline `Paywall` step (once its custom
   screen or element tree renders) call the headless `notifyPaywallShown`, with
   the ref of a new `flex: 1` wrapper around the paywall content. Layout is
-  unchanged. Nothing happens unless a dev hook is registered: the wrapper is then
+  unchanged. Nothing happens unless a dev hook is registered: without one, the wrapper is
   collapsable (no extra native view on Android) and `onShow` causes no extra
   render.
 

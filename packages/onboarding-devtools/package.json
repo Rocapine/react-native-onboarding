@@ -1,0 +1,48 @@
+{
+  "name": "@rocapine/react-native-onboarding-devtools",
+  "version": "1.79.0",
+  "description": "Debug-build devtools for Rocapine Onboarding Studio - captures paywalls on device and uploads them to the Studio",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "rm -rf dist && tsc",
+    "watch": "tsc --watch",
+    "type:check": "tsc --noEmit",
+    "type:check:tests": "tsc -p tsconfig.test.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "node ../../scripts/check-versions.mjs"
+  },
+  "keywords": [
+    "react-native",
+    "onboarding",
+    "rocapine",
+    "devtools",
+    "paywall",
+    "onboarding-studio"
+  ],
+  "author": "Rocapine",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "react": "19.2.3",
+    "react-native": "0.85.3",
+    "react-native-view-shot": "5.1.0",
+    "typescript": "^5.0.0",
+    "vitest": "4.1.5"
+  },
+  "peerDependencies": {
+    "@rocapine/react-native-onboarding": ">=1.79.0",
+    "react-native": "*",
+    "react-native-view-shot": "*"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Rocapine/react-native-onboarding.git",
+    "directory": "packages/onboarding-devtools"
+  }
+}

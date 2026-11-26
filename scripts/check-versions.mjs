@@ -10,10 +10,10 @@
 // and then staged four files that didn't include it, so the edit was made and
 // silently dropped every time. A check is cheaper than remembering.
 //
-// In scope: the two published packages, the `SDK_VERSION` constant the headless
+// In scope: the three published packages (headless, UI, devtools), the `SDK_VERSION` constant the headless
 // client sends as `sdkVersion` (`packages/onboarding/src/version.ts`), the Claude
 // Code plugin manifest, the top entry of each package CHANGELOG, and the
-// lockfile's record of both workspace versions. The lockfile is here because it is the mirror nothing pointed at: npm
+// lockfile's record of every workspace version. The lockfile is here because it is the mirror nothing pointed at: npm
 // writes each workspace's version into `package-lock.json`, the release skill
 // listed five files and staged five, and `npm ci` does NOT catch the omission —
 // it resolves a workspace by path, not by version, so a lock reading 1.74.1 for a
@@ -25,7 +25,7 @@
 //   - The root package.json version (1.1.1), and with it the lockfile's own root
 //     entry (`packages[""]`), which mirrors that same inert number. The root is
 //     `private: true` and publishes nothing, so its version plays no part in the
-//     scheme. Only the two workspace entries are read.
+//     scheme. Only the package workspace entries are read.
 //   - The rocapine-marketplace entry. It lives in another repo, and a required
 //     check that reaches across a network boundary fails for reasons that have
 //     nothing to do with the pull request in front of it. This script prints the
@@ -71,6 +71,9 @@ const sources = [
   ["packages/onboarding-ui/CHANGELOG.md (top entry)", topChangelogVersion("packages/onboarding-ui/CHANGELOG.md")],
   ["package-lock.json (packages/onboarding)", lockVersion("packages/onboarding")],
   ["package-lock.json (packages/onboarding-ui)", lockVersion("packages/onboarding-ui")],
+  ["packages/onboarding-devtools/package.json", version("packages/onboarding-devtools/package.json")],
+  ["packages/onboarding-devtools/CHANGELOG.md (top entry)", topChangelogVersion("packages/onboarding-devtools/CHANGELOG.md")],
+  ["package-lock.json (packages/onboarding-devtools)", lockVersion("packages/onboarding-devtools")],
 ];
 
 const width = Math.max(...sources.map(([label]) => label.length));
@@ -84,11 +87,10 @@ if (distinct.length !== 1 || distinct[0] == null) {
   console.error("*** Version identities disagree.");
   console.error("");
   console.error("A release sets all of these to the same number. If you bumped the packages,");
-  console.error("src/version.ts, the plugin manifest, both CHANGELOG top entries and the");
-  console.error("lockfile move with them — the `bump-version` skill does this, and stages all");
-  console.error("seven files.");
+  console.error("src/version.ts, the plugin manifest, every CHANGELOG top entry and the");
+  console.error("lockfile move with them — the `bump-version` skill does this.");
   console.error("");
-  console.error("If only the two package-lock.json rows disagree, you edited the versions but");
+  console.error("If only the package-lock.json rows disagree, you edited the versions but");
   console.error("did not regenerate the lock:");
   console.error("");
   console.error("    npm install --package-lock-only --ignore-scripts");

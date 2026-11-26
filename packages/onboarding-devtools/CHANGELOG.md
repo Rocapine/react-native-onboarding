@@ -14,7 +14,9 @@ All notable changes to `@rocapine/react-native-onboarding-devtools` are document
 - **`steps` option** (default `true`); `steps: false` keeps paywall-only capture.
 
 ### Changed
-- **Android captures at full resolution** rather than scaled down.
+- **Android whole-screen step capture is full resolution** (the automatic
+  `useOnboardingStep` path, where no view ref is involved). Paywalls and
+  ref-captured steps are still scaled down to `maxWidth`.
 - On `@rocapine/react-native-onboarding` 1.79.x the package degrades to
   paywall-only capture with one warning; the peer range stays `>=1.79.0`.
 

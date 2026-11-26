@@ -14,7 +14,7 @@ Nothing of this ships in a release build. It is a devDependency, registered behi
 ## Prerequisites
 
 1. **Paywalls already work** in the app (`PaywallProvider` + `PaywallHost`, or a `Paywall` onboarding step). If not, run `setup-paywalls` first.
-2. **Run `check-sdk-version`.** Capture needs `@rocapine/react-native-onboarding` (and `-ui`) **>= 1.79.0**; older versions have no paywall dev hook and silently capture nothing. Propose the upgrade and wait for the user's decision.
+2. **Run `check-sdk-version`.** Paywall capture needs `@rocapine/react-native-onboarding` (and `-ui`) **>= 1.79.0** and step capture needs **>= 1.80.0**; older versions have no dev hook and silently capture nothing. Propose the upgrade and wait for the user's decision.
 3. **A dev token** for the project (`onbs_dev_…`). Tokens are personal (the Studio shows "by <creator>" under each screenshot), never expire, and can be revoked. Two ways to get one — see "Get a token" below.
 
 ## Get a token — ALWAYS ASK FIRST
@@ -68,6 +68,7 @@ The same `enableScreenCapture` call also captures `CustomScreen` steps (the scre
 - **Needs SDK >= 1.80.0** (`@rocapine/react-native-onboarding`). On 1.79.x only paywalls are captured, with one warning. Run `check-sdk-version` and propose the upgrade.
 - **Automatic** when the app renders steps through `useOnboardingStep`: nothing to add; the whole screen is captured once the step has been shown for the delay.
 - **Own flow (no `useOnboardingStep`):** in each custom step component, call `useReportStepShown({ onboardingId: metadata.id, step })` from `@rocapine/react-native-onboarding` and put the returned ref on the step's root view: `<View ref={ref} collapsable={false}>`. Only that view is captured; without a ref on a mounted view, nothing is captured and one warning appears.
+- **Apps without expo-router** use the SDK's fallback focus adapter, which only marks a step inactive on unmount; a late whole-screen capture could then store the next step under this one. Use `useReportStepShown` with a ref there.
 - **One image per step per platform**, overwritten on each upload, once per app session. Restart the app to refresh it after changing the screen.
 - Opt out of steps with `enableScreenCapture({ token, steps: false })`. `enablePaywallCapture` remains an alias of `enableScreenCapture`.
 
@@ -85,5 +86,8 @@ The same `enableScreenCapture` call also captures `CustomScreen` steps (the scre
 | `enablePaywallCapture` warns "no token" | Env var missing, or Metro not restarted with `--clear` after editing the env file |
 | Metro: "Unable to resolve react-native-view-shot" | Not installed in the app itself |
 | Capture fails with a native error | No native rebuild after installing `react-native-view-shot` |
+| Step upload warns 404 | That step id is not in the onboarding's draft or any deployment |
+| Step upload warns 403 | That onboarding is not in the token's project |
+| Paywalls upload but steps do not | SDK < 1.80.0, the step is not `CustomScreen`, or it has no `customScreenId` |
 | Screenshot never refreshes | Expected within a session; restart the app |
 | iOS 27 SDK: app fails to launch ("UIScene life cycle is required") | Unrelated to this package: the host's AppDelegate must adopt the UIScene lifecycle to build against the iOS 27 SDK |

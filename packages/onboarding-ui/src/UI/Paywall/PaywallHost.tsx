@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Modal, StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import {
+  hasPaywallDevHook,
   usePaywallHost,
   usePaywall,
   useProductRuntime,
@@ -361,7 +362,9 @@ export const PaywallHost = ({ customScreens, requestPermission }: PaywallHostPro
   // hidden, a hidden successor are never "shown"). The ref is synced in a
   // layout effect declared BEFORE the hook's, so a same-commit swap's
   // acknowledgement records the new presentation. Stored via an updater:
-  // `resolvePresent` is itself a function, which `setState` would call.
+  // `resolvePresent` is itself a function, which `setState` would call. Only
+  // recorded while a dev hook is registered: nothing else reads it, so an app
+  // without one pays no extra render on `onShow`.
   const presentationRef = useRef(resolvePresent);
   useLayoutEffect(() => {
     presentationRef.current = resolvePresent;
@@ -369,7 +372,7 @@ export const PaywallHost = ({ customScreens, requestPermission }: PaywallHostPro
   const [acknowledged, setAcknowledged] = useState<unknown>(null);
   const acknowledge = useCallback(() => {
     acknowledgePresentation();
-    setAcknowledged(() => presentationRef.current);
+    if (hasPaywallDevHook()) setAcknowledged(() => presentationRef.current);
   }, [acknowledgePresentation]);
   const onShow = useSurfaceAcknowledgement(visible, resolvePresent, acknowledge);
 
@@ -407,8 +410,10 @@ export const PaywallHost = ({ customScreens, requestPermission }: PaywallHostPro
       <SafeAreaProvider>
         {/* The view a paywall dev hook captures. Not keyed, so its ref is
             stable across presentations; `flex: 1` inside the provider's own
-            `flex: 1`, so the content lays out exactly as without it. */}
-        <View ref={shownViewRef} collapsable={false} style={styles.flex}>
+            `flex: 1`, so the content lays out exactly as without it.
+            Collapsable (no native view on Android) unless a hook is there to
+            capture it. */}
+        <View ref={shownViewRef} collapsable={!hasPaywallDevHook()} style={styles.flex}>
           {decision.type === "show" && activePaywall && (
             <PaywallContent
               key={presentationContentKey(activePaywall.id, resolvePresent)}

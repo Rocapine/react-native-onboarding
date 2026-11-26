@@ -25,7 +25,8 @@ export type PaywallShownNotifierArgs = {
  * again when a different paywall id takes the surface while it stays shown.
  *
  * Returns the ref the renderer puts on a wrapping
- * `<View collapsable={false} style={{ flex: 1 }}>`, handed to the hook as
+ * `<View collapsable={!hasPaywallDevHook()} style={{ flex: 1 }}>` (collapsed
+ * away on Android when no hook is registered), handed to the hook as
  * `viewRef` (the view a devtool captures). Fires from an effect, so the ref is
  * attached by then.
  *

@@ -1,6 +1,7 @@
 import { useCallback, useContext, useEffect, useMemo, useRef } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import {
+  hasPaywallDevHook,
   OnboardingProgressContext as HeadlessProgressContext,
   useOnboardingHeaderHeight,
   usePaywall,
@@ -388,8 +389,10 @@ const PaywallStepRendererBase = ({
       >
         {/* The view a paywall dev hook captures: the paywall alone, not the
             template chrome. `flex: 1` inside the template's `flex: 1`
-            container, so the content lays out exactly as without it. */}
-        <View ref={shownViewRef} collapsable={false} style={styles.flex}>
+            container, so the content lays out exactly as without it.
+            Collapsable (no native view on Android) unless a hook is there to
+            capture it. */}
+        <View ref={shownViewRef} collapsable={!hasPaywallDevHook()} style={styles.flex}>
           {children}
         </View>
       </OnboardingTemplate>

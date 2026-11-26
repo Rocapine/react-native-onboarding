@@ -23,6 +23,8 @@ const h = vi.hoisted(() => ({
   observePresentation: undefined as unknown,
   host: null as any,
   rendered: [] as string[],
+  devHook: false,
+  collapsable: [] as unknown[],
   focus: null as null | {
     useFocusEffect: (e: () => void | (() => void)) => void;
   },
@@ -31,8 +33,12 @@ const h = vi.hoisted(() => ({
 vi.mock("react-native", async () => {
   const { createElement: ce } = await import("react");
   const box = ({ children }: { children?: unknown }) => ce("div", null, children as any);
+  const View = (props: { children?: unknown; collapsable?: boolean }) => {
+    if ("collapsable" in props) h.collapsable.push(props.collapsable);
+    return box(props);
+  };
   return {
-    View: box,
+    View,
     ScrollView: box,
     Text: box,
     TouchableOpacity: box,
@@ -50,7 +56,7 @@ vi.mock("@rocapine/react-native-onboarding", async () => {
     usePaywall: () => h.paywallState,
     usePaywallHost: () => ({ observePresentation: h.observePresentation }),
     SDK_VERSION: "0.0.0-test",
-    hasPaywallDevHook: () => false,
+    hasPaywallDevHook: () => h.devHook,
     notifyPaywallShown: () => {},
   };
 });
@@ -211,6 +217,8 @@ afterEach(async () => {
   await unmount();
   h.host = null;
   h.rendered = [];
+  h.devHook = false;
+  h.collapsable = [];
   purchase.mockClear();
   onContinue.mockClear();
 });
@@ -647,5 +655,17 @@ describe("PaywallStepRenderer — custom screen sees the moment's variant identi
     );
     await render();
     expect(seen).toEqual({ id: "pw-a", name: "pw-a", moment: "m", customScreenId: "s", variantKey: "main", deploymentId: 7 });
+  });
+});
+
+describe("PaywallStepRenderer — capture wrapper", () => {
+  it("is collapsable unless a dev hook is registered", async () => {
+    setCatalog(paywall("pw-a"));
+    await render();
+    expect(h.collapsable.at(-1)).toBe(true);
+    await unmount();
+    h.devHook = true;
+    await render();
+    expect(h.collapsable.at(-1)).toBe(false);
   });
 });

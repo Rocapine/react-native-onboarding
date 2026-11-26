@@ -662,10 +662,10 @@ describe("PaywallStepRenderer — capture wrapper", () => {
   it("is collapsable unless a dev hook is registered", async () => {
     setCatalog(paywall("pw-a"));
     await render();
-    expect(h.collapsable.at(-1)).toBe(true);
+    expect(h.collapsable[h.collapsable.length - 1]).toBe(true);
     await unmount();
     h.devHook = true;
     await render();
-    expect(h.collapsable.at(-1)).toBe(false);
+    expect(h.collapsable[h.collapsable.length - 1]).toBe(false);
   });
 });

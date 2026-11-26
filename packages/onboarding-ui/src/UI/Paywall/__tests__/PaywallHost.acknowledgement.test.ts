@@ -185,9 +185,9 @@ describe("PaywallHost: acknowledgement wiring", () => {
   it("the capture wrapper is collapsable unless a dev hook is registered", async () => {
     const t = await setup();
     await t.commit(paywall("a"));
-    expect(h.collapsable.at(-1)).toBe(true);
+    expect(h.collapsable[h.collapsable.length - 1]).toBe(true);
     h.devHook = () => {};
     await t.commit(paywall("b"));
-    expect(h.collapsable.at(-1)).toBe(false);
+    expect(h.collapsable[h.collapsable.length - 1]).toBe(false);
   });
 });

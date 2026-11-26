@@ -1,4 +1,5 @@
 import { setPaywallDevHook } from "@rocapine/react-native-onboarding";
+import { PixelRatio } from "react-native";
 import { captureRef } from "react-native-view-shot";
 import { createCaptureHandler, DEFAULTS, type PaywallCaptureOptions } from "./capture";
 
@@ -30,6 +31,13 @@ export function enablePaywallCapture(options: PaywallCaptureOptions): () => void
     createCaptureHandler(
       {
         captureRef: (ref, opts) => captureRef(ref, opts),
+        measure: (ref) =>
+          new Promise((resolve) => {
+            const view = ref.current as { measure?: (cb: (...l: number[]) => void) => void } | null;
+            if (typeof view?.measure !== "function") return resolve(null);
+            view.measure((_x, _y, width, height) => resolve({ width, height }));
+          }),
+        pixelRatio: PixelRatio.get(),
         fetch: (url, init) => fetch(url, init),
         wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
         warn: (...args) => console.warn(...args),

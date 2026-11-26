@@ -11,8 +11,10 @@ here.
   `PaywallHost` (once `onShow` confirms the paywall, and again when a new one
   takes the still-visible Modal) and the inline `Paywall` step (once its custom
   screen or element tree renders) call the headless `notifyPaywallShown`, with
-  the ref of a new `flex: 1`, `collapsable={false}` wrapper around the paywall
-  content. Layout is unchanged. Nothing happens unless a dev hook is registered.
+  the ref of a new `flex: 1` wrapper around the paywall content. Layout is
+  unchanged. Nothing happens unless a dev hook is registered: the wrapper is then
+  collapsable (no extra native view on Android) and `onShow` causes no extra
+  render.
 
 ### Changed
 - **Peer dependency `@rocapine/react-native-onboarding` is now `^1.79.0`**: the

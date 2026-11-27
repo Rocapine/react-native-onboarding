@@ -55,7 +55,7 @@ The plugin assumes schema features from versions newer than what's installed. Up
 Proceed? [y/N]
 ```
 
-Use `npx expo install`, not `npm install`, so Expo resolves versions compatible with the app's React Native. A `401` on the `@rocapine` scope is a registry-config problem, not a version problem — point the user at `rocapine doctor --fix`.
+Use `npx expo install`, not `npm install`, so Expo resolves versions compatible with the app's React Native. A `401` or `403` on the `@rocapine` scope is a registry-config problem, not a version problem: the packages are public on npm, so look for an `.npmrc` sending a token the registry refuses.
 
 **Always wait for explicit user consent before running the install command.** The user may refuse — that's fine, exit with a one-liner:
 

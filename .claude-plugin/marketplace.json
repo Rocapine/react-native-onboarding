@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "rocapine-onboarding",
+  "owner": {
+    "name": "Rocapine",
+    "url": "https://github.com/Rocapine/react-native-onboarding"
+  },
+  "metadata": {
+    "description": "Public marketplace for the Rocapine Onboarding SDK plugin, so partner studios outside Rocapine can install it with `/plugin marketplace add Rocapine/react-native-onboarding`."
+  },
+  "plugins": [
+    {
+      "name": "react-native-onboarding",
+      "source": "./claude-plugin",
+      "description": "End-to-end workflow for building and updating Rocapine Onboarding Studio flows: author step JSON, integrate the headless + UI SDKs, wire paywalls and their billing adapter, customize theme/components, and review onboarding quality."
+    }
+  ]
+}

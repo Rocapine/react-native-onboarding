@@ -45,8 +45,11 @@ const toIso = (p: any): string | null => {
   return null;
 };
 
+// Superwall's `hasFreeTrial` is true for ANY intro offer, paid ones included
+// (iOS: introductoryOffer != nil; Android: any phase before the base plan).
+// Only a zero `trialPeriodPrice` is a free trial — same gate as revenueCat.ts.
 const toTrial = (p: any): ResolvedProduct["trial"] => {
-  if (!p?.hasFreeTrial || !wholePositive(p.trialPeriodDays)) return undefined;
+  if (!p?.hasFreeTrial || p.trialPeriodPrice !== 0 || !wholePositive(p.trialPeriodDays)) return undefined;
   const days = p.trialPeriodDays;
   if (wholePositive(p.trialPeriodYears)) return { period: "year", periodCount: p.trialPeriodYears, days };
   if (wholePositive(p.trialPeriodMonths)) return { period: "month", periodCount: p.trialPeriodMonths, days };

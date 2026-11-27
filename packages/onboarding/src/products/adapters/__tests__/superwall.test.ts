@@ -23,6 +23,7 @@ const swYearly = {
   periodWeeks: 52,
   periodDays: 365,
   hasFreeTrial: true,
+  trialPeriodPrice: 0,
   trialPeriodDays: 7,
   trialPeriodWeeks: 1,
   trialPeriodMonths: 0,
@@ -88,6 +89,14 @@ describe("superwallProductProvider — getProducts", () => {
       periodIso: "P1Y",
       trial: { period: "week", periodCount: 1, days: 7 },
     });
+  });
+
+  it("does not report a PAID intro offer as a free trial", async () => {
+    // Superwall sets hasFreeTrial for any intro offer; only the price tells them apart.
+    const paidIntro = { ...swYearly, hasFreeTrial: true, trialPeriodPrice: 0.99, trialPeriodDays: 30, trialPeriodMonths: 1 };
+    const SW = fakeSuperwall({ products: vi.fn().mockResolvedValue([paidIntro]) });
+    const [yearly] = await superwallProductProvider(SW).getProducts([YEARLY]);
+    expect(yearly.trial).toBeUndefined();
   });
 
   it("falls back to the per-unit counts when subscriptionPeriod is absent", async () => {

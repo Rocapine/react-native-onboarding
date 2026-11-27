@@ -3,6 +3,11 @@ All notable changes to `@rocapine/react-native-onboarding-devtools` are document
 
 ---
 
+## [1.81.0] - 2026-11-27
+Version aligned with the SDK; no changes.
+
+---
+
 ## [1.80.0] - 2026-11-26
 ### Added
 - **Custom onboarding step capture.** `CustomScreen` steps are captured and

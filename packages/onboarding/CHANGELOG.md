@@ -4,6 +4,35 @@ All notable changes to `@rocapine/react-native-onboarding` are documented here.
 
 ---
 
+## [1.81.0] - 2026-11-27
+### Added
+- **`superwallProductProvider()`** — a `ProductProvider` backed by
+  `expo-superwall` (compat API, Expo SDK 53+), for apps that keep Superwall as
+  the library that buys and finishes transactions while Onboarding Studio
+  decides and shows the paywall. `getProducts` → `Superwall.products`
+  (localized price, ISO period, free trial), `purchase` → `Superwall.purchase`
+  (`purchased` / `cancelled` / `pending` / `failed` mapped 1:1, never throws),
+  `restore` → `Superwall.shared.restorePurchases` + active entitlements.
+  `expo-superwall` is an optional dependency loaded at runtime like
+  `react-native-purchases` / `expo-iap`: absent, the provider throws a clear
+  error on first use, not at import. A paid intro offer is not reported as a
+  free trial (`trialPeriodPrice` must be 0). Do not combine it with a Superwall
+  `purchaseController`. The legacy `@superwall/react-native-superwall` 2.x cannot
+  back it: it has no purchase API outside its own paywalls.
+- **Plugin: `migrate-from-superwall` skill** — moves an app's paywalls from
+  Superwall to Studio moments; asks whether Superwall (this provider) or
+  RevenueCat handles purchases and wires that path, with a Superwall fallback
+  during rollout.
+
+### Changed
+- **Plugin: installable outside Rocapine** — the repo root now carries
+  `.claude-plugin/marketplace.json`, so `/plugin marketplace add
+  Rocapine/react-native-onboarding` works for partner studios.
+- **Plugin: setup skills no longer call `@rocapine/*` a private registry** or
+  send a `401` to `rocapine doctor`; the packages are public on npm.
+
+---
+
 ## [1.80.0] - 2026-11-26
 ### Added
 - **Step-shown dev hook for `@rocapine/react-native-onboarding-devtools`.**

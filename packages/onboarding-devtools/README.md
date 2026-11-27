@@ -1,12 +1,13 @@
 # @rocapine/react-native-onboarding-devtools
 
 Debug-build devtools for Rocapine Onboarding Studio. Today it does one thing:
-**paywall capture**. Each paywall the SDK shows on a debug build is captured
-(`react-native-view-shot`) and uploaded to the Studio, where it becomes that
-paywall's screenshot.
+**screen capture**. Each paywall, and each custom onboarding step, the SDK shows
+on a debug build is captured (`react-native-view-shot`) and uploaded to the
+Studio, where it becomes that paywall's or step's screenshot.
 
-Requires `@rocapine/react-native-onboarding` **>= 1.79.0** (the release that
-added the paywall dev hook this package registers).
+Requires `@rocapine/react-native-onboarding` **>= 1.79.0** for paywall capture
+(the release that added the paywall dev hook) and **>= 1.80.0** for step capture
+(the release that added the step dev hook).
 
 ## Install
 
@@ -26,7 +27,7 @@ for why that works and what it does not change.
 ```ts
 // e.g. app/_layout.tsx, at module scope
 if (__DEV__) {
-  require("@rocapine/react-native-onboarding-devtools").enablePaywallCapture({
+  require("@rocapine/react-native-onboarding-devtools").enableScreenCapture({
     token: process.env.EXPO_PUBLIC_ONBS_DEV_TOKEN,
   });
 }
@@ -39,7 +40,9 @@ bundle. A top-level `import` would ship both.
 
 `EXPO_PUBLIC_ONBS_DEV_TOKEN` is the project dev token (`onbs_dev_…`) minted in
 the Studio. Keep it in a local `.env`, not in source control. Without a token
-`enablePaywallCapture` warns once and registers nothing.
+`enableScreenCapture` warns once and registers nothing. `enablePaywallCapture`
+is the same function under its original name: a host already calling it gets
+step capture too, with no code change.
 
 **Reference the token only inside the `if (__DEV__)` block.** Expo inlines every
 `process.env.EXPO_PUBLIC_*` it finds into the JS bundle, release builds
@@ -61,8 +64,9 @@ the next show is captured).
 | `delayMs`  | `1000`  | Wait after the paywall is shown before capturing.    |
 | `maxWidth` | `390`   | Max width in px; scaled down, aspect ratio kept.     |
 | `quality`  | `0.7`   | JPEG quality, 0–1.                                   |
+| `steps`    | `true`  | Also capture custom onboarding steps (see Steps).    |
 
-`enablePaywallCapture` returns a function that unregisters the hook.
+`enableScreenCapture` returns a function that unregisters the hooks it registered.
 
 ### Behaviour
 
@@ -83,6 +87,42 @@ Wire contract: `POST <functionsBaseUrl>/upload-paywall-screenshot` with
 `Authorization: Bearer <token>` and a JSON body
 `{ paywallId, platform, appVersion, sdkVersion, image }` (`image` is base64 JPEG,
 no `data:` prefix).
+
+## Steps
+
+Custom-screen steps (`customScreenId`) are captured too, unless `steps: false`.
+Same options, same retry rules and warnings as paywalls (warnings name
+`step "<stepName>"`), with these differences:
+
+- **Automatic** for steps rendered through the SDK's `useOnboardingStep`: the
+  whole screen is captured (`captureScreen`, sized from the screen), once the
+  step has been on screen for `delayMs`.
+- **Hosts that run their own flow** call `useReportStepShown` from
+  `@rocapine/react-native-onboarding` in the step component and put the ref it
+  returns on the step's root view (`<View ref={ref} collapsable={false}>`).
+  Only that view is captured. A ref attached to no view is not captured and
+  warns once; the whole screen is never captured in its place.
+- One upload per onboarding, step and platform per app session. The locale and
+  draft flag are sent, but a step shown again in another locale is not
+  re-captured.
+- A step that loses focus before `delayMs` ends, or between the capture and the
+  upload, is not uploaded, silently, and is captured the next time it is shown.
+- Apps without expo-router use the SDK's fallback focus adapter, which only
+  marks a step inactive when it unmounts. A stack that keeps the previous screen
+  mounted can then let a late whole-screen capture store the next step under
+  this one. Such apps should use `useReportStepShown` with a ref instead.
+- Step capture requires `@rocapine/react-native-onboarding` **>= 1.80.0** (the
+  release that reports steps through `setStepDevHook`); paywall capture still
+  works from 1.79.0. On an older SDK, `enableScreenCapture` warns once and
+  captures paywalls only.
+- On Android the whole screen is captured at full resolution (view-shot's
+  screen capture is the window's content view, whose size the screen
+  dimensions do not reliably match, and forcing a size would stretch it), so
+  `maxWidth` does not apply there. iOS is scaled to `maxWidth` as usual.
+
+Wire contract: `POST <functionsBaseUrl>/upload-step-screenshot` with
+`Authorization: Bearer <token>` and a JSON body
+`{ onboardingId, stepId, platform, customScreenId, locale, draft, appVersion, sdkVersion, image }`.
 
 ## Native linking (`react-native-view-shot`)
 

@@ -20,8 +20,8 @@ export function useReportStepShown(args: {
   locale?: string | null;
   draft?: boolean;
   client?: OnboardingStudioClient;
-}): React.RefObject<View | null> {
-  const viewRef = useRef<View>(null);
+}): React.RefObject<React.ComponentRef<typeof View> | null> {
+  const viewRef = useRef<React.ComponentRef<typeof View>>(null);
   const { onboardingId, step, locale, draft, client } = args;
   const stepId = step.id;
 

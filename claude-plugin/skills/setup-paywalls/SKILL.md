@@ -38,6 +38,7 @@ Then install exactly one billing peer, matching the adapter chosen below. Nothin
 |---|---|
 | `revenueCatProductProvider` | `react-native-purchases` |
 | `expoIapProductProvider` | `expo-iap` |
+| `superwallProductProvider` (1.81.0+) | `expo-superwall` (Expo SDK 53+). Keeps Superwall as the buyer — see `migrate-from-superwall` |
 | `stripeLinkProductProvider` | none |
 
 ## Mount `PaywallProvider`

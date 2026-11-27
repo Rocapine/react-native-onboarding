@@ -55,83 +55,20 @@ The Studio decides and shows; when the user taps buy, the paywall calls `Superwa
 Only if the app is still on `@superwall/react-native-superwall`. Follow Superwall's compat guide (`expo-superwall/compat`, which mirrors the legacy API): swap the package, change imports to `expo-superwall/compat`, rebuild the dev client. Check `register`, `identify`, `setUserAttributes`, the delegate and the presentation handler still compile and fire. Ship this on its own before any Studio paywall — it is a native-module change, and mixing it with the paywall switch hides which one broke.
 
 ### The product provider
-The SDK has no Superwall adapter, so the app owns this one (about 80 lines). It implements the SDK's three-method `ProductProvider`:
+Use the SDK's `superwallProductProvider` (**SDK >= 1.81.0**; on an older SDK, upgrade first via `check-sdk-version`). It wraps `Superwall.products` / `Superwall.purchase` / `Superwall.shared.restorePurchases` behind the SDK's `ProductProvider`, and loads `expo-superwall/compat` itself:
 
-```ts
-// superwallProductProvider.ts
-import { Platform } from "react-native";
-import Superwall from "expo-superwall/compat";
-import type { ProductProvider, ProductRef, ProductPeriod, ResolvedProduct } from "@rocapine/react-native-onboarding";
+```tsx
+import { PaywallProvider, superwallProductProvider } from "@rocapine/react-native-onboarding";
 
-const idFor = (ref: ProductRef) => (Platform.OS === "ios" ? ref.ios : ref.android);
+const provider = superwallProductProvider(); // module scope: stable
 
-// ProductResponse carries period lengths in several units. Map to ISO-8601;
-// largest whole unit first. VERIFY against a sandbox device (see checks below).
-const toIso = (p: any): string | null => {
-  const sp = p.subscriptionPeriod;
-  if (sp?.value && sp?.unit) {
-    const u = String(sp.unit).toLowerCase()[0]; // day | week | month | year
-    if ("dwmy".includes(u)) return `P${sp.value}${u.toUpperCase()}`;
-  }
-  for (const [n, u] of [[p.periodYears, "Y"], [p.periodMonths, "M"], [p.periodWeeks, "W"], [p.periodDays, "D"]] as const) {
-    if (Number.isInteger(n) && n > 0) return `P${n}${u}`;
-  }
-  return null; // non-subscription
-};
-const PERIOD: Record<string, ProductPeriod> = { D: "week", W: "week", M: "month", Y: "year" };
-
-export const superwallProductProvider = (): ProductProvider => ({
-  async getProducts(refs) {
-    const wanted = refs.map((ref) => ({ ref, id: idFor(ref) })).filter((w) => !!w.id);
-    if (wanted.length === 0) return [];
-    const found = await Superwall.products(wanted.map((w) => w.id as string));
-    const byId = new Map(found.flatMap((p: any) => [[p.productIdentifier, p], [p.fullIdentifier, p]]));
-    const out: ResolvedProduct[] = [];
-    for (const { ref, id } of wanted) {
-      const p: any = byId.get(id);
-      if (!p) continue; // missing id → the SDK renders empty prices; fix it in the Studio catalog
-      const iso = toIso(p);
-      const m = iso ? /^P(\d+)([DWMY])$/.exec(iso) : null;
-      out.push({
-        key: ref.key,
-        productId: id as string, // what purchase() sends back; full Android id kept as authored
-        store: Platform.OS === "ios" ? "app_store" : "play_store",
-        title: "",
-        description: "",
-        price: p.localizedPrice,
-        priceAmount: p.price,
-        currencyCode: p.currencyCode ?? "",
-        period: m ? PERIOD[m[2]] : null,
-        periodCount: m ? Number(m[1]) : 0,
-        periodIso: iso,
-        trial: p.hasFreeTrial && p.trialPeriodDays > 0
-          ? { period: "week", periodCount: Math.ceil(p.trialPeriodDays / 7), days: p.trialPeriodDays }
-          : undefined,
-      });
-    }
-    return out;
-  },
-
-  async purchase(product) {
-    const r = await Superwall.purchase(product.productId); // never rejects
-    switch (r.type) {
-      case "purchased": return { status: "purchased", productKey: product.key };
-      case "cancelled": return { status: "cancelled" };
-      case "pending":   return { status: "pending" };
-      default:          return { status: "error", error: new Error(r.error ?? "Superwall purchase failed") };
-    }
-  },
-
-  async restore() {
-    const r = await Superwall.shared.restorePurchases();
-    if (r.result !== "restored") return { status: "error", error: new Error(r.errorMessage ?? "Restore failed") };
-    const ents = (await Superwall.shared.getEntitlements()).active.map((e) => e.id);
-    return ents.length > 0 ? { status: "restored", entitlements: ents } : { status: "nothing_to_restore" };
-  },
-});
+<PaywallProvider productProvider={provider}>
+  <App />
+  <PaywallHost />
+</PaywallProvider>
 ```
 
-Mount it like any adapter: `<PaywallProvider productProvider={superwallProductProvider()}>`. Keep the factory call stable (module scope or `useMemo`).
+If `expo-superwall` is missing, the provider throws a clear error on first use rather than at import. If the app imports the compat module itself, pass it: `superwallProductProvider(Superwall)`.
 
 Things to tell the user explicitly:
 
@@ -141,7 +78,7 @@ Things to tell the user explicitly:
 - **RevenueCat stays exactly as it is** (observer, `MY_APP`). Do not flip it: nothing in this path makes RevenueCat buy.
 
 Sandbox checks before rollout, on iOS AND Android:
-1. Each Studio product shows the store's price, period and trial on the native paywall — this verifies `toIso` and the trial mapping against real `ProductResponse` values.
+1. Each Studio product shows the store's price, period and trial on the native paywall — this verifies the adapter's period and trial mapping against real `ProductResponse` values from your store setup.
 2. Android subscriptions with several base plans buy the right plan. If not, store the full `productId:basePlanId[:offerId]` form as the Studio product's Android id; `Superwall.purchase` accepts it.
 3. A purchase on a Studio paywall still produces Superwall's `transactionComplete` event (and whatever analytics hang off it). If it does not, move those events to the `observer` (section 5).
 

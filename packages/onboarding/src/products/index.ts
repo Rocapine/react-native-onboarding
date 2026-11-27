@@ -21,5 +21,6 @@ export { stubProductProvider } from "./adapters/stub";
 export { revenueCatProductProvider } from "./adapters/revenueCat";
 export { expoIapProductProvider } from "./adapters/expoIap";
 export type { ExpoIapProviderOptions, ExpoIapProvider } from "./adapters/expoIap";
+export { superwallProductProvider } from "./adapters/superwall";
 export { stripeLinkProductProvider } from "./adapters/stripeLink";
 export type { StripeLinkProviderConfig } from "./adapters/stripeLink";

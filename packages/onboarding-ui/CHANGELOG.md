@@ -5,6 +5,12 @@ here.
 
 ---
 
+## [1.81.0] - 2026-11-27
+Version aligned with the SDK; no changes. `PaywallHost` works unchanged with
+the new headless `superwallProductProvider`.
+
+---
+
 ## [1.80.0] - 2026-11-26
 Version aligned with the SDK; no changes.
 

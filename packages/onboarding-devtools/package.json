@@ -1,6 +1,6 @@
 {
   "name": "@rocapine/react-native-onboarding-devtools",
-  "version": "1.80.0",
+  "version": "1.81.0",
   "description": "Debug-build devtools for Rocapine Onboarding Studio - captures paywalls on device and uploads them to the Studio",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

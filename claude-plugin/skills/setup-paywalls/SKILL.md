@@ -30,7 +30,7 @@ Paywalls are a **separate integration from the onboarding flow.** `OnboardingPro
 npx expo install @rocapine/react-native-onboarding @rocapine/react-native-onboarding-ui
 ```
 
-The UI package is required — `PaywallHost` lives there. `@rocapine/*` is a private-registry scope; a `401` means the registry isn't configured, so run `rocapine doctor --fix` rather than hand-editing `~/.npmrc`.
+The UI package is required — `PaywallHost` lives there. Both packages are public on npm, so no registry setup or token is needed. A `401` or `403` on `@rocapine/*` means an `.npmrc` sends a token the public registry refuses for this scope: check the project's and the user's `.npmrc` before anything else.
 
 Then install exactly one billing peer, matching the adapter chosen below. Nothing extra for Stripe.
 

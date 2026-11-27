@@ -22,7 +22,7 @@ Install `@rocapine/react-native-onboarding`, construct a client, mount `Onboardi
 npx expo install @rocapine/react-native-onboarding
 ```
 
-Use `npx expo install`, not `npm install`, so Expo resolves a version compatible with the app's React Native. `@rocapine/*` is a private-registry scope — a `401` means the registry isn't configured; run `rocapine doctor --fix` rather than hand-editing `~/.npmrc`.
+Use `npx expo install`, not `npm install`, so Expo resolves a version compatible with the app's React Native. The package is public on npm, so no registry setup or token is needed. A `401` or `403` on `@rocapine/*` means an `.npmrc` sends a token the public registry refuses for this scope: check the project's and the user's `.npmrc` first.
 
 **Do not install `@tanstack/react-query` or `@react-native-async-storage/async-storage`.** They're regular dependencies of the package, not peer deps — they come along, and `OnboardingProvider` mounts its own `QueryClientProvider` internally. The host neither installs nor configures React Query.
 

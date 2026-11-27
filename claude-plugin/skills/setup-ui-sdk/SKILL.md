@@ -20,7 +20,7 @@ Install `@rocapine/react-native-onboarding-ui`, mount `OnboardingProgressProvide
 npx expo install @rocapine/react-native-onboarding-ui
 ```
 
-Always `npx expo install`, never `npm install` — Expo resolves versions compatible with the app's React Native. On a `401`, run `rocapine doctor --fix`.
+Always `npx expo install`, never `npm install` — Expo resolves versions compatible with the app's React Native. The package is public on npm; a `401` or `403` means an `.npmrc` is sending a token the registry refuses for this scope, so check the project's and the user's `.npmrc`.
 
 ### Required peers
 
